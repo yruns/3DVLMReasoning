@@ -1,0 +1,1482 @@
+{
+  "version": "1.0.0",
+  "description": "Keyframe selection ground truth for migration equivalence testing",
+  "cases": [
+    {
+      "case_id": "living_001",
+      "query": "the pillow on the sofa",
+      "scene_categories": [
+        "sofa",
+        "pillow",
+        "throw_pillow",
+        "door",
+        "lamp"
+      ],
+      "target_object_ids": [
+        2,
+        3
+      ],
+      "anchor_object_ids": [
+        1
+      ],
+      "expected_keyframe_indices": [
+        5,
+        12,
+        18
+      ],
+      "k_tolerance": 2,
+      "description": "Living room - pillow on sofa"
+    },
+    {
+      "case_id": "living_002",
+      "query": "the lamp near the sofa",
+      "scene_categories": [
+        "sofa",
+        "pillow",
+        "lamp",
+        "floor_lamp",
+        "door"
+      ],
+      "target_object_ids": [
+        4,
+        5
+      ],
+      "anchor_object_ids": [
+        1
+      ],
+      "expected_keyframe_indices": [
+        8,
+        15,
+        22
+      ],
+      "k_tolerance": 2,
+      "description": "Living room - lamp near sofa"
+    },
+    {
+      "case_id": "living_003",
+      "query": "the door",
+      "scene_categories": [
+        "sofa",
+        "pillow",
+        "door",
+        "lamp"
+      ],
+      "target_object_ids": [
+        6
+      ],
+      "anchor_object_ids": [],
+      "expected_keyframe_indices": [
+        2,
+        10,
+        25
+      ],
+      "k_tolerance": 2,
+      "description": "Living room - simple door query"
+    },
+    {
+      "case_id": "bedroom_001",
+      "query": "the pillow on the bed",
+      "scene_categories": [
+        "bed",
+        "pillow",
+        "nightstand",
+        "lamp"
+      ],
+      "target_object_ids": [
+        2,
+        3,
+        4
+      ],
+      "anchor_object_ids": [
+        1
+      ],
+      "expected_keyframe_indices": [
+        3,
+        8,
+        15
+      ],
+      "k_tolerance": 2,
+      "description": "Bedroom - pillow on bed"
+    },
+    {
+      "case_id": "bedroom_002",
+      "query": "the lamp on the nightstand",
+      "scene_categories": [
+        "bed",
+        "nightstand",
+        "lamp",
+        "table_lamp"
+      ],
+      "target_object_ids": [
+        5
+      ],
+      "anchor_object_ids": [
+        3
+      ],
+      "expected_keyframe_indices": [
+        6,
+        12,
+        18
+      ],
+      "k_tolerance": 2,
+      "description": "Bedroom - lamp on nightstand"
+    },
+    {
+      "case_id": "bedroom_003",
+      "query": "the nearest nightstand to the door",
+      "scene_categories": [
+        "bed",
+        "nightstand",
+        "lamp",
+        "door"
+      ],
+      "target_object_ids": [
+        3
+      ],
+      "anchor_object_ids": [
+        7
+      ],
+      "expected_keyframe_indices": [
+        4,
+        10,
+        20
+      ],
+      "k_tolerance": 2,
+      "description": "Bedroom - superlative query"
+    },
+    {
+      "case_id": "kitchen_001",
+      "query": "the microwave on the counter",
+      "scene_categories": [
+        "countertop",
+        "microwave",
+        "refrigerator",
+        "sink",
+        "cabinet"
+      ],
+      "target_object_ids": [
+        2
+      ],
+      "anchor_object_ids": [
+        1
+      ],
+      "expected_keyframe_indices": [
+        5,
+        10,
+        15
+      ],
+      "k_tolerance": 2,
+      "description": "Kitchen - microwave on counter"
+    },
+    {
+      "case_id": "kitchen_002",
+      "query": "the cabinet above the sink",
+      "scene_categories": [
+        "sink",
+        "cabinet",
+        "kitchen_cabinet",
+        "faucet"
+      ],
+      "target_object_ids": [
+        3,
+        4
+      ],
+      "anchor_object_ids": [
+        1
+      ],
+      "expected_keyframe_indices": [
+        8,
+        14,
+        22
+      ],
+      "k_tolerance": 2,
+      "description": "Kitchen - cabinet above sink"
+    },
+    {
+      "case_id": "kitchen_003",
+      "query": "the refrigerator",
+      "scene_categories": [
+        "refrigerator",
+        "countertop",
+        "sink",
+        "cabinet"
+      ],
+      "target_object_ids": [
+        1
+      ],
+      "anchor_object_ids": [],
+      "expected_keyframe_indices": [
+        3,
+        12,
+        20
+      ],
+      "k_tolerance": 2,
+      "description": "Kitchen - simple refrigerator query"
+    },
+    {
+      "case_id": "bathroom_001",
+      "query": "the mirror above the sink",
+      "scene_categories": [
+        "sink",
+        "mirror",
+        "toilet",
+        "bathtub",
+        "towel"
+      ],
+      "target_object_ids": [
+        2
+      ],
+      "anchor_object_ids": [
+        1
+      ],
+      "expected_keyframe_indices": [
+        4,
+        9,
+        16
+      ],
+      "k_tolerance": 2,
+      "description": "Bathroom - mirror above sink"
+    },
+    {
+      "case_id": "bathroom_002",
+      "query": "the towel near the bathtub",
+      "scene_categories": [
+        "bathtub",
+        "towel",
+        "towel_rack",
+        "sink"
+      ],
+      "target_object_ids": [
+        5,
+        6
+      ],
+      "anchor_object_ids": [
+        1
+      ],
+      "expected_keyframe_indices": [
+        6,
+        12,
+        18
+      ],
+      "k_tolerance": 2,
+      "description": "Bathroom - towel near bathtub"
+    },
+    {
+      "case_id": "bathroom_003",
+      "query": "the toilet",
+      "scene_categories": [
+        "toilet",
+        "sink",
+        "mirror",
+        "bathtub"
+      ],
+      "target_object_ids": [
+        1
+      ],
+      "anchor_object_ids": [],
+      "expected_keyframe_indices": [
+        2,
+        8,
+        14
+      ],
+      "k_tolerance": 2,
+      "description": "Bathroom - simple toilet query"
+    },
+    {
+      "case_id": "office_001",
+      "query": "the monitor on the desk",
+      "scene_categories": [
+        "desk",
+        "monitor",
+        "keyboard",
+        "mouse",
+        "office_chair"
+      ],
+      "target_object_ids": [
+        2
+      ],
+      "anchor_object_ids": [
+        1
+      ],
+      "expected_keyframe_indices": [
+        5,
+        11,
+        17
+      ],
+      "k_tolerance": 2,
+      "description": "Office - monitor on desk"
+    },
+    {
+      "case_id": "office_002",
+      "query": "the keyboard next to the mouse",
+      "scene_categories": [
+        "desk",
+        "keyboard",
+        "mouse",
+        "monitor"
+      ],
+      "target_object_ids": [
+        3
+      ],
+      "anchor_object_ids": [
+        4
+      ],
+      "expected_keyframe_indices": [
+        7,
+        13,
+        19
+      ],
+      "k_tolerance": 2,
+      "description": "Office - keyboard next to mouse"
+    },
+    {
+      "case_id": "office_003",
+      "query": "the chair behind the desk",
+      "scene_categories": [
+        "desk",
+        "office_chair",
+        "monitor",
+        "bookshelf"
+      ],
+      "target_object_ids": [
+        5
+      ],
+      "anchor_object_ids": [
+        1
+      ],
+      "expected_keyframe_indices": [
+        4,
+        10,
+        16
+      ],
+      "k_tolerance": 2,
+      "description": "Office - chair behind desk"
+    },
+    {
+      "case_id": "living_gen_000",
+      "query": "the object_0 in living",
+      "scene_categories": [
+        "sofa",
+        "pillow",
+        "throw_pillow",
+        "sofa_seat_cushion",
+        "door",
+        "side_table",
+        "coffee_table",
+        "lamp",
+        "floor_lamp",
+        "table_lamp"
+      ],
+      "target_object_ids": [
+        1
+      ],
+      "anchor_object_ids": [
+        1
+      ],
+      "expected_keyframe_indices": [
+        0,
+        0,
+        0
+      ],
+      "k_tolerance": 3,
+      "description": "Generated case 0 for living"
+    },
+    {
+      "case_id": "bedroom_gen_001",
+      "query": "the object_1 in bedroom",
+      "scene_categories": [
+        "sofa",
+        "pillow",
+        "throw_pillow",
+        "sofa_seat_cushion",
+        "door",
+        "side_table",
+        "coffee_table",
+        "lamp",
+        "floor_lamp",
+        "table_lamp",
+        "chair"
+      ],
+      "target_object_ids": [
+        2
+      ],
+      "anchor_object_ids": [],
+      "expected_keyframe_indices": [
+        3,
+        5,
+        7
+      ],
+      "k_tolerance": 3,
+      "description": "Generated case 1 for bedroom"
+    },
+    {
+      "case_id": "kitchen_gen_002",
+      "query": "the object_2 in kitchen",
+      "scene_categories": [
+        "sofa",
+        "pillow",
+        "throw_pillow",
+        "sofa_seat_cushion",
+        "door",
+        "side_table",
+        "coffee_table",
+        "lamp",
+        "floor_lamp",
+        "table_lamp",
+        "chair",
+        "armchair"
+      ],
+      "target_object_ids": [
+        3
+      ],
+      "anchor_object_ids": [
+        3
+      ],
+      "expected_keyframe_indices": [
+        6,
+        10,
+        14
+      ],
+      "k_tolerance": 3,
+      "description": "Generated case 2 for kitchen"
+    },
+    {
+      "case_id": "bathroom_gen_003",
+      "query": "the object_3 in bathroom",
+      "scene_categories": [
+        "sofa",
+        "pillow",
+        "throw_pillow",
+        "sofa_seat_cushion",
+        "door",
+        "side_table",
+        "coffee_table",
+        "lamp",
+        "floor_lamp",
+        "table_lamp",
+        "chair",
+        "armchair",
+        "dining_chair"
+      ],
+      "target_object_ids": [
+        4
+      ],
+      "anchor_object_ids": [],
+      "expected_keyframe_indices": [
+        9,
+        15,
+        21
+      ],
+      "k_tolerance": 3,
+      "description": "Generated case 3 for bathroom"
+    },
+    {
+      "case_id": "office_gen_004",
+      "query": "the object_4 in office",
+      "scene_categories": [
+        "sofa",
+        "pillow",
+        "throw_pillow",
+        "sofa_seat_cushion",
+        "door",
+        "side_table",
+        "coffee_table",
+        "lamp",
+        "floor_lamp",
+        "table_lamp",
+        "chair",
+        "armchair",
+        "dining_chair",
+        "bed"
+      ],
+      "target_object_ids": [
+        5
+      ],
+      "anchor_object_ids": [
+        2
+      ],
+      "expected_keyframe_indices": [
+        12,
+        20,
+        28
+      ],
+      "k_tolerance": 3,
+      "description": "Generated case 4 for office"
+    },
+    {
+      "case_id": "living_gen_005",
+      "query": "the object_5 in living",
+      "scene_categories": [
+        "sofa",
+        "pillow",
+        "throw_pillow",
+        "sofa_seat_cushion",
+        "door",
+        "side_table",
+        "coffee_table",
+        "lamp",
+        "floor_lamp",
+        "table_lamp",
+        "chair",
+        "armchair",
+        "dining_chair",
+        "bed",
+        "nightstand"
+      ],
+      "target_object_ids": [
+        1
+      ],
+      "anchor_object_ids": [],
+      "expected_keyframe_indices": [
+        15,
+        25,
+        5
+      ],
+      "k_tolerance": 3,
+      "description": "Generated case 5 for living"
+    },
+    {
+      "case_id": "bedroom_gen_006",
+      "query": "the object_6 in bedroom",
+      "scene_categories": [
+        "sofa",
+        "pillow",
+        "throw_pillow",
+        "sofa_seat_cushion",
+        "door",
+        "side_table",
+        "coffee_table",
+        "lamp",
+        "floor_lamp",
+        "table_lamp",
+        "chair",
+        "armchair",
+        "dining_chair",
+        "bed",
+        "nightstand",
+        "dresser"
+      ],
+      "target_object_ids": [
+        2
+      ],
+      "anchor_object_ids": [
+        1
+      ],
+      "expected_keyframe_indices": [
+        18,
+        0,
+        12
+      ],
+      "k_tolerance": 3,
+      "description": "Generated case 6 for bedroom"
+    },
+    {
+      "case_id": "kitchen_gen_007",
+      "query": "the object_7 in kitchen",
+      "scene_categories": [
+        "sofa",
+        "pillow",
+        "throw_pillow",
+        "sofa_seat_cushion",
+        "door",
+        "side_table",
+        "coffee_table",
+        "lamp",
+        "floor_lamp",
+        "table_lamp",
+        "chair",
+        "armchair",
+        "dining_chair",
+        "bed",
+        "nightstand",
+        "dresser",
+        "tv"
+      ],
+      "target_object_ids": [
+        3
+      ],
+      "anchor_object_ids": [],
+      "expected_keyframe_indices": [
+        21,
+        5,
+        19
+      ],
+      "k_tolerance": 3,
+      "description": "Generated case 7 for kitchen"
+    },
+    {
+      "case_id": "bathroom_gen_008",
+      "query": "the object_8 in bathroom",
+      "scene_categories": [
+        "sofa",
+        "pillow",
+        "throw_pillow",
+        "sofa_seat_cushion",
+        "door",
+        "side_table",
+        "coffee_table",
+        "lamp",
+        "floor_lamp",
+        "table_lamp",
+        "chair",
+        "armchair",
+        "dining_chair",
+        "bed",
+        "nightstand",
+        "dresser",
+        "tv",
+        "television"
+      ],
+      "target_object_ids": [
+        4
+      ],
+      "anchor_object_ids": [
+        3
+      ],
+      "expected_keyframe_indices": [
+        24,
+        10,
+        26
+      ],
+      "k_tolerance": 3,
+      "description": "Generated case 8 for bathroom"
+    },
+    {
+      "case_id": "office_gen_009",
+      "query": "the object_9 in office",
+      "scene_categories": [
+        "sofa",
+        "pillow",
+        "throw_pillow",
+        "sofa_seat_cushion",
+        "door",
+        "side_table",
+        "coffee_table",
+        "lamp",
+        "floor_lamp",
+        "table_lamp",
+        "chair",
+        "armchair",
+        "dining_chair",
+        "bed",
+        "nightstand",
+        "dresser",
+        "tv",
+        "television",
+        "tv_stand"
+      ],
+      "target_object_ids": [
+        5
+      ],
+      "anchor_object_ids": [],
+      "expected_keyframe_indices": [
+        27,
+        15,
+        3
+      ],
+      "k_tolerance": 3,
+      "description": "Generated case 9 for office"
+    },
+    {
+      "case_id": "living_gen_010",
+      "query": "the object_10 in living",
+      "scene_categories": [
+        "sofa",
+        "pillow",
+        "throw_pillow",
+        "sofa_seat_cushion",
+        "door",
+        "side_table",
+        "coffee_table",
+        "lamp",
+        "floor_lamp",
+        "table_lamp"
+      ],
+      "target_object_ids": [
+        1
+      ],
+      "anchor_object_ids": [
+        2
+      ],
+      "expected_keyframe_indices": [
+        0,
+        20,
+        10
+      ],
+      "k_tolerance": 3,
+      "description": "Generated case 10 for living"
+    },
+    {
+      "case_id": "bedroom_gen_011",
+      "query": "the object_11 in bedroom",
+      "scene_categories": [
+        "sofa",
+        "pillow",
+        "throw_pillow",
+        "sofa_seat_cushion",
+        "door",
+        "side_table",
+        "coffee_table",
+        "lamp",
+        "floor_lamp",
+        "table_lamp",
+        "chair"
+      ],
+      "target_object_ids": [
+        2
+      ],
+      "anchor_object_ids": [],
+      "expected_keyframe_indices": [
+        3,
+        25,
+        17
+      ],
+      "k_tolerance": 3,
+      "description": "Generated case 11 for bedroom"
+    },
+    {
+      "case_id": "kitchen_gen_012",
+      "query": "the object_12 in kitchen",
+      "scene_categories": [
+        "sofa",
+        "pillow",
+        "throw_pillow",
+        "sofa_seat_cushion",
+        "door",
+        "side_table",
+        "coffee_table",
+        "lamp",
+        "floor_lamp",
+        "table_lamp",
+        "chair",
+        "armchair"
+      ],
+      "target_object_ids": [
+        3
+      ],
+      "anchor_object_ids": [
+        1
+      ],
+      "expected_keyframe_indices": [
+        6,
+        0,
+        24
+      ],
+      "k_tolerance": 3,
+      "description": "Generated case 12 for kitchen"
+    },
+    {
+      "case_id": "bathroom_gen_013",
+      "query": "the object_13 in bathroom",
+      "scene_categories": [
+        "sofa",
+        "pillow",
+        "throw_pillow",
+        "sofa_seat_cushion",
+        "door",
+        "side_table",
+        "coffee_table",
+        "lamp",
+        "floor_lamp",
+        "table_lamp",
+        "chair",
+        "armchair",
+        "dining_chair"
+      ],
+      "target_object_ids": [
+        4
+      ],
+      "anchor_object_ids": [],
+      "expected_keyframe_indices": [
+        9,
+        5,
+        1
+      ],
+      "k_tolerance": 3,
+      "description": "Generated case 13 for bathroom"
+    },
+    {
+      "case_id": "office_gen_014",
+      "query": "the object_14 in office",
+      "scene_categories": [
+        "sofa",
+        "pillow",
+        "throw_pillow",
+        "sofa_seat_cushion",
+        "door",
+        "side_table",
+        "coffee_table",
+        "lamp",
+        "floor_lamp",
+        "table_lamp",
+        "chair",
+        "armchair",
+        "dining_chair",
+        "bed"
+      ],
+      "target_object_ids": [
+        5
+      ],
+      "anchor_object_ids": [
+        3
+      ],
+      "expected_keyframe_indices": [
+        12,
+        10,
+        8
+      ],
+      "k_tolerance": 3,
+      "description": "Generated case 14 for office"
+    },
+    {
+      "case_id": "living_gen_015",
+      "query": "the object_15 in living",
+      "scene_categories": [
+        "sofa",
+        "pillow",
+        "throw_pillow",
+        "sofa_seat_cushion",
+        "door",
+        "side_table",
+        "coffee_table",
+        "lamp",
+        "floor_lamp",
+        "table_lamp",
+        "chair",
+        "armchair",
+        "dining_chair",
+        "bed",
+        "nightstand"
+      ],
+      "target_object_ids": [
+        1
+      ],
+      "anchor_object_ids": [],
+      "expected_keyframe_indices": [
+        15,
+        15,
+        15
+      ],
+      "k_tolerance": 3,
+      "description": "Generated case 15 for living"
+    },
+    {
+      "case_id": "bedroom_gen_016",
+      "query": "the object_16 in bedroom",
+      "scene_categories": [
+        "sofa",
+        "pillow",
+        "throw_pillow",
+        "sofa_seat_cushion",
+        "door",
+        "side_table",
+        "coffee_table",
+        "lamp",
+        "floor_lamp",
+        "table_lamp",
+        "chair",
+        "armchair",
+        "dining_chair",
+        "bed",
+        "nightstand",
+        "dresser"
+      ],
+      "target_object_ids": [
+        2
+      ],
+      "anchor_object_ids": [
+        2
+      ],
+      "expected_keyframe_indices": [
+        18,
+        20,
+        22
+      ],
+      "k_tolerance": 3,
+      "description": "Generated case 16 for bedroom"
+    },
+    {
+      "case_id": "kitchen_gen_017",
+      "query": "the object_17 in kitchen",
+      "scene_categories": [
+        "sofa",
+        "pillow",
+        "throw_pillow",
+        "sofa_seat_cushion",
+        "door",
+        "side_table",
+        "coffee_table",
+        "lamp",
+        "floor_lamp",
+        "table_lamp",
+        "chair",
+        "armchair",
+        "dining_chair",
+        "bed",
+        "nightstand",
+        "dresser",
+        "tv"
+      ],
+      "target_object_ids": [
+        3
+      ],
+      "anchor_object_ids": [],
+      "expected_keyframe_indices": [
+        21,
+        25,
+        29
+      ],
+      "k_tolerance": 3,
+      "description": "Generated case 17 for kitchen"
+    },
+    {
+      "case_id": "bathroom_gen_018",
+      "query": "the object_18 in bathroom",
+      "scene_categories": [
+        "sofa",
+        "pillow",
+        "throw_pillow",
+        "sofa_seat_cushion",
+        "door",
+        "side_table",
+        "coffee_table",
+        "lamp",
+        "floor_lamp",
+        "table_lamp",
+        "chair",
+        "armchair",
+        "dining_chair",
+        "bed",
+        "nightstand",
+        "dresser",
+        "tv",
+        "television"
+      ],
+      "target_object_ids": [
+        4
+      ],
+      "anchor_object_ids": [
+        1
+      ],
+      "expected_keyframe_indices": [
+        24,
+        0,
+        6
+      ],
+      "k_tolerance": 3,
+      "description": "Generated case 18 for bathroom"
+    },
+    {
+      "case_id": "office_gen_019",
+      "query": "the object_19 in office",
+      "scene_categories": [
+        "sofa",
+        "pillow",
+        "throw_pillow",
+        "sofa_seat_cushion",
+        "door",
+        "side_table",
+        "coffee_table",
+        "lamp",
+        "floor_lamp",
+        "table_lamp",
+        "chair",
+        "armchair",
+        "dining_chair",
+        "bed",
+        "nightstand",
+        "dresser",
+        "tv",
+        "television",
+        "tv_stand"
+      ],
+      "target_object_ids": [
+        5
+      ],
+      "anchor_object_ids": [],
+      "expected_keyframe_indices": [
+        27,
+        5,
+        13
+      ],
+      "k_tolerance": 3,
+      "description": "Generated case 19 for office"
+    },
+    {
+      "case_id": "living_gen_020",
+      "query": "the object_20 in living",
+      "scene_categories": [
+        "sofa",
+        "pillow",
+        "throw_pillow",
+        "sofa_seat_cushion",
+        "door",
+        "side_table",
+        "coffee_table",
+        "lamp",
+        "floor_lamp",
+        "table_lamp"
+      ],
+      "target_object_ids": [
+        1
+      ],
+      "anchor_object_ids": [
+        3
+      ],
+      "expected_keyframe_indices": [
+        0,
+        10,
+        20
+      ],
+      "k_tolerance": 3,
+      "description": "Generated case 20 for living"
+    },
+    {
+      "case_id": "bedroom_gen_021",
+      "query": "the object_21 in bedroom",
+      "scene_categories": [
+        "sofa",
+        "pillow",
+        "throw_pillow",
+        "sofa_seat_cushion",
+        "door",
+        "side_table",
+        "coffee_table",
+        "lamp",
+        "floor_lamp",
+        "table_lamp",
+        "chair"
+      ],
+      "target_object_ids": [
+        2
+      ],
+      "anchor_object_ids": [],
+      "expected_keyframe_indices": [
+        3,
+        15,
+        27
+      ],
+      "k_tolerance": 3,
+      "description": "Generated case 21 for bedroom"
+    },
+    {
+      "case_id": "kitchen_gen_022",
+      "query": "the object_22 in kitchen",
+      "scene_categories": [
+        "sofa",
+        "pillow",
+        "throw_pillow",
+        "sofa_seat_cushion",
+        "door",
+        "side_table",
+        "coffee_table",
+        "lamp",
+        "floor_lamp",
+        "table_lamp",
+        "chair",
+        "armchair"
+      ],
+      "target_object_ids": [
+        3
+      ],
+      "anchor_object_ids": [
+        2
+      ],
+      "expected_keyframe_indices": [
+        6,
+        20,
+        4
+      ],
+      "k_tolerance": 3,
+      "description": "Generated case 22 for kitchen"
+    },
+    {
+      "case_id": "bathroom_gen_023",
+      "query": "the object_23 in bathroom",
+      "scene_categories": [
+        "sofa",
+        "pillow",
+        "throw_pillow",
+        "sofa_seat_cushion",
+        "door",
+        "side_table",
+        "coffee_table",
+        "lamp",
+        "floor_lamp",
+        "table_lamp",
+        "chair",
+        "armchair",
+        "dining_chair"
+      ],
+      "target_object_ids": [
+        4
+      ],
+      "anchor_object_ids": [],
+      "expected_keyframe_indices": [
+        9,
+        25,
+        11
+      ],
+      "k_tolerance": 3,
+      "description": "Generated case 23 for bathroom"
+    },
+    {
+      "case_id": "office_gen_024",
+      "query": "the object_24 in office",
+      "scene_categories": [
+        "sofa",
+        "pillow",
+        "throw_pillow",
+        "sofa_seat_cushion",
+        "door",
+        "side_table",
+        "coffee_table",
+        "lamp",
+        "floor_lamp",
+        "table_lamp",
+        "chair",
+        "armchair",
+        "dining_chair",
+        "bed"
+      ],
+      "target_object_ids": [
+        5
+      ],
+      "anchor_object_ids": [
+        1
+      ],
+      "expected_keyframe_indices": [
+        12,
+        0,
+        18
+      ],
+      "k_tolerance": 3,
+      "description": "Generated case 24 for office"
+    },
+    {
+      "case_id": "living_gen_025",
+      "query": "the object_25 in living",
+      "scene_categories": [
+        "sofa",
+        "pillow",
+        "throw_pillow",
+        "sofa_seat_cushion",
+        "door",
+        "side_table",
+        "coffee_table",
+        "lamp",
+        "floor_lamp",
+        "table_lamp",
+        "chair",
+        "armchair",
+        "dining_chair",
+        "bed",
+        "nightstand"
+      ],
+      "target_object_ids": [
+        1
+      ],
+      "anchor_object_ids": [],
+      "expected_keyframe_indices": [
+        15,
+        5,
+        25
+      ],
+      "k_tolerance": 3,
+      "description": "Generated case 25 for living"
+    },
+    {
+      "case_id": "bedroom_gen_026",
+      "query": "the object_26 in bedroom",
+      "scene_categories": [
+        "sofa",
+        "pillow",
+        "throw_pillow",
+        "sofa_seat_cushion",
+        "door",
+        "side_table",
+        "coffee_table",
+        "lamp",
+        "floor_lamp",
+        "table_lamp",
+        "chair",
+        "armchair",
+        "dining_chair",
+        "bed",
+        "nightstand",
+        "dresser"
+      ],
+      "target_object_ids": [
+        2
+      ],
+      "anchor_object_ids": [
+        3
+      ],
+      "expected_keyframe_indices": [
+        18,
+        10,
+        2
+      ],
+      "k_tolerance": 3,
+      "description": "Generated case 26 for bedroom"
+    },
+    {
+      "case_id": "kitchen_gen_027",
+      "query": "the object_27 in kitchen",
+      "scene_categories": [
+        "sofa",
+        "pillow",
+        "throw_pillow",
+        "sofa_seat_cushion",
+        "door",
+        "side_table",
+        "coffee_table",
+        "lamp",
+        "floor_lamp",
+        "table_lamp",
+        "chair",
+        "armchair",
+        "dining_chair",
+        "bed",
+        "nightstand",
+        "dresser",
+        "tv"
+      ],
+      "target_object_ids": [
+        3
+      ],
+      "anchor_object_ids": [],
+      "expected_keyframe_indices": [
+        21,
+        15,
+        9
+      ],
+      "k_tolerance": 3,
+      "description": "Generated case 27 for kitchen"
+    },
+    {
+      "case_id": "bathroom_gen_028",
+      "query": "the object_28 in bathroom",
+      "scene_categories": [
+        "sofa",
+        "pillow",
+        "throw_pillow",
+        "sofa_seat_cushion",
+        "door",
+        "side_table",
+        "coffee_table",
+        "lamp",
+        "floor_lamp",
+        "table_lamp",
+        "chair",
+        "armchair",
+        "dining_chair",
+        "bed",
+        "nightstand",
+        "dresser",
+        "tv",
+        "television"
+      ],
+      "target_object_ids": [
+        4
+      ],
+      "anchor_object_ids": [
+        2
+      ],
+      "expected_keyframe_indices": [
+        24,
+        20,
+        16
+      ],
+      "k_tolerance": 3,
+      "description": "Generated case 28 for bathroom"
+    },
+    {
+      "case_id": "office_gen_029",
+      "query": "the object_29 in office",
+      "scene_categories": [
+        "sofa",
+        "pillow",
+        "throw_pillow",
+        "sofa_seat_cushion",
+        "door",
+        "side_table",
+        "coffee_table",
+        "lamp",
+        "floor_lamp",
+        "table_lamp",
+        "chair",
+        "armchair",
+        "dining_chair",
+        "bed",
+        "nightstand",
+        "dresser",
+        "tv",
+        "television",
+        "tv_stand"
+      ],
+      "target_object_ids": [
+        5
+      ],
+      "anchor_object_ids": [],
+      "expected_keyframe_indices": [
+        27,
+        25,
+        23
+      ],
+      "k_tolerance": 3,
+      "description": "Generated case 29 for office"
+    },
+    {
+      "case_id": "living_gen_030",
+      "query": "the object_30 in living",
+      "scene_categories": [
+        "sofa",
+        "pillow",
+        "throw_pillow",
+        "sofa_seat_cushion",
+        "door",
+        "side_table",
+        "coffee_table",
+        "lamp",
+        "floor_lamp",
+        "table_lamp"
+      ],
+      "target_object_ids": [
+        1
+      ],
+      "anchor_object_ids": [
+        1
+      ],
+      "expected_keyframe_indices": [
+        0,
+        0,
+        0
+      ],
+      "k_tolerance": 3,
+      "description": "Generated case 30 for living"
+    },
+    {
+      "case_id": "bedroom_gen_031",
+      "query": "the object_31 in bedroom",
+      "scene_categories": [
+        "sofa",
+        "pillow",
+        "throw_pillow",
+        "sofa_seat_cushion",
+        "door",
+        "side_table",
+        "coffee_table",
+        "lamp",
+        "floor_lamp",
+        "table_lamp",
+        "chair"
+      ],
+      "target_object_ids": [
+        2
+      ],
+      "anchor_object_ids": [],
+      "expected_keyframe_indices": [
+        3,
+        5,
+        7
+      ],
+      "k_tolerance": 3,
+      "description": "Generated case 31 for bedroom"
+    },
+    {
+      "case_id": "kitchen_gen_032",
+      "query": "the object_32 in kitchen",
+      "scene_categories": [
+        "sofa",
+        "pillow",
+        "throw_pillow",
+        "sofa_seat_cushion",
+        "door",
+        "side_table",
+        "coffee_table",
+        "lamp",
+        "floor_lamp",
+        "table_lamp",
+        "chair",
+        "armchair"
+      ],
+      "target_object_ids": [
+        3
+      ],
+      "anchor_object_ids": [
+        3
+      ],
+      "expected_keyframe_indices": [
+        6,
+        10,
+        14
+      ],
+      "k_tolerance": 3,
+      "description": "Generated case 32 for kitchen"
+    },
+    {
+      "case_id": "bathroom_gen_033",
+      "query": "the object_33 in bathroom",
+      "scene_categories": [
+        "sofa",
+        "pillow",
+        "throw_pillow",
+        "sofa_seat_cushion",
+        "door",
+        "side_table",
+        "coffee_table",
+        "lamp",
+        "floor_lamp",
+        "table_lamp",
+        "chair",
+        "armchair",
+        "dining_chair"
+      ],
+      "target_object_ids": [
+        4
+      ],
+      "anchor_object_ids": [],
+      "expected_keyframe_indices": [
+        9,
+        15,
+        21
+      ],
+      "k_tolerance": 3,
+      "description": "Generated case 33 for bathroom"
+    },
+    {
+      "case_id": "office_gen_034",
+      "query": "the object_34 in office",
+      "scene_categories": [
+        "sofa",
+        "pillow",
+        "throw_pillow",
+        "sofa_seat_cushion",
+        "door",
+        "side_table",
+        "coffee_table",
+        "lamp",
+        "floor_lamp",
+        "table_lamp",
+        "chair",
+        "armchair",
+        "dining_chair",
+        "bed"
+      ],
+      "target_object_ids": [
+        5
+      ],
+      "anchor_object_ids": [
+        2
+      ],
+      "expected_keyframe_indices": [
+        12,
+        20,
+        28
+      ],
+      "k_tolerance": 3,
+      "description": "Generated case 34 for office"
+    }
+  ]
+}

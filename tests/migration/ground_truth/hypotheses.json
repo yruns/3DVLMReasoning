@@ -1,0 +1,1494 @@
+{
+  "version": "1.0.0",
+  "description": "Hypothesis execution ground truth for migration equivalence testing",
+  "cases": [
+    {
+      "case_id": "exec_single_001",
+      "query": "the pillow on the sofa",
+      "scene_categories": [
+        "sofa",
+        "pillow",
+        "throw_pillow",
+        "door",
+        "lamp"
+      ],
+      "hypothesis_output": {
+        "format_version": "hypothesis_output_v1",
+        "parse_mode": "single",
+        "hypotheses": [
+          {
+            "kind": "direct",
+            "rank": 1,
+            "grounding_query": {
+              "raw_query": "the pillow on the sofa",
+              "root": {
+                "categories": [
+                  "pillow",
+                  "throw_pillow"
+                ],
+                "attributes": [],
+                "spatial_constraints": [
+                  {
+                    "relation": "on",
+                    "anchors": [
+                      {
+                        "categories": [
+                          "sofa"
+                        ],
+                        "attributes": [],
+                        "spatial_constraints": [],
+                        "select_constraint": null
+                      }
+                    ]
+                  }
+                ],
+                "select_constraint": null
+              },
+              "expect_unique": true
+            },
+            "lexical_hints": [
+              "pillow",
+              "sofa"
+            ]
+          }
+        ]
+      },
+      "expected_status": "direct_grounded",
+      "expected_selected_kind": "direct",
+      "expected_matched_objects": [
+        2,
+        3
+      ],
+      "description": "Single mode - pillow on sofa"
+    },
+    {
+      "case_id": "exec_single_002",
+      "query": "the lamp near the bed",
+      "scene_categories": [
+        "bed",
+        "lamp",
+        "floor_lamp",
+        "table_lamp"
+      ],
+      "hypothesis_output": {
+        "format_version": "hypothesis_output_v1",
+        "parse_mode": "single",
+        "hypotheses": [
+          {
+            "kind": "direct",
+            "rank": 1,
+            "grounding_query": {
+              "raw_query": "the lamp near the bed",
+              "root": {
+                "categories": [
+                  "lamp",
+                  "floor_lamp",
+                  "table_lamp"
+                ],
+                "attributes": [],
+                "spatial_constraints": [
+                  {
+                    "relation": "near",
+                    "anchors": [
+                      {
+                        "categories": [
+                          "bed"
+                        ],
+                        "attributes": [],
+                        "spatial_constraints": [],
+                        "select_constraint": null
+                      }
+                    ]
+                  }
+                ],
+                "select_constraint": null
+              },
+              "expect_unique": true
+            },
+            "lexical_hints": [
+              "lamp",
+              "bed"
+            ]
+          }
+        ]
+      },
+      "expected_status": "direct_grounded",
+      "expected_selected_kind": "direct",
+      "expected_matched_objects": [
+        2,
+        3,
+        4
+      ],
+      "description": "Single mode - lamp near bed"
+    },
+    {
+      "case_id": "exec_multi_proxy_001",
+      "query": "the laptop on the desk",
+      "scene_categories": [
+        "desk",
+        "monitor",
+        "keyboard",
+        "mouse"
+      ],
+      "hypothesis_output": {
+        "format_version": "hypothesis_output_v1",
+        "parse_mode": "multi",
+        "hypotheses": [
+          {
+            "kind": "direct",
+            "rank": 1,
+            "grounding_query": {
+              "raw_query": "the laptop on the desk",
+              "root": {
+                "categories": [
+                  "UNKNOW"
+                ],
+                "attributes": [],
+                "spatial_constraints": [
+                  {
+                    "relation": "on",
+                    "anchors": [
+                      {
+                        "categories": [
+                          "desk"
+                        ],
+                        "attributes": [],
+                        "spatial_constraints": [],
+                        "select_constraint": null
+                      }
+                    ]
+                  }
+                ],
+                "select_constraint": null
+              },
+              "expect_unique": true
+            },
+            "lexical_hints": [
+              "laptop",
+              "desk"
+            ]
+          },
+          {
+            "kind": "proxy",
+            "rank": 2,
+            "grounding_query": {
+              "raw_query": "proxy for: the laptop on the desk",
+              "root": {
+                "categories": [
+                  "monitor",
+                  "keyboard"
+                ],
+                "attributes": [],
+                "spatial_constraints": [
+                  {
+                    "relation": "on",
+                    "anchors": [
+                      {
+                        "categories": [
+                          "desk"
+                        ],
+                        "attributes": [],
+                        "spatial_constraints": [],
+                        "select_constraint": null
+                      }
+                    ]
+                  }
+                ],
+                "select_constraint": null
+              },
+              "expect_unique": true
+            },
+            "lexical_hints": [
+              "proxy"
+            ]
+          }
+        ]
+      },
+      "expected_status": "proxy_grounded",
+      "expected_selected_kind": "proxy",
+      "expected_matched_objects": [
+        2,
+        3
+      ],
+      "description": "Multi mode - proxy fallback for unknown laptop"
+    },
+    {
+      "case_id": "exec_multi_context_001",
+      "query": "the phone near the charger",
+      "scene_categories": [
+        "desk",
+        "lamp",
+        "chair"
+      ],
+      "hypothesis_output": {
+        "format_version": "hypothesis_output_v1",
+        "parse_mode": "multi",
+        "hypotheses": [
+          {
+            "kind": "direct",
+            "rank": 1,
+            "grounding_query": {
+              "raw_query": "the phone near the charger",
+              "root": {
+                "categories": [
+                  "UNKNOW"
+                ],
+                "attributes": [],
+                "spatial_constraints": [
+                  {
+                    "relation": "near",
+                    "anchors": [
+                      {
+                        "categories": [
+                          "UNKNOW"
+                        ],
+                        "attributes": [],
+                        "spatial_constraints": [],
+                        "select_constraint": null
+                      }
+                    ]
+                  }
+                ],
+                "select_constraint": null
+              },
+              "expect_unique": true
+            },
+            "lexical_hints": [
+              "phone",
+              "charger"
+            ]
+          },
+          {
+            "kind": "proxy",
+            "rank": 2,
+            "grounding_query": {
+              "raw_query": "proxy: nearby electronic devices",
+              "root": {
+                "categories": [
+                  "lamp"
+                ],
+                "attributes": [],
+                "spatial_constraints": [],
+                "select_constraint": null
+              },
+              "expect_unique": true
+            },
+            "lexical_hints": [
+              "proxy"
+            ]
+          },
+          {
+            "kind": "context",
+            "rank": 3,
+            "grounding_query": {
+              "raw_query": "context: desk area",
+              "root": {
+                "categories": [
+                  "desk"
+                ],
+                "attributes": [],
+                "spatial_constraints": [],
+                "select_constraint": null
+              },
+              "expect_unique": false
+            },
+            "lexical_hints": [
+              "context"
+            ]
+          }
+        ]
+      },
+      "expected_status": "context_grounded",
+      "expected_selected_kind": "context",
+      "expected_matched_objects": [
+        1
+      ],
+      "description": "Multi mode - context fallback when both target and anchor unknown"
+    },
+    {
+      "case_id": "exec_gen_000",
+      "query": "the unknown_object_0 in living",
+      "scene_categories": [
+        "sofa",
+        "pillow",
+        "lamp",
+        "door",
+        "rug"
+      ],
+      "hypothesis_output": {
+        "format_version": "hypothesis_output_v1",
+        "parse_mode": "multi",
+        "hypotheses": [
+          {
+            "kind": "direct",
+            "rank": 1,
+            "grounding_query": {
+              "raw_query": "the unknown_object_0",
+              "root": {
+                "categories": [
+                  "UNKNOW"
+                ],
+                "attributes": [],
+                "spatial_constraints": [],
+                "select_constraint": null
+              },
+              "expect_unique": true
+            },
+            "lexical_hints": []
+          },
+          {
+            "kind": "proxy",
+            "rank": 2,
+            "grounding_query": {
+              "raw_query": "proxy for unknown_0",
+              "root": {
+                "categories": [
+                  "sofa"
+                ],
+                "attributes": [],
+                "spatial_constraints": [],
+                "select_constraint": null
+              },
+              "expect_unique": true
+            },
+            "lexical_hints": []
+          }
+        ]
+      },
+      "expected_status": "proxy_grounded",
+      "expected_selected_kind": "proxy",
+      "expected_matched_objects": [
+        1
+      ],
+      "description": "Generated multi-mode case 0"
+    },
+    {
+      "case_id": "exec_gen_001",
+      "query": "the bed in bedroom",
+      "scene_categories": [
+        "bed",
+        "pillow",
+        "nightstand",
+        "lamp",
+        "dresser"
+      ],
+      "hypothesis_output": {
+        "format_version": "hypothesis_output_v1",
+        "parse_mode": "single",
+        "hypotheses": [
+          {
+            "kind": "direct",
+            "rank": 1,
+            "grounding_query": {
+              "raw_query": "the bed",
+              "root": {
+                "categories": [
+                  "bed"
+                ],
+                "attributes": [],
+                "spatial_constraints": [],
+                "select_constraint": null
+              },
+              "expect_unique": true
+            },
+            "lexical_hints": [
+              "bed"
+            ]
+          }
+        ]
+      },
+      "expected_status": "direct_grounded",
+      "expected_selected_kind": "direct",
+      "expected_matched_objects": [
+        1
+      ],
+      "description": "Generated single-mode case 1"
+    },
+    {
+      "case_id": "exec_gen_002",
+      "query": "the countertop in kitchen",
+      "scene_categories": [
+        "countertop",
+        "sink",
+        "cabinet",
+        "refrigerator",
+        "microwave"
+      ],
+      "hypothesis_output": {
+        "format_version": "hypothesis_output_v1",
+        "parse_mode": "single",
+        "hypotheses": [
+          {
+            "kind": "direct",
+            "rank": 1,
+            "grounding_query": {
+              "raw_query": "the countertop",
+              "root": {
+                "categories": [
+                  "countertop"
+                ],
+                "attributes": [],
+                "spatial_constraints": [],
+                "select_constraint": null
+              },
+              "expect_unique": true
+            },
+            "lexical_hints": [
+              "countertop"
+            ]
+          }
+        ]
+      },
+      "expected_status": "direct_grounded",
+      "expected_selected_kind": "direct",
+      "expected_matched_objects": [
+        1
+      ],
+      "description": "Generated single-mode case 2"
+    },
+    {
+      "case_id": "exec_gen_003",
+      "query": "the unknown_object_3 in bathroom",
+      "scene_categories": [
+        "toilet",
+        "sink",
+        "mirror",
+        "bathtub",
+        "towel"
+      ],
+      "hypothesis_output": {
+        "format_version": "hypothesis_output_v1",
+        "parse_mode": "multi",
+        "hypotheses": [
+          {
+            "kind": "direct",
+            "rank": 1,
+            "grounding_query": {
+              "raw_query": "the unknown_object_3",
+              "root": {
+                "categories": [
+                  "UNKNOW"
+                ],
+                "attributes": [],
+                "spatial_constraints": [],
+                "select_constraint": null
+              },
+              "expect_unique": true
+            },
+            "lexical_hints": []
+          },
+          {
+            "kind": "proxy",
+            "rank": 2,
+            "grounding_query": {
+              "raw_query": "proxy for unknown_3",
+              "root": {
+                "categories": [
+                  "toilet"
+                ],
+                "attributes": [],
+                "spatial_constraints": [],
+                "select_constraint": null
+              },
+              "expect_unique": true
+            },
+            "lexical_hints": []
+          }
+        ]
+      },
+      "expected_status": "proxy_grounded",
+      "expected_selected_kind": "proxy",
+      "expected_matched_objects": [
+        1
+      ],
+      "description": "Generated multi-mode case 3"
+    },
+    {
+      "case_id": "exec_gen_004",
+      "query": "the desk in office",
+      "scene_categories": [
+        "desk",
+        "chair",
+        "monitor",
+        "keyboard",
+        "bookshelf"
+      ],
+      "hypothesis_output": {
+        "format_version": "hypothesis_output_v1",
+        "parse_mode": "single",
+        "hypotheses": [
+          {
+            "kind": "direct",
+            "rank": 1,
+            "grounding_query": {
+              "raw_query": "the desk",
+              "root": {
+                "categories": [
+                  "desk"
+                ],
+                "attributes": [],
+                "spatial_constraints": [],
+                "select_constraint": null
+              },
+              "expect_unique": true
+            },
+            "lexical_hints": [
+              "desk"
+            ]
+          }
+        ]
+      },
+      "expected_status": "direct_grounded",
+      "expected_selected_kind": "direct",
+      "expected_matched_objects": [
+        1
+      ],
+      "description": "Generated single-mode case 4"
+    },
+    {
+      "case_id": "exec_gen_005",
+      "query": "the sofa in living",
+      "scene_categories": [
+        "sofa",
+        "pillow",
+        "lamp",
+        "door",
+        "rug"
+      ],
+      "hypothesis_output": {
+        "format_version": "hypothesis_output_v1",
+        "parse_mode": "single",
+        "hypotheses": [
+          {
+            "kind": "direct",
+            "rank": 1,
+            "grounding_query": {
+              "raw_query": "the sofa",
+              "root": {
+                "categories": [
+                  "sofa"
+                ],
+                "attributes": [],
+                "spatial_constraints": [],
+                "select_constraint": null
+              },
+              "expect_unique": true
+            },
+            "lexical_hints": [
+              "sofa"
+            ]
+          }
+        ]
+      },
+      "expected_status": "direct_grounded",
+      "expected_selected_kind": "direct",
+      "expected_matched_objects": [
+        1
+      ],
+      "description": "Generated single-mode case 5"
+    },
+    {
+      "case_id": "exec_gen_006",
+      "query": "the unknown_object_6 in bedroom",
+      "scene_categories": [
+        "bed",
+        "pillow",
+        "nightstand",
+        "lamp",
+        "dresser"
+      ],
+      "hypothesis_output": {
+        "format_version": "hypothesis_output_v1",
+        "parse_mode": "multi",
+        "hypotheses": [
+          {
+            "kind": "direct",
+            "rank": 1,
+            "grounding_query": {
+              "raw_query": "the unknown_object_6",
+              "root": {
+                "categories": [
+                  "UNKNOW"
+                ],
+                "attributes": [],
+                "spatial_constraints": [],
+                "select_constraint": null
+              },
+              "expect_unique": true
+            },
+            "lexical_hints": []
+          },
+          {
+            "kind": "proxy",
+            "rank": 2,
+            "grounding_query": {
+              "raw_query": "proxy for unknown_6",
+              "root": {
+                "categories": [
+                  "bed"
+                ],
+                "attributes": [],
+                "spatial_constraints": [],
+                "select_constraint": null
+              },
+              "expect_unique": true
+            },
+            "lexical_hints": []
+          }
+        ]
+      },
+      "expected_status": "proxy_grounded",
+      "expected_selected_kind": "proxy",
+      "expected_matched_objects": [
+        1
+      ],
+      "description": "Generated multi-mode case 6"
+    },
+    {
+      "case_id": "exec_gen_007",
+      "query": "the countertop in kitchen",
+      "scene_categories": [
+        "countertop",
+        "sink",
+        "cabinet",
+        "refrigerator",
+        "microwave"
+      ],
+      "hypothesis_output": {
+        "format_version": "hypothesis_output_v1",
+        "parse_mode": "single",
+        "hypotheses": [
+          {
+            "kind": "direct",
+            "rank": 1,
+            "grounding_query": {
+              "raw_query": "the countertop",
+              "root": {
+                "categories": [
+                  "countertop"
+                ],
+                "attributes": [],
+                "spatial_constraints": [],
+                "select_constraint": null
+              },
+              "expect_unique": true
+            },
+            "lexical_hints": [
+              "countertop"
+            ]
+          }
+        ]
+      },
+      "expected_status": "direct_grounded",
+      "expected_selected_kind": "direct",
+      "expected_matched_objects": [
+        1
+      ],
+      "description": "Generated single-mode case 7"
+    },
+    {
+      "case_id": "exec_gen_008",
+      "query": "the toilet in bathroom",
+      "scene_categories": [
+        "toilet",
+        "sink",
+        "mirror",
+        "bathtub",
+        "towel"
+      ],
+      "hypothesis_output": {
+        "format_version": "hypothesis_output_v1",
+        "parse_mode": "single",
+        "hypotheses": [
+          {
+            "kind": "direct",
+            "rank": 1,
+            "grounding_query": {
+              "raw_query": "the toilet",
+              "root": {
+                "categories": [
+                  "toilet"
+                ],
+                "attributes": [],
+                "spatial_constraints": [],
+                "select_constraint": null
+              },
+              "expect_unique": true
+            },
+            "lexical_hints": [
+              "toilet"
+            ]
+          }
+        ]
+      },
+      "expected_status": "direct_grounded",
+      "expected_selected_kind": "direct",
+      "expected_matched_objects": [
+        1
+      ],
+      "description": "Generated single-mode case 8"
+    },
+    {
+      "case_id": "exec_gen_009",
+      "query": "the unknown_object_9 in office",
+      "scene_categories": [
+        "desk",
+        "chair",
+        "monitor",
+        "keyboard",
+        "bookshelf"
+      ],
+      "hypothesis_output": {
+        "format_version": "hypothesis_output_v1",
+        "parse_mode": "multi",
+        "hypotheses": [
+          {
+            "kind": "direct",
+            "rank": 1,
+            "grounding_query": {
+              "raw_query": "the unknown_object_9",
+              "root": {
+                "categories": [
+                  "UNKNOW"
+                ],
+                "attributes": [],
+                "spatial_constraints": [],
+                "select_constraint": null
+              },
+              "expect_unique": true
+            },
+            "lexical_hints": []
+          },
+          {
+            "kind": "proxy",
+            "rank": 2,
+            "grounding_query": {
+              "raw_query": "proxy for unknown_9",
+              "root": {
+                "categories": [
+                  "desk"
+                ],
+                "attributes": [],
+                "spatial_constraints": [],
+                "select_constraint": null
+              },
+              "expect_unique": true
+            },
+            "lexical_hints": []
+          }
+        ]
+      },
+      "expected_status": "proxy_grounded",
+      "expected_selected_kind": "proxy",
+      "expected_matched_objects": [
+        1
+      ],
+      "description": "Generated multi-mode case 9"
+    },
+    {
+      "case_id": "exec_gen_010",
+      "query": "the sofa in living",
+      "scene_categories": [
+        "sofa",
+        "pillow",
+        "lamp",
+        "door",
+        "rug"
+      ],
+      "hypothesis_output": {
+        "format_version": "hypothesis_output_v1",
+        "parse_mode": "single",
+        "hypotheses": [
+          {
+            "kind": "direct",
+            "rank": 1,
+            "grounding_query": {
+              "raw_query": "the sofa",
+              "root": {
+                "categories": [
+                  "sofa"
+                ],
+                "attributes": [],
+                "spatial_constraints": [],
+                "select_constraint": null
+              },
+              "expect_unique": true
+            },
+            "lexical_hints": [
+              "sofa"
+            ]
+          }
+        ]
+      },
+      "expected_status": "direct_grounded",
+      "expected_selected_kind": "direct",
+      "expected_matched_objects": [
+        1
+      ],
+      "description": "Generated single-mode case 10"
+    },
+    {
+      "case_id": "exec_gen_011",
+      "query": "the bed in bedroom",
+      "scene_categories": [
+        "bed",
+        "pillow",
+        "nightstand",
+        "lamp",
+        "dresser"
+      ],
+      "hypothesis_output": {
+        "format_version": "hypothesis_output_v1",
+        "parse_mode": "single",
+        "hypotheses": [
+          {
+            "kind": "direct",
+            "rank": 1,
+            "grounding_query": {
+              "raw_query": "the bed",
+              "root": {
+                "categories": [
+                  "bed"
+                ],
+                "attributes": [],
+                "spatial_constraints": [],
+                "select_constraint": null
+              },
+              "expect_unique": true
+            },
+            "lexical_hints": [
+              "bed"
+            ]
+          }
+        ]
+      },
+      "expected_status": "direct_grounded",
+      "expected_selected_kind": "direct",
+      "expected_matched_objects": [
+        1
+      ],
+      "description": "Generated single-mode case 11"
+    },
+    {
+      "case_id": "exec_gen_012",
+      "query": "the unknown_object_12 in kitchen",
+      "scene_categories": [
+        "countertop",
+        "sink",
+        "cabinet",
+        "refrigerator",
+        "microwave"
+      ],
+      "hypothesis_output": {
+        "format_version": "hypothesis_output_v1",
+        "parse_mode": "multi",
+        "hypotheses": [
+          {
+            "kind": "direct",
+            "rank": 1,
+            "grounding_query": {
+              "raw_query": "the unknown_object_12",
+              "root": {
+                "categories": [
+                  "UNKNOW"
+                ],
+                "attributes": [],
+                "spatial_constraints": [],
+                "select_constraint": null
+              },
+              "expect_unique": true
+            },
+            "lexical_hints": []
+          },
+          {
+            "kind": "proxy",
+            "rank": 2,
+            "grounding_query": {
+              "raw_query": "proxy for unknown_12",
+              "root": {
+                "categories": [
+                  "countertop"
+                ],
+                "attributes": [],
+                "spatial_constraints": [],
+                "select_constraint": null
+              },
+              "expect_unique": true
+            },
+            "lexical_hints": []
+          }
+        ]
+      },
+      "expected_status": "proxy_grounded",
+      "expected_selected_kind": "proxy",
+      "expected_matched_objects": [
+        1
+      ],
+      "description": "Generated multi-mode case 12"
+    },
+    {
+      "case_id": "exec_gen_013",
+      "query": "the toilet in bathroom",
+      "scene_categories": [
+        "toilet",
+        "sink",
+        "mirror",
+        "bathtub",
+        "towel"
+      ],
+      "hypothesis_output": {
+        "format_version": "hypothesis_output_v1",
+        "parse_mode": "single",
+        "hypotheses": [
+          {
+            "kind": "direct",
+            "rank": 1,
+            "grounding_query": {
+              "raw_query": "the toilet",
+              "root": {
+                "categories": [
+                  "toilet"
+                ],
+                "attributes": [],
+                "spatial_constraints": [],
+                "select_constraint": null
+              },
+              "expect_unique": true
+            },
+            "lexical_hints": [
+              "toilet"
+            ]
+          }
+        ]
+      },
+      "expected_status": "direct_grounded",
+      "expected_selected_kind": "direct",
+      "expected_matched_objects": [
+        1
+      ],
+      "description": "Generated single-mode case 13"
+    },
+    {
+      "case_id": "exec_gen_014",
+      "query": "the desk in office",
+      "scene_categories": [
+        "desk",
+        "chair",
+        "monitor",
+        "keyboard",
+        "bookshelf"
+      ],
+      "hypothesis_output": {
+        "format_version": "hypothesis_output_v1",
+        "parse_mode": "single",
+        "hypotheses": [
+          {
+            "kind": "direct",
+            "rank": 1,
+            "grounding_query": {
+              "raw_query": "the desk",
+              "root": {
+                "categories": [
+                  "desk"
+                ],
+                "attributes": [],
+                "spatial_constraints": [],
+                "select_constraint": null
+              },
+              "expect_unique": true
+            },
+            "lexical_hints": [
+              "desk"
+            ]
+          }
+        ]
+      },
+      "expected_status": "direct_grounded",
+      "expected_selected_kind": "direct",
+      "expected_matched_objects": [
+        1
+      ],
+      "description": "Generated single-mode case 14"
+    },
+    {
+      "case_id": "exec_gen_015",
+      "query": "the unknown_object_15 in living",
+      "scene_categories": [
+        "sofa",
+        "pillow",
+        "lamp",
+        "door",
+        "rug"
+      ],
+      "hypothesis_output": {
+        "format_version": "hypothesis_output_v1",
+        "parse_mode": "multi",
+        "hypotheses": [
+          {
+            "kind": "direct",
+            "rank": 1,
+            "grounding_query": {
+              "raw_query": "the unknown_object_15",
+              "root": {
+                "categories": [
+                  "UNKNOW"
+                ],
+                "attributes": [],
+                "spatial_constraints": [],
+                "select_constraint": null
+              },
+              "expect_unique": true
+            },
+            "lexical_hints": []
+          },
+          {
+            "kind": "proxy",
+            "rank": 2,
+            "grounding_query": {
+              "raw_query": "proxy for unknown_15",
+              "root": {
+                "categories": [
+                  "sofa"
+                ],
+                "attributes": [],
+                "spatial_constraints": [],
+                "select_constraint": null
+              },
+              "expect_unique": true
+            },
+            "lexical_hints": []
+          }
+        ]
+      },
+      "expected_status": "proxy_grounded",
+      "expected_selected_kind": "proxy",
+      "expected_matched_objects": [
+        1
+      ],
+      "description": "Generated multi-mode case 15"
+    },
+    {
+      "case_id": "exec_gen_016",
+      "query": "the bed in bedroom",
+      "scene_categories": [
+        "bed",
+        "pillow",
+        "nightstand",
+        "lamp",
+        "dresser"
+      ],
+      "hypothesis_output": {
+        "format_version": "hypothesis_output_v1",
+        "parse_mode": "single",
+        "hypotheses": [
+          {
+            "kind": "direct",
+            "rank": 1,
+            "grounding_query": {
+              "raw_query": "the bed",
+              "root": {
+                "categories": [
+                  "bed"
+                ],
+                "attributes": [],
+                "spatial_constraints": [],
+                "select_constraint": null
+              },
+              "expect_unique": true
+            },
+            "lexical_hints": [
+              "bed"
+            ]
+          }
+        ]
+      },
+      "expected_status": "direct_grounded",
+      "expected_selected_kind": "direct",
+      "expected_matched_objects": [
+        1
+      ],
+      "description": "Generated single-mode case 16"
+    },
+    {
+      "case_id": "exec_gen_017",
+      "query": "the countertop in kitchen",
+      "scene_categories": [
+        "countertop",
+        "sink",
+        "cabinet",
+        "refrigerator",
+        "microwave"
+      ],
+      "hypothesis_output": {
+        "format_version": "hypothesis_output_v1",
+        "parse_mode": "single",
+        "hypotheses": [
+          {
+            "kind": "direct",
+            "rank": 1,
+            "grounding_query": {
+              "raw_query": "the countertop",
+              "root": {
+                "categories": [
+                  "countertop"
+                ],
+                "attributes": [],
+                "spatial_constraints": [],
+                "select_constraint": null
+              },
+              "expect_unique": true
+            },
+            "lexical_hints": [
+              "countertop"
+            ]
+          }
+        ]
+      },
+      "expected_status": "direct_grounded",
+      "expected_selected_kind": "direct",
+      "expected_matched_objects": [
+        1
+      ],
+      "description": "Generated single-mode case 17"
+    },
+    {
+      "case_id": "exec_gen_018",
+      "query": "the unknown_object_18 in bathroom",
+      "scene_categories": [
+        "toilet",
+        "sink",
+        "mirror",
+        "bathtub",
+        "towel"
+      ],
+      "hypothesis_output": {
+        "format_version": "hypothesis_output_v1",
+        "parse_mode": "multi",
+        "hypotheses": [
+          {
+            "kind": "direct",
+            "rank": 1,
+            "grounding_query": {
+              "raw_query": "the unknown_object_18",
+              "root": {
+                "categories": [
+                  "UNKNOW"
+                ],
+                "attributes": [],
+                "spatial_constraints": [],
+                "select_constraint": null
+              },
+              "expect_unique": true
+            },
+            "lexical_hints": []
+          },
+          {
+            "kind": "proxy",
+            "rank": 2,
+            "grounding_query": {
+              "raw_query": "proxy for unknown_18",
+              "root": {
+                "categories": [
+                  "toilet"
+                ],
+                "attributes": [],
+                "spatial_constraints": [],
+                "select_constraint": null
+              },
+              "expect_unique": true
+            },
+            "lexical_hints": []
+          }
+        ]
+      },
+      "expected_status": "proxy_grounded",
+      "expected_selected_kind": "proxy",
+      "expected_matched_objects": [
+        1
+      ],
+      "description": "Generated multi-mode case 18"
+    },
+    {
+      "case_id": "exec_gen_019",
+      "query": "the desk in office",
+      "scene_categories": [
+        "desk",
+        "chair",
+        "monitor",
+        "keyboard",
+        "bookshelf"
+      ],
+      "hypothesis_output": {
+        "format_version": "hypothesis_output_v1",
+        "parse_mode": "single",
+        "hypotheses": [
+          {
+            "kind": "direct",
+            "rank": 1,
+            "grounding_query": {
+              "raw_query": "the desk",
+              "root": {
+                "categories": [
+                  "desk"
+                ],
+                "attributes": [],
+                "spatial_constraints": [],
+                "select_constraint": null
+              },
+              "expect_unique": true
+            },
+            "lexical_hints": [
+              "desk"
+            ]
+          }
+        ]
+      },
+      "expected_status": "direct_grounded",
+      "expected_selected_kind": "direct",
+      "expected_matched_objects": [
+        1
+      ],
+      "description": "Generated single-mode case 19"
+    },
+    {
+      "case_id": "exec_gen_020",
+      "query": "the sofa in living",
+      "scene_categories": [
+        "sofa",
+        "pillow",
+        "lamp",
+        "door",
+        "rug"
+      ],
+      "hypothesis_output": {
+        "format_version": "hypothesis_output_v1",
+        "parse_mode": "single",
+        "hypotheses": [
+          {
+            "kind": "direct",
+            "rank": 1,
+            "grounding_query": {
+              "raw_query": "the sofa",
+              "root": {
+                "categories": [
+                  "sofa"
+                ],
+                "attributes": [],
+                "spatial_constraints": [],
+                "select_constraint": null
+              },
+              "expect_unique": true
+            },
+            "lexical_hints": [
+              "sofa"
+            ]
+          }
+        ]
+      },
+      "expected_status": "direct_grounded",
+      "expected_selected_kind": "direct",
+      "expected_matched_objects": [
+        1
+      ],
+      "description": "Generated single-mode case 20"
+    },
+    {
+      "case_id": "exec_gen_021",
+      "query": "the unknown_object_21 in bedroom",
+      "scene_categories": [
+        "bed",
+        "pillow",
+        "nightstand",
+        "lamp",
+        "dresser"
+      ],
+      "hypothesis_output": {
+        "format_version": "hypothesis_output_v1",
+        "parse_mode": "multi",
+        "hypotheses": [
+          {
+            "kind": "direct",
+            "rank": 1,
+            "grounding_query": {
+              "raw_query": "the unknown_object_21",
+              "root": {
+                "categories": [
+                  "UNKNOW"
+                ],
+                "attributes": [],
+                "spatial_constraints": [],
+                "select_constraint": null
+              },
+              "expect_unique": true
+            },
+            "lexical_hints": []
+          },
+          {
+            "kind": "proxy",
+            "rank": 2,
+            "grounding_query": {
+              "raw_query": "proxy for unknown_21",
+              "root": {
+                "categories": [
+                  "bed"
+                ],
+                "attributes": [],
+                "spatial_constraints": [],
+                "select_constraint": null
+              },
+              "expect_unique": true
+            },
+            "lexical_hints": []
+          }
+        ]
+      },
+      "expected_status": "proxy_grounded",
+      "expected_selected_kind": "proxy",
+      "expected_matched_objects": [
+        1
+      ],
+      "description": "Generated multi-mode case 21"
+    },
+    {
+      "case_id": "exec_gen_022",
+      "query": "the countertop in kitchen",
+      "scene_categories": [
+        "countertop",
+        "sink",
+        "cabinet",
+        "refrigerator",
+        "microwave"
+      ],
+      "hypothesis_output": {
+        "format_version": "hypothesis_output_v1",
+        "parse_mode": "single",
+        "hypotheses": [
+          {
+            "kind": "direct",
+            "rank": 1,
+            "grounding_query": {
+              "raw_query": "the countertop",
+              "root": {
+                "categories": [
+                  "countertop"
+                ],
+                "attributes": [],
+                "spatial_constraints": [],
+                "select_constraint": null
+              },
+              "expect_unique": true
+            },
+            "lexical_hints": [
+              "countertop"
+            ]
+          }
+        ]
+      },
+      "expected_status": "direct_grounded",
+      "expected_selected_kind": "direct",
+      "expected_matched_objects": [
+        1
+      ],
+      "description": "Generated single-mode case 22"
+    },
+    {
+      "case_id": "exec_gen_023",
+      "query": "the toilet in bathroom",
+      "scene_categories": [
+        "toilet",
+        "sink",
+        "mirror",
+        "bathtub",
+        "towel"
+      ],
+      "hypothesis_output": {
+        "format_version": "hypothesis_output_v1",
+        "parse_mode": "single",
+        "hypotheses": [
+          {
+            "kind": "direct",
+            "rank": 1,
+            "grounding_query": {
+              "raw_query": "the toilet",
+              "root": {
+                "categories": [
+                  "toilet"
+                ],
+                "attributes": [],
+                "spatial_constraints": [],
+                "select_constraint": null
+              },
+              "expect_unique": true
+            },
+            "lexical_hints": [
+              "toilet"
+            ]
+          }
+        ]
+      },
+      "expected_status": "direct_grounded",
+      "expected_selected_kind": "direct",
+      "expected_matched_objects": [
+        1
+      ],
+      "description": "Generated single-mode case 23"
+    },
+    {
+      "case_id": "exec_gen_024",
+      "query": "the unknown_object_24 in office",
+      "scene_categories": [
+        "desk",
+        "chair",
+        "monitor",
+        "keyboard",
+        "bookshelf"
+      ],
+      "hypothesis_output": {
+        "format_version": "hypothesis_output_v1",
+        "parse_mode": "multi",
+        "hypotheses": [
+          {
+            "kind": "direct",
+            "rank": 1,
+            "grounding_query": {
+              "raw_query": "the unknown_object_24",
+              "root": {
+                "categories": [
+                  "UNKNOW"
+                ],
+                "attributes": [],
+                "spatial_constraints": [],
+                "select_constraint": null
+              },
+              "expect_unique": true
+            },
+            "lexical_hints": []
+          },
+          {
+            "kind": "proxy",
+            "rank": 2,
+            "grounding_query": {
+              "raw_query": "proxy for unknown_24",
+              "root": {
+                "categories": [
+                  "desk"
+                ],
+                "attributes": [],
+                "spatial_constraints": [],
+                "select_constraint": null
+              },
+              "expect_unique": true
+            },
+            "lexical_hints": []
+          }
+        ]
+      },
+      "expected_status": "proxy_grounded",
+      "expected_selected_kind": "proxy",
+      "expected_matched_objects": [
+        1
+      ],
+      "description": "Generated multi-mode case 24"
+    }
+  ]
+}

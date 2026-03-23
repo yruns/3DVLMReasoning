@@ -1,0 +1,13 @@
+{
+  "generated_at": "2026-03-22",
+  "counts": {
+    "parsing": 105,
+    "keyframes": 50,
+    "hypotheses": 29
+  },
+  "files": [
+    "parsing.json",
+    "keyframes.json",
+    "hypotheses.json"
+  ]
+}

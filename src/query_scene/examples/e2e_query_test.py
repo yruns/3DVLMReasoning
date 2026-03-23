@@ -1,0 +1,638 @@
+#!/usr/bin/env python3
+"""
+End-to-End Query Test with Step-by-Step Visualization.
+
+Outputs for each query:
+- query_name/
+  ├── 00_initial_candidates.ply      (初始候选 - 蓝色)
+  ├── 01_final_candidates.ply        (最终结果 - 红色)
+  ├── final_combined.ply             (合并展示 - 多色)
+  └── keyframes/
+      └── *.jpg
+"""
+
+import gzip
+import json
+import os
+import pickle
+import sys
+from collections import Counter
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any
+
+import numpy as np
+
+project_root = Path(__file__).parent.parent.parent.parent
+sys.path.insert(0, str(project_root))
+
+from loguru import logger
+
+from query_scene.keyframe_selector import KeyframeSelector, SceneObject
+from utils.llm_client import DEFAULT_MODEL
+
+logger.remove()
+logger.add(sys.stderr, level="INFO", format="{time:HH:mm:ss} | {level:7} | {message}")
+
+
+# Color definitions for visualization
+COLORS = {
+    "white": (200, 200, 200),  # All objects (dimmed)
+    "gray": (80, 80, 80),  # Filtered out objects
+    "blue": (50, 100, 255),  # Initial candidates
+    "yellow": (255, 200, 50),  # After spatial filter
+    "orange": (255, 150, 50),  # After quick filter
+    "green": (50, 255, 100),  # After select constraint
+    "red": (255, 50, 50),  # Final result
+}
+
+
+@dataclass
+class FilteringStep:
+    """Record of a filtering step."""
+
+    step_name: str
+    description: str
+    object_ids: set[int]
+    color: tuple[int, int, int]
+
+
+@dataclass
+class QueryVisualization:
+    """Visualization data for a query."""
+
+    query: str
+    steps: list[FilteringStep] = field(default_factory=list)
+    final_ids: set[int] = field(default_factory=set)
+
+
+def load_scene_objects(scene_path: str) -> tuple[list[SceneObject], dict]:
+    """Load scene objects from pkl.gz file.
+
+    Uses SceneObject.from_dict() to create objects with all attributes
+    from the pkl.gz file (output of 2b_build_3d_object_map_detect.sh).
+    """
+    pcd_dir = Path(scene_path) / "pcd_saves"
+
+    pkl_files = list(pcd_dir.glob("*ram_withbg*_post.pkl.gz"))
+    if not pkl_files:
+        pkl_files = list(pcd_dir.glob("*_post.pkl.gz"))
+    if not pkl_files:
+        pkl_files = list(pcd_dir.glob("*.pkl.gz"))
+
+    if not pkl_files:
+        raise FileNotFoundError(f"No pkl.gz files found in {pcd_dir}")
+
+    pkl_file = pkl_files[0]
+    logger.info(f"Loading scene from: {pkl_file.name}")
+
+    with gzip.open(pkl_file, "rb") as f:
+        data = pickle.load(f)
+
+    objects = []
+    obj_list = data.get("objects", []) if isinstance(data, dict) else data
+
+    for i, obj_dict in enumerate(obj_list):
+        if hasattr(obj_dict, "__dict__"):
+            obj_dict = obj_dict.__dict__
+        if not isinstance(obj_dict, dict):
+            continue
+
+        try:
+            obj = SceneObject.from_dict(obj_id=i, data=obj_dict)
+            objects.append(obj)
+        except Exception as e:
+            logger.warning(f"Failed to load object {i}: {e}")
+
+    logger.info(f"Loaded {len(objects)} objects")
+    return objects, data
+
+
+def apply_affordances(objects: list[SceneObject], scene_path: Path) -> None:
+    """Merge affordance outputs into scene objects."""
+    affordance_file = scene_path / "sg_cache_detect" / "object_affordances.json"
+    if not affordance_file.exists():
+        affordance_file = scene_path / "sg_cache" / "object_affordances.json"
+    if not affordance_file.exists():
+        logger.warning("No affordance file found; using raw categories")
+        return
+
+    try:
+        with open(affordance_file) as f:
+            affordances = json.load(f)
+    except Exception as e:
+        logger.warning(f"Failed to load affordances: {e}")
+        return
+
+    aff_by_id = {a.get("id"): a for a in affordances if "id" in a}
+    updated = 0
+    for obj in objects:
+        aff = aff_by_id.get(obj.obj_id)
+        if not aff:
+            continue
+        obj.object_tag = aff.get("object_tag", obj.object_tag)
+        if obj.object_tag:
+            obj.category = obj.object_tag
+        obj.summary = aff.get("summary", obj.summary)
+        obj.affordance_category = aff.get("category", obj.affordance_category)
+        affs = aff.get("affordances", {})
+        if isinstance(affs, dict):
+            obj.affordances = affs
+            obj.co_objects = affs.get("co_objects", obj.co_objects)
+        updated += 1
+
+    logger.info(f"Applied affordances to {updated} objects")
+
+
+def save_ply_with_colors(
+    objects: list[SceneObject],
+    color_map: dict[int, tuple[int, int, int]],
+    output_path: Path,
+    default_color: tuple[int, int, int] = (50, 50, 50),
+):
+    """Save PLY file with specified colors for each object."""
+    all_points = []
+    all_colors = []
+
+    for obj in objects:
+        if obj.pcd_np is None or len(obj.pcd_np) == 0:
+            continue
+
+        points = obj.pcd_np
+        color = color_map.get(obj.obj_id, default_color)
+        colors = np.array([color] * len(points), dtype=np.uint8)
+
+        all_points.append(points)
+        all_colors.append(colors)
+
+    if not all_points:
+        return
+
+    all_points = np.vstack(all_points)
+    all_colors = np.vstack(all_colors)
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    with open(output_path, "w") as f:
+        f.write("ply\n")
+        f.write("format ascii 1.0\n")
+        f.write(f"element vertex {len(all_points)}\n")
+        f.write("property float x\n")
+        f.write("property float y\n")
+        f.write("property float z\n")
+        f.write("property uchar red\n")
+        f.write("property uchar green\n")
+        f.write("property uchar blue\n")
+        f.write("end_header\n")
+
+        for i in range(len(all_points)):
+            f.write(
+                f"{all_points[i, 0]:.6f} {all_points[i, 1]:.6f} {all_points[i, 2]:.6f} "
+            )
+            f.write(f"{all_colors[i, 0]} {all_colors[i, 1]} {all_colors[i, 2]}\n")
+
+    logger.info(f"Saved: {output_path.name}")
+
+
+def save_filtering_steps(
+    objects: list[SceneObject],
+    vis: QueryVisualization,
+    output_dir: Path,
+):
+    """Save PLY files showing the filtering process."""
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    all_ids = set(obj.obj_id for obj in objects)
+
+    # Save each step
+    for i, step in enumerate(vis.steps):
+        color_map = {}
+        for obj_id in all_ids:
+            if obj_id in step.object_ids:
+                color_map[obj_id] = step.color
+            else:
+                color_map[obj_id] = COLORS["gray"]
+
+        filename = f"{i:02d}_{step.step_name}.ply"
+        save_ply_with_colors(objects, color_map, output_dir / filename)
+
+    # Save combined visualization showing all steps
+    # Objects colored by their final state in the pipeline
+    color_map = {}
+    for obj_id in all_ids:
+        color_map[obj_id] = COLORS["gray"]  # Default: filtered out
+
+    # Color by the latest step they survived
+    for step in vis.steps:
+        for obj_id in step.object_ids:
+            color_map[obj_id] = step.color
+
+    # Final results in red
+    for obj_id in vis.final_ids:
+        color_map[obj_id] = COLORS["red"]
+
+    save_ply_with_colors(objects, color_map, output_dir / "final_combined.ply")
+
+    # Save legend
+    legend_path = output_dir / "color_legend.txt"
+    with open(legend_path, "w") as f:
+        f.write(f"Query: {vis.query}\n")
+        f.write("=" * 50 + "\n\n")
+        f.write("Color Legend:\n")
+        f.write("-" * 30 + "\n")
+        for i, step in enumerate(vis.steps):
+            color_name = [k for k, v in COLORS.items() if v == step.color][0]
+            count = len(step.object_ids)
+            f.write(f"{i:02d}. {step.step_name}: {color_name} ({count} objects)\n")
+            f.write(f"    {step.description}\n")
+        has_final_step = any(step.step_name == "final_candidates" for step in vis.steps)
+        if not has_final_step:
+            f.write(f"\nFinal Result: red ({len(vis.final_ids)} objects)\n")
+
+    logger.info(f"Saved legend: {legend_path.name}")
+
+
+def save_keyframes(
+    objects: list[SceneObject],
+    matched_ids: set[int],
+    scene_path: Path,
+    output_dir: Path,
+    max_keyframes: int = 3,
+    stride: int = 5,
+):
+    """Save keyframe images for matched objects.
+
+    Note: image_idx in objects stores the VIEW index (detection frame index).
+    The actual frame file index = view_idx * stride.
+    """
+    import shutil
+
+    keyframe_dir = output_dir / "keyframes"
+    keyframe_dir.mkdir(parents=True, exist_ok=True)
+
+    results_dir = scene_path / "results"
+    if not results_dir.exists():
+        return
+
+    for obj_id in matched_ids:
+        obj = next((o for o in objects if o.obj_id == obj_id), None)
+        if obj is None or not obj.image_idx:
+            continue
+
+        # image_idx stores view indices, need to convert to actual frame indices
+        frame_counts = Counter(obj.image_idx)
+        top_view_ids = [idx for idx, _ in frame_counts.most_common(max_keyframes)]
+
+        for i, view_idx in enumerate(top_view_ids):
+            # Convert view index to actual frame index
+            actual_frame_idx = view_idx * stride
+
+            for ext in [".jpg", ".png"]:
+                frame_file = results_dir / f"frame{actual_frame_idx:06d}{ext}"
+                if frame_file.exists():
+                    dst = (
+                        keyframe_dir
+                        / f"obj{obj_id}_{obj.object_tag}_view{view_idx}_frame{actual_frame_idx:06d}{ext}"
+                    )
+                    shutil.copy(frame_file, dst)
+                    logger.info(
+                        f"Saved keyframe: view {view_idx} -> frame {actual_frame_idx}"
+                    )
+                    break
+
+
+def execute_with_tracking(
+    query_result,
+    objects: list[SceneObject],
+) -> tuple[Any, QueryVisualization]:
+    """Execute query and track initial/final candidates."""
+    from query_scene.query_executor import QueryExecutor
+    from query_scene.retrieval import SpatialRelationChecker
+
+    # Create executor
+    executor = QueryExecutor(
+        objects=objects,
+        relation_checker=SpatialRelationChecker(),
+        use_quick_filters=True,
+    )
+
+    vis = QueryVisualization(query=query_result.raw_query)
+
+    # Initial candidates: category match before full execution
+    root = query_result.root
+    initial_candidates = executor._find_by_categories(root.categories)
+    initial_ids = set(obj.obj_id for obj in initial_candidates)
+    vis.steps.append(
+        FilteringStep(
+            step_name="initial_candidates",
+            description=f"Initial candidates for categories {root.categories}",
+            object_ids=initial_ids,
+            color=COLORS["blue"],
+        )
+    )
+
+    # Full execution path
+    result = executor.execute(query_result)
+
+    # Final candidates
+    vis.final_ids = set(obj.obj_id for obj in result.matched_objects)
+    vis.steps.append(
+        FilteringStep(
+            step_name="final_candidates",
+            description="Final matched objects after full execution",
+            object_ids=vis.final_ids,
+            color=COLORS["red"],
+        )
+    )
+
+    return result, vis
+
+
+def run_e2e_test(
+    query: str,
+    objects: list[SceneObject],
+    scene_categories: list[str],
+    scene_path: Path,
+    output_base_dir: Path,
+    test_name: str,
+    selector: KeyframeSelector | None = None,
+    llm_model: str = DEFAULT_MODEL,
+) -> dict[str, Any]:
+    """Run end-to-end test with step-by-step visualization.
+
+    Uses KeyframeSelector.parse_query_hypotheses() and execute_hypotheses()
+    for proper hypothesis-based execution with proxy anchor support.
+    """
+    from query_scene.query_executor import QueryExecutor
+    from query_scene.retrieval import SpatialRelationChecker
+
+    logger.info("=" * 70)
+    logger.info(f"Test: {test_name}")
+    logger.info(f'Query: "{query}"')
+    logger.info("=" * 70)
+
+    # Create query-specific output directory
+    safe_name = query.replace(" ", "_").replace('"', "").replace("'", "")[:50]
+    output_dir = output_base_dir / safe_name
+
+    result = {
+        "query": query,
+        "test_name": test_name,
+        "output_dir": str(output_dir),
+        "parse_success": False,
+        "execute_success": False,
+        "execution_status": "",
+        "hypothesis_kind": "",
+        "matched_objects": [],
+        "steps": [],
+    }
+
+    # Use provided selector or create one
+    if selector is None:
+        selector = KeyframeSelector.from_scene_path(
+            str(scene_path),
+            llm_model=llm_model,
+            use_pool="gemini" in llm_model.lower(),
+        )
+
+    # Parse query using hypothesis-based parsing
+    logger.info("[Step 1] Parsing query (hypothesis mode)...")
+    try:
+        hypo_output = selector.parse_query_hypotheses(query)
+        result["parse_success"] = True
+
+        # Log hypothesis info
+        logger.info(f"  Parse mode: {hypo_output.parse_mode.value}")
+        for h in hypo_output.hypotheses:
+            anchors = []
+            for sc in h.grounding_query.root.spatial_constraints:
+                anchors.extend([a.categories for a in sc.anchors])
+            logger.info(
+                f"  [{h.rank}] {h.kind.value}: {h.grounding_query.root.categories}"
+            )
+            if anchors:
+                logger.info(f"      anchors: {anchors}")
+
+    except Exception as e:
+        logger.error(f"Parse failed: {e}")
+        return result
+
+    # Execute hypotheses
+    logger.info("[Step 2] Executing hypotheses...")
+    try:
+        exec_status, winning_hypo, exec_result = selector.execute_hypotheses(
+            hypo_output
+        )
+        result["execute_success"] = True
+        result["execution_status"] = exec_status
+
+        if winning_hypo:
+            result["hypothesis_kind"] = winning_hypo.kind.value
+            logger.info(f"  Status: {exec_status} (via {winning_hypo.kind.value})")
+        else:
+            logger.info(f"  Status: {exec_status}")
+
+        if exec_result.matched_objects:
+            logger.success(f"Final: {len(exec_result.matched_objects)} object(s)")
+            for obj in exec_result.matched_objects:
+                logger.info(f"  - {obj.object_tag} (id={obj.obj_id})")
+
+            result["matched_objects"] = [
+                {"id": obj.obj_id, "tag": obj.object_tag}
+                for obj in exec_result.matched_objects
+            ]
+        else:
+            logger.warning("No objects matched")
+
+    except Exception as e:
+        logger.exception(f"Execute failed: {e}")
+        return result
+
+    # Generate visualizations
+    logger.info("[Step 3] Generating visualizations...")
+    try:
+        # Create visualization data
+        vis = QueryVisualization(query=query)
+
+        # Get parsed grounding query from winning hypothesis for visualization
+        if winning_hypo:
+            parsed = winning_hypo.grounding_query
+            # Create executor for tracking
+            executor = QueryExecutor(
+                objects=objects,
+                relation_checker=SpatialRelationChecker(),
+                use_quick_filters=True,
+            )
+
+            # Initial candidates
+            initial_candidates = executor._find_by_categories(parsed.root.categories)
+            initial_ids = set(obj.obj_id for obj in initial_candidates)
+            vis.steps.append(
+                FilteringStep(
+                    step_name="initial_candidates",
+                    description=f"Initial candidates for categories {parsed.root.categories}",
+                    object_ids=initial_ids,
+                    color=COLORS["blue"],
+                )
+            )
+
+        # Final candidates
+        vis.final_ids = set(obj.obj_id for obj in exec_result.matched_objects)
+        vis.steps.append(
+            FilteringStep(
+                step_name="final_candidates",
+                description=f"Final matched objects ({exec_status})",
+                object_ids=vis.final_ids,
+                color=COLORS["red"],
+            )
+        )
+
+        # Record steps
+        for step in vis.steps:
+            result["steps"].append(
+                {
+                    "name": step.step_name,
+                    "description": step.description,
+                    "count": len(step.object_ids),
+                }
+            )
+
+        save_filtering_steps(objects, vis, output_dir)
+        # Note: stride=5 is the default used during mapping
+        save_keyframes(objects, vis.final_ids, scene_path, output_dir, stride=5)
+        logger.success(f"Saved to: {output_dir.name}/")
+    except Exception as e:
+        logger.error(f"Visualization failed: {e}")
+
+    return result
+
+
+def main() -> int:
+    """Main test function."""
+    # Get scene path from environment variable
+    replica_root = os.environ.get("REPLICA_ROOT")
+    scene_name = os.environ.get("SCENE_NAME", "room0")
+    llm_model = os.environ.get("LLM_MODEL", DEFAULT_MODEL)
+
+    if replica_root:
+        scene_path = Path(replica_root) / scene_name
+    else:
+        # Fallback to project_root/room0 for backward compatibility
+        scene_path = project_root / scene_name
+        logger.warning(f"REPLICA_ROOT not set, using fallback: {scene_path}")
+
+    output_dir = scene_path / "query_visualizations"
+
+    if not scene_path.exists():
+        logger.error(f"Scene not found: {scene_path}")
+        logger.info("Please set REPLICA_ROOT environment variable:")
+        logger.info("  export REPLICA_ROOT=/path/to/Replica")
+        logger.info("Or source the env_vars.bash file:")
+        logger.info("  source env_vars.bash")
+        return 1
+
+    logger.info("=" * 70)
+    logger.info("Loading Scene Objects")
+    logger.info("=" * 70)
+
+    objects, _ = load_scene_objects(str(scene_path))
+    apply_affordances(objects, scene_path)
+    if not objects:
+        logger.error("No objects loaded")
+        return 1
+
+    categories = Counter(obj.category for obj in objects)
+    logger.info(f"Loaded {len(objects)} objects")
+    logger.info(f"Categories: {categories}")
+    scene_categories = list(categories.keys())
+
+    # ==========================================================================
+    # Load generated queries from Gemini V2 generator
+    # ==========================================================================
+    generated_queries_file = scene_path / "generated_queries_v2.json"
+    if generated_queries_file.exists():
+        with open(generated_queries_file) as f:
+            generated_queries = json.load(f)
+        logger.info(
+            f"Loaded {len(generated_queries)} generated queries from {generated_queries_file.name}"
+        )
+
+        # Convert to test format
+        test_queries = []
+        for i, q in enumerate(generated_queries):
+            query_text = q["query"]
+            difficulty = q.get("difficulty", "unknown")
+            query_type = q.get("query_type", "unknown")
+            special = q.get("special_case", "none")
+            test_name = f"{difficulty}-{query_type}-{i+1:03d}"
+            if special != "none":
+                test_name += f" ({special})"
+            test_queries.append((query_text, test_name))
+    else:
+        logger.warning(f"Generated queries not found: {generated_queries_file}")
+        logger.info("Using default test queries. Run query_sample_generator_v2 first:")
+        logger.info(
+            "  python -m query_scene.query_sample_generator_v2 100"
+        )
+
+        # Fallback to minimal test set
+        test_queries = [
+            ("the coffee_table", "fallback-01. direct category"),
+            ("the throw_pillow on the sofa", "fallback-02. spatial relation"),
+            ("the largest sofa", "fallback-03. superlative"),
+        ]
+
+    # Create KeyframeSelector once for all tests (performance optimization)
+    selector = KeyframeSelector.from_scene_path(
+        str(scene_path),
+        llm_model=llm_model,
+        use_pool="gemini" in llm_model.lower(),
+    )
+
+    all_results = []
+    for query, test_name in test_queries:
+        result = run_e2e_test(
+            query,
+            objects,
+            scene_categories,
+            scene_path,
+            output_dir,
+            test_name,
+            selector=selector,
+            llm_model=llm_model,
+        )
+        all_results.append(result)
+
+    # Summary
+    logger.info("=" * 70)
+    logger.info("Test Summary")
+    logger.info("=" * 70)
+
+    passed = 0
+    for r in all_results:
+        obj_count = len(r["matched_objects"])
+        if r["matched_objects"]:
+            logger.success(f"{r['test_name']:40} -> {obj_count} objects")
+            passed += 1
+        else:
+            logger.warning(f"{r['test_name']:40} -> {obj_count} objects")
+        logger.info(f"    Output: {Path(r['output_dir']).name}/")
+
+    parse_failures = sum(1 for item in all_results if not item["parse_success"])
+    execute_failures = sum(1 for item in all_results if item["parse_success"] and not item["execute_success"])
+
+    logger.info(f"Total: {passed}/{len(all_results)} tests passed")
+    logger.info(f"Parse failures: {parse_failures}")
+    logger.info(f"Execution failures: {execute_failures}")
+    logger.info(f"All visualizations: {output_dir}")
+
+    # Save results
+    results_path = output_dir / "test_results.json"
+    with open(results_path, "w") as f:
+        json.dump(all_results, f, indent=2, default=str)
+
+    return 0 if passed > 0 else 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

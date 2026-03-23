@@ -1,0 +1,1634 @@
+{
+  "version": "1.0.0",
+  "description": "Query parsing ground truth for migration equivalence testing",
+  "scene_categories": [
+    "sofa",
+    "pillow",
+    "throw_pillow",
+    "sofa_seat_cushion",
+    "door",
+    "side_table",
+    "coffee_table",
+    "lamp",
+    "floor_lamp",
+    "table_lamp",
+    "chair",
+    "armchair",
+    "dining_chair",
+    "bed",
+    "nightstand",
+    "dresser",
+    "tv",
+    "television",
+    "tv_stand",
+    "bookshelf",
+    "book",
+    "plant",
+    "potted_plant",
+    "window",
+    "curtain",
+    "rug",
+    "carpet",
+    "desk",
+    "office_chair",
+    "monitor",
+    "keyboard",
+    "mouse",
+    "cabinet",
+    "kitchen_cabinet",
+    "sink",
+    "faucet",
+    "refrigerator",
+    "microwave",
+    "oven",
+    "stove",
+    "countertop",
+    "toilet",
+    "bathtub",
+    "shower",
+    "mirror",
+    "towel",
+    "towel_rack"
+  ],
+  "cases": [
+    {
+      "query_id": "simple_000",
+      "query": "the pillow",
+      "expected_parse_mode": "single",
+      "expected_hypothesis_kind": "direct",
+      "expected_target_categories": [
+        "pillow",
+        "throw_pillow"
+      ],
+      "expected_anchor_categories": [],
+      "expected_relation": null,
+      "expected_select_constraint_type": null,
+      "description": "Simple object query: the pillow"
+    },
+    {
+      "query_id": "simple_001",
+      "query": "a sofa",
+      "expected_parse_mode": "single",
+      "expected_hypothesis_kind": "direct",
+      "expected_target_categories": [
+        "sofa"
+      ],
+      "expected_anchor_categories": [],
+      "expected_relation": null,
+      "expected_select_constraint_type": null,
+      "description": "Simple object query: a sofa"
+    },
+    {
+      "query_id": "simple_002",
+      "query": "the chair",
+      "expected_parse_mode": "single",
+      "expected_hypothesis_kind": "direct",
+      "expected_target_categories": [
+        "chair",
+        "armchair",
+        "dining_chair",
+        "office_chair"
+      ],
+      "expected_anchor_categories": [],
+      "expected_relation": null,
+      "expected_select_constraint_type": null,
+      "description": "Simple object query: the chair"
+    },
+    {
+      "query_id": "simple_003",
+      "query": "the lamp",
+      "expected_parse_mode": "single",
+      "expected_hypothesis_kind": "direct",
+      "expected_target_categories": [
+        "lamp",
+        "floor_lamp",
+        "table_lamp"
+      ],
+      "expected_anchor_categories": [],
+      "expected_relation": null,
+      "expected_select_constraint_type": null,
+      "description": "Simple object query: the lamp"
+    },
+    {
+      "query_id": "simple_004",
+      "query": "a table",
+      "expected_parse_mode": "single",
+      "expected_hypothesis_kind": "direct",
+      "expected_target_categories": [
+        "side_table",
+        "coffee_table",
+        "desk"
+      ],
+      "expected_anchor_categories": [],
+      "expected_relation": null,
+      "expected_select_constraint_type": null,
+      "description": "Simple object query: a table"
+    },
+    {
+      "query_id": "simple_005",
+      "query": "the bed",
+      "expected_parse_mode": "single",
+      "expected_hypothesis_kind": "direct",
+      "expected_target_categories": [
+        "bed"
+      ],
+      "expected_anchor_categories": [],
+      "expected_relation": null,
+      "expected_select_constraint_type": null,
+      "description": "Simple object query: the bed"
+    },
+    {
+      "query_id": "simple_006",
+      "query": "the tv",
+      "expected_parse_mode": "single",
+      "expected_hypothesis_kind": "direct",
+      "expected_target_categories": [
+        "tv",
+        "television"
+      ],
+      "expected_anchor_categories": [],
+      "expected_relation": null,
+      "expected_select_constraint_type": null,
+      "description": "Simple object query: the tv"
+    },
+    {
+      "query_id": "simple_007",
+      "query": "a plant",
+      "expected_parse_mode": "single",
+      "expected_hypothesis_kind": "direct",
+      "expected_target_categories": [
+        "plant",
+        "potted_plant"
+      ],
+      "expected_anchor_categories": [],
+      "expected_relation": null,
+      "expected_select_constraint_type": null,
+      "description": "Simple object query: a plant"
+    },
+    {
+      "query_id": "simple_008",
+      "query": "the door",
+      "expected_parse_mode": "single",
+      "expected_hypothesis_kind": "direct",
+      "expected_target_categories": [
+        "door"
+      ],
+      "expected_anchor_categories": [],
+      "expected_relation": null,
+      "expected_select_constraint_type": null,
+      "description": "Simple object query: the door"
+    },
+    {
+      "query_id": "simple_009",
+      "query": "a window",
+      "expected_parse_mode": "single",
+      "expected_hypothesis_kind": "direct",
+      "expected_target_categories": [
+        "window"
+      ],
+      "expected_anchor_categories": [],
+      "expected_relation": null,
+      "expected_select_constraint_type": null,
+      "description": "Simple object query: a window"
+    },
+    {
+      "query_id": "simple_010",
+      "query": "the rug",
+      "expected_parse_mode": "single",
+      "expected_hypothesis_kind": "direct",
+      "expected_target_categories": [
+        "rug",
+        "carpet"
+      ],
+      "expected_anchor_categories": [],
+      "expected_relation": null,
+      "expected_select_constraint_type": null,
+      "description": "Simple object query: the rug"
+    },
+    {
+      "query_id": "simple_011",
+      "query": "the mirror",
+      "expected_parse_mode": "single",
+      "expected_hypothesis_kind": "direct",
+      "expected_target_categories": [
+        "mirror"
+      ],
+      "expected_anchor_categories": [],
+      "expected_relation": null,
+      "expected_select_constraint_type": null,
+      "description": "Simple object query: the mirror"
+    },
+    {
+      "query_id": "simple_012",
+      "query": "a towel",
+      "expected_parse_mode": "single",
+      "expected_hypothesis_kind": "direct",
+      "expected_target_categories": [
+        "towel"
+      ],
+      "expected_anchor_categories": [],
+      "expected_relation": null,
+      "expected_select_constraint_type": null,
+      "description": "Simple object query: a towel"
+    },
+    {
+      "query_id": "simple_013",
+      "query": "the sink",
+      "expected_parse_mode": "single",
+      "expected_hypothesis_kind": "direct",
+      "expected_target_categories": [
+        "sink"
+      ],
+      "expected_anchor_categories": [],
+      "expected_relation": null,
+      "expected_select_constraint_type": null,
+      "description": "Simple object query: the sink"
+    },
+    {
+      "query_id": "simple_014",
+      "query": "the refrigerator",
+      "expected_parse_mode": "single",
+      "expected_hypothesis_kind": "direct",
+      "expected_target_categories": [
+        "refrigerator"
+      ],
+      "expected_anchor_categories": [],
+      "expected_relation": null,
+      "expected_select_constraint_type": null,
+      "description": "Simple object query: the refrigerator"
+    },
+    {
+      "query_id": "simple_015",
+      "query": "a microwave",
+      "expected_parse_mode": "single",
+      "expected_hypothesis_kind": "direct",
+      "expected_target_categories": [
+        "microwave"
+      ],
+      "expected_anchor_categories": [],
+      "expected_relation": null,
+      "expected_select_constraint_type": null,
+      "description": "Simple object query: a microwave"
+    },
+    {
+      "query_id": "simple_016",
+      "query": "the toilet",
+      "expected_parse_mode": "single",
+      "expected_hypothesis_kind": "direct",
+      "expected_target_categories": [
+        "toilet"
+      ],
+      "expected_anchor_categories": [],
+      "expected_relation": null,
+      "expected_select_constraint_type": null,
+      "description": "Simple object query: the toilet"
+    },
+    {
+      "query_id": "simple_017",
+      "query": "the bathtub",
+      "expected_parse_mode": "single",
+      "expected_hypothesis_kind": "direct",
+      "expected_target_categories": [
+        "bathtub"
+      ],
+      "expected_anchor_categories": [],
+      "expected_relation": null,
+      "expected_select_constraint_type": null,
+      "description": "Simple object query: the bathtub"
+    },
+    {
+      "query_id": "simple_018",
+      "query": "a book",
+      "expected_parse_mode": "single",
+      "expected_hypothesis_kind": "direct",
+      "expected_target_categories": [
+        "book"
+      ],
+      "expected_anchor_categories": [],
+      "expected_relation": null,
+      "expected_select_constraint_type": null,
+      "description": "Simple object query: a book"
+    },
+    {
+      "query_id": "simple_019",
+      "query": "the curtain",
+      "expected_parse_mode": "single",
+      "expected_hypothesis_kind": "direct",
+      "expected_target_categories": [
+        "curtain"
+      ],
+      "expected_anchor_categories": [],
+      "expected_relation": null,
+      "expected_select_constraint_type": null,
+      "description": "Simple object query: the curtain"
+    },
+    {
+      "query_id": "spatial_000",
+      "query": "the pillow on the sofa",
+      "expected_parse_mode": "single",
+      "expected_hypothesis_kind": "direct",
+      "expected_target_categories": [
+        "pillow",
+        "throw_pillow"
+      ],
+      "expected_anchor_categories": [
+        "sofa"
+      ],
+      "expected_relation": "on",
+      "expected_select_constraint_type": null,
+      "description": "Spatial query with on: the pillow on the sofa"
+    },
+    {
+      "query_id": "spatial_001",
+      "query": "the lamp on the table",
+      "expected_parse_mode": "single",
+      "expected_hypothesis_kind": "direct",
+      "expected_target_categories": [
+        "lamp",
+        "table_lamp"
+      ],
+      "expected_anchor_categories": [
+        "side_table",
+        "coffee_table",
+        "desk"
+      ],
+      "expected_relation": "on",
+      "expected_select_constraint_type": null,
+      "description": "Spatial query with on: the lamp on the table"
+    },
+    {
+      "query_id": "spatial_002",
+      "query": "the book on the shelf",
+      "expected_parse_mode": "single",
+      "expected_hypothesis_kind": "direct",
+      "expected_target_categories": [
+        "book"
+      ],
+      "expected_anchor_categories": [
+        "bookshelf"
+      ],
+      "expected_relation": "on",
+      "expected_select_constraint_type": null,
+      "description": "Spatial query with on: the book on the shelf"
+    },
+    {
+      "query_id": "spatial_003",
+      "query": "the towel on the rack",
+      "expected_parse_mode": "single",
+      "expected_hypothesis_kind": "direct",
+      "expected_target_categories": [
+        "towel"
+      ],
+      "expected_anchor_categories": [
+        "towel_rack"
+      ],
+      "expected_relation": "on",
+      "expected_select_constraint_type": null,
+      "description": "Spatial query with on: the towel on the rack"
+    },
+    {
+      "query_id": "spatial_004",
+      "query": "the monitor on the desk",
+      "expected_parse_mode": "single",
+      "expected_hypothesis_kind": "direct",
+      "expected_target_categories": [
+        "monitor"
+      ],
+      "expected_anchor_categories": [
+        "desk"
+      ],
+      "expected_relation": "on",
+      "expected_select_constraint_type": null,
+      "description": "Spatial query with on: the monitor on the desk"
+    },
+    {
+      "query_id": "spatial_005",
+      "query": "the chair near the window",
+      "expected_parse_mode": "single",
+      "expected_hypothesis_kind": "direct",
+      "expected_target_categories": [
+        "chair",
+        "armchair",
+        "dining_chair",
+        "office_chair"
+      ],
+      "expected_anchor_categories": [
+        "window"
+      ],
+      "expected_relation": "near",
+      "expected_select_constraint_type": null,
+      "description": "Spatial query with near: the chair near the window"
+    },
+    {
+      "query_id": "spatial_006",
+      "query": "the plant near the sofa",
+      "expected_parse_mode": "single",
+      "expected_hypothesis_kind": "direct",
+      "expected_target_categories": [
+        "plant",
+        "potted_plant"
+      ],
+      "expected_anchor_categories": [
+        "sofa"
+      ],
+      "expected_relation": "near",
+      "expected_select_constraint_type": null,
+      "description": "Spatial query with near: the plant near the sofa"
+    },
+    {
+      "query_id": "spatial_007",
+      "query": "the lamp near the bed",
+      "expected_parse_mode": "single",
+      "expected_hypothesis_kind": "direct",
+      "expected_target_categories": [
+        "lamp",
+        "floor_lamp",
+        "table_lamp"
+      ],
+      "expected_anchor_categories": [
+        "bed"
+      ],
+      "expected_relation": "near",
+      "expected_select_constraint_type": null,
+      "description": "Spatial query with near: the lamp near the bed"
+    },
+    {
+      "query_id": "spatial_008",
+      "query": "the rug near the door",
+      "expected_parse_mode": "single",
+      "expected_hypothesis_kind": "direct",
+      "expected_target_categories": [
+        "rug",
+        "carpet"
+      ],
+      "expected_anchor_categories": [
+        "door"
+      ],
+      "expected_relation": "near",
+      "expected_select_constraint_type": null,
+      "description": "Spatial query with near: the rug near the door"
+    },
+    {
+      "query_id": "spatial_009",
+      "query": "the mirror near the sink",
+      "expected_parse_mode": "single",
+      "expected_hypothesis_kind": "direct",
+      "expected_target_categories": [
+        "mirror"
+      ],
+      "expected_anchor_categories": [
+        "sink"
+      ],
+      "expected_relation": "near",
+      "expected_select_constraint_type": null,
+      "description": "Spatial query with near: the mirror near the sink"
+    },
+    {
+      "query_id": "spatial_010",
+      "query": "the nightstand next to the bed",
+      "expected_parse_mode": "single",
+      "expected_hypothesis_kind": "direct",
+      "expected_target_categories": [
+        "nightstand"
+      ],
+      "expected_anchor_categories": [
+        "bed"
+      ],
+      "expected_relation": "next_to",
+      "expected_select_constraint_type": null,
+      "description": "Spatial query with next_to: the nightstand next to the bed"
+    },
+    {
+      "query_id": "spatial_011",
+      "query": "the tv stand next to the tv",
+      "expected_parse_mode": "single",
+      "expected_hypothesis_kind": "direct",
+      "expected_target_categories": [
+        "tv_stand"
+      ],
+      "expected_anchor_categories": [
+        "tv",
+        "television"
+      ],
+      "expected_relation": "next_to",
+      "expected_select_constraint_type": null,
+      "description": "Spatial query with next_to: the tv stand next to the tv"
+    },
+    {
+      "query_id": "spatial_012",
+      "query": "the dresser next to the door",
+      "expected_parse_mode": "single",
+      "expected_hypothesis_kind": "direct",
+      "expected_target_categories": [
+        "dresser"
+      ],
+      "expected_anchor_categories": [
+        "door"
+      ],
+      "expected_relation": "next_to",
+      "expected_select_constraint_type": null,
+      "description": "Spatial query with next_to: the dresser next to the door"
+    },
+    {
+      "query_id": "spatial_013",
+      "query": "the cabinet above the sink",
+      "expected_parse_mode": "single",
+      "expected_hypothesis_kind": "direct",
+      "expected_target_categories": [
+        "cabinet",
+        "kitchen_cabinet"
+      ],
+      "expected_anchor_categories": [
+        "sink"
+      ],
+      "expected_relation": "above",
+      "expected_select_constraint_type": null,
+      "description": "Spatial query with above: the cabinet above the sink"
+    },
+    {
+      "query_id": "spatial_014",
+      "query": "the rug below the table",
+      "expected_parse_mode": "single",
+      "expected_hypothesis_kind": "direct",
+      "expected_target_categories": [
+        "rug",
+        "carpet"
+      ],
+      "expected_anchor_categories": [
+        "side_table",
+        "coffee_table",
+        "desk"
+      ],
+      "expected_relation": "below",
+      "expected_select_constraint_type": null,
+      "description": "Spatial query with below: the rug below the table"
+    },
+    {
+      "query_id": "spatial_015",
+      "query": "the chair to the left of the desk",
+      "expected_parse_mode": "single",
+      "expected_hypothesis_kind": "direct",
+      "expected_target_categories": [
+        "chair",
+        "office_chair"
+      ],
+      "expected_anchor_categories": [
+        "desk"
+      ],
+      "expected_relation": "left_of",
+      "expected_select_constraint_type": null,
+      "description": "Spatial query with left_of: the chair to the left of the desk"
+    },
+    {
+      "query_id": "spatial_016",
+      "query": "the lamp to the right of the bed",
+      "expected_parse_mode": "single",
+      "expected_hypothesis_kind": "direct",
+      "expected_target_categories": [
+        "lamp",
+        "floor_lamp",
+        "table_lamp"
+      ],
+      "expected_anchor_categories": [
+        "bed"
+      ],
+      "expected_relation": "right_of",
+      "expected_select_constraint_type": null,
+      "description": "Spatial query with right_of: the lamp to the right of the bed"
+    },
+    {
+      "query_id": "spatial_017",
+      "query": "the towel inside the cabinet",
+      "expected_parse_mode": "single",
+      "expected_hypothesis_kind": "direct",
+      "expected_target_categories": [
+        "towel"
+      ],
+      "expected_anchor_categories": [
+        "cabinet"
+      ],
+      "expected_relation": "inside",
+      "expected_select_constraint_type": null,
+      "description": "Spatial query with inside: the towel inside the cabinet"
+    },
+    {
+      "query_id": "spatial_018",
+      "query": "the chair behind the desk",
+      "expected_parse_mode": "single",
+      "expected_hypothesis_kind": "direct",
+      "expected_target_categories": [
+        "chair",
+        "office_chair"
+      ],
+      "expected_anchor_categories": [
+        "desk"
+      ],
+      "expected_relation": "behind",
+      "expected_select_constraint_type": null,
+      "description": "Spatial query with behind: the chair behind the desk"
+    },
+    {
+      "query_id": "spatial_019",
+      "query": "the coffee table in front of the sofa",
+      "expected_parse_mode": "single",
+      "expected_hypothesis_kind": "direct",
+      "expected_target_categories": [
+        "coffee_table"
+      ],
+      "expected_anchor_categories": [
+        "sofa"
+      ],
+      "expected_relation": "in_front_of",
+      "expected_select_constraint_type": null,
+      "description": "Spatial query with in_front_of: the coffee table in front of the sofa"
+    },
+    {
+      "query_id": "spatial_020",
+      "query": "the pillow beside the lamp",
+      "expected_parse_mode": "single",
+      "expected_hypothesis_kind": "direct",
+      "expected_target_categories": [
+        "pillow",
+        "throw_pillow"
+      ],
+      "expected_anchor_categories": [
+        "lamp",
+        "floor_lamp",
+        "table_lamp"
+      ],
+      "expected_relation": "beside",
+      "expected_select_constraint_type": null,
+      "description": "Spatial query with beside: the pillow beside the lamp"
+    },
+    {
+      "query_id": "spatial_021",
+      "query": "the plant on the windowsill",
+      "expected_parse_mode": "single",
+      "expected_hypothesis_kind": "direct",
+      "expected_target_categories": [
+        "plant",
+        "potted_plant"
+      ],
+      "expected_anchor_categories": [
+        "window"
+      ],
+      "expected_relation": "on",
+      "expected_select_constraint_type": null,
+      "description": "Spatial query with on: the plant on the windowsill"
+    },
+    {
+      "query_id": "spatial_022",
+      "query": "the book near the lamp",
+      "expected_parse_mode": "single",
+      "expected_hypothesis_kind": "direct",
+      "expected_target_categories": [
+        "book"
+      ],
+      "expected_anchor_categories": [
+        "lamp",
+        "floor_lamp",
+        "table_lamp"
+      ],
+      "expected_relation": "near",
+      "expected_select_constraint_type": null,
+      "description": "Spatial query with near: the book near the lamp"
+    },
+    {
+      "query_id": "spatial_023",
+      "query": "the towel next to the bathtub",
+      "expected_parse_mode": "single",
+      "expected_hypothesis_kind": "direct",
+      "expected_target_categories": [
+        "towel"
+      ],
+      "expected_anchor_categories": [
+        "bathtub"
+      ],
+      "expected_relation": "next_to",
+      "expected_select_constraint_type": null,
+      "description": "Spatial query with next_to: the towel next to the bathtub"
+    },
+    {
+      "query_id": "spatial_024",
+      "query": "the mirror above the sink",
+      "expected_parse_mode": "single",
+      "expected_hypothesis_kind": "direct",
+      "expected_target_categories": [
+        "mirror"
+      ],
+      "expected_anchor_categories": [
+        "sink"
+      ],
+      "expected_relation": "above",
+      "expected_select_constraint_type": null,
+      "description": "Spatial query with above: the mirror above the sink"
+    },
+    {
+      "query_id": "spatial_025",
+      "query": "the refrigerator next to the counter",
+      "expected_parse_mode": "single",
+      "expected_hypothesis_kind": "direct",
+      "expected_target_categories": [
+        "refrigerator"
+      ],
+      "expected_anchor_categories": [
+        "countertop"
+      ],
+      "expected_relation": "next_to",
+      "expected_select_constraint_type": null,
+      "description": "Spatial query with next_to: the refrigerator next to the counter"
+    },
+    {
+      "query_id": "spatial_026",
+      "query": "the microwave on the counter",
+      "expected_parse_mode": "single",
+      "expected_hypothesis_kind": "direct",
+      "expected_target_categories": [
+        "microwave"
+      ],
+      "expected_anchor_categories": [
+        "countertop"
+      ],
+      "expected_relation": "on",
+      "expected_select_constraint_type": null,
+      "description": "Spatial query with on: the microwave on the counter"
+    },
+    {
+      "query_id": "spatial_027",
+      "query": "the curtain near the window",
+      "expected_parse_mode": "single",
+      "expected_hypothesis_kind": "direct",
+      "expected_target_categories": [
+        "curtain"
+      ],
+      "expected_anchor_categories": [
+        "window"
+      ],
+      "expected_relation": "near",
+      "expected_select_constraint_type": null,
+      "description": "Spatial query with near: the curtain near the window"
+    },
+    {
+      "query_id": "spatial_028",
+      "query": "the keyboard on the desk",
+      "expected_parse_mode": "single",
+      "expected_hypothesis_kind": "direct",
+      "expected_target_categories": [
+        "keyboard"
+      ],
+      "expected_anchor_categories": [
+        "desk"
+      ],
+      "expected_relation": "on",
+      "expected_select_constraint_type": null,
+      "description": "Spatial query with on: the keyboard on the desk"
+    },
+    {
+      "query_id": "spatial_029",
+      "query": "the mouse next to the keyboard",
+      "expected_parse_mode": "single",
+      "expected_hypothesis_kind": "direct",
+      "expected_target_categories": [
+        "mouse"
+      ],
+      "expected_anchor_categories": [
+        "keyboard"
+      ],
+      "expected_relation": "next_to",
+      "expected_select_constraint_type": null,
+      "description": "Spatial query with next_to: the mouse next to the keyboard"
+    },
+    {
+      "query_id": "superlative_000",
+      "query": "the nearest pillow to the door",
+      "expected_parse_mode": "single",
+      "expected_hypothesis_kind": "direct",
+      "expected_target_categories": [
+        "pillow",
+        "throw_pillow"
+      ],
+      "expected_anchor_categories": [
+        "door"
+      ],
+      "expected_relation": null,
+      "expected_select_constraint_type": "superlative",
+      "description": "Superlative query: the nearest pillow to the door"
+    },
+    {
+      "query_id": "superlative_001",
+      "query": "the largest sofa",
+      "expected_parse_mode": "single",
+      "expected_hypothesis_kind": "direct",
+      "expected_target_categories": [
+        "sofa"
+      ],
+      "expected_anchor_categories": [],
+      "expected_relation": null,
+      "expected_select_constraint_type": "superlative",
+      "description": "Superlative query: the largest sofa"
+    },
+    {
+      "query_id": "superlative_002",
+      "query": "the smallest chair",
+      "expected_parse_mode": "single",
+      "expected_hypothesis_kind": "direct",
+      "expected_target_categories": [
+        "chair",
+        "armchair",
+        "dining_chair",
+        "office_chair"
+      ],
+      "expected_anchor_categories": [],
+      "expected_relation": null,
+      "expected_select_constraint_type": "superlative",
+      "description": "Superlative query: the smallest chair"
+    },
+    {
+      "query_id": "superlative_003",
+      "query": "the closest lamp to the bed",
+      "expected_parse_mode": "single",
+      "expected_hypothesis_kind": "direct",
+      "expected_target_categories": [
+        "lamp",
+        "floor_lamp",
+        "table_lamp"
+      ],
+      "expected_anchor_categories": [
+        "bed"
+      ],
+      "expected_relation": null,
+      "expected_select_constraint_type": "superlative",
+      "description": "Superlative query: the closest lamp to the bed"
+    },
+    {
+      "query_id": "superlative_004",
+      "query": "the farthest plant from the window",
+      "expected_parse_mode": "single",
+      "expected_hypothesis_kind": "direct",
+      "expected_target_categories": [
+        "plant",
+        "potted_plant"
+      ],
+      "expected_anchor_categories": [
+        "window"
+      ],
+      "expected_relation": null,
+      "expected_select_constraint_type": "superlative",
+      "description": "Superlative query: the farthest plant from the window"
+    },
+    {
+      "query_id": "superlative_005",
+      "query": "the highest shelf",
+      "expected_parse_mode": "single",
+      "expected_hypothesis_kind": "direct",
+      "expected_target_categories": [
+        "bookshelf"
+      ],
+      "expected_anchor_categories": [],
+      "expected_relation": null,
+      "expected_select_constraint_type": "superlative",
+      "description": "Superlative query: the highest shelf"
+    },
+    {
+      "query_id": "superlative_006",
+      "query": "the lowest cabinet",
+      "expected_parse_mode": "single",
+      "expected_hypothesis_kind": "direct",
+      "expected_target_categories": [
+        "cabinet",
+        "kitchen_cabinet"
+      ],
+      "expected_anchor_categories": [],
+      "expected_relation": null,
+      "expected_select_constraint_type": "superlative",
+      "description": "Superlative query: the lowest cabinet"
+    },
+    {
+      "query_id": "superlative_007",
+      "query": "the nearest chair to the desk",
+      "expected_parse_mode": "single",
+      "expected_hypothesis_kind": "direct",
+      "expected_target_categories": [
+        "chair",
+        "office_chair"
+      ],
+      "expected_anchor_categories": [
+        "desk"
+      ],
+      "expected_relation": null,
+      "expected_select_constraint_type": "superlative",
+      "description": "Superlative query: the nearest chair to the desk"
+    },
+    {
+      "query_id": "superlative_008",
+      "query": "the biggest table",
+      "expected_parse_mode": "single",
+      "expected_hypothesis_kind": "direct",
+      "expected_target_categories": [
+        "side_table",
+        "coffee_table",
+        "desk"
+      ],
+      "expected_anchor_categories": [],
+      "expected_relation": null,
+      "expected_select_constraint_type": "superlative",
+      "description": "Superlative query: the biggest table"
+    },
+    {
+      "query_id": "superlative_009",
+      "query": "the smallest rug",
+      "expected_parse_mode": "single",
+      "expected_hypothesis_kind": "direct",
+      "expected_target_categories": [
+        "rug",
+        "carpet"
+      ],
+      "expected_anchor_categories": [],
+      "expected_relation": null,
+      "expected_select_constraint_type": "superlative",
+      "description": "Superlative query: the smallest rug"
+    },
+    {
+      "query_id": "superlative_010",
+      "query": "the nearest towel to the sink",
+      "expected_parse_mode": "single",
+      "expected_hypothesis_kind": "direct",
+      "expected_target_categories": [
+        "towel"
+      ],
+      "expected_anchor_categories": [
+        "sink"
+      ],
+      "expected_relation": null,
+      "expected_select_constraint_type": "superlative",
+      "description": "Superlative query: the nearest towel to the sink"
+    },
+    {
+      "query_id": "superlative_011",
+      "query": "the tallest lamp",
+      "expected_parse_mode": "single",
+      "expected_hypothesis_kind": "direct",
+      "expected_target_categories": [
+        "lamp",
+        "floor_lamp",
+        "table_lamp"
+      ],
+      "expected_anchor_categories": [],
+      "expected_relation": null,
+      "expected_select_constraint_type": "superlative",
+      "description": "Superlative query: the tallest lamp"
+    },
+    {
+      "query_id": "superlative_012",
+      "query": "the widest window",
+      "expected_parse_mode": "single",
+      "expected_hypothesis_kind": "direct",
+      "expected_target_categories": [
+        "window"
+      ],
+      "expected_anchor_categories": [],
+      "expected_relation": null,
+      "expected_select_constraint_type": "superlative",
+      "description": "Superlative query: the widest window"
+    },
+    {
+      "query_id": "superlative_013",
+      "query": "the closest book to the lamp",
+      "expected_parse_mode": "single",
+      "expected_hypothesis_kind": "direct",
+      "expected_target_categories": [
+        "book"
+      ],
+      "expected_anchor_categories": [
+        "lamp",
+        "floor_lamp",
+        "table_lamp"
+      ],
+      "expected_relation": null,
+      "expected_select_constraint_type": "superlative",
+      "description": "Superlative query: the closest book to the lamp"
+    },
+    {
+      "query_id": "superlative_014",
+      "query": "the nearest mirror to the door",
+      "expected_parse_mode": "single",
+      "expected_hypothesis_kind": "direct",
+      "expected_target_categories": [
+        "mirror"
+      ],
+      "expected_anchor_categories": [
+        "door"
+      ],
+      "expected_relation": null,
+      "expected_select_constraint_type": "superlative",
+      "description": "Superlative query: the nearest mirror to the door"
+    },
+    {
+      "query_id": "ordinal_000",
+      "query": "the first chair",
+      "expected_parse_mode": "single",
+      "expected_hypothesis_kind": "direct",
+      "expected_target_categories": [
+        "chair",
+        "armchair",
+        "dining_chair",
+        "office_chair"
+      ],
+      "expected_anchor_categories": [],
+      "expected_relation": null,
+      "expected_select_constraint_type": "ordinal",
+      "description": "Ordinal query: the first chair"
+    },
+    {
+      "query_id": "ordinal_001",
+      "query": "the second pillow",
+      "expected_parse_mode": "single",
+      "expected_hypothesis_kind": "direct",
+      "expected_target_categories": [
+        "pillow",
+        "throw_pillow"
+      ],
+      "expected_anchor_categories": [],
+      "expected_relation": null,
+      "expected_select_constraint_type": "ordinal",
+      "description": "Ordinal query: the second pillow"
+    },
+    {
+      "query_id": "ordinal_002",
+      "query": "the third book",
+      "expected_parse_mode": "single",
+      "expected_hypothesis_kind": "direct",
+      "expected_target_categories": [
+        "book"
+      ],
+      "expected_anchor_categories": [],
+      "expected_relation": null,
+      "expected_select_constraint_type": "ordinal",
+      "description": "Ordinal query: the third book"
+    },
+    {
+      "query_id": "ordinal_003",
+      "query": "the first lamp from the left",
+      "expected_parse_mode": "single",
+      "expected_hypothesis_kind": "direct",
+      "expected_target_categories": [
+        "lamp",
+        "floor_lamp",
+        "table_lamp"
+      ],
+      "expected_anchor_categories": [],
+      "expected_relation": null,
+      "expected_select_constraint_type": "ordinal",
+      "description": "Ordinal query: the first lamp from the left"
+    },
+    {
+      "query_id": "ordinal_004",
+      "query": "the second window",
+      "expected_parse_mode": "single",
+      "expected_hypothesis_kind": "direct",
+      "expected_target_categories": [
+        "window"
+      ],
+      "expected_anchor_categories": [],
+      "expected_relation": null,
+      "expected_select_constraint_type": "ordinal",
+      "description": "Ordinal query: the second window"
+    },
+    {
+      "query_id": "ordinal_005",
+      "query": "the first door",
+      "expected_parse_mode": "single",
+      "expected_hypothesis_kind": "direct",
+      "expected_target_categories": [
+        "door"
+      ],
+      "expected_anchor_categories": [],
+      "expected_relation": null,
+      "expected_select_constraint_type": "ordinal",
+      "description": "Ordinal query: the first door"
+    },
+    {
+      "query_id": "ordinal_006",
+      "query": "the second plant",
+      "expected_parse_mode": "single",
+      "expected_hypothesis_kind": "direct",
+      "expected_target_categories": [
+        "plant",
+        "potted_plant"
+      ],
+      "expected_anchor_categories": [],
+      "expected_relation": null,
+      "expected_select_constraint_type": "ordinal",
+      "description": "Ordinal query: the second plant"
+    },
+    {
+      "query_id": "ordinal_007",
+      "query": "the third chair from the door",
+      "expected_parse_mode": "single",
+      "expected_hypothesis_kind": "direct",
+      "expected_target_categories": [
+        "chair",
+        "armchair",
+        "dining_chair"
+      ],
+      "expected_anchor_categories": [],
+      "expected_relation": null,
+      "expected_select_constraint_type": "ordinal",
+      "description": "Ordinal query: the third chair from the door"
+    },
+    {
+      "query_id": "ordinal_008",
+      "query": "the first towel",
+      "expected_parse_mode": "single",
+      "expected_hypothesis_kind": "direct",
+      "expected_target_categories": [
+        "towel"
+      ],
+      "expected_anchor_categories": [],
+      "expected_relation": null,
+      "expected_select_constraint_type": "ordinal",
+      "description": "Ordinal query: the first towel"
+    },
+    {
+      "query_id": "ordinal_009",
+      "query": "the second mirror",
+      "expected_parse_mode": "single",
+      "expected_hypothesis_kind": "direct",
+      "expected_target_categories": [
+        "mirror"
+      ],
+      "expected_anchor_categories": [],
+      "expected_relation": null,
+      "expected_select_constraint_type": "ordinal",
+      "description": "Ordinal query: the second mirror"
+    },
+    {
+      "query_id": "nested_000",
+      "query": "the pillow on the sofa nearest the door",
+      "expected_parse_mode": "single",
+      "expected_hypothesis_kind": "direct",
+      "expected_target_categories": [
+        "pillow",
+        "throw_pillow"
+      ],
+      "expected_anchor_categories": [
+        "sofa"
+      ],
+      "expected_relation": "on",
+      "expected_select_constraint_type": null,
+      "description": "Nested spatial query: the pillow on the sofa nearest the door"
+    },
+    {
+      "query_id": "nested_001",
+      "query": "the lamp on the table next to the bed",
+      "expected_parse_mode": "single",
+      "expected_hypothesis_kind": "direct",
+      "expected_target_categories": [
+        "lamp",
+        "table_lamp"
+      ],
+      "expected_anchor_categories": [
+        "side_table",
+        "coffee_table"
+      ],
+      "expected_relation": "on",
+      "expected_select_constraint_type": null,
+      "description": "Nested spatial query: the lamp on the table next to the bed"
+    },
+    {
+      "query_id": "nested_002",
+      "query": "the book on the shelf near the window",
+      "expected_parse_mode": "single",
+      "expected_hypothesis_kind": "direct",
+      "expected_target_categories": [
+        "book"
+      ],
+      "expected_anchor_categories": [
+        "bookshelf"
+      ],
+      "expected_relation": "on",
+      "expected_select_constraint_type": null,
+      "description": "Nested spatial query: the book on the shelf near the window"
+    },
+    {
+      "query_id": "nested_003",
+      "query": "the chair behind the desk near the window",
+      "expected_parse_mode": "single",
+      "expected_hypothesis_kind": "direct",
+      "expected_target_categories": [
+        "chair",
+        "office_chair"
+      ],
+      "expected_anchor_categories": [
+        "desk"
+      ],
+      "expected_relation": "behind",
+      "expected_select_constraint_type": null,
+      "description": "Nested spatial query: the chair behind the desk near the window"
+    },
+    {
+      "query_id": "nested_004",
+      "query": "the plant on the table in front of the sofa",
+      "expected_parse_mode": "single",
+      "expected_hypothesis_kind": "direct",
+      "expected_target_categories": [
+        "plant",
+        "potted_plant"
+      ],
+      "expected_anchor_categories": [
+        "side_table",
+        "coffee_table"
+      ],
+      "expected_relation": "on",
+      "expected_select_constraint_type": null,
+      "description": "Nested spatial query: the plant on the table in front of the sofa"
+    },
+    {
+      "query_id": "nested_005",
+      "query": "the nearest lamp to the sofa on the table",
+      "expected_parse_mode": "single",
+      "expected_hypothesis_kind": "direct",
+      "expected_target_categories": [
+        "lamp",
+        "table_lamp"
+      ],
+      "expected_anchor_categories": [
+        "side_table",
+        "coffee_table"
+      ],
+      "expected_relation": "on",
+      "expected_select_constraint_type": null,
+      "description": "Nested spatial query: the nearest lamp to the sofa on the table"
+    },
+    {
+      "query_id": "nested_006",
+      "query": "the pillow beside the lamp on the nightstand",
+      "expected_parse_mode": "single",
+      "expected_hypothesis_kind": "direct",
+      "expected_target_categories": [
+        "pillow",
+        "throw_pillow"
+      ],
+      "expected_anchor_categories": [
+        "lamp",
+        "table_lamp"
+      ],
+      "expected_relation": "beside",
+      "expected_select_constraint_type": null,
+      "description": "Nested spatial query: the pillow beside the lamp on the nightstand"
+    },
+    {
+      "query_id": "nested_007",
+      "query": "the towel on the rack near the bathtub",
+      "expected_parse_mode": "single",
+      "expected_hypothesis_kind": "direct",
+      "expected_target_categories": [
+        "towel"
+      ],
+      "expected_anchor_categories": [
+        "towel_rack"
+      ],
+      "expected_relation": "on",
+      "expected_select_constraint_type": null,
+      "description": "Nested spatial query: the towel on the rack near the bathtub"
+    },
+    {
+      "query_id": "nested_008",
+      "query": "the mirror above the sink next to the toilet",
+      "expected_parse_mode": "single",
+      "expected_hypothesis_kind": "direct",
+      "expected_target_categories": [
+        "mirror"
+      ],
+      "expected_anchor_categories": [
+        "sink"
+      ],
+      "expected_relation": "above",
+      "expected_select_constraint_type": null,
+      "description": "Nested spatial query: the mirror above the sink next to the toilet"
+    },
+    {
+      "query_id": "nested_009",
+      "query": "the rug below the table in front of the sofa",
+      "expected_parse_mode": "single",
+      "expected_hypothesis_kind": "direct",
+      "expected_target_categories": [
+        "rug",
+        "carpet"
+      ],
+      "expected_anchor_categories": [
+        "side_table",
+        "coffee_table"
+      ],
+      "expected_relation": "below",
+      "expected_select_constraint_type": null,
+      "description": "Nested spatial query: the rug below the table in front of the sofa"
+    },
+    {
+      "query_id": "nested_010",
+      "query": "the keyboard on the desk near the window",
+      "expected_parse_mode": "single",
+      "expected_hypothesis_kind": "direct",
+      "expected_target_categories": [
+        "keyboard"
+      ],
+      "expected_anchor_categories": [
+        "desk"
+      ],
+      "expected_relation": "on",
+      "expected_select_constraint_type": null,
+      "description": "Nested spatial query: the keyboard on the desk near the window"
+    },
+    {
+      "query_id": "nested_011",
+      "query": "the monitor on the desk to the right of the keyboard",
+      "expected_parse_mode": "single",
+      "expected_hypothesis_kind": "direct",
+      "expected_target_categories": [
+        "monitor"
+      ],
+      "expected_anchor_categories": [
+        "desk"
+      ],
+      "expected_relation": "on",
+      "expected_select_constraint_type": null,
+      "description": "Nested spatial query: the monitor on the desk to the right of the keyboard"
+    },
+    {
+      "query_id": "nested_012",
+      "query": "the cabinet above the sink near the refrigerator",
+      "expected_parse_mode": "single",
+      "expected_hypothesis_kind": "direct",
+      "expected_target_categories": [
+        "cabinet",
+        "kitchen_cabinet"
+      ],
+      "expected_anchor_categories": [
+        "sink"
+      ],
+      "expected_relation": "above",
+      "expected_select_constraint_type": null,
+      "description": "Nested spatial query: the cabinet above the sink near the refrigerator"
+    },
+    {
+      "query_id": "nested_013",
+      "query": "the curtain near the window above the radiator",
+      "expected_parse_mode": "single",
+      "expected_hypothesis_kind": "direct",
+      "expected_target_categories": [
+        "curtain"
+      ],
+      "expected_anchor_categories": [
+        "window"
+      ],
+      "expected_relation": "near",
+      "expected_select_constraint_type": null,
+      "description": "Nested spatial query: the curtain near the window above the radiator"
+    },
+    {
+      "query_id": "nested_014",
+      "query": "the lamp on the nightstand next to the bed",
+      "expected_parse_mode": "single",
+      "expected_hypothesis_kind": "direct",
+      "expected_target_categories": [
+        "lamp",
+        "table_lamp"
+      ],
+      "expected_anchor_categories": [
+        "nightstand"
+      ],
+      "expected_relation": "on",
+      "expected_select_constraint_type": null,
+      "description": "Nested spatial query: the lamp on the nightstand next to the bed"
+    },
+    {
+      "query_id": "multi_000",
+      "query": "the laptop on the desk",
+      "expected_parse_mode": "multi",
+      "expected_hypothesis_kind": "proxy",
+      "expected_target_categories": [
+        "UNKNOW"
+      ],
+      "expected_anchor_categories": [
+        "desk"
+      ],
+      "expected_relation": null,
+      "expected_select_constraint_type": null,
+      "description": "Multi-mode query (unknown category): the laptop on the desk"
+    },
+    {
+      "query_id": "multi_001",
+      "query": "the phone on the table",
+      "expected_parse_mode": "multi",
+      "expected_hypothesis_kind": "proxy",
+      "expected_target_categories": [
+        "UNKNOW"
+      ],
+      "expected_anchor_categories": [
+        "side_table",
+        "coffee_table"
+      ],
+      "expected_relation": null,
+      "expected_select_constraint_type": null,
+      "description": "Multi-mode query (unknown category): the phone on the table"
+    },
+    {
+      "query_id": "multi_002",
+      "query": "the remote on the sofa",
+      "expected_parse_mode": "multi",
+      "expected_hypothesis_kind": "proxy",
+      "expected_target_categories": [
+        "UNKNOW"
+      ],
+      "expected_anchor_categories": [
+        "sofa"
+      ],
+      "expected_relation": null,
+      "expected_select_constraint_type": null,
+      "description": "Multi-mode query (unknown category): the remote on the sofa"
+    },
+    {
+      "query_id": "multi_003",
+      "query": "the pen near the keyboard",
+      "expected_parse_mode": "multi",
+      "expected_hypothesis_kind": "proxy",
+      "expected_target_categories": [
+        "UNKNOW"
+      ],
+      "expected_anchor_categories": [
+        "keyboard"
+      ],
+      "expected_relation": null,
+      "expected_select_constraint_type": null,
+      "description": "Multi-mode query (unknown category): the pen near the keyboard"
+    },
+    {
+      "query_id": "multi_004",
+      "query": "the wallet on the dresser",
+      "expected_parse_mode": "multi",
+      "expected_hypothesis_kind": "proxy",
+      "expected_target_categories": [
+        "UNKNOW"
+      ],
+      "expected_anchor_categories": [
+        "dresser"
+      ],
+      "expected_relation": null,
+      "expected_select_constraint_type": null,
+      "description": "Multi-mode query (unknown category): the wallet on the dresser"
+    },
+    {
+      "query_id": "multi_005",
+      "query": "the keys on the counter",
+      "expected_parse_mode": "multi",
+      "expected_hypothesis_kind": "proxy",
+      "expected_target_categories": [
+        "UNKNOW"
+      ],
+      "expected_anchor_categories": [
+        "countertop"
+      ],
+      "expected_relation": null,
+      "expected_select_constraint_type": null,
+      "description": "Multi-mode query (unknown category): the keys on the counter"
+    },
+    {
+      "query_id": "multi_006",
+      "query": "the glasses on the nightstand",
+      "expected_parse_mode": "multi",
+      "expected_hypothesis_kind": "proxy",
+      "expected_target_categories": [
+        "UNKNOW"
+      ],
+      "expected_anchor_categories": [
+        "nightstand"
+      ],
+      "expected_relation": null,
+      "expected_select_constraint_type": null,
+      "description": "Multi-mode query (unknown category): the glasses on the nightstand"
+    },
+    {
+      "query_id": "multi_007",
+      "query": "the charger near the bed",
+      "expected_parse_mode": "multi",
+      "expected_hypothesis_kind": "proxy",
+      "expected_target_categories": [
+        "UNKNOW"
+      ],
+      "expected_anchor_categories": [
+        "bed"
+      ],
+      "expected_relation": null,
+      "expected_select_constraint_type": null,
+      "description": "Multi-mode query (unknown category): the charger near the bed"
+    },
+    {
+      "query_id": "multi_008",
+      "query": "the watch on the table",
+      "expected_parse_mode": "multi",
+      "expected_hypothesis_kind": "proxy",
+      "expected_target_categories": [
+        "UNKNOW"
+      ],
+      "expected_anchor_categories": [
+        "side_table",
+        "coffee_table"
+      ],
+      "expected_relation": null,
+      "expected_select_constraint_type": null,
+      "description": "Multi-mode query (unknown category): the watch on the table"
+    },
+    {
+      "query_id": "multi_009",
+      "query": "the cup on the desk",
+      "expected_parse_mode": "multi",
+      "expected_hypothesis_kind": "proxy",
+      "expected_target_categories": [
+        "UNKNOW"
+      ],
+      "expected_anchor_categories": [
+        "desk"
+      ],
+      "expected_relation": null,
+      "expected_select_constraint_type": null,
+      "description": "Multi-mode query (unknown category): the cup on the desk"
+    },
+    {
+      "query_id": "multi_010",
+      "query": "the headphones near the computer",
+      "expected_parse_mode": "multi",
+      "expected_hypothesis_kind": "context",
+      "expected_target_categories": [
+        "UNKNOW"
+      ],
+      "expected_anchor_categories": [
+        "UNKNOW"
+      ],
+      "expected_relation": null,
+      "expected_select_constraint_type": null,
+      "description": "Multi-mode query (unknown category): the headphones near the computer"
+    },
+    {
+      "query_id": "multi_011",
+      "query": "the notebook on the shelf",
+      "expected_parse_mode": "multi",
+      "expected_hypothesis_kind": "proxy",
+      "expected_target_categories": [
+        "UNKNOW"
+      ],
+      "expected_anchor_categories": [
+        "bookshelf"
+      ],
+      "expected_relation": null,
+      "expected_select_constraint_type": null,
+      "description": "Multi-mode query (unknown category): the notebook on the shelf"
+    },
+    {
+      "query_id": "multi_012",
+      "query": "the bag near the chair",
+      "expected_parse_mode": "multi",
+      "expected_hypothesis_kind": "proxy",
+      "expected_target_categories": [
+        "UNKNOW"
+      ],
+      "expected_anchor_categories": [
+        "chair",
+        "armchair",
+        "dining_chair"
+      ],
+      "expected_relation": null,
+      "expected_select_constraint_type": null,
+      "description": "Multi-mode query (unknown category): the bag near the chair"
+    },
+    {
+      "query_id": "multi_013",
+      "query": "the umbrella by the door",
+      "expected_parse_mode": "multi",
+      "expected_hypothesis_kind": "proxy",
+      "expected_target_categories": [
+        "UNKNOW"
+      ],
+      "expected_anchor_categories": [
+        "door"
+      ],
+      "expected_relation": null,
+      "expected_select_constraint_type": null,
+      "description": "Multi-mode query (unknown category): the umbrella by the door"
+    },
+    {
+      "query_id": "multi_014",
+      "query": "the tablet on the bed",
+      "expected_parse_mode": "multi",
+      "expected_hypothesis_kind": "proxy",
+      "expected_target_categories": [
+        "UNKNOW"
+      ],
+      "expected_anchor_categories": [
+        "bed"
+      ],
+      "expected_relation": null,
+      "expected_select_constraint_type": null,
+      "description": "Multi-mode query (unknown category): the tablet on the bed"
+    }
+  ]
+}

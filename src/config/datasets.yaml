@@ -1,0 +1,200 @@
+# Dataset Configuration
+# This file defines default configurations for supported datasets.
+# Override these settings by passing arguments to the adapter constructor.
+
+defaults:
+  # Default values applied to all datasets unless overridden
+  stride: 1
+  start: 0
+  end: null  # null means all frames
+
+# Replica Dataset
+# High-quality synthetic indoor scenes from Meta Reality Labs
+replica:
+  description: "Replica: High-quality 3D reconstruction dataset"
+  aliases:
+    - replica-v1
+    - replica-imap
+
+  # Camera parameters (shared across all Replica scenes)
+  camera:
+    fx: 600.0
+    fy: 600.0
+    cx: 599.5
+    cy: 339.5
+    width: 1200
+    height: 680
+
+  # Depth configuration
+  depth:
+    scale: 6553.5  # PNG value / scale = meters
+    format: png
+
+  # Coordinate system: OpenGL convention
+  coordinate_system: opengl
+
+  # Available scenes (iMAP subset)
+  scenes:
+    - room0
+    - room1
+    - room2
+    - office0
+    - office1
+    - office2
+    - office3
+    - office4
+
+  # Expected directory structure
+  structure:
+    rgb_pattern: "results/frame*.jpg"
+    depth_pattern: "results/depth*.png"
+    pose_file: "traj.txt"
+    mesh_file: "mesh.ply"
+
+# ScanNet v2 Dataset
+# Real-world RGB-D indoor scene reconstructions
+scannet:
+  description: "ScanNet: Richly-annotated 3D Reconstructions of Indoor Scenes"
+  aliases:
+    - scannet-v2
+
+  # Camera parameters vary per scene (loaded from intrinsic files)
+  camera:
+    # Default resolution
+    width: 1296
+    height: 968
+
+  # Depth configuration
+  depth:
+    scale: 1000.0  # PNG value / scale = meters
+    format: png
+
+  # Coordinate system
+  coordinate_system: scannet  # +X right, +Y forward, +Z up
+
+  # Scene ID pattern
+  scene_pattern: "scene[0-9]{4}_[0-9]{2}"
+
+  # Expected directory structure
+  structure:
+    color_dir: "color"
+    depth_dir: "depth"
+    pose_dir: "pose"
+    intrinsic_dir: "intrinsic"
+    label_dir: "label-filt"
+    rgb_pattern: "color/*.jpg"
+    depth_pattern: "depth/*.png"
+    pose_pattern: "pose/*.txt"
+    intrinsic_color: "intrinsic/intrinsic_color.txt"
+    intrinsic_depth: "intrinsic/intrinsic_depth.txt"
+
+# HM3D Dataset (Habitat-Matterport 3D)
+# Large-scale indoor scene dataset
+hm3d:
+  description: "Habitat-Matterport 3D: Large-scale indoor scene dataset"
+  aliases:
+    - habitat-matterport
+    - hm3d-v0.2
+
+  # Camera parameters for OpenEQA subset
+  camera:
+    fx: 315.0
+    fy: 315.0
+    cx: 320.0
+    cy: 240.0
+    width: 640
+    height: 480
+
+  depth:
+    scale: 1000.0
+    format: png
+
+  coordinate_system: habitat  # Same as OpenGL
+
+# AI2-THOR Dataset
+# Interactive simulation environments
+ai2thor:
+  description: "AI2-THOR: Interactive environments for embodied AI"
+
+  camera:
+    fx: 600.0
+    fy: 600.0
+    cx: 320.0
+    cy: 240.0
+    width: 640
+    height: 480
+
+  depth:
+    scale: 1000.0
+    format: png
+
+  coordinate_system: opengl
+
+# OpenEQA Benchmarks
+# Episodic memory QA benchmark configurations
+openeqa:
+  description: "OpenEQA: Open-vocabulary Embodied Question Answering"
+
+  # Supported subsets
+  subsets:
+    hm3d:
+      dataset: hm3d
+      question_file: "openeqa_hm3d.json"
+    scannet:
+      dataset: scannet
+      question_file: "openeqa_scannet.json"
+
+  # Evaluation settings
+  evaluation:
+    llm_judge: "gpt-4"
+    metrics:
+      - accuracy
+      - f1
+      - llm_score
+
+# ScanRefer Benchmark
+# 3D visual grounding benchmark
+scanrefer:
+  description: "ScanRefer: 3D Object Localization in RGB-D Scans"
+
+  dataset: scannet
+  annotation_file: "ScanRefer_filtered.json"
+
+  evaluation:
+    metrics:
+      - acc@0.25
+      - acc@0.5
+
+# SQA3D Benchmark
+# Situated question answering in 3D scenes
+sqa3d:
+  description: "SQA3D: Situated Question Answering in 3D Scenes"
+
+  dataset: scannet
+
+  splits:
+    train: "train.json"
+    val: "val.json"
+    test: "test.json"
+
+  evaluation:
+    metrics:
+      - exact_match
+      - f1
+
+# Coordinate system transforms
+# Transform matrices for converting between coordinate conventions
+coordinate_transforms:
+  # OpenCV to OpenGL: flip Y and Z
+  opencv_to_opengl:
+    - [1,  0,  0, 0]
+    - [0, -1,  0, 0]
+    - [0,  0, -1, 0]
+    - [0,  0,  0, 1]
+
+  # ScanNet to OpenGL
+  scannet_to_opengl:
+    - [1,  0,  0, 0]
+    - [0,  0,  1, 0]
+    - [0, -1,  0, 0]
+    - [0,  0,  0, 1]
