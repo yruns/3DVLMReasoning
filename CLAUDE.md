@@ -327,3 +327,25 @@ echo "$prompt" | ttadk code --model "claude-opus-4-5" \
 ```
 
 Note: The standard `claude` CLI fallback does not work in this environment.
+
+## Strict No-Fallback Rule (MANDATORY)
+
+**Every pipeline step MUST succeed exactly as designed. Silent fallbacks are strictly prohibited.**
+
+- If a dependency fails to import (e.g., SAM, torch), the script MUST raise an error and stop — never silently degrade (e.g., never fall back to bbox-rectangle masks when SAM fails).
+- If a required file, checkpoint, or data path is missing, fail immediately with a clear error message.
+- `try/except` blocks that swallow `ImportError` and substitute `None` are forbidden for critical dependencies.
+- Before running any pipeline step, verify that all prerequisites are met (correct python, GPU available, models loadable). If verification fails, fix the root cause before proceeding.
+- This applies to all code in `conceptgraph/`, `scripts/`, and `src/` — no exceptions.
+
+### ConceptGraph Pipeline: Use Conda Python
+
+The `conceptgraph/` pipeline requires the **`conceptgraph` conda environment**. The project `.venv` shadows conda's python on PATH, so always use the full path:
+
+```bash
+PYTHON=/home/ysh/miniconda3/envs/conceptgraph/bin/python
+$PYTHON conceptgraph/detection/generate_florence2.py ...
+$PYTHON conceptgraph/slam/pipeline.py ...
+```
+
+Never use bare `python` when running `conceptgraph/` code — it will resolve to `.venv/bin/python` which lacks torch/SAM/open_clip.

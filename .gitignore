@@ -53,6 +53,14 @@ data/
 
 # Runtime / experiment artifacts
 tmp/
+outputs/
 
 # External vendored repos (not submodules)
 external/
+
+# ConceptGraph pipeline outputs (generated data, not code)
+conceptgraph/configs/slam_pipeline/*.yaml
+!conceptgraph/configs/slam_pipeline/base.yaml
+
+# Bash scripts / scratch
+bashes/
