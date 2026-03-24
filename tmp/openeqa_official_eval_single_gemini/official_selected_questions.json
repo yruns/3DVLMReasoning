@@ -1,9 +1,0 @@
-[
-  {
-    "question": "What food is on the counter?",
-    "answer": "Cheerios",
-    "category": "object recognition",
-    "question_id": "b0b40220-5e47-40ea-9298-167b140c242c",
-    "episode_history": "scannet-v0/002-scannet-scene0709_00"
-  }
-]
