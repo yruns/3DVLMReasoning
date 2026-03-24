@@ -50,3 +50,9 @@ data/
 *.pkl
 *.pth
 *.pt
+
+# Runtime / experiment artifacts
+tmp/
+
+# External vendored repos (not submodules)
+external/

@@ -39,8 +39,71 @@ from agents.examples.openeqa_single_scene_pilot import (  # noqa: E402
     serialize_stage2_result,
 )
 
+from utils.llm_client import get_langchain_chat_model  # noqa: E402
+
+import threading  # noqa: E402
+
+# Per-scene lock to prevent parallel workers from racing on runtime cache setup
+_scene_locks: dict[str, threading.Lock] = {}
+_scene_locks_guard = threading.Lock()
+
+
+def _get_scene_lock(clip_id: str) -> threading.Lock:
+    with _scene_locks_guard:
+        if clip_id not in _scene_locks:
+            _scene_locks[clip_id] = threading.Lock()
+        return _scene_locks[clip_id]
+
+
 DEFAULT_JSON_PATH = PROJECT_ROOT / "data" / "open-eqa-v0.json"
 DEFAULT_OUTPUT_ROOT = PROJECT_ROOT / "tmp" / "openeqa_official_pilot_runs"
+
+_QA_TO_RETRIEVAL_PROMPT = """\
+You are a query rewriter for a 3D scene retrieval system. Given a question about a 3D scene, \
+extract concise object-centric retrieval queries that would help locate the relevant objects.
+
+Rules:
+- Output 1-3 retrieval queries, one per line
+- Each query should name the TARGET OBJECT and optionally its spatial context (anchor)
+- Remove question words (what, where, which, how, is, are, does)
+- Keep spatial relations (near, behind, under, left of, on top of, etc.)
+- If the question asks about an attribute (color, size, material), query for the object itself
+- Be concise: "red object below window" not "What is the red object that is below the windows"
+
+Examples:
+Q: What red object is below the windows?
+red object below the windows
+fire extinguisher near window
+
+Q: What color are the blinds?
+blinds
+blinds near window
+
+Q: What is behind the vacuum cleaner?
+vacuum cleaner
+objects behind vacuum cleaner
+
+Q: What food is on the counter?
+food on counter
+counter top
+
+Q: What is to the left of the office table?
+objects left of office table
+office table
+
+Now rewrite:
+Q: {question}
+"""
+
+
+def llm_rewrite_qa_to_retrieval(question: str) -> list[str]:
+    """Use a fast LLM call to convert a QA question into retrieval queries."""
+    prompt = _QA_TO_RETRIEVAL_PROMPT.format(question=question)
+    client = get_langchain_chat_model("gemini-2.5-pro", temperature=0.0, max_tokens=128)
+    response = client.invoke(prompt)
+    text = getattr(response, "content", str(response)).strip()
+    queries = [line.strip() for line in text.splitlines() if line.strip()]
+    return queries
 
 
 def parse_args() -> argparse.Namespace:
@@ -85,6 +148,18 @@ def parse_args() -> argparse.Namespace:
         type=int,
         default=3,
         help="Maximum number of official questions to run when not using --question-id.",
+    )
+    parser.add_argument(
+        "--num-scenes",
+        type=int,
+        default=None,
+        help="Select N distinct scenes first, then pick questions from each.",
+    )
+    parser.add_argument(
+        "--questions-per-scene",
+        type=int,
+        default=None,
+        help="Number of questions to run per scene (requires --num-scenes).",
     )
     parser.add_argument(
         "--k",
@@ -135,6 +210,34 @@ def parse_args() -> argparse.Namespace:
         default=DEFAULT_OFFICIAL_REPO_ROOT,
         help="Path to the cloned official OpenEQA repo.",
     )
+    parser.add_argument(
+        "--workers",
+        type=int,
+        default=1,
+        help=(
+            "Number of parallel workers for running samples. "
+            "Recommended: gemini_pool_size * 1.5 (e.g., 8 for 5-key pool). "
+            "Set to 1 for sequential execution."
+        ),
+    )
+    parser.add_argument(
+        "--llm-rewrite",
+        action="store_true",
+        help=(
+            "Use an LLM to rewrite QA-style questions into retrieval-oriented "
+            "queries before Stage 1. Improves direct_grounded rate."
+        ),
+    )
+    parser.add_argument(
+        "--confidence-guard",
+        type=float,
+        default=0.6,
+        help=(
+            "When Stage 2 completed with confidence >= this value AND E2E acquired "
+            "no new evidence (0 tool calls), prefer Stage 2's answer to avoid "
+            "non-deterministic downgrades. Set to 0 to disable."
+        ),
+    )
     return parser.parse_args()
 
 
@@ -177,6 +280,22 @@ def build_candidate_pool(
     filtered = [sample for sample in all_samples if matches_filters(sample, args)]
     if args.question_id:
         return filtered[:1]
+
+    # --num-scenes N --questions-per-scene M: pick N scenes, M questions each
+    if args.num_scenes is not None and args.questions_per_scene is not None:
+        from collections import defaultdict
+        by_scene: dict[str, list[dict[str, Any]]] = defaultdict(list)
+        for sample in filtered:
+            by_scene[sample["clip_id"]].append(sample)
+        # Pick scenes that have enough questions, sorted by clip_id for reproducibility
+        eligible = sorted(
+            ((cid, qs) for cid, qs in by_scene.items() if len(qs) >= args.questions_per_scene),
+            key=lambda t: t[0],
+        )
+        selected: list[dict[str, Any]] = []
+        for clip_id, questions in eligible[: args.num_scenes]:
+            selected.extend(questions[: args.questions_per_scene])
+        return selected
 
     if args.unique_scenes:
         unique: list[dict[str, Any]] = []
@@ -240,6 +359,29 @@ def run_stage1_with_fallback(
     args: argparse.Namespace,
 ):
     queries = build_stage1_query_candidates(sample["question"])
+
+    # LLM rewrite: insert retrieval-oriented queries at the front
+    if getattr(args, "llm_rewrite", False):
+        try:
+            rewritten = llm_rewrite_qa_to_retrieval(sample["question"])
+            if rewritten:
+                logger.info(
+                    "[LLMRewrite] {} -> {}",
+                    sample["question"][:60],
+                    rewritten,
+                )
+                # Deduplicate while preserving order: LLM rewrites first
+                seen = set()
+                merged: list[str] = []
+                for q in rewritten + queries:
+                    q_key = q.strip().lower()
+                    if q_key not in seen:
+                        seen.add(q_key)
+                        merged.append(q)
+                queries = merged
+        except Exception as exc:
+            logger.warning("[LLMRewrite] failed, falling back to heuristics: {}", exc)
+
     last_error: Exception | None = None
 
     for query in queries:
@@ -279,8 +421,11 @@ def extract_prediction_text(stage_summary: dict[str, Any]) -> str | None:
 def run_one_sample(sample: dict[str, Any], args: argparse.Namespace) -> dict[str, Any]:
     clip_id = sample["clip_id"]
     scene_root = args.data_root / clip_id
-    runtime_scene = ensure_runtime_scene(scene_root, args.output_root / "runtime_cache")
-    stride = infer_stride(scene_root / "conceptgraph")
+
+    # Per-scene lock: ensure_runtime_scene creates symlinks and is not thread-safe
+    with _get_scene_lock(clip_id):
+        runtime_scene = ensure_runtime_scene(scene_root, args.output_root / "runtime_cache")
+        stride = infer_stride(scene_root / "conceptgraph")
 
     selector, stage1_result, stage1_summary = run_stage1_with_fallback(
         sample=sample,
@@ -340,6 +485,30 @@ def run_one_sample(sample: dict[str, Any], args: argparse.Namespace) -> dict[str
     save_json(sample_dir / "e2e.json", e2e_summary)
     e2e_answer = extract_prediction_text(e2e_summary)
 
+    # Confidence guard: if Stage 2 completed with high confidence and E2E
+    # acquired no new evidence (0 tool calls), the E2E answer is just a
+    # non-deterministic re-roll on the same keyframes.  Prefer Stage 2's
+    # answer to avoid random downgrades.
+    # Additional condition: only guard when E2E is not MORE confident than
+    # Stage 2 — if E2E is more confident, it may have a legitimate
+    # different interpretation worth keeping.
+    e2e_guarded = False
+    guard_threshold = getattr(args, "confidence_guard", 0.6)
+    if (
+        guard_threshold > 0
+        and stage2_summary["status"] == "completed"
+        and stage2_summary["confidence"] >= guard_threshold
+        and len(e2e_summary["tool_trace"]) == 0
+        and e2e_summary["confidence"] <= stage2_summary["confidence"]
+    ):
+        logger.info(
+            "[ConfidenceGuard] Stage2 completed (conf={:.2f}) and E2E used 0 tools → "
+            "preferring Stage2 answer over E2E re-roll",
+            stage2_summary["confidence"],
+        )
+        e2e_answer = stage2_answer
+        e2e_guarded = True
+
     return {
         **sample_meta,
         "stage1_status": stage1_summary["status"],
@@ -353,6 +522,7 @@ def run_one_sample(sample: dict[str, Any], args: argparse.Namespace) -> dict[str
         "e2e_confidence": e2e_summary["confidence"],
         "e2e_tool_calls": len(e2e_summary["tool_trace"]),
         "e2e_final_keyframes": e2e_summary["final_keyframes"],
+        "e2e_guarded": e2e_guarded,
         "artifact_dir": str(sample_dir),
     }
 
@@ -391,11 +561,16 @@ def main() -> None:
     if not candidate_pool:
         raise RuntimeError("No official OpenEQA samples matched the requested filters.")
 
-    target_results = 1 if args.question_id else args.max_samples
+    if args.question_id:
+        target_results = 1
+    elif args.num_scenes is not None and args.questions_per_scene is not None:
+        target_results = len(candidate_pool)  # already bounded by build_candidate_pool
+    else:
+        target_results = args.max_samples
+    work_items = candidate_pool[:target_results]
     results: list[dict[str, Any]] = []
-    for sample in candidate_pool:
-        if len(results) >= target_results:
-            break
+
+    def _run_sample(sample: dict[str, Any]) -> dict[str, Any]:
         logger.info(
             "[Official] running question_id={} clip={} category={}",
             sample["question_id"],
@@ -404,7 +579,6 @@ def main() -> None:
         )
         try:
             row = run_one_sample(sample, args)
-            results.append(row)
             logger.info(
                 "[Official] done question_id={} stage1={} stage2={} e2e={} tools(e2e)={}",
                 sample["question_id"],
@@ -413,16 +587,35 @@ def main() -> None:
                 row["e2e_status"],
                 row["e2e_tool_calls"],
             )
+            return row
         except Exception as exc:
             logger.exception("[Official] failed question_id={}", sample["question_id"])
-            if args.require_stage1_success and not args.question_id:
+            return {**sample, "error": str(exc)}
+
+    num_workers = max(1, getattr(args, "workers", 1))
+    if num_workers > 1:
+        import concurrent.futures
+
+        logger.info("[Parallel] Running {} samples with {} workers", len(work_items), num_workers)
+        with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
+            future_to_sample = {
+                executor.submit(_run_sample, sample): sample
+                for sample in work_items
+            }
+            for future in concurrent.futures.as_completed(future_to_sample):
+                row = future.result()
+                if "error" in row and args.require_stage1_success and not args.question_id:
+                    continue
+                results.append(row)
+                logger.info(
+                    "[Parallel] progress {}/{}", len(results), len(work_items),
+                )
+    else:
+        for sample in work_items:
+            row = _run_sample(sample)
+            if "error" in row and args.require_stage1_success and not args.question_id:
                 continue
-            results.append(
-                {
-                    **sample,
-                    "error": str(exc),
-                }
-            )
+            results.append(row)
 
     summary = {
         "json_path": str(args.json_path),
