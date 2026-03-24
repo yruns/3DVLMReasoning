@@ -235,7 +235,7 @@ class KeyframeSelector:
         affordance_file: Path | None = None,
         stride: int = 5,
         llm_model: str = None,
-        use_pool: bool = False,
+        use_pool: bool | None = None,
     ):
         """Initialize keyframe selector.
 
@@ -245,12 +245,17 @@ class KeyframeSelector:
             affordance_file: Path to object_affordances.json (optional)
             stride: Frame stride used during mapping
             llm_model: LLM model name (e.g., "gemini-2.5-pro")
-            use_pool: If True, use Gemini pool for concurrent requests
+            use_pool: Whether to use Gemini pool. ``None`` auto-enables the
+                pool for ``gemini-2.5-pro``.
         """
         self.scene_path = Path(scene_path)
         self.stride = stride
         self.llm_model = llm_model
-        self.use_pool = use_pool
+        self.use_pool = (
+            llm_model is not None and llm_model.strip().lower() == "gemini-2.5-pro"
+            if use_pool is None
+            else use_pool
+        )
 
         # Data containers
         self.objects: list[SceneObject] = []

@@ -16,6 +16,8 @@ import cv2
 import numpy as np
 from loguru import logger
 
+from utils.llm_client import DEFAULT_MODEL
+
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Query-driven keyframe selection")
@@ -46,8 +48,8 @@ def parse_args():
     parser.add_argument(
         "--llm_model",
         type=str,
-        required=True,
-        help="LLM model name (required). Options: gpt-5.2-2025-12-11, gemini-2.5-pro, gemini-3-pro-preview-new, gemini-3-flash-preview",
+        default=DEFAULT_MODEL,
+        help="LLM model name. Defaults to the non-agent Gemini pool model.",
     )
     return parser.parse_args()
 

@@ -1,0 +1,36 @@
+{
+  "run_name": "stage2",
+  "status": "completed",
+  "confidence": 0.48,
+  "summary": "A bag/box of cereal (or similar dry food) is sitting on the kitchen counter next to the microwave.",
+  "payload": {
+    "answer": "A bag/box of cereal (packaged dry food) is on the counter.",
+    "supporting_claims": [
+      "In frames 0 and 1, a packaged dry food item that looks like cereal is sitting on the counter next to the microwave."
+    ]
+  },
+  "uncertainties": [
+    "The packaging is too blurry to read precisely; it looks like cereal or another dry boxed/bagged food, but the exact product name/type cannot be confirmed."
+  ],
+  "cited_frame_indices": [
+    0,
+    1
+  ],
+  "evidence_items": [
+    {
+      "claim": "A packaged dry food item (appears like a cereal bag/box) is on the counter next to the microwave.",
+      "frame_indices": [
+        0,
+        1
+      ],
+      "object_terms": [
+        "counter top",
+        "other item",
+        "microwave"
+      ]
+    }
+  ],
+  "tool_trace": [],
+  "initial_keyframes": 3,
+  "final_keyframes": 3
+}

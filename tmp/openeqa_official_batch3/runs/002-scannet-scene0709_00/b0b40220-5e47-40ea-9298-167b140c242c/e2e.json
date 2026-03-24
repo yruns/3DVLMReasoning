@@ -1,0 +1,35 @@
+{
+  "run_name": "e2e",
+  "status": "completed",
+  "confidence": 0.53,
+  "summary": "A bag/package of food (likely a cereal/grain/snack bag) is on the kitchen counter next to the microwave.",
+  "payload": {
+    "answer": "A bag/package of food (looks like a cereal/grain/snack bag) is on the counter.",
+    "supporting_claims": [
+      "In frames 0 and 1, a bag/package of food is visible on the countertop next to the microwave."
+    ]
+  },
+  "uncertainties": [
+    "The exact type of food in the bag is unclear due to low resolution; only a bag/package is clearly visible."
+  ],
+  "cited_frame_indices": [
+    0,
+    1
+  ],
+  "evidence_items": [
+    {
+      "claim": "There is a bag/package of food sitting on the counter next to the microwave.",
+      "frame_indices": [
+        0,
+        1
+      ],
+      "object_terms": [
+        "counter top",
+        "bag/package"
+      ]
+    }
+  ],
+  "tool_trace": [],
+  "initial_keyframes": 3,
+  "final_keyframes": 3
+}

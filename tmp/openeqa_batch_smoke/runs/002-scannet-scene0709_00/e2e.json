@@ -1,0 +1,36 @@
+{
+  "run_name": "e2e",
+  "status": "insufficient_evidence",
+  "confidence": 0.28,
+  "summary": "The current keyframe shows a kitchen counter with a sink and dish-drying rack, but the dishwasher itself and any magnet are not clearly visible, so I can’t reliably describe the objects around the dishwasher or the setup near the magnet from this view alone.",
+  "payload": {
+    "answer": "I can’t confidently identify the dishwasher or the magnet from the current image, so I don’t have enough context to list the major objects around the dishwasher or describe the setup near the magnet.",
+    "supporting_claims": [
+      "Frame 0 shows a sink/counter area with a dish-drying rack and countertop items, but the dishwasher and any magnet are not clearly visible."
+    ]
+  },
+  "uncertainties": [
+    "Dishwasher is not clearly visible in the current frame (could be under-counter but not shown).",
+    "A magnet is not visible/identifiable in the current frame (likely on a fridge or other surface outside the view).",
+    "Need wider context around under-counter appliances and any magnetic surface (e.g., refrigerator)."
+  ],
+  "cited_frame_indices": [
+    0
+  ],
+  "evidence_items": [
+    {
+      "claim": "The frame shows a kitchen counter with a sink and dish-drying rack, but not a clearly identifiable dishwasher or magnet.",
+      "frame_indices": [
+        0
+      ],
+      "object_terms": [
+        "sink",
+        "dish rack",
+        "counter"
+      ]
+    }
+  ],
+  "tool_trace": [],
+  "initial_keyframes": 1,
+  "final_keyframes": 1
+}

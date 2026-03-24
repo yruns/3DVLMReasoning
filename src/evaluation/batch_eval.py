@@ -232,7 +232,7 @@ class BatchEvalConfig(BaseModel):
     resume_from_checkpoint: bool = True
 
     # Stage 1 configuration
-    stage1_model: str = "gpt-5.2-2025-12-11"
+    stage1_model: str = "gemini-2.5-pro"
     stage1_k: int = Field(default=3, ge=1, le=10)
     stage1_timeout_seconds: int = Field(default=60, ge=10)
 

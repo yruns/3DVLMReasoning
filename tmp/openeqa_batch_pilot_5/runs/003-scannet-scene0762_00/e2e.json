@@ -1,0 +1,79 @@
+{
+  "run_name": "e2e",
+  "status": "completed",
+  "confidence": 0.62,
+  "summary": "The phone appears to be a desk telephone on a cluttered tabletop near a window. Nearby are office supplies and drinks. The speaker appears to be a small standalone speaker sitting on the floor in an open cubby area under the desk near a mini fridge and shoes.",
+  "payload": {
+    "answer": "• Major objects around the phone: the phone (desk telephone) is on the tabletop near the window, next to a cup holding pens/scissors, drink containers (a soda can and a small bottle), and close to a printer on the right side of the desk (frames 0, 2).\n\n• Overall setup near the speaker: the speaker is a small standalone unit sitting low on the floor in/near an open cubby under the desk/cabinet area, right beside a mini fridge and some shoes stored underneath (frame 1).",
+    "supporting_claims": [
+      "The desk phone is visible on the cluttered desktop near the window (frames 0, 2).",
+      "Near the phone are office supplies (pen/scissors cup), drinks, and a printer on the desk (frames 0, 2).",
+      "A small speaker is visible near the floor under the desk, next to a mini fridge and shoes (frame 1)."
+    ]
+  },
+  "uncertainties": [
+    "The speaker is only clearly visible in frame 1 (low light); its exact make/model and whether there are additional speakers is unclear."
+  ],
+  "cited_frame_indices": [
+    0,
+    1,
+    2
+  ],
+  "evidence_items": [
+    {
+      "claim": "A desk phone/telephone sits on the desk near the window among other items (office supplies and drinks).",
+      "frame_indices": [
+        0,
+        2
+      ],
+      "object_terms": [
+        "phone",
+        "desk",
+        "window"
+      ]
+    },
+    {
+      "claim": "Objects around the phone include a pen/scissors cup, drink can/bottle, and a printer nearby on the same tabletop.",
+      "frame_indices": [
+        0,
+        2
+      ],
+      "object_terms": [
+        "pen/scissors cup",
+        "drink can",
+        "bottle",
+        "printer"
+      ]
+    },
+    {
+      "claim": "A small speaker is on the floor in/near an open cubby under the desk, next to a mini fridge and shoes.",
+      "frame_indices": [
+        1
+      ],
+      "object_terms": [
+        "speaker",
+        "mini fridge",
+        "shoes",
+        "desk/cabinet"
+      ]
+    }
+  ],
+  "tool_trace": [
+    {
+      "tool_name": "request_more_views",
+      "tool_input": {
+        "request_text": "Need clearer context: please provide additional keyframes (wider and closer) around the phone and the speaker area, including right side of desk and any nearby electronics, to identify the phone and speaker unambiguously.",
+        "frame_indices": [
+          0
+        ],
+        "object_terms": [
+          "phone",
+          "speaker"
+        ]
+      },
+      "response_text": "Added 2 new keyframe(s) for objects: [7, 10, 18, 28]. New view IDs: [28, 226]. Total keyframes now: 3."
+    }
+  ],
+  "initial_keyframes": 1,
+  "final_keyframes": 3
+}

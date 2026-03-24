@@ -1,0 +1,31 @@
+{
+  "scene_id": "014-scannet-scene0714_00",
+  "runtime_scene": "tmp/openeqa_batch_pilot_5/runtime_cache/014-scannet-scene0714_00",
+  "stride": 2,
+  "object_count": 51,
+  "pose_count": 300,
+  "image_count": 300,
+  "query": "the screen door near the bookshelf",
+  "status": "direct_grounded",
+  "target_term": "screen door",
+  "anchor_term": "bookshelf",
+  "keyframe_indices": [
+    27
+  ],
+  "keyframe_paths": [
+    "tmp/openeqa_batch_pilot_5/runtime_cache/014-scannet-scene0714_00/results/frame000054.jpg"
+  ],
+  "frame_mappings": [
+    {
+      "requested_view_id": 27,
+      "requested_frame_id": 54,
+      "resolved_view_id": 27,
+      "resolved_frame_id": 54,
+      "path": "tmp/openeqa_batch_pilot_5/runtime_cache/014-scannet-scene0714_00/results/frame000054.jpg"
+    }
+  ],
+  "hypothesis_kind": "direct",
+  "hypothesis_rank": 1,
+  "target_object_count": 1,
+  "anchor_object_count": 2
+}

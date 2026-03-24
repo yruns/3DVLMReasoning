@@ -35,8 +35,7 @@ RELATION_TEXT = {
 }
 
 DEFAULT_TEACHER_MODELS = [
-    "gpt-5.2-2025-12-11",
-    "gemini-3-pro-preview-new",
+    "gemini-2.5-pro",
 ]
 DEFAULT_PROMPT_VERSION = "p_qwen_sft_v3_20260307"
 

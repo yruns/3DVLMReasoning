@@ -1,0 +1,94 @@
+{
+  "run_name": "e2e",
+  "status": "completed",
+  "confidence": 0.58,
+  "summary": "The chair near the hassock sits between a small dining table and a desk/workstation area; the hassock appears to be a dark, low ottoman/beanbag-like seat positioned near the chair and desk.",
+  "payload": {
+    "answer": "Around the chair: a wooden dining table (with assorted items on it) and another wooden chair are to the left; to the right is a desk/work table with two monitors and stacks of papers. A tall floor lamp stands beside the desk area. The hassock (a dark, low ottoman/beanbag-like seat) sits on the floor near the chair, between the dining-table side and the desk area.\n\nOverall setup near the hassock: it’s part of a compact work/dining corner—hassock and chair in the open floor space next to the desk, with the lamp lighting the workstation; the area opens toward a bed in the background.",
+    "supporting_claims": [
+      "The chair is positioned between a small dining table with another chair and a desk/workstation with monitors and papers (frames 0, 1, 2).",
+      "A dark, low hassock/ottoman-like object is on the floor near the chair, adjacent to the desk area (frame 1).",
+      "A tall floor lamp is next to the desk area, and a bed is visible in the background beyond the workstation (frame 2)."
+    ]
+  },
+  "uncertainties": [
+    "The hassock’s exact type/shape is unclear due to blur (could be an ottoman/beanbag/soft low seat), but it is clearly a dark, low seating object near the chair."
+  ],
+  "cited_frame_indices": [
+    0,
+    1,
+    2
+  ],
+  "evidence_items": [
+    {
+      "claim": "A wooden dining table is next to the chair, with items on top, and another wooden chair tucked in.",
+      "frame_indices": [
+        0,
+        1
+      ],
+      "object_terms": [
+        "dining table",
+        "wooden chair",
+        "tabletop items"
+      ]
+    },
+    {
+      "claim": "A dark, low hassock/ottoman-like object is on the floor near the chair and adjacent to the desk area.",
+      "frame_indices": [
+        1
+      ],
+      "object_terms": [
+        "hassock",
+        "chair"
+      ]
+    },
+    {
+      "claim": "A desk/work table with monitors/screens and papers is immediately beside the chair/hassock area.",
+      "frame_indices": [
+        1,
+        2
+      ],
+      "object_terms": [
+        "desk",
+        "monitors",
+        "papers"
+      ]
+    },
+    {
+      "claim": "A tall floor lamp stands between/near the dining table side and the desk area.",
+      "frame_indices": [
+        1,
+        2
+      ],
+      "object_terms": [
+        "floor lamp"
+      ]
+    },
+    {
+      "claim": "The setup extends into a bedroom area with a bed visible behind the desk/chair area.",
+      "frame_indices": [
+        2
+      ],
+      "object_terms": [
+        "bed"
+      ]
+    }
+  ],
+  "tool_trace": [
+    {
+      "tool_name": "request_more_views",
+      "tool_input": {
+        "request_text": "Need clearer/wider views showing the hassock and the chair near it, plus surrounding objects (table, other chairs, floor items). Current keyframe is blurry and hassock not clearly identifiable; please provide neighboring keyframes or alternative angles.",
+        "frame_indices": [
+          0
+        ],
+        "object_terms": [
+          "hassock"
+        ]
+      },
+      "response_text": "Added 2 new keyframe(s) for objects: [10, 34]. New view IDs: [122, 209]. Total keyframes now: 3."
+    }
+  ],
+  "initial_keyframes": 1,
+  "final_keyframes": 3
+}

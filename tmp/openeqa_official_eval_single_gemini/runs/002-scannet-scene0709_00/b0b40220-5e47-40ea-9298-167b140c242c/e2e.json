@@ -1,0 +1,35 @@
+{
+  "run_name": "e2e",
+  "status": "completed",
+  "confidence": 0.55,
+  "summary": "A bag/box of food (likely cereal or a snack) is sitting on the kitchen counter near the microwave.",
+  "payload": {
+    "answer": "A packaged dry food item (a bag/box, likely cereal/snack) is on the counter near the microwave.",
+    "supporting_claims": [
+      "In frames 0 and 1, a packaged food item is visible sitting on the countertop beside the microwave."
+    ]
+  },
+  "uncertainties": [
+    "The packaging text is not readable, so the exact food type/brand cannot be confirmed beyond it being a packaged dry food item."
+  ],
+  "cited_frame_indices": [
+    0,
+    1
+  ],
+  "evidence_items": [
+    {
+      "claim": "A packaged food item (bag/box) is on the counter next to the microwave.",
+      "frame_indices": [
+        0,
+        1
+      ],
+      "object_terms": [
+        "counter top",
+        "packaged food item near microwave"
+      ]
+    }
+  ],
+  "tool_trace": [],
+  "initial_keyframes": 3,
+  "final_keyframes": 3
+}

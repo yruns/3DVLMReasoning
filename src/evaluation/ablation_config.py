@@ -162,7 +162,7 @@ class Stage1Config(BaseModel):
     """Configuration for Stage 1 keyframe retrieval."""
 
     model: str = Field(
-        default="gpt-5.2-2025-12-11",
+        default="gemini-2.5-pro",
         description="Model for query parsing and hypothesis generation",
     )
     k: int = Field(

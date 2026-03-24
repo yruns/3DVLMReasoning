@@ -1,0 +1,41 @@
+{
+  "scene_id": "002-scannet-scene0709_00",
+  "runtime_scene": "tmp/openeqa_official_batch3/runtime_cache/002-scannet-scene0709_00",
+  "stride": 2,
+  "object_count": 49,
+  "pose_count": 300,
+  "image_count": 300,
+  "query": "What color are the blinds?",
+  "status": "proxy_grounded",
+  "target_term": "curtain",
+  "anchor_term": null,
+  "keyframe_indices": [
+    189
+  ],
+  "keyframe_paths": [
+    "tmp/openeqa_official_batch3/runtime_cache/002-scannet-scene0709_00/results/frame000378.jpg"
+  ],
+  "frame_mappings": [
+    {
+      "requested_view_id": 189,
+      "requested_frame_id": 378,
+      "resolved_view_id": 189,
+      "resolved_frame_id": 378,
+      "path": "tmp/openeqa_official_batch3/runtime_cache/002-scannet-scene0709_00/results/frame000378.jpg"
+    }
+  ],
+  "hypothesis_kind": "proxy",
+  "hypothesis_rank": 2,
+  "target_object_count": 1,
+  "anchor_object_count": 0,
+  "official_question": "What color are the blinds?",
+  "stage1_query_used": "What color are the blinds?",
+  "stage1_query_candidates": [
+    "What color are the blinds?",
+    "What color are the blinds",
+    "what color are the blinds",
+    "the what color are the blinds",
+    "color are the blinds",
+    "the color are the blinds"
+  ]
+}

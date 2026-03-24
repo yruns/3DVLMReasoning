@@ -1,0 +1,91 @@
+{
+  "json_path": "/Users/bytedance/project/3DVLMReasoning/data/open-eqa-v0.json",
+  "num_loaded_scannet": 1079,
+  "num_selected": 3,
+  "num_results": 3,
+  "results": [
+    {
+      "question_id": "e845f82a-d55c-42f8-88e3-8e9fcaf5bd02",
+      "question": "What red object is the below the windows?",
+      "answer": "Fire extinguisher",
+      "category": "object recognition",
+      "episode_history": "scannet-v0/002-scannet-scene0709_00",
+      "clip_id": "002-scannet-scene0709_00",
+      "stage1_query_used": "what red object is the below the windows",
+      "stage1_query_candidates": [
+        "What red object is the below the windows?",
+        "What red object is the below the windows",
+        "what red object is the below the windows",
+        "the what red object is the below the windows",
+        "red object is the below the windows",
+        "the red object is the below the windows",
+        "what red object below the windows",
+        "the what red object below the windows"
+      ],
+      "stage1_status": "proxy_grounded",
+      "stage1_keyframes": 3,
+      "stage2_status": "insufficient_evidence",
+      "stage2_confidence": 0.24,
+      "stage2_tool_calls": 0,
+      "e2e_status": "insufficient_evidence",
+      "e2e_confidence": 0.25,
+      "e2e_tool_calls": 0,
+      "e2e_final_keyframes": 3,
+      "artifact_dir": "tmp/openeqa_official_batch3/runs/002-scannet-scene0709_00/e845f82a-d55c-42f8-88e3-8e9fcaf5bd02"
+    },
+    {
+      "question_id": "b0b40220-5e47-40ea-9298-167b140c242c",
+      "question": "What food is on the counter?",
+      "answer": "Cheerios",
+      "category": "object recognition",
+      "episode_history": "scannet-v0/002-scannet-scene0709_00",
+      "clip_id": "002-scannet-scene0709_00",
+      "stage1_query_used": "What food is on the counter?",
+      "stage1_query_candidates": [
+        "What food is on the counter?",
+        "What food is on the counter",
+        "what food is on the counter",
+        "the what food is on the counter",
+        "food is on the counter",
+        "the food is on the counter"
+      ],
+      "stage1_status": "proxy_grounded",
+      "stage1_keyframes": 3,
+      "stage2_status": "completed",
+      "stage2_confidence": 0.48,
+      "stage2_tool_calls": 0,
+      "e2e_status": "completed",
+      "e2e_confidence": 0.53,
+      "e2e_tool_calls": 0,
+      "e2e_final_keyframes": 3,
+      "artifact_dir": "tmp/openeqa_official_batch3/runs/002-scannet-scene0709_00/b0b40220-5e47-40ea-9298-167b140c242c"
+    },
+    {
+      "question_id": "f829e253-ca9a-4456-b2d3-70e1a7a2eecd",
+      "question": "What color are the blinds?",
+      "answer": "White",
+      "category": "attribute recognition",
+      "episode_history": "scannet-v0/002-scannet-scene0709_00",
+      "clip_id": "002-scannet-scene0709_00",
+      "stage1_query_used": "What color are the blinds?",
+      "stage1_query_candidates": [
+        "What color are the blinds?",
+        "What color are the blinds",
+        "what color are the blinds",
+        "the what color are the blinds",
+        "color are the blinds",
+        "the color are the blinds"
+      ],
+      "stage1_status": "proxy_grounded",
+      "stage1_keyframes": 1,
+      "stage2_status": "insufficient_evidence",
+      "stage2_confidence": 0.12,
+      "stage2_tool_calls": 1,
+      "e2e_status": "completed",
+      "e2e_confidence": 0.72,
+      "e2e_tool_calls": 2,
+      "e2e_final_keyframes": 3,
+      "artifact_dir": "tmp/openeqa_official_batch3/runs/002-scannet-scene0709_00/f829e253-ca9a-4456-b2d3-70e1a7a2eecd"
+    }
+  ]
+}

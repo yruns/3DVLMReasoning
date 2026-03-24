@@ -358,7 +358,7 @@ def run_sqa3d_oneshot(
         benchmark_name="sqa3d",
         max_workers=max_workers,
         # Stage 1 configuration
-        stage1_model="gpt-5.2-2025-12-11",
+        stage1_model="gemini-2.5-pro",
         stage1_k=3,
         # Stage 2 ONE-SHOT mode
         stage2_enabled=True,

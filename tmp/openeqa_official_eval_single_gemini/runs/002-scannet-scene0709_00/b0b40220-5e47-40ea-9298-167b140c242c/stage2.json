@@ -1,0 +1,36 @@
+{
+  "run_name": "stage2",
+  "status": "completed",
+  "confidence": 0.6,
+  "summary": "A bag/box of food (appears to be a bag of bread or similar packaged food) is on the kitchen counter next to the microwave.",
+  "payload": {
+    "answer": "A packaged food item (a bag/box that looks like bread or similar) is on the counter.",
+    "supporting_claims": [
+      "In frames 0 and 1, a standing bag/box of food is visible on the counter next to the microwave."
+    ]
+  },
+  "uncertainties": [
+    "The packaging is visible but too blurry to identify the exact type/brand of food beyond being a packaged bread/snack-like item."
+  ],
+  "cited_frame_indices": [
+    0,
+    1
+  ],
+  "evidence_items": [
+    {
+      "claim": "A packaged food item (in a standing bag/box) is placed on the counter next to the microwave.",
+      "frame_indices": [
+        0,
+        1
+      ],
+      "object_terms": [
+        "counter top",
+        "microwave",
+        "packaged food bag/box"
+      ]
+    }
+  ],
+  "tool_trace": [],
+  "initial_keyframes": 3,
+  "final_keyframes": 3
+}

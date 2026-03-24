@@ -1,0 +1,31 @@
+{
+  "scene_id": "003-scannet-scene0762_00",
+  "runtime_scene": "tmp/openeqa_batch_pilot_5/runtime_cache/003-scannet-scene0762_00",
+  "stride": 2,
+  "object_count": 63,
+  "pose_count": 300,
+  "image_count": 300,
+  "query": "the phone near the speaker",
+  "status": "direct_grounded",
+  "target_term": "phone",
+  "anchor_term": "speaker",
+  "keyframe_indices": [
+    215
+  ],
+  "keyframe_paths": [
+    "tmp/openeqa_batch_pilot_5/runtime_cache/003-scannet-scene0762_00/results/frame000430.jpg"
+  ],
+  "frame_mappings": [
+    {
+      "requested_view_id": 215,
+      "requested_frame_id": 430,
+      "resolved_view_id": 215,
+      "resolved_frame_id": 430,
+      "path": "tmp/openeqa_batch_pilot_5/runtime_cache/003-scannet-scene0762_00/results/frame000430.jpg"
+    }
+  ],
+  "hypothesis_kind": "direct",
+  "hypothesis_rank": 1,
+  "target_object_count": 1,
+  "anchor_object_count": 2
+}

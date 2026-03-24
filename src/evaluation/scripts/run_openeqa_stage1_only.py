@@ -238,7 +238,7 @@ def run_stage1_only_baseline(
         benchmark_name="openeqa",
         max_workers=max_workers,
         # Stage 1 configuration
-        stage1_model="gpt-5.2-2025-12-11",
+        stage1_model="gemini-2.5-pro",
         stage1_k=3,
         # Stage 2 DISABLED for baseline
         stage2_enabled=False,

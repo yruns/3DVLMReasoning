@@ -1,0 +1,31 @@
+{
+  "scene_id": "012-scannet-scene0785_00",
+  "runtime_scene": "tmp/openeqa_batch_pilot_5/runtime_cache/012-scannet-scene0785_00",
+  "stride": 2,
+  "object_count": 37,
+  "pose_count": 300,
+  "image_count": 300,
+  "query": "the chair near the hassock",
+  "status": "direct_grounded",
+  "target_term": "chair",
+  "anchor_term": "hassock",
+  "keyframe_indices": [
+    31
+  ],
+  "keyframe_paths": [
+    "tmp/openeqa_batch_pilot_5/runtime_cache/012-scannet-scene0785_00/results/frame000062.jpg"
+  ],
+  "frame_mappings": [
+    {
+      "requested_view_id": 31,
+      "requested_frame_id": 62,
+      "resolved_view_id": 31,
+      "resolved_frame_id": 62,
+      "path": "tmp/openeqa_batch_pilot_5/runtime_cache/012-scannet-scene0785_00/results/frame000062.jpg"
+    }
+  ],
+  "hypothesis_kind": "direct",
+  "hypothesis_rank": 1,
+  "target_object_count": 1,
+  "anchor_object_count": 2
+}

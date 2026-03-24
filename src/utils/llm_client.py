@@ -529,7 +529,7 @@ def get_langchain_chat_model(
     deployment_name: str | None = None,
     temperature: float = None,
     max_tokens: int | None = None,
-    use_pool: bool = False,
+    use_pool: bool | None = None,
     **kwargs,
 ) -> AzureChatOpenAI:
     """
@@ -544,13 +544,17 @@ def get_langchain_chat_model(
             - "gemini-3-flash-preview"
         temperature: Sampling temperature (default: 0.0)
         max_tokens: Maximum tokens in response (default: None)
-        use_pool: If True and model is gemini-2.5-pro, use pool client
+        use_pool: Whether to use Gemini pool. ``None`` auto-enables the pool
+            for the default non-agent model ``gemini-2.5-pro``.
         **kwargs: Additional arguments passed to AzureChatOpenAI
 
     Returns:
         AzureChatOpenAI: Configured LangChain chat model
     """
     deployment = deployment_name or DEFAULT_MODEL
+
+    if use_pool is None:
+        use_pool = deployment == "gemini-2.5-pro"
 
     # Use pool for gemini-2.5-pro if requested
     if use_pool and deployment == "gemini-2.5-pro":

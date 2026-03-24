@@ -1,0 +1,17 @@
+{
+  "question_id": "b0b40220-5e47-40ea-9298-167b140c242c",
+  "question": "What food is on the counter?",
+  "answer": "Cheerios",
+  "category": "object recognition",
+  "episode_history": "scannet-v0/002-scannet-scene0709_00",
+  "clip_id": "002-scannet-scene0709_00",
+  "stage1_query_used": "What food is on the counter?",
+  "stage1_query_candidates": [
+    "What food is on the counter?",
+    "What food is on the counter",
+    "what food is on the counter",
+    "the what food is on the counter",
+    "food is on the counter",
+    "the food is on the counter"
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "question_id": "f829e253-ca9a-4456-b2d3-70e1a7a2eecd",
+  "question": "What color are the blinds?",
+  "answer": "White",
+  "category": "attribute recognition",
+  "episode_history": "scannet-v0/002-scannet-scene0709_00",
+  "clip_id": "002-scannet-scene0709_00",
+  "stage1_query_used": "What color are the blinds?",
+  "stage1_query_candidates": [
+    "What color are the blinds?",
+    "What color are the blinds",
+    "what color are the blinds",
+    "the what color are the blinds",
+    "color are the blinds",
+    "the color are the blinds"
+  ]
+}

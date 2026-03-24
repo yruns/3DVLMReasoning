@@ -1,0 +1,68 @@
+{
+  "run_name": "e2e",
+  "status": "completed",
+  "confidence": 0.62,
+  "summary": "The workstation is a long desk with a central monitor and chair; the keyboard sits on the right side near stacks of papers/books and a desk lamp, with drawers on the far right and a computer tower under the desk.",
+  "payload": {
+    "answer": "Around the keyboard (right side of the desk) there are stacks of papers/books and assorted documents, with a desk lamp at the far right end of the surface. The overall layout is a long wall-length desk: a monitor is positioned near the center with a rolling office chair in front, a computer tower sits on the floor under the desk, and the right end has built-in drawers; there’s also another chair on the left indicating the desk serves multiple spots. (frame 0)",
+    "supporting_claims": [
+      "Keyboard is on the right side of the desk beside stacks of papers/books and near a desk lamp. (frame 0)",
+      "Monitor is centered on the desk with a rolling chair in front; a desktop tower is under the desk. (frame 0)",
+      "Desk spans the wall and includes drawer cabinets on the right; an additional chair appears on the left. (frame 0)"
+    ]
+  },
+  "uncertainties": [
+    "The keyboard is visible only partially; some nearby small items (e.g., mouse or specific peripherals) are not clearly identifiable from this frame."
+  ],
+  "cited_frame_indices": [
+    0
+  ],
+  "evidence_items": [
+    {
+      "claim": "A computer monitor sits on the desk near the center, with a rolling office chair in front of it.",
+      "frame_indices": [
+        0
+      ],
+      "object_terms": [
+        "monitor",
+        "office chair",
+        "desk"
+      ]
+    },
+    {
+      "claim": "A desktop computer tower is on the floor under the desk (left of the chair).",
+      "frame_indices": [
+        0
+      ],
+      "object_terms": [
+        "desktop computer tower",
+        "floor under desk"
+      ]
+    },
+    {
+      "claim": "The keyboard is on the right side of the desk, near a pile of papers/books and next to a desk lamp at the far right.",
+      "frame_indices": [
+        0
+      ],
+      "object_terms": [
+        "keyboard",
+        "papers/books",
+        "desk lamp"
+      ]
+    },
+    {
+      "claim": "The desk extends across the wall and includes drawer cabinets on the right side; another chair sits to the left, suggesting a multi-workstation surface.",
+      "frame_indices": [
+        0
+      ],
+      "object_terms": [
+        "desk",
+        "drawers",
+        "chair"
+      ]
+    }
+  ],
+  "tool_trace": [],
+  "initial_keyframes": 1,
+  "final_keyframes": 1
+}

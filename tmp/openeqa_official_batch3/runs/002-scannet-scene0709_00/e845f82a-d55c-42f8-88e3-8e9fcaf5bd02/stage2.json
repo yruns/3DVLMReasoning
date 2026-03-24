@@ -1,0 +1,49 @@
+{
+  "run_name": "stage2",
+  "status": "insufficient_evidence",
+  "confidence": 0.24,
+  "summary": "None of the provided keyframes clearly show a red object below windows; the window view shows a heater and a wall cabinet, and the kitchen views do not show windows with a red object beneath them.",
+  "payload": {
+    "answer": "I can’t determine it from these keyframes—no clearly red object is visible below the windows.",
+    "supporting_claims": [
+      "Frame 0 shows windows with a heater/vent and wall cabinet below them, but no red object is visible.",
+      "Frames 1–2 don’t show windows with any red object beneath them."
+    ]
+  },
+  "uncertainties": [
+    "The red object referenced in the question is not visible in the provided frames (no clear red object below windows).",
+    "It’s unclear which windows the question refers to (kitchen vs another room)."
+  ],
+  "cited_frame_indices": [
+    0,
+    1,
+    2
+  ],
+  "evidence_items": [
+    {
+      "claim": "In frame 0, below the windows there is a wall heater/vent and a wall cabinet; no clearly red object is visible.",
+      "frame_indices": [
+        0
+      ],
+      "object_terms": [
+        "windows",
+        "heater/vent",
+        "wall cabinet"
+      ]
+    },
+    {
+      "claim": "Frames 1 and 2 show a refrigerator and a kitchen counter area, but no windows with a red object below them are visible.",
+      "frame_indices": [
+        1,
+        2
+      ],
+      "object_terms": [
+        "refrigerator",
+        "kitchen counter"
+      ]
+    }
+  ],
+  "tool_trace": [],
+  "initial_keyframes": 3,
+  "final_keyframes": 3
+}

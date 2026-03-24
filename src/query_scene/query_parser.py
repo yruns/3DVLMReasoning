@@ -11,7 +11,7 @@ The LLM directly decides:
 3. How to handle unknown categories (UNKNOW)
 
 Usage:
-    parser = QueryParser(llm_model="gpt-5.2-2025-12-11", scene_categories=["sofa", "pillow", "door"])
+    parser = QueryParser(llm_model="gemini-2.5-pro", scene_categories=["sofa", "pillow", "door"])
     result = parser.parse("the pillow on the sofa nearest the door")
     # Returns: HypothesisOutputV1 with hypotheses
 """
@@ -395,7 +395,7 @@ class QueryParser:
         llm_model: str,
         scene_categories: list[str],
         temperature: float = 0.0,
-        use_pool: bool = False,
+        use_pool: bool | None = None,
     ):
         """
         Initialize the query parser.
@@ -404,12 +404,17 @@ class QueryParser:
             llm_model: LLM model name (e.g., "gemini-2.5-pro")
             scene_categories: List of object categories present in the scene
             temperature: LLM temperature (default 0.0 for deterministic output)
-            use_pool: If True, use Gemini pool for load-balanced concurrent requests
+            use_pool: Whether to use Gemini pool. ``None`` auto-enables the
+                pool for ``gemini-2.5-pro``.
         """
         self.llm_model = llm_model
         self.scene_categories = scene_categories
         self.temperature = temperature
-        self.use_pool = use_pool
+        self.use_pool = (
+            llm_model.strip().lower() == "gemini-2.5-pro"
+            if use_pool is None
+            else use_pool
+        )
 
         # Initialize LLM (structured schema is built per-parse)
         self._llm = None

@@ -132,11 +132,15 @@ class OpenEQADataset:
             OpenEQADataset instance.
         """
         data_root = Path(data_root)
-        json_path = data_root / "data" / "open-eqa-v0.json"
+        json_candidates = [
+            data_root / "data" / "open-eqa-v0.json",
+            data_root / "open-eqa-v0.json",
+        ]
+        json_path = next((path for path in json_candidates if path.exists()), None)
 
-        if not json_path.exists():
+        if json_path is None:
             raise FileNotFoundError(
-                f"OpenEQA data file not found: {json_path}. "
+                f"OpenEQA data file not found in: {json_candidates}. "
                 "Please download the dataset first using download_openeqa()."
             )
 
@@ -162,13 +166,17 @@ class OpenEQADataset:
                     # Try alternative path structure
                     episode_path = data_root / "frames" / episode_id
 
+            scene_id = item.get("scene_id")
+            if not scene_id and episode_id:
+                scene_id = episode_id.split("/", 1)[-1]
+
             sample = OpenEQASample(
                 question_id=item.get("question_id", str(len(samples))),
                 question=item["question"],
                 answer=item["answer"],
                 episode_history=episode_path,
                 category=item.get("category", "unknown"),
-                scene_id=item.get("scene_id", "unknown"),
+                scene_id=scene_id or "unknown",
                 question_type=item.get("question_type", "episodic_memory"),
             )
             samples.append(sample)

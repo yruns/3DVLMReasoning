@@ -1,0 +1,59 @@
+{
+  "scene_id": "002-scannet-scene0709_00",
+  "runtime_scene": "tmp/openeqa_official_batch3/runtime_cache/002-scannet-scene0709_00",
+  "stride": 2,
+  "object_count": 49,
+  "pose_count": 300,
+  "image_count": 300,
+  "query": "What food is on the counter?",
+  "status": "proxy_grounded",
+  "target_term": "toaster",
+  "anchor_term": "counter top",
+  "keyframe_indices": [
+    9,
+    36,
+    76
+  ],
+  "keyframe_paths": [
+    "tmp/openeqa_official_batch3/runtime_cache/002-scannet-scene0709_00/results/frame000018.jpg",
+    "tmp/openeqa_official_batch3/runtime_cache/002-scannet-scene0709_00/results/frame000072.jpg",
+    "tmp/openeqa_official_batch3/runtime_cache/002-scannet-scene0709_00/results/frame000152.jpg"
+  ],
+  "frame_mappings": [
+    {
+      "requested_view_id": 9,
+      "requested_frame_id": 18,
+      "resolved_view_id": 9,
+      "resolved_frame_id": 18,
+      "path": "tmp/openeqa_official_batch3/runtime_cache/002-scannet-scene0709_00/results/frame000018.jpg"
+    },
+    {
+      "requested_view_id": 36,
+      "requested_frame_id": 72,
+      "resolved_view_id": 36,
+      "resolved_frame_id": 72,
+      "path": "tmp/openeqa_official_batch3/runtime_cache/002-scannet-scene0709_00/results/frame000072.jpg"
+    },
+    {
+      "requested_view_id": 76,
+      "requested_frame_id": 152,
+      "resolved_view_id": 76,
+      "resolved_frame_id": 152,
+      "path": "tmp/openeqa_official_batch3/runtime_cache/002-scannet-scene0709_00/results/frame000152.jpg"
+    }
+  ],
+  "hypothesis_kind": "proxy",
+  "hypothesis_rank": 2,
+  "target_object_count": 4,
+  "anchor_object_count": 2,
+  "official_question": "What food is on the counter?",
+  "stage1_query_used": "What food is on the counter?",
+  "stage1_query_candidates": [
+    "What food is on the counter?",
+    "What food is on the counter",
+    "what food is on the counter",
+    "the what food is on the counter",
+    "food is on the counter",
+    "the food is on the counter"
+  ]
+}

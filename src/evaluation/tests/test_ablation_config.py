@@ -153,7 +153,7 @@ class TestStage1Config:
     def test_default_values(self):
         """Test default Stage 1 configuration."""
         config = Stage1Config()
-        assert config.model == "gpt-5.2-2025-12-11"
+        assert config.model == "gemini-2.5-pro"
         assert config.k == 3
         assert config.timeout_seconds == 60
 

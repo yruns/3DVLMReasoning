@@ -87,7 +87,7 @@ ONESHOT_ABLATION_CONFIG = AblationConfig(
         image_max_size=900,  # Same as full agent
     ),
     stage1=Stage1Config(
-        model="gpt-5.2-2025-12-11",
+        model="gemini-2.5-pro",
         k=3,
         timeout_seconds=60,
     ),

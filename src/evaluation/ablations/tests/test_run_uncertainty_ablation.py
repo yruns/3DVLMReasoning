@@ -755,7 +755,7 @@ class TestComparisonWithFull:
         """Stage 1 config should match full agent for fair comparison."""
         config = UNCERTAINTY_ABLATION_CONFIG
 
-        assert config.stage1.model == "gpt-5.2-2025-12-11"
+        assert config.stage1.model == "gemini-2.5-pro"
         assert config.stage1.k == 3
         assert config.stage1.timeout_seconds == 60
 

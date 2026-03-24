@@ -1,0 +1,31 @@
+{
+  "scene_id": "124-scannet-scene0131_02",
+  "runtime_scene": "/Users/bytedance/project/3DVLMReasoning/tmp/openeqa_runtime_cache/124-scannet-scene0131_02",
+  "stride": 2,
+  "object_count": 117,
+  "pose_count": 300,
+  "image_count": 300,
+  "query": "the keyboard near the desktop computer",
+  "status": "direct_grounded",
+  "target_term": "keyboard",
+  "anchor_term": "desktop computer",
+  "keyframe_indices": [
+    34
+  ],
+  "keyframe_paths": [
+    "/Users/bytedance/project/3DVLMReasoning/tmp/openeqa_runtime_cache/124-scannet-scene0131_02/results/frame000068.jpg"
+  ],
+  "frame_mappings": [
+    {
+      "requested_view_id": 34,
+      "requested_frame_id": 68,
+      "resolved_view_id": 34,
+      "resolved_frame_id": 68,
+      "path": "/Users/bytedance/project/3DVLMReasoning/tmp/openeqa_runtime_cache/124-scannet-scene0131_02/results/frame000068.jpg"
+    }
+  ],
+  "hypothesis_kind": "direct",
+  "hypothesis_rank": 1,
+  "target_object_count": 1,
+  "anchor_object_count": 19
+}

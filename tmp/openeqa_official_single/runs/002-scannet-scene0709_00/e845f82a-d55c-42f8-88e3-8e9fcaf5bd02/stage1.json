@@ -1,0 +1,61 @@
+{
+  "scene_id": "002-scannet-scene0709_00",
+  "runtime_scene": "tmp/openeqa_official_single/runtime_cache/002-scannet-scene0709_00",
+  "stride": 2,
+  "object_count": 49,
+  "pose_count": 300,
+  "image_count": 300,
+  "query": "What red object is the below the windows?",
+  "status": "proxy_grounded",
+  "target_term": "other item",
+  "anchor_term": "window seat",
+  "keyframe_indices": [
+    260,
+    196,
+    236
+  ],
+  "keyframe_paths": [
+    "tmp/openeqa_official_single/runtime_cache/002-scannet-scene0709_00/results/frame000520.jpg",
+    "tmp/openeqa_official_single/runtime_cache/002-scannet-scene0709_00/results/frame000392.jpg",
+    "tmp/openeqa_official_single/runtime_cache/002-scannet-scene0709_00/results/frame000472.jpg"
+  ],
+  "frame_mappings": [
+    {
+      "requested_view_id": 260,
+      "requested_frame_id": 520,
+      "resolved_view_id": 260,
+      "resolved_frame_id": 520,
+      "path": "tmp/openeqa_official_single/runtime_cache/002-scannet-scene0709_00/results/frame000520.jpg"
+    },
+    {
+      "requested_view_id": 196,
+      "requested_frame_id": 392,
+      "resolved_view_id": 196,
+      "resolved_frame_id": 392,
+      "path": "tmp/openeqa_official_single/runtime_cache/002-scannet-scene0709_00/results/frame000392.jpg"
+    },
+    {
+      "requested_view_id": 236,
+      "requested_frame_id": 472,
+      "resolved_view_id": 236,
+      "resolved_frame_id": 472,
+      "path": "tmp/openeqa_official_single/runtime_cache/002-scannet-scene0709_00/results/frame000472.jpg"
+    }
+  ],
+  "hypothesis_kind": "proxy",
+  "hypothesis_rank": 2,
+  "target_object_count": 2,
+  "anchor_object_count": 8,
+  "official_question": "What red object is the below the windows?",
+  "stage1_query_used": "What red object is the below the windows?",
+  "stage1_query_candidates": [
+    "What red object is the below the windows?",
+    "What red object is the below the windows",
+    "what red object is the below the windows",
+    "the what red object is the below the windows",
+    "red object is the below the windows",
+    "the red object is the below the windows",
+    "what red object below the windows",
+    "the what red object below the windows"
+  ]
+}

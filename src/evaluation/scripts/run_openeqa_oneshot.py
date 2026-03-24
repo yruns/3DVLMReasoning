@@ -321,7 +321,7 @@ def run_oneshot_baseline(
         benchmark_name="openeqa",
         max_workers=max_workers,
         # Stage 1 configuration (same as full agent)
-        stage1_model="gpt-5.2-2025-12-11",
+        stage1_model="gemini-2.5-pro",
         stage1_k=3,
         # Stage 2 ENABLED but in one-shot mode
         stage2_enabled=True,

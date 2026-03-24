@@ -1,0 +1,69 @@
+{
+  "run_name": "e2e",
+  "status": "completed",
+  "confidence": 0.62,
+  "summary": "The phone is on a busy desk surface among office supplies, drinks, and small electronics; the speaker appears to be on the floor in a cubby area beneath the desk alongside a mini-fridge, shoes, and other stored items.",
+  "payload": {
+    "answer": "Major objects around the phone (on the desktop): a pen/scissor holder, framed photos, a soda can, a small pump bottle, sticky notes, and a small black case/pouch; there are also other desk electronics nearby (e.g., a printer and a round black device) (frames 0, 2).\n\nOverall setup near the speaker: the speaker is down near the floor/under the desk area, beside a cubby that holds a mini-fridge and shoes (with other stored items around it) (frame 1).",
+    "supporting_claims": [
+      "The phone is on the desk among office supplies and small items like a soda can, sticky notes, and a black case/pouch (frames 0, 2).",
+      "A small speaker is visible near the floor in the under-desk/cubby area next to a mini-fridge and shoes (frame 1)."
+    ]
+  },
+  "uncertainties": [
+    "The specific device in frame 2 that looks like a small round speaker/charging puck cannot be confirmed as the same 'speaker' referenced in the query; the clearest identifiable speaker is on the floor under the desk (frame 1)."
+  ],
+  "cited_frame_indices": [
+    0,
+    1,
+    2
+  ],
+  "evidence_items": [
+    {
+      "claim": "The phone is on top of the desk, near framed photos and a pen/scissor holder, with various small items nearby (soda can, pump bottle, sticky notes, small black case).",
+      "frame_indices": [
+        0,
+        2
+      ],
+      "object_terms": [
+        "phone",
+        "framed photos",
+        "scissors/pen holder",
+        "soda can",
+        "pump bottle",
+        "sticky notes",
+        "black case"
+      ]
+    },
+    {
+      "claim": "The overall setup near the speaker is under/next to the desk: a small speaker sits on the floor near a cubby that contains a mini-fridge and shoes, with other stored items nearby.",
+      "frame_indices": [
+        1
+      ],
+      "object_terms": [
+        "speaker",
+        "mini-fridge",
+        "shoes",
+        "cubby/under-desk area"
+      ]
+    }
+  ],
+  "tool_trace": [
+    {
+      "tool_name": "request_more_views",
+      "tool_input": {
+        "request_text": "Need clearer context around the phone and the nearby speaker: please provide additional keyframes (wider and closer views) showing the phone, the speaker, and surrounding objects on the desk.",
+        "frame_indices": [
+          0
+        ],
+        "object_terms": [
+          "phone",
+          "speaker"
+        ]
+      },
+      "response_text": "Added 2 new keyframe(s) for objects: [7, 10, 18, 28]. New view IDs: [28, 226]. Total keyframes now: 3."
+    }
+  ],
+  "initial_keyframes": 1,
+  "final_keyframes": 3
+}

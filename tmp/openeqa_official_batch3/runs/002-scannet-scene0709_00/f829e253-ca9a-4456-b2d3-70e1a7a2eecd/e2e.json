@@ -1,0 +1,52 @@
+{
+  "run_name": "e2e",
+  "status": "completed",
+  "confidence": 0.72,
+  "summary": "The blinds visible in the window view are white.",
+  "payload": {
+    "answer": "White.",
+    "supporting_claims": [
+      "In frame 1, the horizontal slats of the window blinds appear white."
+    ]
+  },
+  "uncertainties": [
+    "Lighting is bright near the window, but the slats still appear clearly white rather than beige/gray."
+  ],
+  "cited_frame_indices": [
+    1
+  ],
+  "evidence_items": [
+    {
+      "claim": "The horizontal window blinds are white.",
+      "frame_indices": [
+        1
+      ],
+      "object_terms": [
+        "blinds",
+        "window"
+      ]
+    }
+  ],
+  "tool_trace": [
+    {
+      "tool_name": "request_more_views",
+      "tool_input": {
+        "request_text": "Need a view that includes the window/blinds; current frame shows fridge/wall only. Please provide keyframes where blinds or curtains are visible.",
+        "frame_indices": [],
+        "object_terms": [
+          "curtain",
+          "blinds",
+          "window"
+        ]
+      },
+      "response_text": "Added 2 new keyframe(s) for objects: [23, 15, 22, 25, 37]. New view IDs: [119, 166]. Total keyframes now: 3."
+    },
+    {
+      "tool_name": "inspect_stage1_metadata",
+      "tool_input": {},
+      "response_text": "{\n  \"hypothesis\": {\n    \"status\": \"proxy_grounded\",\n    \"hypothesis_kind\": \"proxy\",\n    \"hypothesis_rank\": 2,\n    \"parse_mode\": \"multi\",\n    \"raw_query\": \"What color are the blinds?\",\n    \"target_categories\": [],\n    \"anchor_categories\": [],\n    \"metadata\": {\n      \"version\": \"v3\",\n      \"strategy\": \"joint_coverage\"\n    }\n  },\n  \"extra_metadata\": {\n    \"status\": \"proxy_grounded\",\n    \"selected_hypothesis_kind\": \"proxy\",\n    \"selected_hypothesis_rank\": 2,\n    \"strategy\": \"joint_coverage\",\n    \"all_object_ids\": [\n      23\n    ],\n    \"frame_mappings\": [\n      {\n        \"requested_view_id\": 189,\n        \"requested_frame_id\": 378,\n        \"resolved_view_id\": 189,\n        \"resolved_frame_id\": 378,\n        \"path\": \"tmp/openeqa_official_batch3/runtime_cache/002-scannet-scene0709_00/results/frame000378.jpg\"\n      }\n    ],\n    \"hypothesis_output\": {\n      \"format_version\": \"hypothesis_output_v1\",\n      \"parse_mode\": \"multi\",\n      \"hypotheses\": [\n        {\n          \"kind\": \"direct\",\n          \"rank\": 1,\n          \"grounding_query\": {\n            \"raw_query\": \"What color are the blinds?\",\n            \"root\": {\n              \"categories\": [\n                \"UNKNOW\"\n              ],\n              \"attributes\": [],\n              \"spatial_constraints\": [],\n              \"select_constraint\": null,\n              \"node_id\": \"h1_root\"\n            },\n            \"expect_unique\": false\n          },\n          \"lexical_hints\": [\n            \"blinds\",\n            \"color\"\n          ]\n        },\n        {\n          \"kind\": \"proxy\",\n          \"rank\": 2,\n          \"grounding_query\": {\n            \"raw_query\": \"proxy for: What color are the blinds?\",\n            \"root\": {\n              \"categories\": [\n                \"curtain\"\n              ],\n              \"attributes\": [],\n              \"spatial_constraints\": [],\n              \"select_constraint\": null,\n              \"node_id\": \"h2_root\"\n            },\n            \"expect_unique\": false\n          },\n          \"lexical_hints\": [\n            \"proxy_target\",\n            \"curtain\",\n            \"blinds\"\n          ]\n        },\n        {\n          \"kind\": \"context\",\n          \"rank\": 3,\n          \"grounding_query\": {\n            \"raw_query\": \"context for: What color are the blinds?\",\n            \"root\": {\n              \"categories\": [\n                \"window seat\",\n                \"bay window\"\n              ],\n              \"attributes\": [],\n              \"spatial_constraints\": [],\n              \"select_constraint\": null,\n              \"node_id\": \"h3_root\"\n            },\n            \"expect_unique\": false\n          },\n          \"lexical_hints\": [\n            \"context\",\n            \"window\"\n          ]\n        }\n      ]\n    },\n    \"version\": \"v3\"\n  },\n  \"num_keyframes\": 3\n}"
+    }
+  ],
+  "initial_keyframes": 1,
+  "final_keyframes": 3
+}

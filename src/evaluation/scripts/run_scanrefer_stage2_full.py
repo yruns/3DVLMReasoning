@@ -417,7 +417,7 @@ def run_scanrefer_stage2_full(
         benchmark_name="scanrefer",
         max_workers=max_workers,
         # Stage 1 configuration
-        stage1_model="gpt-5.2-2025-12-11",
+        stage1_model="gemini-2.5-pro",
         stage1_k=3,
         # Stage 2 FULL configuration
         stage2_enabled=True,

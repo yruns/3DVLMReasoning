@@ -1,0 +1,67 @@
+{
+  "run_name": "e2e",
+  "status": "insufficient_evidence",
+  "confidence": 0.35,
+  "summary": "The new keyframes show a refrigerator with a paper attached (likely by a magnet), but they still do not show the dishwasher. I can describe the setup near the magnet (on the fridge), but cannot list major objects around the dishwasher without another view that includes it.",
+  "payload": {
+    "answer": "I still can’t list the major objects around the dishwasher because the dishwasher is not visible in the provided frames. \n\nNear the magnet: the setup appears to be a white refrigerator with a paper/note posted on the upper door (likely attached by a magnet), and there is a small white table/cabinet positioned next to the refrigerator on its left side (frames 1–2, table/cabinet visible in frame 1).",
+    "supporting_claims": [
+      "The newly provided views show a refrigerator with a paper/note posted on its upper door (frames 1–2).",
+      "A small white table/cabinet is directly beside the refrigerator (frame 1).",
+      "No dishwasher is visible in the provided frames, so objects around it cannot be confirmed from pixels."
+    ]
+  },
+  "uncertainties": [
+    "Dishwasher is still not visible in frames 1–2; only the refrigerator area is shown.",
+    "The object holding the paper on the fridge is not clearly visible as a distinct magnet (paper is visible, attachment method unclear).",
+    "Need a wider kitchen view including under-counter appliances (dishwasher) and the fridge/magnet relationship."
+  ],
+  "cited_frame_indices": [
+    1,
+    2
+  ],
+  "evidence_items": [
+    {
+      "claim": "Frames 1–2 show a white refrigerator/freezer with a sheet of paper posted on the upper door (likely held by a magnet).",
+      "frame_indices": [
+        1,
+        2
+      ],
+      "object_terms": [
+        "refrigerator",
+        "paper/note"
+      ]
+    },
+    {
+      "claim": "Frame 1 shows a small white table/cabinet next to the refrigerator.",
+      "frame_indices": [
+        1
+      ],
+      "object_terms": [
+        "small table/cabinet",
+        "refrigerator"
+      ]
+    }
+  ],
+  "tool_trace": [
+    {
+      "tool_name": "request_more_views",
+      "tool_input": {
+        "request_text": "Need additional keyframes showing the dishwasher front/door area and the magnet (likely on fridge or appliance) to describe objects around dishwasher and setup near magnet. Current frame shows sink/counter but not a dishwasher or any magnet clearly.",
+        "frame_indices": [],
+        "object_terms": [
+          "dish washer",
+          "magnet"
+        ]
+      },
+      "response_text": "Added 2 new keyframe(s) for objects: [17, 33, 20, 41, 45]. New view IDs: [183, 159]. Total keyframes now: 3."
+    },
+    {
+      "tool_name": "inspect_stage1_metadata",
+      "tool_input": {},
+      "response_text": "{\n  \"hypothesis\": {\n    \"status\": \"direct_grounded\",\n    \"hypothesis_kind\": \"direct\",\n    \"hypothesis_rank\": 1,\n    \"parse_mode\": \"single\",\n    \"raw_query\": \"the dish washer near the magnet\",\n    \"target_categories\": [],\n    \"anchor_categories\": [],\n    \"metadata\": {\n      \"version\": \"v3\",\n      \"strategy\": \"joint_coverage\"\n    }\n  },\n  \"extra_metadata\": {\n    \"status\": \"direct_grounded\",\n    \"selected_hypothesis_kind\": \"direct\",\n    \"selected_hypothesis_rank\": 1,\n    \"strategy\": \"joint_coverage\",\n    \"all_object_ids\": [\n      33,\n      20,\n      41,\n      45\n    ],\n    \"frame_mappings\": [\n      {\n        \"requested_view_id\": 257,\n        \"requested_frame_id\": 514,\n        \"resolved_view_id\": 257,\n        \"resolved_frame_id\": 514,\n        \"path\": \"tmp/openeqa_batch_pilot_5/runtime_cache/002-scannet-scene0709_00/results/frame000514.jpg\"\n      }\n    ],\n    \"hypothesis_output\": {\n      \"format_version\": \"hypothesis_output_v1\",\n      \"parse_mode\": \"single\",\n      \"hypotheses\": [\n        {\n          \"kind\": \"direct\",\n          \"rank\": 1,\n          \"grounding_query\": {\n            \"raw_query\": \"the dish washer near the magnet\",\n            \"root\": {\n              \"categories\": [\n                \"dish washer\"\n              ],\n              \"attributes\": [],\n              \"spatial_constraints\": [\n                {\n                  \"relation\": \"near\",\n                  \"anchors\": [\n                    {\n                      \"categories\": [\n                        \"magnet\"\n                      ],\n                      \"attributes\": [],\n                      \"spatial_constraints\": [],\n                      \"select_constraint\": null,\n                      \"node_id\": \"h1_root_sc0_a0\"\n                    }\n                  ]\n                }\n              ],\n              \"select_constraint\": null,\n              \"node_id\": \"h1_root\"\n            },\n            \"expect_unique\": true\n          },\n          \"lexical_hints\": [\n            \"dish washer\",\n            \"dishwasher\",\n            \"near\",\n            \"magnet\",\n            \"close to\"\n          ]\n        }\n      ]\n    },\n    \"version\": \"v3\"\n  },\n  \"num_keyframes\": 3\n}"
+    }
+  ],
+  "initial_keyframes": 1,
+  "final_keyframes": 3
+}
