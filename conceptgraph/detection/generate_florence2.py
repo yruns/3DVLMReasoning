@@ -74,9 +74,9 @@ _INDOOR_VOCAB_BATCHES = [
     # Kitchen / bath
     "sink. faucet. toilet. bathtub. shower. stove. oven. microwave. refrigerator. dishwasher.",
     # Small objects
-    "bottle. cup. mug. bowl. plate. box. bag. basket. book. pen.",
+    "bottle. cup. mug. bowl. plate. box. bag. basket. book. remote control.",
     # Structural
-    "door. window. column. railing. stairs. counter. countertop. fireplace.",
+    "door. window. pillar. railing. stairs. counter. countertop. fireplace.",
     # Misc
     "trash can. bin. fan. heater. radiator. outlet. shoe. backpack. umbrella. guitar.",
 ]

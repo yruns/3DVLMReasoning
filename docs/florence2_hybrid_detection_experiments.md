@@ -91,13 +91,47 @@ Scene 014 has fewer hybrid objects than v1 (37 vs 51), but v1's count is inflate
 
 v2 has 22 unique categories vs v1's 19, despite fewer total objects.
 
-### Known issues
+### Known issues (resolved in Experiment 6)
 
-1. **`pen` over-detection** (18/314 = 5.7%): Florence-2 vocab grounding matches "pen" to small elongated shapes across all scene types. Mitigation: could remove "pen" from non-office scenes or add to post-filter.
-
-2. **`column` over-detection** (15/314 = 4.8%): Structural elements like door frames and pillars are grounded as "column". Mostly correct, but inflated.
+~~1. **`pen` over-detection** (18/314 = 5.7%)~~ → Replaced with `remote control` in vocab
+~~2. **`column` over-detection** (15/314 = 4.8%)~~ → Replaced with `pillar` in vocab
 
 3. **Processing speed**: Hybrid mode runs at ~4s/frame (vs ~1s for OD-only) due to 9 additional grounding passes per frame. Total for 5 scenes: ~40 min (stride=5, 120 frames/scene).
+
+## Experiment 6: Vocabulary refinement (FINAL)
+
+**Changes**: `pen` → `remote control`, `column` → `pillar` in vocabulary batches.
+
+**Rationale**: "pen" triggered false positives on small elongated shapes in non-office scenes. "remote control" is more distinctive. "pillar" is more specific than "column" and matches v1's terminology.
+
+**Final results** (5 scenes, stride=5):
+
+| Metric | RAM+GDINO (v1) | Florence-2 Hybrid |
+|--------|----------------|-------------------|
+| Total objects | 229 | **312** (+36%) |
+| Unique categories | 87 | **77** |
+| Junk labels | 3 | **1** (`light`) |
+| Junk rate | 3.1% | **0.3%** |
+
+Per-scene:
+
+| Scene | v1 objects | v2 hybrid | v1 cats | v2 cats |
+|-------|-----------|-----------|---------|---------|
+| 002 (kitchen) | 49 | **72** | 23 | **32** |
+| 003 (office) | 63 | **90** | 28 | **54** |
+| 012 (living) | 37 | **72** | 18 | **34** |
+| 013 (bedroom) | 29 | **39** | 17 | **28** |
+| 014 (open living) | 51 | 39 | 19 | **23** |
+
+Scene 014 (39 vs 51) has fewer objects but higher quality: v1 had repetitive noisy labels (`footrest ×7`, `screen door ×7`), v2 has diverse meaningful categories (23 unique vs 19).
+
+Top-20 categories are now clean:
+```
+window ×23, curtain ×14, outlet ×13, bottle ×13, screen ×10,
+shoe ×10, picture frame ×10, bowl ×9, countertop ×9, pillar ×9,
+drawer ×8, phone ×8, carpet ×7, speaker ×7, desk ×7, cushion ×7,
+keyboard ×6, towel ×6, book ×5, cabinetry ×5
+```
 
 ## Technical fixes applied
 
@@ -112,10 +146,9 @@ v2 has 22 unique categories vs v1's 19, despite fewer total objects.
 
 1. **Scene-adaptive vocabulary**: Extract nouns from `<MORE_DETAILED_CAPTION>` per-image and add to grounding vocabulary
 2. **Confidence scoring**: Use CLIP image-text similarity as proxy confidence for grounding detections
-3. **Vocabulary tuning**: Remove/rename terms causing systematic false positives (pen, column)
-4. **Tiled detection**: Run detection on image crops/tiles for small object recall
-5. **Florence-2-large vs base**: Compare model sizes for precision/recall tradeoff
+3. **Tiled detection**: Run detection on image crops/tiles for small object recall
+4. **Florence-2-large vs base**: Compare model sizes for precision/recall tradeoff
 
 ## Conclusion
 
-The hybrid Florence-2 pipeline (OD + vocabulary grounding + NMS) achieves **37% more objects** than RAM+GDINO while reducing junk from 3.1% to 0.3%. The key insight: Florence-2's `<OD>` head alone is too conservative, but `<CAPTION_TO_PHRASE_GROUNDING>` with a broad vocabulary dramatically increases recall. Batching the vocabulary avoids token-limit concatenation bugs.
+The hybrid Florence-2 pipeline (OD + vocabulary grounding + NMS) achieves **36% more objects** (312 vs 229) than RAM+GDINO while reducing junk from 3.1% to 0.3%. The key insight: Florence-2's `<OD>` head alone is too conservative, but `<CAPTION_TO_PHRASE_GROUNDING>` with a broad indoor vocabulary dramatically increases recall. Batching the vocabulary into groups of ~10 avoids Florence-2's token-limit concatenation bugs. Vocabulary refinement (replacing `pen`/`column` with more specific terms) eliminated systematic false positives.
