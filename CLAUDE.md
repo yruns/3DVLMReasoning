@@ -216,6 +216,90 @@ Default VLM backend is `gpt-5.2-2025-12-11` via Azure-compatible endpoint. Confi
 Output schemas are in `schema/` directory:
 - `hypothesis_output_v1.json` - Schema for Stage 1 query parsing output
 
+## Long-Running Tasks: tmux (MANDATORY)
+
+**All long-running commands (training, evaluation, batch processing, large test suites, data preparation) MUST be executed inside tmux sessions.** This prevents task loss from SSH disconnection, terminal closure, or Bash tool timeout (120s default, 600s max).
+
+### Why tmux is required
+
+- Bash tool has a hard timeout limit — long tasks will be killed
+- Network interruptions lose running work without tmux
+- tmux enables parallel task execution across multiple windows/panes
+
+### Basic tmux workflow
+
+```bash
+# Create a named session for a long task
+tmux new-session -d -s eval "cd /Users/bytedance/project/3DVLMReasoning && python -m src.evaluation.batch_eval --scenes all"
+
+# Create multiple parallel sessions
+tmux new-session -d -s eval-stage1 "pytest src/query_scene/tests/ -v 2>&1 | tee /tmp/stage1.log"
+tmux new-session -d -s eval-stage2 "pytest src/agents/tests/ -v 2>&1 | tee /tmp/stage2.log"
+```
+
+### Sending commands to an existing tmux session
+
+```bash
+# Send a command to a running session
+tmux send-keys -t eval "echo 'hello'" Enter
+
+# Send Ctrl+C to cancel a running process
+tmux send-keys -t eval C-c
+```
+
+### Capturing output from a tmux session
+
+```bash
+# Capture the last N lines of visible output from a pane
+tmux capture-pane -t eval -p -S -50
+
+# Capture entire scrollback buffer to a file
+tmux capture-pane -t eval -p -S - > /tmp/eval_output.txt
+
+# Then read the captured output
+cat /tmp/eval_output.txt
+```
+
+### Checking session status
+
+```bash
+# List all active tmux sessions
+tmux list-sessions
+
+# Check if a specific session is still running (non-zero exit = not found)
+tmux has-session -t eval 2>/dev/null && echo "running" || echo "finished/not found"
+
+# Peek at the last few lines of output without attaching
+tmux capture-pane -t eval -p -S -10
+```
+
+### Parallel task pattern
+
+For independent tasks that can run concurrently:
+
+```bash
+# Launch parallel evaluation jobs
+tmux new-session -d -s job-openeqa "cd /Users/bytedance/project/3DVLMReasoning && python run_openeqa.py 2>&1 | tee /tmp/openeqa.log"
+tmux new-session -d -s job-sqa3d  "cd /Users/bytedance/project/3DVLMReasoning && python run_sqa3d.py 2>&1 | tee /tmp/sqa3d.log"
+tmux new-session -d -s job-scanref "cd /Users/bytedance/project/3DVLMReasoning && python run_scanrefer.py 2>&1 | tee /tmp/scanrefer.log"
+
+# Monitor all jobs
+tmux list-sessions
+for s in job-openeqa job-sqa3d job-scanref; do
+  echo "=== $s ===" && tmux capture-pane -t "$s" -p -S -5
+done
+```
+
+### Cleanup
+
+```bash
+# Kill a specific session when done
+tmux kill-session -t eval
+
+# Kill all sessions
+tmux kill-server
+```
+
 ## Automation Scripts
 
 ### auto-claude.sh
