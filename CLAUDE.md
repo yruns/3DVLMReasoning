@@ -2,9 +2,28 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Package Management
+## Package Management (Platform-Dependent)
 
-**This project uses `uv` for Python package management.** All package operations should use `uv`:
+This project uses **different Python environments depending on the platform**:
+
+### Linux (Ubuntu) — Conda `conceptgraph`
+
+On Linux, use the **conda `conceptgraph` environment** for all work. This env has torch, SAM, open_clip, Florence-2, hydra, and all pipeline dependencies.
+
+```bash
+source ~/miniconda3/etc/profile.d/conda.sh && conda activate conceptgraph
+python ...  # resolves to conda env's python
+
+# Install new packages
+conda install <package>
+pip install <package>  # within conda env
+```
+
+**The project `.venv` has been deleted on Linux.** Do NOT recreate it — it shadowed conda's python and caused silent failures (see `docs/0325.md`).
+
+### macOS (Darwin) — uv / .venv
+
+On macOS, use **`uv`** for Python package management with `.venv`:
 
 ```bash
 # Install dependencies (creates .venv automatically)
@@ -18,6 +37,17 @@ uv pip install <package>
 
 # Sync from pyproject.toml
 uv pip sync
+```
+
+### How to detect platform in scripts
+
+```bash
+if [[ "$(uname -s)" == "Linux" ]]; then
+    source ~/miniconda3/etc/profile.d/conda.sh && conda activate conceptgraph
+else
+    # macOS — uv / .venv
+    source .venv/bin/activate 2>/dev/null || uv venv && source .venv/bin/activate
+fi
 ```
 
 Note: The `agents` optional dependency group requires ByteDance internal pypi for `deepagents>=0.4.0`.
@@ -338,14 +368,6 @@ Note: The standard `claude` CLI fallback does not work in this environment.
 - Before running any pipeline step, verify that all prerequisites are met (correct python, GPU available, models loadable). If verification fails, fix the root cause before proceeding.
 - This applies to all code in `conceptgraph/`, `scripts/`, and `src/` — no exceptions.
 
-### ConceptGraph Pipeline: Use Conda Python
+### Python Environment on Linux
 
-The `conceptgraph/` pipeline requires the **`conceptgraph` conda environment**. The project `.venv` shadows conda's python on PATH, so always use the full path:
-
-```bash
-PYTHON=/home/ysh/miniconda3/envs/conceptgraph/bin/python
-$PYTHON conceptgraph/detection/generate_florence2.py ...
-$PYTHON conceptgraph/slam/pipeline.py ...
-```
-
-Never use bare `python` when running `conceptgraph/` code — it will resolve to `.venv/bin/python` which lacks torch/SAM/open_clip.
+On Linux, the `.venv` has been deleted. After `conda activate conceptgraph`, bare `python` correctly resolves to conda's python with all dependencies (torch, SAM, open_clip, Florence-2). See the **Package Management** section above for details.
