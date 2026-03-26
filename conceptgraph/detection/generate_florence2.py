@@ -58,28 +58,28 @@ _SCENE_LEVEL_TAGS = {
 
 BG_CLASSES = ["wall", "floor", "ceiling"]
 
-# Broad indoor-scene vocabulary, split into batches to avoid Florence-2's
-# token limit issue where long tails get concatenated into a single label.
-_INDOOR_VOCAB_BATCHES = [
-    # Seating / surfaces
-    "chair. table. desk. sofa. couch. bed. bench. stool. ottoman. armchair.",
-    # Storage
-    "cabinet. shelf. drawer. dresser. wardrobe. closet. nightstand. bookshelf. rack.",
-    # Electronics
-    "monitor. screen. laptop. computer. keyboard. mouse. phone. speaker. television. printer.",
-    # Lighting / decor
-    "lamp. light. chandelier. clock. picture frame. mirror. painting. poster. vase. plant.",
-    # Fabrics
-    "pillow. blanket. curtain. rug. carpet. towel. cushion. mat.",
-    # Kitchen / bath
-    "sink. faucet. toilet. bathtub. shower. stove. oven. microwave. refrigerator. dishwasher.",
-    # Small objects
-    "bottle. cup. mug. bowl. plate. box. bag. basket. book. remote control.",
-    # Structural
-    "door. window. pillar. railing. stairs. counter. countertop. fireplace.",
-    # Misc
-    "trash can. bin. fan. heater. radiator. outlet. shoe. backpack. umbrella. guitar.",
-]
+# ScanNet200 indoor vocabulary (200 categories), split into batches of ~10
+# to avoid Florence-2's token-limit concatenation bug.
+_SCANNET200_VOCAB_PATH = Path(__file__).parent.parent.parent / "conceptgraph" / "scannet200_classes.txt"
+
+def _load_vocab_batches(path: Path | None = None, batch_size: int = 10) -> list[str]:
+    """Load ScanNet200 labels and split into grounding batches."""
+    if path is None:
+        path = _SCANNET200_VOCAB_PATH
+    if not path.exists():
+        # Fallback: use hardcoded ScanNet200 list
+        path = Path(__file__).resolve().parent.parent / "scannet200_classes.txt"
+    labels = [l.strip() for l in path.read_text().splitlines() if l.strip()]
+    # Remove bg classes (handled separately) and scene-level tags
+    labels = [l for l in labels if l.lower() not in _SCENE_LEVEL_TAGS
+              and l.lower() not in {"wall", "floor", "ceiling"}]
+    batches = []
+    for i in range(0, len(labels), batch_size):
+        batch = labels[i:i + batch_size]
+        batches.append(". ".join(batch) + ".")
+    return batches
+
+_INDOOR_VOCAB_BATCHES: list[str] = []  # populated at runtime
 
 # IoU threshold for NMS deduplication across OD + grounding results
 _NMS_IOU_THRESH = 0.7
@@ -179,6 +179,12 @@ def get_parser() -> argparse.ArgumentParser:
     p.add_argument("--exp_suffix", type=str, default="")
     p.add_argument("--od_only", action="store_true",
                     help="Use only <OD> mode (no vocab grounding). For ablation.")
+    p.add_argument("--clip_filter", type=float, default=0.0,
+                    help="CLIP cosine similarity threshold for post-filtering. "
+                         "0 = disabled. Recommended: 0.20-0.25.")
+    p.add_argument("--vocab", type=str, default=None,
+                    help="Path to vocab file (one label per line). "
+                         "Default: conceptgraph/scannet200_classes.txt")
     return p
 
 
@@ -305,7 +311,13 @@ def main() -> None:
 
     global_classes: set[str] = set()
 
-    mode = "OD-only" if args.od_only else "hybrid (OD + vocab grounding)"
+    # Load vocabulary batches
+    global _INDOOR_VOCAB_BATCHES
+    vocab_path = Path(args.vocab) if args.vocab else None
+    _INDOOR_VOCAB_BATCHES = _load_vocab_batches(vocab_path)
+    print(f"Loaded {sum(b.count('.') for b in _INDOOR_VOCAB_BATCHES)} vocab terms in {len(_INDOOR_VOCAB_BATCHES)} batches")
+
+    mode = "OD-only" if args.od_only else "hybrid (OD + ScanNet200 vocab grounding)"
     print(f"Detection mode: {mode}")
     print(f"Processing {len(dataset)} frames …")
 
@@ -389,6 +401,32 @@ def main() -> None:
             tfeat = clip_model.encode_text(tokens)
             tfeat = F.normalize(tfeat, dim=-1)
             text_feats[i] = tfeat.cpu().numpy().squeeze()
+
+        # ── CLIP post-filtering (remove hallucinated detections) ────
+        if args.clip_filter > 0:
+            clip_sims = np.array([
+                np.dot(image_feats[i], text_feats[i]) for i in range(n_det)
+            ])
+            clip_keep = clip_sims >= args.clip_filter
+            # Always keep background classes
+            for i in range(n_det):
+                if labels[i] in BG_CLASSES:
+                    clip_keep[i] = True
+
+            if not clip_keep.all():
+                keep_idx = np.where(clip_keep)[0]
+                xyxy = xyxy[keep_idx]
+                masks_np = masks_np[keep_idx]
+                image_feats = image_feats[keep_idx]
+                text_feats = text_feats[keep_idx]
+                # Use CLIP similarity as confidence
+                confidence = clip_sims[keep_idx].astype(np.float32)
+                labels = [labels[i] for i in keep_idx]
+                # Rebuild class arrays
+                classes = sorted(set(labels))
+                class_to_id = {c: i for i, c in enumerate(classes)}
+                class_id = np.array([class_to_id[l] for l in labels], dtype=np.int64)
+                n_det = len(xyxy)
 
         # ── Save pkl.gz ──────────────────────────────────────────────
         result = {
