@@ -572,7 +572,7 @@ class TestBatchEvaluator:
             stage1_factory=tracking_factory,
         )
 
-        run_result = evaluator.run(samples, lambda s: temp_dir)
+        evaluator.run(samples, lambda s: temp_dir)
 
         # Should only process s2, s3, s4 (s0, s1 from checkpoint)
         assert len(processed_ids) == 3

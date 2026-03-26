@@ -14,8 +14,8 @@ import numpy as np
 from loguru import logger
 
 from .core import GroundingResult, ObjectDescriptions, ObjectNode, QueryInfo
-from .retrieval import SceneIndices
 from .parsing import QueryParser
+from .retrieval import SceneIndices
 from .scene_representation import QuerySceneRepresentation
 from .utils import (
     annotate_bev_with_distances,
@@ -30,7 +30,6 @@ try:
     from ..dataset import (
         DatasetAdapter,
         get_adapter,
-        is_registered,
     )
 
     _DATASET_ADAPTERS_AVAILABLE = True
@@ -199,8 +198,13 @@ class QueryScenePipeline:
         # Get coordinate transform from adapter's native coordinate system to OpenGL
         # (OpenGL is the canonical coordinate system used by QuerySceneRepresentation)
         from ..dataset import CoordinateSystem
-        coord_transform = adapter.get_coordinate_transform(target=CoordinateSystem.OPENGL)
-        logger.debug(f"Coordinate transform from {adapter.coordinate_system.value} to OpenGL:\n{coord_transform}")
+
+        coord_transform = adapter.get_coordinate_transform(
+            target=CoordinateSystem.OPENGL
+        )
+        logger.debug(
+            f"Coordinate transform from {adapter.coordinate_system.value} to OpenGL:\n{coord_transform}"
+        )
 
         # Build scene path for legacy QuerySceneRepresentation
         scene_path = Path(data_root) / scene_id
@@ -233,7 +237,7 @@ class QueryScenePipeline:
 
             # Apply coordinate transform to existing scene if needed
             if not np.allclose(coord_transform, np.eye(4)):
-                logger.info(f"Applying coordinate transform to loaded scene")
+                logger.info("Applying coordinate transform to loaded scene")
                 scene.apply_coordinate_transform(coord_transform)
 
         logger.info(
@@ -278,8 +282,6 @@ class QueryScenePipeline:
         scene = QuerySceneRepresentation(scene_id=scene_id)
 
         # Load camera poses and image paths from adapter
-        image_paths = []
-        depth_paths = []
         camera_poses = []
 
         for frame in adapter.iter_frames(scene_id, stride=stride):

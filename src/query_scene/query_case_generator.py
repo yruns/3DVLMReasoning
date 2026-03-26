@@ -563,7 +563,7 @@ class QueryCaseGenerator:
         )
         self.objects = self.selector.objects
         self.object_to_views = self.selector.object_to_views
-        self.scene_categories = list(set(obj.category for obj in self.objects))
+        self.scene_categories = list({obj.category for obj in self.objects})
 
     def generate_cases(
         self,
@@ -787,11 +787,11 @@ class QueryCaseGenerator:
         try:
             data = json.loads(cleaned)
             return data.get("query", "")
-        except json.JSONDecodeError:
+        except json.JSONDecodeError as err:
             # Try to extract query with regex as fallback
             import re
 
             match = re.search(r'"query"\s*:\s*"([^"]+)"', response)
             if match:
                 return match.group(1)
-            raise ValueError(f"Failed to parse LLM response: {response[:200]}")
+            raise ValueError(f"Failed to parse LLM response: {response[:200]}") from err

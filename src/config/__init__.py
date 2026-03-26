@@ -67,7 +67,9 @@ def _apply_env_overrides(config: dict[str, Any], dataset_name: str) -> dict[str,
         final_key = keys[-1]
         try:
             # Try int first
-            if env_value.isdigit() or (env_value.startswith("-") and env_value[1:].isdigit()):
+            if env_value.isdigit() or (
+                env_value.startswith("-") and env_value[1:].isdigit()
+            ):
                 current[final_key] = int(env_value)
             # Try float
             elif "." in env_value:

@@ -47,13 +47,13 @@ class TestMockSQA3DSamples:
     def test_mock_sample_diversity(self):
         """Test mock samples have diverse question types."""
         samples = create_mock_sqa3d_samples(50)
-        question_types = set(s.question_type for s in samples)
+        question_types = {s.question_type for s in samples}
         assert len(question_types) > 3, "Should have diverse question types"
 
     def test_mock_sample_scenes(self):
         """Test mock samples cover multiple scenes."""
         samples = create_mock_sqa3d_samples(50)
-        scenes = set(s.scene_id for s in samples)
+        scenes = {s.scene_id for s in samples}
         assert len(scenes) > 1, "Should cover multiple scenes"
 
     def test_mock_sample_primary_answer(self):
@@ -183,7 +183,7 @@ class TestRunSQA3DStage1OnlyBaseline:
         """Test that Stage 2 is disabled in the baseline."""
         with tempfile.TemporaryDirectory() as tmp_dir:
             output_path = Path(tmp_dir) / "results.json"
-            result = run_sqa3d_stage1_only(
+            run_sqa3d_stage1_only(
                 output_path=output_path,
                 max_samples=3,
                 use_mock=True,

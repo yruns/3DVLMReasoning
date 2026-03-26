@@ -252,12 +252,6 @@ def generate_table1_main_results(
         "openeqa_stage2_full": "\\textbf{Ours (Two-Stage)}",
     }
 
-    benchmark_display = {
-        "openeqa": "OpenEQA",
-        "sqa3d": "SQA3D",
-        "scanrefer": "ScanRefer",
-    }
-
     lines = []
     lines.append("\\begin{table}[t]")
     lines.append("\\centering")

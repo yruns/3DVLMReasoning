@@ -223,7 +223,7 @@ def build_view_score_dict(
     Handles the actual visibility_index format used in the codebase.
     """
     views_list = object_to_views.get(obj_id, [])
-    return {view_id: score for view_id, score in views_list}
+    return dict(views_list)
 
 
 def find_best_view_for_objects(

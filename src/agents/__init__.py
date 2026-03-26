@@ -7,9 +7,11 @@ try:
 except ImportError:
     # Fallback for backward compatibility during migration
     import warnings
+
     warnings.warn(
         "adapters.py should be renamed to stage1_adapters.py",
-        DeprecationWarning
+        DeprecationWarning,
+        stacklevel=2,
     )
     # Try direct import (will fail if adapters/ exists)
     raise

@@ -92,10 +92,14 @@ def _make_official_call_adapter(default_model: str):
             raise ValueError("Official evaluation received an empty prompt.")
 
         if seed is not None and verbose:
-            logger.info("Official eval backend ignores seed={} for model={}", seed, deployment)
+            logger.info(
+                "Official eval backend ignores seed={} for model={}", seed, deployment
+            )
 
         response = client.invoke(prompt)
-        text = _normalize_response_content(getattr(response, "content", response)).strip()
+        text = _normalize_response_content(
+            getattr(response, "content", response)
+        ).strip()
         if verbose:
             logger.info(
                 "Official eval response model={} prompt_chars={} text={!r}",
@@ -158,10 +162,14 @@ def evaluate_predictions_with_official_llm_match(
             verbose=verbose,
         )
         all_scores[question_id] = int(score)
-        output_path.write_text(json.dumps(all_scores, indent=2, ensure_ascii=False) + "\n")
+        output_path.write_text(
+            json.dumps(all_scores, indent=2, ensure_ascii=False) + "\n"
+        )
 
     raw_scores = np.array(list(all_scores.values()), dtype=float)
-    scaled_scores = 100.0 * (np.clip(raw_scores, 1, 5) - 1) / 4 if raw_scores.size else []
+    scaled_scores = (
+        100.0 * (np.clip(raw_scores, 1, 5) - 1) / 4 if raw_scores.size else []
+    )
     final_score = float(np.mean(scaled_scores)) if raw_scores.size else 0.0
     return {
         "official_repo_root": str(official_repo_root),

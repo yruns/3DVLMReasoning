@@ -51,7 +51,7 @@ from .scannet_adapter import ScanNetAdapter
 # Import these separately when needed
 _LEGACY_IMPORTS_AVAILABLE = False
 try:
-    from .datasets_common import (
+    from .datasets_common import (  # noqa: F401
         Ai2thorDataset,
         AzureKinectDataset,
         # Base class

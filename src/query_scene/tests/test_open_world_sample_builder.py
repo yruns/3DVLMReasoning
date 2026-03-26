@@ -4,6 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from query_scene.core import HypothesisOutputV1
 from query_scene.open_world_sample_builder import (
     TeacherQueryGenerator,
     bucket_counts,
@@ -11,7 +12,6 @@ from query_scene.open_world_sample_builder import (
     build_samples_from_assets,
     write_jsonl,
 )
-from query_scene.core import HypothesisOutputV1
 
 
 class _FakeResponse:

@@ -6,13 +6,12 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from scripts.build_open_world_dataset_assets import _parse_scene_arg
-
 from query_scene.open_world_dataset import (
     build_scene_manifest_entry,
     generate_query_program_pool,
     write_jsonl,
 )
+from scripts.build_open_world_dataset_assets import _parse_scene_arg
 
 
 class TestOpenWorldDataset(unittest.TestCase):

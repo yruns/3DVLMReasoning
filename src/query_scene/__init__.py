@@ -21,33 +21,40 @@ Example:
     >>> query = parser.parse("the pillow on the sofa nearest the door")
 """
 
+# Query parsing (nested spatial queries)
 from .core import (
+    SUPPORTED_RELATIONS,
+    SUPPORTED_RELATIONS_STR,
     BoundingBox3D,
     CameraPose,
+    ConstraintType,
     EvidenceBundle,
     ExecutionResult,
+    GroundingQuery,
     GroundingResult,
+    HypothesisKind,
+    HypothesisOutputV1,
     KeyframeResult,
     ObjectDescriptions,
     ObjectNode,
+    ParseMode,
+    QueryHypothesis,
     QueryInfo,
+    QueryNode,
     QueryType,
     RegionNode,
+    SelectConstraint,
+    SpatialConstraint,
+    SpatialRelation,
     ViewScore,
+    simple_query,
+    spatial_query,
+    superlative_query,
 )
 from .description_generator import DescriptionGenerator, generate_descriptions
-# Import from retrieval subpackage
-from .retrieval import (
-    CLIPIndex,
-    KeyframeResult as RetrievalKeyframeResult,
-    KeyframeSelector,
-    PointLevelIndex,
-    RegionIndex,
-    SceneIndices,
-    SceneObject,
-    SpatialIndex,
-    VisibilityIndex,
-)
+
+# Import parser from parsing subpackage
+from .parsing import QueryParser, parse_query
 from .point_feature_extractor import (
     PointFeatureConfig,
     PointFeatureExtractor,
@@ -55,29 +62,7 @@ from .point_feature_extractor import (
     compute_scene_point_features,
 )
 from .query_executor import QueryExecutor, execute_query
-
-# Import parser from parsing subpackage
-from .parsing import QueryParser, parse_query
 from .query_pipeline import QueryScenePipeline, run_query, run_query_with_dataset
-
-# Query parsing (nested spatial queries)
-from .core import (
-    SUPPORTED_RELATIONS,
-    SUPPORTED_RELATIONS_STR,
-    ConstraintType,
-    GroundingQuery,
-    HypothesisKind,
-    HypothesisOutputV1,
-    ParseMode,
-    QueryHypothesis,
-    QueryNode,
-    SelectConstraint,
-    SpatialConstraint,
-    SpatialRelation,
-    simple_query,
-    spatial_query,
-    superlative_query,
-)
 from .quick_filters import (
     QUICK_FILTER_CONFIGS,
     AttributeFilter,
@@ -88,8 +73,24 @@ from .quick_filters import (
     has_quick_filter,
     quick_filter,
 )
+
+# Import from retrieval subpackage
+from .retrieval import (
+    CLIPIndex,
+    KeyframeSelector,  # noqa: F401
+    PointLevelIndex,
+    RegionIndex,
+    RelationResult,
+    SceneIndices,
+    SceneObject,  # noqa: F401
+    SpatialIndex,
+    SpatialRelationChecker,
+    VisibilityIndex,
+)
+from .retrieval import (
+    KeyframeResult as RetrievalKeyframeResult,  # noqa: F401
+)
 from .scene_representation import QuerySceneRepresentation
-from .retrieval import RelationResult, SpatialRelationChecker
 from .spatial_relations import (
     RELATION_ALIASES,
     check_relation,

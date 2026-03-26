@@ -62,5 +62,4 @@ external/
 conceptgraph/configs/slam_pipeline/*.yaml
 !conceptgraph/configs/slam_pipeline/base.yaml
 
-# Bash scripts / scratch
-bashes/
+# Bash scripts / scratch (tracked)

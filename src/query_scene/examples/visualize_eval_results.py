@@ -200,7 +200,7 @@ def generate_case_html(case: dict, case_idx: int, replica_root: Path) -> str:
             </div>
                 """
     elif view_ids:
-        for i, vid in enumerate(view_ids[:5]):  # Max 5 keyframes
+        for _i, vid in enumerate(view_ids[:5]):  # Max 5 keyframes
             frame_path = get_frame_path(replica_root, scene, vid)
             is_source = vid == source_view_id
             b64 = image_to_base64(frame_path)
@@ -419,7 +419,7 @@ def generate_chart_image(report: dict, output_path: Path) -> str | None:
     ax1.set_title("Average Score by Scene")
     ax1.set_ylim(0, 10)
     ax1.legend()
-    for bar, score in zip(bars, scores):
+    for bar, score in zip(bars, scores, strict=False):
         ax1.text(
             bar.get_x() + bar.get_width() / 2,
             bar.get_height() + 0.1,
@@ -437,7 +437,7 @@ def generate_chart_image(report: dict, output_path: Path) -> str | None:
     ax2.set_title("Success Rate by Scene")
     ax2.set_ylim(0, 105)
     ax2.legend()
-    for bar, rate in zip(bars2, success_rates):
+    for bar, rate in zip(bars2, success_rates, strict=False):
         ax2.text(
             bar.get_x() + bar.get_width() / 2,
             bar.get_height() + 1,
@@ -811,7 +811,7 @@ def generate_html_report(
     """
 
     # Filter section
-    scenes = sorted(set(c.get("scene", "") for c in results))
+    scenes = sorted({c.get("scene", "") for c in results})
     html += """
     <section id="all-cases">
         <h2>All Cases</h2>

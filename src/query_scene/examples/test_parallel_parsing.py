@@ -67,7 +67,7 @@ def main():
     sequential_results = []
     for q in test_queries[:5]:  # Only 5 for baseline
         try:
-            hypo = selector.parse_query_hypotheses(q)
+            selector.parse_query_hypotheses(q)
             sequential_results.append((q, True))
         except Exception:
             sequential_results.append((q, False))

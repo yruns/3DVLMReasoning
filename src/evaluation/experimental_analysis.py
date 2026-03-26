@@ -171,7 +171,7 @@ def compute_ablation_analysis(
     full_tools = []
     ablation_tools = []
 
-    for benchmark_name, bench_results in results.benchmarks.items():
+    for _benchmark_name, bench_results in results.benchmarks.items():
         for method in bench_results.methods.values():
             if method.ablation_tag == full_tag:
                 full_accs.append(method.accuracy)
@@ -490,7 +490,7 @@ def generate_robustness_analysis(analysis: ExperimentalAnalysis) -> str:
     # Find key data points
     drop_0 = next(d for d in drop_data if d.drop_rate == 0.0)
     drop_50 = next(d for d in drop_data if abs(d.drop_rate - 0.5) < 0.05)
-    drop_80 = next(d for d in drop_data if abs(d.drop_rate - 0.8) < 0.05)
+    next(d for d in drop_data if abs(d.drop_rate - 0.8) < 0.05)
 
     sections.append(
         f"Figure~\\ref{{fig:detection-drop}} shows that our method degrades more gracefully "
@@ -660,7 +660,7 @@ def generate_experimental_analysis_section(
     sections.append("\\subsection{Summary}")
     sections.append("")
 
-    claims_supported = sum(analysis.claims_supported.values())
+    sum(analysis.claims_supported.values())
     total_claims = len(analysis.claims_supported)
 
     sections.append(

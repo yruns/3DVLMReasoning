@@ -178,13 +178,13 @@ class TestOneshotAblationRunner:
         )
         # Should not raise, but should warn
         with patch("loguru.logger.warning") as mock_warn:
-            runner = OneshotAblationRunner(config=invalid_config, use_mock=True)
+            OneshotAblationRunner(config=invalid_config, use_mock=True)
             assert mock_warn.called
 
     def test_runner_creates_output_dir(self, tmp_path: Path):
         """Runner should create output directory."""
         output_dir = tmp_path / "ablation_output"
-        runner = OneshotAblationRunner(use_mock=True, output_dir=output_dir)
+        OneshotAblationRunner(use_mock=True, output_dir=output_dir)
         assert output_dir.exists()
 
 

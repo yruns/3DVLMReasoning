@@ -246,7 +246,7 @@ def main():
     logger.info("\n" + "=" * 70)
     logger.info("SUMMARY")
     logger.info("=" * 70)
-    for i, (test, result) in enumerate(zip(test_cases[:1], results)):
+    for i, (test, result) in enumerate(zip(test_cases[:1], results, strict=False)):
         status = "✅ PASS" if result.get("success") else "❌ FAIL"
         logger.info(f"Test {i+1}: {status}")
         logger.info(f"  Query: {test[0]}")

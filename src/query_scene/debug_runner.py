@@ -294,7 +294,7 @@ def main():
         scene, pcd_file = result
 
         if args.test in ["index", "all"]:
-            indices = test_index_building(scene)
+            test_index_building(scene)
 
         if args.test in ["pipeline", "all"]:
             test_full_pipeline(args.scene, args.query)

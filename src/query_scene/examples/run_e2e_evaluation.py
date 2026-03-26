@@ -819,7 +819,7 @@ def main():
 
     # Run pipeline
     pipeline = E2EPipeline(config, replica_root, output_dir)
-    report = pipeline.run()
+    pipeline.run()
 
     logger.info(f"Evaluation complete. Results in: {output_dir}")
 

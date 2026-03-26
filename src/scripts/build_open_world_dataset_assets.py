@@ -23,8 +23,8 @@ except ImportError:  # pragma: no cover - fallback for package execution
 
 def _parse_scene_arg(scene_arg: str) -> tuple[str, Path]:
     """Parse ``scene_id=scene_path`` or plain ``scene_path``."""
-    if '=' in scene_arg:
-        scene_id, scene_path = scene_arg.split('=', 1)
+    if "=" in scene_arg:
+        scene_id, scene_path = scene_arg.split("=", 1)
         return scene_id.strip(), Path(scene_path).expanduser().resolve()
 
     scene_path = Path(scene_arg).expanduser().resolve()
@@ -32,21 +32,21 @@ def _parse_scene_arg(scene_arg: str) -> tuple[str, Path]:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description='Build open-world dataset assets')
+    parser = argparse.ArgumentParser(description="Build open-world dataset assets")
     parser.add_argument(
-        '--scene',
-        action='append',
+        "--scene",
+        action="append",
         required=True,
-        help='Scene spec: scene_id=/abs/path/to/scene or /abs/path/to/scene',
+        help="Scene spec: scene_id=/abs/path/to/scene or /abs/path/to/scene",
     )
     parser.add_argument(
-        '--output_dir',
+        "--output_dir",
         type=Path,
-        default=Path('plans/generated_open_world'),
-        help='Output directory for generated JSONL files',
+        default=Path("plans/generated_open_world"),
+        help="Output directory for generated JSONL files",
     )
-    parser.add_argument('--stride', type=int, default=5)
-    parser.add_argument('--max_programs_per_scene', type=int, default=300)
+    parser.add_argument("--stride", type=int, default=5)
+    parser.add_argument("--max_programs_per_scene", type=int, default=300)
     args = parser.parse_args(argv)
 
     scenes: list[tuple[str, Path]] = [_parse_scene_arg(scene) for scene in args.scene]
@@ -67,30 +67,30 @@ def main(argv: list[str] | None = None) -> int:
             max_programs_per_scene=args.max_programs_per_scene,
         )
         for idx, program in enumerate(programs):
-            program['program_id'] = f'{scene_id}_prog_{idx:06d}'
+            program["program_id"] = f"{scene_id}_prog_{idx:06d}"
         all_programs.extend(programs)
 
     output_dir = args.output_dir.resolve()
-    scene_manifest_path = output_dir / 'scene_manifest.jsonl'
-    query_pool_path = output_dir / 'query_program_pool.jsonl'
-    report_path = output_dir / 'generation_report.md'
+    scene_manifest_path = output_dir / "scene_manifest.jsonl"
+    query_pool_path = output_dir / "query_program_pool.jsonl"
+    report_path = output_dir / "generation_report.md"
 
     manifest_count = write_jsonl(manifest_records, scene_manifest_path)
     program_count = write_jsonl(all_programs, query_pool_path)
 
     summary = {
-        'scenes': len(manifest_records),
-        'scene_manifest_records': manifest_count,
-        'query_program_records': program_count,
-        'output_dir': str(output_dir),
+        "scenes": len(manifest_records),
+        "scene_manifest_records": manifest_count,
+        "query_program_records": program_count,
+        "output_dir": str(output_dir),
     }
 
     report_lines = [
-        '# Open-World Asset Generation Report',
-        '',
+        "# Open-World Asset Generation Report",
+        "",
     ]
-    report_lines.extend(f'- {key}: {value}' for key, value in summary.items())
-    report_lines.extend(['', '## Scene Summary'])
+    report_lines.extend(f"- {key}: {value}" for key, value in summary.items())
+    report_lines.extend(["", "## Scene Summary"])
     for entry in manifest_records:
         report_lines.append(
             f"- {entry['scene_id']}: categories={entry['num_categories']}, "
@@ -104,5 +104,5 @@ def main(argv: list[str] | None = None) -> int:
     return 0
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     raise SystemExit(main())

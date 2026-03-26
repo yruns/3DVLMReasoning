@@ -552,12 +552,12 @@ class BatchEvaluator:
 
         start_time = time.time()
         try:
-            from agents.stage1_adapters import build_stage2_evidence_bundle
             from agents.models import (
                 Stage2PlanMode,
                 Stage2TaskSpec,
                 Stage2TaskType,
             )
+            from agents.stage1_adapters import build_stage2_evidence_bundle
 
             # Map task type string to enum
             task_type_map = {

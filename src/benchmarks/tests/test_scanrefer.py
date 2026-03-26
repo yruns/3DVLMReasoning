@@ -410,7 +410,7 @@ class TestEvaluateScanRefer:
             None,  # No prediction
         ]
 
-        results = evaluate_scanrefer(list(zip(samples, predictions)))
+        results = evaluate_scanrefer(list(zip(samples, predictions, strict=False)))
 
         assert len(results) == 3
         assert results[0].acc_at_050 is True
@@ -595,7 +595,7 @@ class TestDownloadScanRefer:
     def test_download_clones_repo(self, mock_run: MagicMock) -> None:
         """Test that download clones the repository."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            result = download_scanrefer(tmpdir)
+            download_scanrefer(tmpdir)
 
             mock_run.assert_called_once()
             call_args = mock_run.call_args[0][0]

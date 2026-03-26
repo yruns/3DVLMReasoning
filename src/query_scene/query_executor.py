@@ -574,7 +574,7 @@ class QueryExecutor:
                 values.append(scores.get(cand.obj_id, 0.0))
 
         # Sort and select
-        indexed = list(zip(candidates, values))
+        indexed = list(zip(candidates, values, strict=False))
 
         if order == "min":
             indexed.sort(key=lambda x: x[1])
@@ -667,8 +667,8 @@ class QueryExecutor:
         if not ref_objects:
             return candidates, scores
 
-        metric = constraint.metric.lower()
-        order = constraint.order.lower()
+        constraint.metric.lower()
+        constraint.order.lower()
 
         # Filter candidates that satisfy the comparison
         # This would require knowing what to compare against

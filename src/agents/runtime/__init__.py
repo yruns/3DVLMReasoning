@@ -33,7 +33,12 @@ from agents import Stage2DeepResearchAgent
 ```
 """
 
-from .base import BaseStage2Runtime, Stage2RuntimeState, default_output_instruction, default_payload_schema
+from .base import (
+    BaseStage2Runtime,
+    Stage2RuntimeState,
+    default_output_instruction,
+    default_payload_schema,
+)
 from .deepagents_agent import DeepAgentsStage2Runtime
 from .langchain_agent import ToolChoiceCompatibleAzureChatOpenAI
 

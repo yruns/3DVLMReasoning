@@ -24,7 +24,7 @@ from .llm_client import (
 # Lazy import for general_utils (requires torch/numpy from [full] dependencies)
 _GENERAL_UTILS_AVAILABLE = False
 try:
-    from .general_utils import (
+    from .general_utils import (  # noqa: F401
         Timer,
         cfg_to_dict,
         measure_time,

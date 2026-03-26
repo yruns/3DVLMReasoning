@@ -20,7 +20,6 @@ from typing import Any
 import numpy as np
 
 try:
-    import matplotlib.patches as mpatches
     import matplotlib.pyplot as plt
     from matplotlib.axes import Axes
     from matplotlib.figure import Figure
@@ -371,7 +370,7 @@ def create_detection_drop_figure(
             xytext=(0.55, 0.55),
             fontsize=7,
             color=COLORS["ours_full"],
-            arrowprops=dict(arrowstyle="->", color=COLORS["ours_full"], lw=0.8),
+            arrowprops={"arrowstyle": "->", "color": COLORS["ours_full"], "lw": 0.8},
         )
 
     fig.tight_layout()
@@ -439,7 +438,7 @@ def create_tool_usage_figure(
     # Create stacked bar chart
     bottom = np.zeros(len(benchmarks))
 
-    bars_views = ax.bar(
+    ax.bar(
         x,
         views,
         width,
@@ -449,7 +448,7 @@ def create_tool_usage_figure(
     )
     bottom += np.array(views)
 
-    bars_crops = ax.bar(
+    ax.bar(
         x,
         crops,
         width,
@@ -459,7 +458,7 @@ def create_tool_usage_figure(
     )
     bottom += np.array(crops)
 
-    bars_repair = ax.bar(
+    ax.bar(
         x,
         repair,
         width,
@@ -469,7 +468,7 @@ def create_tool_usage_figure(
     )
     bottom += np.array(repair)
 
-    bars_inspect = ax.bar(
+    ax.bar(
         x,
         inspect,
         width,
@@ -479,7 +478,7 @@ def create_tool_usage_figure(
     )
     bottom += np.array(inspect)
 
-    bars_context = ax.bar(
+    ax.bar(
         x,
         context,
         width,
@@ -510,7 +509,7 @@ def create_tool_usage_figure(
     # Add total labels on top of each bar
     totals = [
         v + c + r + i + ct
-        for v, c, r, i, ct in zip(views, crops, repair, inspect, context)
+        for v, c, r, i, ct in zip(views, crops, repair, inspect, context, strict=False)
     ]
     for i, total in enumerate(totals):
         ax.annotate(

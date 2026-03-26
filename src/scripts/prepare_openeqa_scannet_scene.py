@@ -87,7 +87,7 @@ def _save_contact_sheet(image_paths: Sequence[Path], output_path: Path) -> None:
 
     tiles = []
     labels = ["first", "middle", "last"][: len(picked)]
-    for label, path in zip(labels, picked):
+    for label, path in zip(labels, picked, strict=False):
         image = Image.open(path).convert("RGB")
         image.thumbnail((640, 480))
         canvas = Image.new("RGB", (image.width, image.height + 28), "white")
@@ -160,6 +160,10 @@ def main() -> None:
         raise FileNotFoundError(f"Clip source directory not found: {source_dir}")
 
     clip_dir = args.output_root / clip_id
+    # Raw inputs go into a dedicated ``raw/`` directory; pipeline outputs
+    # go into ``conceptgraph/`` (kept empty of source frames).
+    raw_dir = clip_dir / "raw"
+    raw_dir.mkdir(parents=True, exist_ok=True)
     scene_dir = clip_dir / "conceptgraph"
     scene_dir.mkdir(parents=True, exist_ok=True)
 
@@ -168,14 +172,14 @@ def main() -> None:
     mesh_src = (
         None if raw_scene_dir is None else raw_scene_dir / f"{scene_id}_vh_clean_2.ply"
     )
-    mesh_dst = scene_dir / "mesh.ply"
+    mesh_dst = raw_dir / "mesh.ply"
 
     rgb_files, depth_files, pose_files, aux_files = _gather_input_files(source_dir)
     for path in rgb_files + depth_files + pose_files + aux_files:
-        _link_or_copy(path, scene_dir / path.name, args.prefer_symlink)
+        _link_or_copy(path, raw_dir / path.name, args.prefer_symlink)
     if mesh_src is not None and mesh_src.exists():
         _link_or_copy(mesh_src, mesh_dst, args.prefer_symlink)
-    _write_traj_from_pose_files(pose_files, scene_dir / "traj.txt")
+    _write_traj_from_pose_files(pose_files, raw_dir / "traj.txt")
 
     preview_path = scene_dir / "checks" / "00_clip_wrapper_preview.jpg"
     _save_contact_sheet(rgb_files, preview_path)
@@ -184,6 +188,7 @@ def main() -> None:
         "clip_id": clip_id,
         "scene_id": scene_id,
         "source_dir": str(source_dir),
+        "raw_dir": str(raw_dir),
         "scene_dir": str(scene_dir),
         "mesh_path": str(mesh_dst) if mesh_dst.exists() else None,
         "mesh_available": mesh_dst.exists(),

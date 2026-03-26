@@ -6,7 +6,7 @@ and applies coordinate transformations correctly.
 
 import numpy as np
 
-from ...dataset import CoordinateSystem, get_adapter
+from ...dataset import CoordinateSystem
 
 
 def test_coordinate_transform_logic():
@@ -16,7 +16,6 @@ def test_coordinate_transform_logic():
     print("=" * 60)
 
     # Test 1: Identity transform (Replica -> OpenGL)
-    from ...dataset.base import DatasetAdapter
 
     # Simulate getting the transform
     replica_coord = CoordinateSystem.OPENGL
@@ -28,7 +27,6 @@ def test_coordinate_transform_logic():
         print(f"  Transform is identity: {np.allclose(transform, np.eye(4))}")
 
     # Test 2: ScanNet -> OpenGL transform
-    scannet_coord = CoordinateSystem.SCANNET
     target_coord = CoordinateSystem.OPENGL
 
     # Expected transform (from base.py):
@@ -52,7 +50,7 @@ def test_coordinate_transform_logic():
     print(f"  Original position: {test_pose[:3, 3]}")
     print(f"  Transformed position: {transformed_pose[:3, 3]}")
     print(
-        f"  Expected: [1, 3, -2] (x stays, y->z, z->-y)"
+        "  Expected: [1, 3, -2] (x stays, y->z, z->-y)"
     )  # Based on the rotation matrix
 
     print("\n" + "=" * 60)

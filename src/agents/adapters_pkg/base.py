@@ -204,7 +204,7 @@ def build_evidence_from_frames(
             image_path=str(fpath),
             score=score,
         )
-        for fid, fpath, score in zip(frame_ids, frame_paths, scores)
+        for fid, fpath, score in zip(frame_ids, frame_paths, scores, strict=False)
     ]
 
     return Stage2EvidenceBundle(

@@ -198,7 +198,7 @@ class OpenEQADataset:
 
     def get_categories(self) -> list[str]:
         """Get list of unique question categories."""
-        return sorted(set(s.category for s in self.samples))
+        return sorted({s.category for s in self.samples})
 
     def filter_by_category(self, category: str) -> OpenEQADataset:
         """Create a new dataset filtered by category."""

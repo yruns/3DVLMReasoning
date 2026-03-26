@@ -98,12 +98,25 @@ exclude = '''
 
 [tool.ruff]
 line-length = 88
-select = ["E", "F", "I", "N", "W", "B", "C4", "UP"]
-ignore = ["E501"]
 target-version = "py310"
 
-[tool.ruff.isort]
-known-first-party = ["query_scene", "agents", "benchmarks", "utils"]
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "B", "C4", "UP"]
+ignore = [
+    "E501",   # line too long (handled by black)
+    "E402",   # module level import not at top (common in ML: conditional imports)
+    "E741",   # ambiguous variable name (l, O, I — common in math/ML)
+    "N806",   # variable in function should be lowercase (N, H, W — ML convention)
+    "N803",   # argument name should be lowercase (same reason)
+    "N802",   # function name should be lowercase (external API compat)
+    "N812",   # lowercase imported as non-lowercase
+    "N813",   # camelCase imported as lowercase
+    "N999",   # invalid module name
+    "B905",   # zip() without strict= (ML code: lengths always match)
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["query_scene", "agents", "benchmarks", "utils", "conceptgraph"]
 
 [tool.mypy]
 python_version = "3.10"

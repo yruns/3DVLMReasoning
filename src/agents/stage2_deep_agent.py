@@ -78,7 +78,7 @@ class Stage2DeepResearchAgent:
         tests can patch ``ToolChoiceCompatibleAzureChatOpenAI`` here and inspect
         constructor arguments.
         """
-        if getattr(self._runtime, '_llm', None) is None:
+        if getattr(self._runtime, "_llm", None) is None:
             self._runtime._llm = ToolChoiceCompatibleAzureChatOpenAI(
                 azure_deployment=self.config.model_name,
                 model=self.config.model_name,
@@ -138,7 +138,7 @@ class Stage2DeepResearchAgent:
             system_prompt=self._build_system_prompt(task),
             subagents=self._build_subagents(task),
             response_format=Stage2StructuredResponse,
-            name='query_scene_stage2_agent',
+            name="query_scene_stage2_agent",
         )
         return graph, runtime
 
@@ -151,7 +151,7 @@ class Stage2DeepResearchAgent:
         graph, runtime = self.build_agent(task, bundle)
         message = self._build_user_message(task, runtime)
         logger.info(
-            '[Stage2DeepResearchAgent] task={} plan_mode={} keyframes={} max_turns={}',
+            "[Stage2DeepResearchAgent] task={} plan_mode={} keyframes={} max_turns={}",
             task.task_type.value,
             task.plan_mode.value,
             len(runtime.bundle.keyframes),
@@ -164,14 +164,14 @@ class Stage2DeepResearchAgent:
 
         while turns_used < task.max_reasoning_turns:
             turns_used += 1
-            raw_state = graph.invoke({'messages': messages})
+            raw_state = graph.invoke({"messages": messages})
 
-            structured = raw_state.get('structured_response')
+            structured = raw_state.get("structured_response")
             if structured is not None:
                 response = Stage2StructuredResponse.model_validate(structured)
                 if response.status in (Stage2Status.COMPLETED, Stage2Status.FAILED):
                     logger.info(
-                        '[Stage2DeepResearchAgent] completed at turn {} with status={}',
+                        "[Stage2DeepResearchAgent] completed at turn {} with status={}",
                         turns_used,
                         response.status.value,
                     )
@@ -180,11 +180,11 @@ class Stage2DeepResearchAgent:
             if runtime.consume_evidence_update():
                 evidence_message = self._build_evidence_update_message(runtime)
                 if evidence_message is not None:
-                    if 'messages' in raw_state:
-                        messages = raw_state['messages']
+                    if "messages" in raw_state:
+                        messages = raw_state["messages"]
                     messages.append(evidence_message)
                     logger.info(
-                        '[Stage2DeepResearchAgent] turn {}: injecting new evidence, continuing loop',
+                        "[Stage2DeepResearchAgent] turn {}: injecting new evidence, continuing loop",
                         turns_used,
                     )
                     continue
@@ -192,7 +192,7 @@ class Stage2DeepResearchAgent:
             break
 
         logger.info(
-            '[Stage2DeepResearchAgent] finished after {} turns, tool_calls={}',
+            "[Stage2DeepResearchAgent] finished after {} turns, tool_calls={}",
             turns_used,
             len(runtime.tool_trace),
         )
@@ -213,12 +213,12 @@ class Stage2DeepResearchAgent:
             result=final_response,
             tool_trace=runtime.tool_trace,
             final_bundle=runtime.bundle,
-            raw_state={k: v for k, v in raw_state.items() if k != 'messages'},
+            raw_state={k: v for k, v in raw_state.items() if k != "messages"},
         )
 
 
 __all__ = [
-    'Stage2DeepResearchAgent',
-    'Stage2RuntimeState',
-    'ToolChoiceCompatibleAzureChatOpenAI',
+    "Stage2DeepResearchAgent",
+    "Stage2RuntimeState",
+    "ToolChoiceCompatibleAzureChatOpenAI",
 ]

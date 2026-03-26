@@ -27,7 +27,7 @@ import logging
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s | %(levelname)-7s | %(message)s",
-    datefmt="%H:%M:%S"
+    datefmt="%H:%M:%S",
 )
 logger = logging.getLogger(__name__)
 
@@ -116,8 +116,9 @@ def test_pipeline_creation():
         logger.info("✓ Pipeline created successfully")
 
         # Check that coordinate transform was applied
-        if hasattr(pipeline, '_coordinate_transform'):
+        if hasattr(pipeline, "_coordinate_transform"):
             import numpy as np
+
             is_identity = np.allclose(pipeline._coordinate_transform, np.eye(4))
             logger.info(f"  Coordinate transform applied: {not is_identity}")
 
@@ -157,36 +158,34 @@ def test_query_execution(pipeline):
                 logger.info(f"  ✓ Matched {len(result.matched_objects)} object(s)")
                 for obj in result.matched_objects[:3]:  # Show first 3
                     logger.info(f"    - {obj.object_tag} (id={obj.obj_id})")
-                results.append({
-                    "query": query,
-                    "success": True,
-                    "matches": len(result.matched_objects),
-                    "objects": [obj.object_tag for obj in result.matched_objects[:5]]
-                })
+                results.append(
+                    {
+                        "query": query,
+                        "success": True,
+                        "matches": len(result.matched_objects),
+                        "objects": [
+                            obj.object_tag for obj in result.matched_objects[:5]
+                        ],
+                    }
+                )
             else:
-                logger.warning(f"  ⚠ No matches found")
-                results.append({
-                    "query": query,
-                    "success": True,
-                    "matches": 0,
-                    "objects": []
-                })
+                logger.warning("  ⚠ No matches found")
+                results.append(
+                    {"query": query, "success": True, "matches": 0, "objects": []}
+                )
 
         except Exception as e:
             logger.error(f"  ✗ Query failed: {e}")
-            results.append({
-                "query": query,
-                "success": False,
-                "error": str(e)
-            })
+            results.append({"query": query, "success": False, "error": str(e)})
 
     return results
 
 
 def test_coordinate_transforms():
     """Test Step 4: Verify coordinate transforms are correct."""
-    from src.dataset import get_adapter, CoordinateSystem
     import numpy as np
+
+    from src.dataset import CoordinateSystem, get_adapter
 
     logger.info("=" * 70)
     logger.info("Step 4: Test Coordinate Transforms")
@@ -229,8 +228,6 @@ def verify_pre_migration_compatibility():
     try:
         # Test that old imports still work
         from src.query_scene.retrieval import KeyframeSelector
-        from src.query_scene.query_executor import QueryExecutor
-        from src.query_scene.retrieval import SpatialRelationChecker
 
         logger.info("✓ Old imports still work")
 
@@ -241,7 +238,7 @@ def verify_pre_migration_compatibility():
 
         scene_path = Path(replica_root) / "room0"
 
-        selector = KeyframeSelector.from_scene_path(
+        KeyframeSelector.from_scene_path(
             str(scene_path),
             llm_model="gemini-2.5-pro",
         )
@@ -287,13 +284,16 @@ def main():
         results = test_query_execution(pipeline)
 
         # Check if at least one query succeeded with matches
-        has_matches = any(r.get("success", False) and r.get("matches", 0) > 0
-                         for r in results)
+        has_matches = any(
+            r.get("success", False) and r.get("matches", 0) > 0 for r in results
+        )
 
         if not has_matches:
             logger.warning("⚠ No queries returned matches (may be expected)")
         else:
-            logger.info(f"✓ {sum(1 for r in results if r.get('matches', 0) > 0)}/{len(results)} queries matched objects")
+            logger.info(
+                f"✓ {sum(1 for r in results if r.get('matches', 0) > 0)}/{len(results)} queries matched objects"
+            )
     else:
         logger.error("✗ Cannot test query execution without pipeline")
         all_passed = False

@@ -134,7 +134,7 @@ def create_bev_heatmap(
     heatmap = np.ones((size[1], size[0], 3), dtype=np.uint8) * 240
 
     # Build similarity lookup
-    sim_lookup = {obj_id: sim for obj_id, _, sim, _ in similarities}
+    {obj_id: sim for obj_id, _, sim, _ in similarities}
 
     # Draw objects with color based on similarity
     for obj_id, category, similarity, centroid in similarities:
@@ -424,7 +424,7 @@ def visualize_query(
     # Top objects table
     axes[2].axis("off")
     table_data = []
-    for i, (obj_id, category, sim, centroid) in enumerate(similarities[:15]):
+    for _i, (obj_id, category, sim, _centroid) in enumerate(similarities[:15]):
         table_data.append([f"#{obj_id}", category[:20], f"{sim:.3f}"])
 
     table = axes[2].table(

@@ -758,7 +758,7 @@ class TraceServerHandler(BaseHTTPRequestHandler):
 
     def _build_trace_html(self, trace: TraceRecord) -> str:
         """Build trace detail HTML."""
-        turns = self.db.get_turns(trace.trace_id)
+        self.db.get_turns(trace.trace_id)
         keyframe_paths = trace.keyframe_paths
 
         # Keyframe thumbnails

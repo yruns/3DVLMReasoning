@@ -39,13 +39,13 @@ class TestMockOpenEQASamples:
     def test_mock_sample_diversity(self):
         """Test mock samples have diverse categories."""
         samples = create_mock_openeqa_samples(50)
-        categories = set(s.category for s in samples)
+        categories = {s.category for s in samples}
         assert len(categories) > 3, "Should have diverse categories"
 
     def test_mock_sample_scenes(self):
         """Test mock samples cover multiple scenes."""
         samples = create_mock_openeqa_samples(50)
-        scenes = set(s.scene_id for s in samples)
+        scenes = {s.scene_id for s in samples}
         assert len(scenes) > 1, "Should cover multiple scenes"
 
 

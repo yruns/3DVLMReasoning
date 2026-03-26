@@ -49,7 +49,7 @@ def main():
     if not os.path.exists(opt.output_path):
         os.makedirs(opt.output_path)
     # load the data
-    sys.stdout.write("loading %s..." % opt.filename)
+    sys.stdout.write(f"loading {opt.filename}...")
     sd = SensorData(opt.filename)
     sys.stdout.write("loaded!\n")
     if opt.export_depth_images:

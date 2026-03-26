@@ -122,7 +122,7 @@ def _write_summary_plot(output_path: Path, counts: dict[str, int]) -> None:
     ax.set_axisbelow(True)
     plt.xticks(rotation=20, ha="right")
 
-    for bar, value in zip(bars, values):
+    for bar, value in zip(bars, values, strict=False):
         ax.text(
             bar.get_x() + bar.get_width() / 2.0,
             value + max(values) * 0.02,

@@ -92,7 +92,7 @@ class DescriptionGenerator:
                 if view_id < len(rgb_images):
                     rgb = rgb_images[view_id]
                     h, w = rgb.shape[:2]
-                    K = np.array(
+                    np.array(
                         [[600, 0, w / 2], [0, 600, h / 2], [0, 0, 1]], dtype=np.float32
                     )
 
@@ -175,7 +175,7 @@ Example: "white metal rectangular table" or "gray fabric L-shaped sofa"
                 )
                 if resp.ok:
                     return resp.json()["choices"][0]["message"]["content"].strip()
-            except:
+            except Exception:
                 pass
 
             # Try Ollama API
@@ -192,7 +192,7 @@ Example: "white metal rectangular table" or "gray fabric L-shaped sofa"
                 )
                 if resp.ok:
                     return resp.json().get("response", "").strip()
-            except:
+            except Exception:
                 pass
 
         except Exception:

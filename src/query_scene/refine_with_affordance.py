@@ -291,7 +291,7 @@ def parse_response(response_text: str) -> dict:
     if json_match:
         try:
             return json.loads(json_match.group(1))
-        except:
+        except Exception:
             pass
 
     # 尝试直接解析
@@ -299,7 +299,7 @@ def parse_response(response_text: str) -> dict:
     if json_match:
         try:
             return json.loads(json_match.group(0))
-        except:
+        except Exception:
             pass
 
     return {}

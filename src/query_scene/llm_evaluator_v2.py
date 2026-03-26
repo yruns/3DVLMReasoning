@@ -1036,12 +1036,14 @@ class LLMEvaluatorV2:
             if brace_match:
                 try:
                     response_dict = json.loads(brace_match.group())
-                except json.JSONDecodeError:
+                except json.JSONDecodeError as exc:
                     raise ValueError(
                         f"Failed to parse LLM response: {raw_response[:200]}"
-                    )
+                    ) from exc
             else:
-                raise ValueError(f"No JSON found in LLM response: {raw_response[:200]}")
+                raise ValueError(
+                    f"No JSON found in LLM response: {raw_response[:200]}"
+                ) from e
 
         # Validate response
         validation_errors = validate_llm_response(response_dict, num_keyframes)

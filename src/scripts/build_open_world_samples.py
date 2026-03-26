@@ -15,7 +15,9 @@ from ..query_scene.open_world_sample_builder import (
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Build open-world parser training samples")
+    parser = argparse.ArgumentParser(
+        description="Build open-world parser training samples"
+    )
     parser.add_argument(
         "--scene_manifest",
         type=Path,

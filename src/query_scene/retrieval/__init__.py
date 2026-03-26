@@ -18,32 +18,32 @@ if TYPE_CHECKING:  # pragma: no cover
     from ..keyframe_selector import KeyframeResult, KeyframeSelector, SceneObject
 
 __all__ = [
-    'CLIPIndex',
-    'VisibilityIndex',
-    'SpatialIndex',
-    'RegionIndex',
-    'PointLevelIndex',
-    'SceneIndices',
-    'KeyframeSelector',
-    'KeyframeResult',
-    'SceneObject',
-    'SpatialRelationChecker',
-    'RelationResult',
+    "CLIPIndex",
+    "VisibilityIndex",
+    "SpatialIndex",
+    "RegionIndex",
+    "PointLevelIndex",
+    "SceneIndices",
+    "KeyframeSelector",
+    "KeyframeResult",
+    "SceneObject",
+    "SpatialRelationChecker",
+    "RelationResult",
 ]
 
 
 def __getattr__(name: str) -> Any:
     """Lazily expose canonical selector types from ``query_scene.keyframe_selector``."""
-    if name in {'KeyframeSelector', 'KeyframeResult', 'SceneObject'}:
+    if name in {"KeyframeSelector", "KeyframeResult", "SceneObject"}:
         from ..keyframe_selector import KeyframeResult, KeyframeSelector, SceneObject
 
         mapping = {
-            'KeyframeSelector': KeyframeSelector,
-            'KeyframeResult': KeyframeResult,
-            'SceneObject': SceneObject,
+            "KeyframeSelector": KeyframeSelector,
+            "KeyframeResult": KeyframeResult,
+            "SceneObject": SceneObject,
         }
         return mapping[name]
-    raise AttributeError(f'module {__name__!r} has no attribute {name!r}')
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 def __dir__() -> list[str]:

@@ -402,7 +402,7 @@ class VLMOutputParser:
         best_match = None
         best_score = 0
 
-        for obj_id, obj in self.objects.items():
+        for _obj_id, obj in self.objects.items():
             category = obj.category.lower()
             if category in output_lower:
                 # Count occurrences as score

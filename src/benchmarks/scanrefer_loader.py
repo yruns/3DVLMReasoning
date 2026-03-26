@@ -263,11 +263,11 @@ class ScanReferDataset:
 
     def get_scenes(self) -> list[str]:
         """Get list of unique scene IDs."""
-        return sorted(set(s.scene_id for s in self.samples))
+        return sorted({s.scene_id for s in self.samples})
 
     def get_object_names(self) -> list[str]:
         """Get list of unique object categories."""
-        return sorted(set(s.object_name for s in self.samples))
+        return sorted({s.object_name for s in self.samples})
 
     def filter_by_scene(self, scene_id: str) -> ScanReferDataset:
         """Create a new dataset filtered by scene."""

@@ -732,7 +732,7 @@ if __name__ == "__main__":
         elapsed = time.time() - start
 
         print(f"\nResults ({elapsed:.2f}s total):")
-        for q, r in zip(queries, results):
+        for q, r in zip(queries, results, strict=False):
             print(f"  {q} -> {r}")
 
         print(f"\nAvg time per query: {elapsed/len(queries):.2f}s")

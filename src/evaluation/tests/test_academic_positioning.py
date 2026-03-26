@@ -753,7 +753,7 @@ class TestAcademicAlignment:
     def test_core_research_claim_present(self):
         """The core research claim should be supported by positioning."""
         doc = generate_positioning_document()
-        core_claim = (
+        (
             "evidence-seeking VLM agents that iteratively acquire visual context "
             "outperform one-shot baselines"
         ).lower()

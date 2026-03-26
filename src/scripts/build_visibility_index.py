@@ -364,7 +364,7 @@ def build_visibility_index(
         view_to_objects[view_id].sort(key=lambda x: x[1], reverse=True)
 
     total_obj_mappings = sum(len(v) for v in object_to_views.values())
-    total_view_mappings = sum(len(v) for v in view_to_objects.values())
+    sum(len(v) for v in view_to_objects.values())
 
     logger.success(
         f"Built bidirectional index: {len(object_to_views)} objects, "
@@ -431,8 +431,9 @@ def main():
     # Load objects
     objects = load_objects(pcd_file)
 
-    # Load poses
-    traj_file = scene_path / "traj.txt"
+    # Load poses — prefer sibling raw/ directory
+    raw_dir = scene_path.parent / "raw"
+    traj_file = raw_dir / "traj.txt" if (raw_dir / "traj.txt").exists() else scene_path / "traj.txt"
     if not traj_file.exists():
         raise FileNotFoundError(f"Trajectory file not found: {traj_file}")
 

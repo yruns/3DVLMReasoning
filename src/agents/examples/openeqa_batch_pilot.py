@@ -296,17 +296,27 @@ def main() -> None:
     args = parse_args()
 
     logger.remove()
-    logger.add(sys.stderr, level="INFO", format="{time:HH:mm:ss} | {level:7} | {message}")
+    logger.add(
+        sys.stderr, level="INFO", format="{time:HH:mm:ss} | {level:7} | {message}"
+    )
 
     query_set_path = args.query_set_path or (args.output_root / "query_set.jsonl")
 
     if query_set_path.exists():
         query_set = load_query_set(query_set_path)
-        logger.info("Loaded existing query set: {} entries from {}", len(query_set), query_set_path)
+        logger.info(
+            "Loaded existing query set: {} entries from {}",
+            len(query_set),
+            query_set_path,
+        )
     else:
-        logger.info("Generating validated query set for up to {} scenes", args.num_scenes)
+        logger.info(
+            "Generating validated query set for up to {} scenes", args.num_scenes
+        )
         query_set = []
-        for scene_root in sorted(path for path in args.data_root.iterdir() if path.is_dir()):
+        for scene_root in sorted(
+            path for path in args.data_root.iterdir() if path.is_dir()
+        ):
             if len(query_set) >= args.num_scenes:
                 break
             proposal = propose_scene_query(scene_root)
@@ -343,7 +353,9 @@ def main() -> None:
                     exc,
                 )
         save_query_set(query_set_path, query_set)
-        logger.info("Saved query set with {} entries to {}", len(query_set), query_set_path)
+        logger.info(
+            "Saved query set with {} entries to {}", len(query_set), query_set_path
+        )
 
     if len(query_set) == 0:
         raise RuntimeError("No valid query-set entries available.")

@@ -350,4 +350,4 @@ class ReplicaAdapter(DatasetAdapter):
             Dict mapping class IDs to class names
         """
         # Replica has a fixed set of semantic classes
-        return {i: name for i, name in enumerate(REPLICA_CLASSES)}
+        return dict(enumerate(REPLICA_CLASSES))

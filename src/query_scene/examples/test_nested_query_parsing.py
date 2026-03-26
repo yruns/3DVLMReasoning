@@ -20,58 +20,78 @@ from utils.llm_client import DEFAULT_MODEL
 
 TEST_QUERIES = [
     {
-        'query': 'the pillow on the sofa',
-        'description': 'Simple spatial relation: pillow -[on]-> sofa',
+        "query": "the pillow on the sofa",
+        "description": "Simple spatial relation: pillow -[on]-> sofa",
     },
     {
-        'query': 'the red cup',
-        'description': 'Simple object with attribute, no spatial relation',
+        "query": "the red cup",
+        "description": "Simple object with attribute, no spatial relation",
     },
     {
-        'query': 'the pillow on the sofa nearest the door',
-        'description': 'Nested: pillow -[on]-> sofa -[nearest]-> door',
+        "query": "the pillow on the sofa nearest the door",
+        "description": "Nested: pillow -[on]-> sofa -[nearest]-> door",
     },
     {
-        'query': 'the sofa nearest the door',
-        'description': 'Superlative: sofa -[nearest]-> door',
+        "query": "the sofa nearest the door",
+        "description": "Superlative: sofa -[nearest]-> door",
     },
     {
-        'query': 'the largest book on the shelf',
-        'description': 'Superlative + spatial: book -[on]-> shelf, select largest',
+        "query": "the largest book on the shelf",
+        "description": "Superlative + spatial: book -[on]-> shelf, select largest",
     },
     {
-        'query': 'the lamp on the table near the window',
-        'description': 'Multi-level: lamp -[on]-> table -[near]-> window',
+        "query": "the lamp on the table near the window",
+        "description": "Multi-level: lamp -[on]-> table -[near]-> window",
     },
     {
-        'query': 'the cup on the table in the kitchen',
-        'description': 'Multi-level: cup -[on]-> table -[in]-> kitchen',
+        "query": "the cup on the table in the kitchen",
+        "description": "Multi-level: cup -[on]-> table -[in]-> kitchen",
     },
     {
-        'query': 'the lamp between the sofa and the TV',
-        'description': 'Multi-anchor: lamp -[between]-> [sofa, TV]',
+        "query": "the lamp between the sofa and the TV",
+        "description": "Multi-anchor: lamp -[between]-> [sofa, TV]",
     },
     {
-        'query': 'the second chair from the left',
-        'description': 'Ordinal: select 2nd chair by x_position',
+        "query": "the second chair from the left",
+        "description": "Ordinal: select 2nd chair by x_position",
     },
     {
-        'query': 'the red book on the shelf above the desk',
-        'description': 'Complex: book(red) -[on]-> shelf -[above]-> desk',
+        "query": "the red book on the shelf above the desk",
+        "description": "Complex: book(red) -[on]-> shelf -[above]-> desk",
     },
 ]
 
 MOCK_SCENE_CATEGORIES = [
-    'pillow', 'throw_pillow', 'cushion',
-    'sofa', 'couch', 'armchair', 'chair',
-    'table', 'coffee_table', 'side_table', 'desk',
-    'lamp', 'table_lamp', 'floor_lamp',
-    'book', 'bookshelf', 'shelf',
-    'cup', 'mug', 'glass',
-    'door', 'window',
-    'tv', 'television',
-    'plant', 'flower', 'vase',
-    'kitchen', 'living_room', 'bedroom',
+    "pillow",
+    "throw_pillow",
+    "cushion",
+    "sofa",
+    "couch",
+    "armchair",
+    "chair",
+    "table",
+    "coffee_table",
+    "side_table",
+    "desk",
+    "lamp",
+    "table_lamp",
+    "floor_lamp",
+    "book",
+    "bookshelf",
+    "shelf",
+    "cup",
+    "mug",
+    "glass",
+    "door",
+    "window",
+    "tv",
+    "television",
+    "plant",
+    "flower",
+    "vase",
+    "kitchen",
+    "living_room",
+    "bedroom",
 ]
 
 
@@ -142,28 +162,28 @@ def run_parser_demo(queries: list[dict[str, str]], llm_model: str) -> int:
 
 
 def main() -> None:
-    cli = argparse.ArgumentParser(description='Test nested query parsing')
+    cli = argparse.ArgumentParser(description="Test nested query parsing")
     cli.add_argument(
-        '--llm_model',
+        "--llm_model",
         type=str,
         default=os.environ.get("LLM_MODEL", DEFAULT_MODEL),
-        help='LLM model name for QueryParser.',
+        help="LLM model name for QueryParser.",
     )
     args = cli.parse_args()
 
-    logger.info('=' * 70)
-    logger.info('Nested Query Parsing Test')
-    logger.info('=' * 70)
-    logger.info(f'Testing {len(TEST_QUERIES)} queries...')
-    logger.info(f'Scene categories: {len(MOCK_SCENE_CATEGORIES)} categories')
+    logger.info("=" * 70)
+    logger.info("Nested Query Parsing Test")
+    logger.info("=" * 70)
+    logger.info(f"Testing {len(TEST_QUERIES)} queries...")
+    logger.info(f"Scene categories: {len(MOCK_SCENE_CATEGORIES)} categories")
 
     failures = run_parser_demo(TEST_QUERIES, args.llm_model)
 
-    logger.info('=' * 70)
-    logger.info('failures={}', failures)
-    logger.info('=' * 70)
+    logger.info("=" * 70)
+    logger.info("failures={}", failures)
+    logger.info("=" * 70)
     raise SystemExit(0 if failures == 0 else 1)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

@@ -67,14 +67,14 @@ class TestMockSampleCreation:
     def test_mock_samples_diverse_categories(self):
         """Test samples cover diverse categories."""
         samples = create_mock_openeqa_samples(n_samples=50)
-        categories = set(s.category for s in samples)
+        categories = {s.category for s in samples}
         # Should have at least 5 different categories
         assert len(categories) >= 5
 
     def test_mock_samples_diverse_scenes(self):
         """Test samples spread across scenes."""
         samples = create_mock_openeqa_samples(n_samples=50)
-        scenes = set(s.scene_id for s in samples)
+        scenes = {s.scene_id for s in samples}
         assert len(scenes) >= 3
 
 

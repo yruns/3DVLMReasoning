@@ -642,7 +642,9 @@ class LLMEvaluator:
         try:
             data = json.loads(cleaned)
         except json.JSONDecodeError as e:
-            raise ValueError(f"JSON parse failed: {e}\nResponse: {response[:500]}")
+            raise ValueError(
+                f"JSON parse failed: {e}\nResponse: {response[:500]}"
+            ) from e
 
         # Pydantic validation
         llm_response = LLMEvaluationResponse.model_validate(data)

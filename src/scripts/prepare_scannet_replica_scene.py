@@ -122,7 +122,7 @@ def _save_contact_sheet(image_paths: Sequence[Path], output_path: Path) -> None:
 
     tiles = []
     labels = ["first", "middle", "last"][: len(picked)]
-    for label, path in zip(labels, picked):
+    for label, path in zip(labels, picked, strict=False):
         image = Image.open(path).convert("RGB")
         image.thumbnail((640, 480))
         canvas = Image.new("RGB", (image.width, image.height + 28), "white")

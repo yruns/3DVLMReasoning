@@ -238,9 +238,7 @@ class TestHypothesisRepairOnlyAblationRunner:
         )
         # Should not raise, but should warn
         with patch("loguru.logger.warning") as mock_warn:
-            runner = HypothesisRepairOnlyAblationRunner(
-                config=invalid_config, use_mock=True
-            )
+            HypothesisRepairOnlyAblationRunner(config=invalid_config, use_mock=True)
             assert mock_warn.called
 
     def test_runner_validates_config_warns_if_hypothesis_repair_disabled(self):
@@ -256,9 +254,7 @@ class TestHypothesisRepairOnlyAblationRunner:
             ),
         )
         with patch("loguru.logger.warning") as mock_warn:
-            runner = HypothesisRepairOnlyAblationRunner(
-                config=invalid_config, use_mock=True
-            )
+            HypothesisRepairOnlyAblationRunner(config=invalid_config, use_mock=True)
             assert mock_warn.called
 
     def test_runner_validates_config_warns_if_views_enabled(self):
@@ -274,9 +270,7 @@ class TestHypothesisRepairOnlyAblationRunner:
             ),
         )
         with patch("loguru.logger.warning") as mock_warn:
-            runner = HypothesisRepairOnlyAblationRunner(
-                config=invalid_config, use_mock=True
-            )
+            HypothesisRepairOnlyAblationRunner(config=invalid_config, use_mock=True)
             assert mock_warn.called
 
     def test_runner_validates_config_warns_if_crops_enabled(self):
@@ -292,17 +286,13 @@ class TestHypothesisRepairOnlyAblationRunner:
             ),
         )
         with patch("loguru.logger.warning") as mock_warn:
-            runner = HypothesisRepairOnlyAblationRunner(
-                config=invalid_config, use_mock=True
-            )
+            HypothesisRepairOnlyAblationRunner(config=invalid_config, use_mock=True)
             assert mock_warn.called
 
     def test_runner_creates_output_dir(self, tmp_path: Path):
         """Runner should create output directory."""
         output_dir = tmp_path / "ablation_output"
-        runner = HypothesisRepairOnlyAblationRunner(
-            use_mock=True, output_dir=output_dir
-        )
+        HypothesisRepairOnlyAblationRunner(use_mock=True, output_dir=output_dir)
         assert output_dir.exists()
 
 

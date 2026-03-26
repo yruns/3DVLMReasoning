@@ -16,9 +16,9 @@ from loguru import logger
 project_root = Path(__file__).parent.parent.parent.parent
 sys.path.insert(0, str(project_root))
 
+from query_scene.core import GroundingQuery, QueryNode, SpatialConstraint
 from query_scene.examples.e2e_query_test import apply_affordances, load_scene_objects
 from query_scene.query_executor import QueryExecutor
-from query_scene.core import GroundingQuery, QueryNode, SpatialConstraint
 from query_scene.retrieval import SpatialRelationChecker
 
 

@@ -263,7 +263,7 @@ class TestUncertaintyAblationRunner:
         )
         # Should not raise, but should warn
         with patch("loguru.logger.warning") as mock_warn:
-            runner = UncertaintyAblationRunner(config=invalid_config, use_mock=True)
+            UncertaintyAblationRunner(config=invalid_config, use_mock=True)
             assert mock_warn.called
 
     def test_runner_validates_config_warns_if_uncertainty_enabled(self):
@@ -279,7 +279,7 @@ class TestUncertaintyAblationRunner:
             ),
         )
         with patch("loguru.logger.warning") as mock_warn:
-            runner = UncertaintyAblationRunner(config=invalid_config, use_mock=True)
+            UncertaintyAblationRunner(config=invalid_config, use_mock=True)
             assert mock_warn.called
 
     def test_runner_validates_config_warns_if_views_disabled(self):
@@ -295,7 +295,7 @@ class TestUncertaintyAblationRunner:
             ),
         )
         with patch("loguru.logger.warning") as mock_warn:
-            runner = UncertaintyAblationRunner(config=invalid_config, use_mock=True)
+            UncertaintyAblationRunner(config=invalid_config, use_mock=True)
             assert mock_warn.called
 
     def test_runner_validates_config_warns_if_crops_disabled(self):
@@ -311,7 +311,7 @@ class TestUncertaintyAblationRunner:
             ),
         )
         with patch("loguru.logger.warning") as mock_warn:
-            runner = UncertaintyAblationRunner(config=invalid_config, use_mock=True)
+            UncertaintyAblationRunner(config=invalid_config, use_mock=True)
             assert mock_warn.called
 
     def test_runner_validates_config_warns_if_hypothesis_disabled(self):
@@ -327,13 +327,13 @@ class TestUncertaintyAblationRunner:
             ),
         )
         with patch("loguru.logger.warning") as mock_warn:
-            runner = UncertaintyAblationRunner(config=invalid_config, use_mock=True)
+            UncertaintyAblationRunner(config=invalid_config, use_mock=True)
             assert mock_warn.called
 
     def test_runner_creates_output_dir(self, tmp_path: Path):
         """Runner should create output directory."""
         output_dir = tmp_path / "ablation_output"
-        runner = UncertaintyAblationRunner(use_mock=True, output_dir=output_dir)
+        UncertaintyAblationRunner(use_mock=True, output_dir=output_dir)
         assert output_dir.exists()
 
 

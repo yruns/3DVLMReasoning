@@ -202,7 +202,7 @@ def save_filtering_steps(
     """Save PLY files showing the filtering process."""
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    all_ids = set(obj.obj_id for obj in objects)
+    all_ids = {obj.obj_id for obj in objects}
 
     # Save each step
     for i, step in enumerate(vis.steps):
@@ -283,7 +283,7 @@ def save_keyframes(
         frame_counts = Counter(obj.image_idx)
         top_view_ids = [idx for idx, _ in frame_counts.most_common(max_keyframes)]
 
-        for i, view_idx in enumerate(top_view_ids):
+        for _i, view_idx in enumerate(top_view_ids):
             # Convert view index to actual frame index
             actual_frame_idx = view_idx * stride
 
@@ -321,7 +321,7 @@ def execute_with_tracking(
     # Initial candidates: category match before full execution
     root = query_result.root
     initial_candidates = executor._find_by_categories(root.categories)
-    initial_ids = set(obj.obj_id for obj in initial_candidates)
+    initial_ids = {obj.obj_id for obj in initial_candidates}
     vis.steps.append(
         FilteringStep(
             step_name="initial_candidates",
@@ -335,7 +335,7 @@ def execute_with_tracking(
     result = executor.execute(query_result)
 
     # Final candidates
-    vis.final_ids = set(obj.obj_id for obj in result.matched_objects)
+    vis.final_ids = {obj.obj_id for obj in result.matched_objects}
     vis.steps.append(
         FilteringStep(
             step_name="final_candidates",
@@ -466,7 +466,7 @@ def run_e2e_test(
 
             # Initial candidates
             initial_candidates = executor._find_by_categories(parsed.root.categories)
-            initial_ids = set(obj.obj_id for obj in initial_candidates)
+            initial_ids = {obj.obj_id for obj in initial_candidates}
             vis.steps.append(
                 FilteringStep(
                     step_name="initial_candidates",
@@ -477,7 +477,7 @@ def run_e2e_test(
             )
 
         # Final candidates
-        vis.final_ids = set(obj.obj_id for obj in exec_result.matched_objects)
+        vis.final_ids = {obj.obj_id for obj in exec_result.matched_objects}
         vis.steps.append(
             FilteringStep(
                 step_name="final_candidates",
@@ -571,9 +571,7 @@ def main() -> int:
     else:
         logger.warning(f"Generated queries not found: {generated_queries_file}")
         logger.info("Using default test queries. Run query_sample_generator_v2 first:")
-        logger.info(
-            "  python -m query_scene.query_sample_generator_v2 100"
-        )
+        logger.info("  python -m query_scene.query_sample_generator_v2 100")
 
         # Fallback to minimal test set
         test_queries = [
@@ -619,7 +617,11 @@ def main() -> int:
         logger.info(f"    Output: {Path(r['output_dir']).name}/")
 
     parse_failures = sum(1 for item in all_results if not item["parse_success"])
-    execute_failures = sum(1 for item in all_results if item["parse_success"] and not item["execute_success"])
+    execute_failures = sum(
+        1
+        for item in all_results
+        if item["parse_success"] and not item["execute_success"]
+    )
 
     logger.info(f"Total: {passed}/{len(all_results)} tests passed")
     logger.info(f"Parse failures: {parse_failures}")

@@ -19,7 +19,6 @@ from ..models import (
     Stage2Status,
     Stage2StructuredResponse,
     Stage2TaskSpec,
-    Stage2TaskType,
 )
 from .base import (
     BaseStage2Runtime,
@@ -55,7 +54,9 @@ class DeepAgentsStage2Runtime(BaseStage2Runtime):
             crop_callback: Callback for requesting crops
             hypothesis_callback: Callback for hypothesis updates
         """
-        super().__init__(config, more_views_callback, crop_callback, hypothesis_callback)
+        super().__init__(
+            config, more_views_callback, crop_callback, hypothesis_callback
+        )
         self._llm = None
 
     def get_llm(self):

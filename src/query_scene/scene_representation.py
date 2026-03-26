@@ -210,7 +210,7 @@ class QuerySceneRepresentation:
                     poses.append(pose_data)
 
         # Apply stride
-        for i, pose_data in enumerate(poses[::stride]):
+        for _i, pose_data in enumerate(poses[::stride]):
             position = np.array(pose_data[:3], dtype=np.float32)
             quaternion = np.array(pose_data[3:7], dtype=np.float32)
 
@@ -419,13 +419,14 @@ class QuerySceneRepresentation:
                     ),
                 )
 
-        logger.debug(f"Transformed {transformed_obj_count} object centroids and point clouds")
+        logger.debug(
+            f"Transformed {transformed_obj_count} object centroids and point clouds"
+        )
 
         # Recompute scene bounds after transformation
         self._compute_scene_bounds()
 
         logger.success("Coordinate transformation complete")
-
 
     def get_object_by_id(self, obj_id: int) -> ObjectNode | None:
         """Get object by ID."""

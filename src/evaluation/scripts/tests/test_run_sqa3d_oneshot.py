@@ -120,7 +120,7 @@ class TestMockStage2OneshotFactory:
         from unittest.mock import MagicMock
 
         confidences = []
-        for i in range(10):
+        for _i in range(10):
             mock_task_spec = MagicMock()
             mock_evidence = MagicMock()
             result = agent.run(mock_task_spec, mock_evidence)

@@ -102,7 +102,7 @@ class SensorData:
             self.depth_shift = struct.unpack("f", f.read(4))[0]
             num_frames = struct.unpack("Q", f.read(8))[0]
             self.frames = []
-            for i in range(num_frames):
+            for _i in range(num_frames):
                 frame = RGBDFrame()
                 frame.load(f)
                 self.frames.append(frame)

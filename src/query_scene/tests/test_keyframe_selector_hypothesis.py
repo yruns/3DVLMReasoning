@@ -4,9 +4,9 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from query_scene.retrieval import KeyframeSelector
-from query_scene.query_executor import ExecutionResult
 from query_scene.core import HypothesisKind
+from query_scene.query_executor import ExecutionResult
+from query_scene.retrieval import KeyframeSelector
 
 
 def _minimal_selector(tmp_path: Path) -> KeyframeSelector:

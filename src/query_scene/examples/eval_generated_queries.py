@@ -35,9 +35,7 @@ def main():
     queries_file = scene_path / "generated_queries_v2.json"
     if not queries_file.exists():
         logger.error(f"Generated queries not found: {queries_file}")
-        logger.info(
-            "Run: python -m query_scene.query_sample_generator_v2 100"
-        )
+        logger.info("Run: python -m query_scene.query_sample_generator_v2 100")
         return
 
     with open(queries_file) as f:

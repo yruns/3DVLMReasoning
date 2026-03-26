@@ -56,7 +56,7 @@ class TestMockSQA3DSamples:
     def test_mock_sample_question_types(self):
         """Test mock samples cover various SQA3D question types."""
         samples = create_mock_sqa3d_samples(50)
-        question_types = set(s.question_type for s in samples)
+        question_types = {s.question_type for s in samples}
         # Should have spatial and object-centric question types
         assert len(question_types) >= 5
 
@@ -121,7 +121,7 @@ class TestMockStage2Factory:
         from unittest.mock import MagicMock
 
         all_tool_names = set()
-        for i in range(20):
+        for _i in range(20):
             mock_task_spec = MagicMock()
             mock_evidence = MagicMock()
             result = agent.run(mock_task_spec, mock_evidence)
@@ -142,7 +142,7 @@ class TestMockStage2Factory:
         from unittest.mock import MagicMock
 
         confidences = []
-        for i in range(10):
+        for _i in range(10):
             mock_task_spec = MagicMock()
             mock_evidence = MagicMock()
             result = agent.run(mock_task_spec, mock_evidence)

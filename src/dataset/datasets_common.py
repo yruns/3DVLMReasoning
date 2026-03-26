@@ -74,7 +74,7 @@ def readEXR_onlydepth(filename):
     dw = header["dataWindow"]
     isize = (dw.max.y - dw.min.y + 1, dw.max.x - dw.min.x + 1)
 
-    channelData = dict()
+    channelData = {}
 
     for c in header["channels"]:
         C = exrfile.channel(c, Imath.PixelType(Imath.PixelType.FLOAT))
@@ -1158,7 +1158,7 @@ def load_dataset_config(path, default_path=None):
         with open(default_path) as f:
             cfg = yaml.full_load(f)
     else:
-        cfg = dict()
+        cfg = {}
 
     # include main configuration
     update_recursive(cfg, cfg_special)
@@ -1176,7 +1176,7 @@ def update_recursive(dict1, dict2):
     """
     for k, v in dict2.items():
         if k not in dict1:
-            dict1[k] = dict()
+            dict1[k] = {}
         if isinstance(v, dict):
             update_recursive(dict1[k], v)
         else:

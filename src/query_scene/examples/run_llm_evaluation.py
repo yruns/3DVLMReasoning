@@ -32,12 +32,12 @@ def get_scene_path() -> Path:
 
 def run_single_evaluation():
     """Run a single evaluation test."""
-    from query_scene.retrieval import KeyframeSelector
     from query_scene.llm_evaluator import (
         EvaluationInput,
         HypothesisKind,
         LLMEvaluator,
     )
+    from query_scene.retrieval import KeyframeSelector
 
     scene_path = get_scene_path()
     if not scene_path.exists():
@@ -172,12 +172,12 @@ def run_single_evaluation():
 
 def run_batch_evaluation(num_queries: int = 5, mode: str = "keyframe_only"):
     """Run batch evaluation on multiple queries."""
-    from query_scene.retrieval import KeyframeSelector
     from query_scene.llm_evaluator import (
         EvaluationInput,
         HypothesisKind,
         LLMEvaluator,
     )
+    from query_scene.retrieval import KeyframeSelector
 
     scene_path = get_scene_path()
     if not scene_path.exists():

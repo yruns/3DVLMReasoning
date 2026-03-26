@@ -2,7 +2,6 @@
 
 import json
 import time
-from typing import Union
 
 import numpy as np
 import torch
@@ -48,7 +47,7 @@ def to_tensor(numpy_array, device=None):
         return torch.from_numpy(numpy_array).to(device)
 
 
-def to_scalar(d: Union[np.ndarray, torch.Tensor, float]) -> Union[int, float]:
+def to_scalar(d: np.ndarray | torch.Tensor | float) -> int | float:
     """Convert the input to a scalar value.
 
     Args:
@@ -84,7 +83,7 @@ def prjson(input_json, indent=0):
             terminator = "," if j < len(entry) - 1 else ""
             if isinstance(value, str):
                 formatted_value = value.replace("\\n", "\n").replace("\\t", "\t")
-                print('    "{}": "{}"{}'.format(key, formatted_value, terminator))
+                print(f'    "{key}": "{formatted_value}"{terminator}')
             else:
                 print(f'    "{key}": {value}{terminator}')
         print("  }" + ("," if i < len(input_json) - 1 else ""))

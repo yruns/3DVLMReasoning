@@ -126,7 +126,7 @@ class CLIPIndex:
             scores = scores[indices]
 
         results = []
-        for idx, score in zip(indices, scores):
+        for idx, score in zip(indices, scores, strict=False):
             if 0 <= idx < len(self.metadata):
                 results.append((int(idx), float(score), self.metadata[idx]))
 
@@ -278,7 +278,7 @@ class VisibilityIndex:
         import open_clip
         import torch
 
-        categories = set(obj.category for obj in objects)
+        categories = {obj.category for obj in objects}
         features = {}
 
         tokenizer = open_clip.get_tokenizer("ViT-H-14")
@@ -498,7 +498,10 @@ class SpatialIndex:
             indices = [indices]
             distances = [distances]
 
-        return [(self.object_ids[i], float(d)) for i, d in zip(indices, distances)]
+        return [
+            (self.object_ids[i], float(d))
+            for i, d in zip(indices, distances, strict=False)
+        ]
 
     def find_nearby(self, obj_id: int, radius: float = 1.5) -> list[tuple[int, float]]:
         """Find objects within radius of given object.
@@ -649,7 +652,9 @@ class RegionIndex:
 
         for cluster_id in range(n_clusters):
             cluster_objs = [
-                obj for obj, label in zip(valid_objects, labels) if label == cluster_id
+                obj
+                for obj, label in zip(valid_objects, labels, strict=False)
+                if label == cluster_id
             ]
             if not cluster_objs:
                 continue
@@ -885,7 +890,7 @@ class SceneIndices:
 
         # Collect object IDs from top regions
         candidate_obj_ids = set()
-        for region_id, score, obj_ids in region_results:
+        for _region_id, _score, obj_ids in region_results:
             candidate_obj_ids.update(obj_ids)
 
         # Step 2: Search objects, filtering to candidate regions
@@ -1167,7 +1172,8 @@ class PointLevelIndex:
             query_feat = query_feat.reshape(1, -1)
             scores, indices = self._feature_index.search(query_feat, top_k)
             return [
-                (int(idx), float(score)) for idx, score in zip(indices[0], scores[0])
+                (int(idx), float(score))
+                for idx, score in zip(indices[0], scores[0], strict=False)
             ]
         else:
             # Numpy fallback
@@ -1210,7 +1216,9 @@ class PointLevelIndex:
             if isinstance(indices, int):
                 indices = [indices]
                 distances = [distances]
-            indices = [i for i, d in zip(indices, distances) if d <= radius * 2]
+            indices = [
+                i for i, d in zip(indices, distances, strict=False) if d <= radius * 2
+            ]
 
         if not indices:
             return []

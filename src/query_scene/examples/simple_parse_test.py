@@ -108,7 +108,9 @@ def main() -> int:
             logger.info("parse_mode={}", result.parse_mode.value)
             logger.info("num_hypotheses={}", len(result.hypotheses))
             for hypothesis in result.ordered_hypotheses():
-                logger.info("hypothesis rank={} kind={}", hypothesis.rank, hypothesis.kind.value)
+                logger.info(
+                    "hypothesis rank={} kind={}", hypothesis.rank, hypothesis.kind.value
+                )
                 _dump_node(hypothesis.grounding_query.root)
                 logger.info(
                     "raw_query={!r}",

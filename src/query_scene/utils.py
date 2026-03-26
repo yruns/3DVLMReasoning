@@ -254,7 +254,7 @@ def annotate_bev_with_distances(
     anchor_id: int | None,
     candidate_ids: list[int],
     scene_bounds: tuple[np.ndarray, np.ndarray],
-    distance_rings: list[float] = [1.0, 2.0],
+    distance_rings: list[float] = None,
 ) -> np.ndarray:
     """Annotate BEV with distance reference rings from anchor.
 
@@ -269,6 +269,8 @@ def annotate_bev_with_distances(
     Returns:
         Annotated BEV image
     """
+    if distance_rings is None:
+        distance_rings = [1.0, 2.0]
     annotated = bev.copy()
     h, w = bev.shape[:2]
 
@@ -284,11 +286,9 @@ def annotate_bev_with_distances(
 
     # Find anchor position
     anchor_pos = None
-    anchor_obj = None
     for obj in objects:
         if obj.obj_id == anchor_id and obj.centroid is not None:
             anchor_pos = world_to_bev(obj.centroid)
-            anchor_obj = obj
             break
 
     # Draw distance rings from anchor

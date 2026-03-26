@@ -69,7 +69,7 @@ def create_annotated_image_demo(
     # Add marker label
     try:
         font = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", 24)
-    except:
+    except Exception:
         font = ImageFont.load_default()
 
     # Label background
@@ -1634,7 +1634,9 @@ def generate_keyframe_selector_demo_html(
         )
 
         # Show keyframes
-        for j, (path, idx) in enumerate(zip(keyframe_paths[:6], keyframe_indices[:6])):
+        for j, (path, idx) in enumerate(
+            zip(keyframe_paths[:6], keyframe_indices[:6], strict=False)
+        ):
             path = Path(path)
             img_b64 = image_to_base64(path) if path.exists() else ""
             is_primary = j == 0

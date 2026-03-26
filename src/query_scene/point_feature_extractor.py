@@ -508,8 +508,14 @@ class PointFeatureExtractor:
         voxel_weights = np.zeros(n_voxels, dtype=np.float32)
         voxel_counts = np.zeros(n_voxels, dtype=np.int32)
 
-        for i, (pt, feat, w, vox_idx) in enumerate(
-            zip(concat_points, concat_features, concat_weights, inverse_indices)
+        for _i, (pt, feat, w, vox_idx) in enumerate(
+            zip(
+                concat_points,
+                concat_features,
+                concat_weights,
+                inverse_indices,
+                strict=False,
+            )
         ):
             fused_features[vox_idx] += w * feat
             fused_positions[vox_idx] += w * pt
@@ -708,7 +714,8 @@ class PointFeatureIndex:
             query_feat = query_feat.reshape(1, -1)
             scores, indices = self._feature_index.search(query_feat, top_k)
             return [
-                (int(idx), float(score)) for idx, score in zip(indices[0], scores[0])
+                (int(idx), float(score))
+                for idx, score in zip(indices[0], scores[0], strict=False)
             ]
         else:
             # Numpy fallback
@@ -746,11 +753,13 @@ class PointFeatureIndex:
             )
             if isinstance(indices, int):
                 return [(indices, float(dists))]
-            return [(int(idx), float(d)) for idx, d in zip(indices, dists)]
+            return [
+                (int(idx), float(d)) for idx, d in zip(indices, dists, strict=False)
+            ]
 
         # Sort by distance
         distances = [np.linalg.norm(self.points[i] - query_point) for i in indices]
-        sorted_pairs = sorted(zip(indices, distances), key=lambda x: x[1])
+        sorted_pairs = sorted(zip(indices, distances, strict=False), key=lambda x: x[1])
 
         return [(int(idx), float(d)) for idx, d in sorted_pairs[:top_k]]
 
@@ -781,7 +790,7 @@ class PointFeatureIndex:
 
         # Get semantic matches
         text_results = self.search_by_text(query_text, text_encoder, top_k=top_k * 3)
-        text_scores = {idx: score for idx, score in text_results}
+        text_scores = dict(text_results)
 
         # Get spatial matches
         spatial_results = self.search_by_location(query_point, radius, top_k=top_k * 3)

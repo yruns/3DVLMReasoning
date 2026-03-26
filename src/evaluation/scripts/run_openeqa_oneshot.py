@@ -313,7 +313,7 @@ def run_oneshot_baseline(
     logger.info(f"Loaded {len(samples)} samples for evaluation")
 
     # Get oneshot preset configuration for reference
-    oneshot_preset = get_preset_config("oneshot")
+    get_preset_config("oneshot")
 
     # Configure batch evaluation for one-shot mode
     config = BatchEvalConfig(

@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel, Field
 
-from .agent_config import Stage2PlanMode, Stage2Status, Stage2TaskType
+from .agent_config import Stage2PlanMode, Stage2TaskType
 
 if TYPE_CHECKING:
     from .response_schema import Stage2StructuredResponse, Stage2ToolObservation

@@ -23,10 +23,8 @@ from loguru import logger
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from benchmarks.openeqa_official_eval import (  # noqa: E402
-    DEFAULT_OFFICIAL_REPO_ROOT,
-    evaluate_predictions_with_official_llm_match,
-)
+import threading  # noqa: E402
+
 from agents.examples.openeqa_single_scene_pilot import (  # noqa: E402
     DEFAULT_DATA_ROOT,
     DEFAULT_MODEL,
@@ -38,10 +36,11 @@ from agents.examples.openeqa_single_scene_pilot import (  # noqa: E402
     save_json,
     serialize_stage2_result,
 )
-
+from benchmarks.openeqa_official_eval import (  # noqa: E402
+    DEFAULT_OFFICIAL_REPO_ROOT,
+    evaluate_predictions_with_official_llm_match,
+)
 from utils.llm_client import get_langchain_chat_model  # noqa: E402
-
-import threading  # noqa: E402
 
 # Per-scene lock to prevent parallel workers from racing on runtime cache setup
 _scene_locks: dict[str, threading.Lock] = {}
@@ -284,16 +283,21 @@ def build_candidate_pool(
     # --num-scenes N --questions-per-scene M: pick N scenes, M questions each
     if args.num_scenes is not None and args.questions_per_scene is not None:
         from collections import defaultdict
+
         by_scene: dict[str, list[dict[str, Any]]] = defaultdict(list)
         for sample in filtered:
             by_scene[sample["clip_id"]].append(sample)
         # Pick scenes that have enough questions, sorted by clip_id for reproducibility
         eligible = sorted(
-            ((cid, qs) for cid, qs in by_scene.items() if len(qs) >= args.questions_per_scene),
+            (
+                (cid, qs)
+                for cid, qs in by_scene.items()
+                if len(qs) >= args.questions_per_scene
+            ),
             key=lambda t: t[0],
         )
         selected: list[dict[str, Any]] = []
-        for clip_id, questions in eligible[: args.num_scenes]:
+        for _clip_id, questions in eligible[: args.num_scenes]:
             selected.extend(questions[: args.questions_per_scene])
         return selected
 
@@ -424,7 +428,9 @@ def run_one_sample(sample: dict[str, Any], args: argparse.Namespace) -> dict[str
 
     # Per-scene lock: ensure_runtime_scene creates symlinks and is not thread-safe
     with _get_scene_lock(clip_id):
-        runtime_scene = ensure_runtime_scene(scene_root, args.output_root / "runtime_cache")
+        runtime_scene = ensure_runtime_scene(
+            scene_root, args.output_root / "runtime_cache"
+        )
         stride = infer_stride(scene_root / "conceptgraph")
 
     selector, stage1_result, stage1_summary = run_stage1_with_fallback(
@@ -533,7 +539,9 @@ def strip_local_fields(sample: dict[str, Any]) -> dict[str, Any]:
     return item
 
 
-def build_prediction_file(results: list[dict[str, Any]], field_name: str) -> list[dict[str, Any]]:
+def build_prediction_file(
+    results: list[dict[str, Any]], field_name: str
+) -> list[dict[str, Any]]:
     return [
         {
             "question_id": row["question_id"],
@@ -548,7 +556,9 @@ def main() -> None:
     args = parse_args()
 
     logger.remove()
-    logger.add(sys.stderr, level="INFO", format="{time:HH:mm:ss} | {level:7} | {message}")
+    logger.add(
+        sys.stderr, level="INFO", format="{time:HH:mm:ss} | {level:7} | {message}"
+    )
 
     samples = load_official_scannet_samples(args.json_path, args.data_root)
     logger.info(
@@ -596,19 +606,28 @@ def main() -> None:
     if num_workers > 1:
         import concurrent.futures
 
-        logger.info("[Parallel] Running {} samples with {} workers", len(work_items), num_workers)
+        logger.info(
+            "[Parallel] Running {} samples with {} workers",
+            len(work_items),
+            num_workers,
+        )
         with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
             future_to_sample = {
-                executor.submit(_run_sample, sample): sample
-                for sample in work_items
+                executor.submit(_run_sample, sample): sample for sample in work_items
             }
             for future in concurrent.futures.as_completed(future_to_sample):
                 row = future.result()
-                if "error" in row and args.require_stage1_success and not args.question_id:
+                if (
+                    "error" in row
+                    and args.require_stage1_success
+                    and not args.question_id
+                ):
                     continue
                 results.append(row)
                 logger.info(
-                    "[Parallel] progress {}/{}", len(results), len(work_items),
+                    "[Parallel] progress {}/{}",
+                    len(results),
+                    len(work_items),
                 )
     else:
         for sample in work_items:

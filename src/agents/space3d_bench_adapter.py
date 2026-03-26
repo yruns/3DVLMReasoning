@@ -151,7 +151,7 @@ def build_scene_summary_from_detections(detections: dict[str, Any]) -> str:
     room_info = detections.get("room", {})
     objects = room_info.get("objects", {})
 
-    for obj_id, obj_data in objects.items():
+    for _obj_id, obj_data in objects.items():
         class_name = obj_data.get("class_name", "unknown")
         class_counts[class_name] = class_counts.get(class_name, 0) + 1
 
@@ -328,8 +328,7 @@ class Space3DBenchAdapter:
     def iter_scene_samples(self, scene_id: str):
         """Iterate over all samples in a scene."""
         scene = self.loader.load_scene(scene_id)
-        for sample in scene.iter_samples():
-            yield sample
+        yield from scene.iter_samples()
 
 
 def evaluate_answer(
@@ -377,7 +376,7 @@ def evaluate_answer(
                 result["match"] = pred_num == gt_num
             else:
                 result["match"] = False
-        except:
+        except Exception:
             result["match"] = gt_lower in pred_lower
     elif "yes" in gt_lower or "no" in gt_lower:
         gt_bool = "yes" in gt_lower

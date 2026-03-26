@@ -201,11 +201,17 @@ def ensure_runtime_scene(
     results_dir = overlay_dir / "results"
     expected_rgb = len(list(raw_dir.glob("*-rgb.png")))
     expected_depth = len(list(raw_dir.glob("*-depth.png")))
-    actual_rgb = len(list(results_dir.glob("frame*.jpg"))) if results_dir.exists() else 0
+    actual_rgb = (
+        len(list(results_dir.glob("frame*.jpg"))) if results_dir.exists() else 0
+    )
     actual_depth = (
         len(list(results_dir.glob("depth*.png"))) if results_dir.exists() else 0
     )
-    if force_rebuild_overlay or actual_rgb != expected_rgb or actual_depth != expected_depth:
+    if (
+        force_rebuild_overlay
+        or actual_rgb != expected_rgb
+        or actual_depth != expected_depth
+    ):
         rebuild_results_overlay(results_dir, raw_dir)
 
     return overlay_dir
@@ -239,7 +245,9 @@ def serialize_stage1_result(
     }
 
 
-def serialize_stage2_result(name: str, result, initial_keyframes: int) -> dict[str, Any]:
+def serialize_stage2_result(
+    name: str, result, initial_keyframes: int
+) -> dict[str, Any]:
     return {
         "run_name": name,
         "status": result.result.status.value,
@@ -268,7 +276,9 @@ def run_stage1(
     k: int,
     llm_model: str,
 ) -> tuple[KeyframeSelector, KeyframeResult, dict[str, Any]]:
-    logger.info("[Stage 1] scene={} stride={} query={!r}", scene_root.name, stride, query)
+    logger.info(
+        "[Stage 1] scene={} stride={} query={!r}", scene_root.name, stride, query
+    )
     selector = KeyframeSelector.from_scene_path(
         str(runtime_scene),
         stride=stride,
@@ -276,7 +286,9 @@ def run_stage1(
         use_pool=None,
     )
     result = selector.select_keyframes_v2(query, k=k)
-    summary = serialize_stage1_result(scene_root, runtime_scene, stride, selector, result)
+    summary = serialize_stage1_result(
+        scene_root, runtime_scene, stride, selector, result
+    )
     if not result.keyframe_paths:
         raise RuntimeError(
             f"Stage 1 produced no keyframes. status={result.metadata.get('status')}"
@@ -344,7 +356,9 @@ def main() -> None:
     args = parse_args()
 
     logger.remove()
-    logger.add(sys.stderr, level="INFO", format="{time:HH:mm:ss} | {level:7} | {message}")
+    logger.add(
+        sys.stderr, level="INFO", format="{time:HH:mm:ss} | {level:7} | {message}"
+    )
 
     scene_root = args.data_root / args.clip_id
     if not scene_root.is_dir():
@@ -428,9 +442,17 @@ def main() -> None:
     if args.mode == "stage1":
         logger.info("[Stage 1] artifact={}", output_dir / "stage1.json")
     elif args.mode == "stage2":
-        logger.info("[Stage 2] artifacts={}, {}", output_dir / "stage1.json", output_dir / "stage2.json")
+        logger.info(
+            "[Stage 2] artifacts={}, {}",
+            output_dir / "stage1.json",
+            output_dir / "stage2.json",
+        )
     elif args.mode == "e2e":
-        logger.info("[E2E] artifacts={}, {}", output_dir / "stage1.json", output_dir / "e2e.json")
+        logger.info(
+            "[E2E] artifacts={}, {}",
+            output_dir / "stage1.json",
+            output_dir / "e2e.json",
+        )
     else:
         logger.info(
             "[All] artifacts={}, {}, {}",

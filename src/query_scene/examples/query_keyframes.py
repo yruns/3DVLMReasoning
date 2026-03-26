@@ -91,7 +91,7 @@ def main():
     if result.keyframe_paths:
         images = []
         for i, (idx, path) in enumerate(
-            zip(result.keyframe_indices, result.keyframe_paths)
+            zip(result.keyframe_indices, result.keyframe_paths, strict=False)
         ):
             if path.exists():
                 img = cv2.imread(str(path))

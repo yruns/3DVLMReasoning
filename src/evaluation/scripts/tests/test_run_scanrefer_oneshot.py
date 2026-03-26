@@ -129,7 +129,7 @@ class TestMockStage2Factory:
         """Test response confidence is in valid range."""
         factory = create_mock_stage2_factory()
 
-        for i in range(10):
+        for _i in range(10):
             agent = factory()
             task, bundle = self._create_mock_task_and_bundle()
             result = agent.run(task, bundle)

@@ -46,8 +46,6 @@ except Exception as e:
     logger.warning(f"open_clip not available, CLIP features will not work: {e}")
 
 # Import nested query modules
-from ..query_executor import ExecutionResult, QueryExecutor
-from ..parsing import QueryParser
 from ..core import (
     GroundingQuery,
     HypothesisKind,
@@ -56,6 +54,8 @@ from ..core import (
     QueryHypothesis,
     QueryNode,
 )
+from ..parsing import QueryParser
+from ..query_executor import ExecutionResult, QueryExecutor
 from .spatial_checker import SpatialRelationChecker
 
 
@@ -356,10 +356,7 @@ class KeyframeSelector:
 
         # Build category index
         self.scene_categories = list(
-            set(
-                obj.object_tag if obj.object_tag else obj.category
-                for obj in self.objects
-            )
+            {obj.object_tag if obj.object_tag else obj.category for obj in self.objects}
         )
 
         logger.success(
@@ -500,7 +497,7 @@ class KeyframeSelector:
                             ]
                         )
                         all_poses.append(pose)
-                    except:
+                    except Exception:
                         continue
 
         # Apply stride

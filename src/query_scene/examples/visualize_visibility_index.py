@@ -337,7 +337,7 @@ def visualize_view_objects(
 
         # Try to find mask/bbox for this view
         image_indices = obj.get("image_idx", [])
-        mask_indices = obj.get("mask_idx", [])
+        obj.get("mask_idx", [])
         xyxy_list = obj.get("xyxy", [])
         mask_list = obj.get("mask", [])
 

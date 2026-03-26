@@ -12,12 +12,12 @@ from __future__ import annotations
 import unittest
 from unittest.mock import MagicMock, Mock, patch
 
-from query_scene.parsing import QueryParser
 from query_scene.core import (
     HypothesisKind,
     HypothesisOutputV1,
     ParseMode,
 )
+from query_scene.parsing import QueryParser
 
 
 class TestQueryParserHypothesisOutput(unittest.TestCase):

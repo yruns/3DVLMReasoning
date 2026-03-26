@@ -21,7 +21,7 @@ from __future__ import annotations
 import base64
 from io import BytesIO
 from pathlib import Path
-from typing import ForwardRef, Literal, Optional
+from typing import ForwardRef, Literal
 
 from loguru import logger
 from pydantic import Field, create_model
@@ -141,10 +141,10 @@ class QueryParser:
         """
         try:
             from PIL import Image
-        except ImportError:
+        except ImportError as err:
             raise ImportError(
                 "PIL (Pillow) is required for image encoding. Install with: pip install Pillow"
-            )
+            ) from err
 
         img = Image.open(image_path).convert("RGB")
         w, h = img.size
@@ -184,7 +184,7 @@ class QueryParser:
                 list[spatial_constraint_ref],
                 Field(default_factory=list),
             ),
-            select_constraint=(Optional[select_constraint_ref], None),
+            select_constraint=(select_constraint_ref | None, None),
             node_id=(str, ""),
         )
 
@@ -199,8 +199,8 @@ class QueryParser:
             constraint_type=(ConstraintType, Field(...)),
             metric=(str, Field(...)),
             order=(str, Field(...)),
-            reference=(Optional[query_node_ref], None),
-            position=(Optional[int], None),
+            reference=(query_node_ref | None, None),
+            position=(int | None, None),
         )
 
         GroundingQueryDynamic = create_model(

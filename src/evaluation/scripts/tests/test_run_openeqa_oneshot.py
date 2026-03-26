@@ -77,13 +77,13 @@ class TestCreateMockSamples:
     def test_diverse_categories(self):
         """Test that samples cover multiple categories."""
         samples = create_mock_openeqa_samples(n_samples=50)
-        categories = set(s.category for s in samples)
+        categories = {s.category for s in samples}
         assert len(categories) > 3
 
     def test_diverse_scenes(self):
         """Test that samples cover multiple scenes."""
         samples = create_mock_openeqa_samples(n_samples=50)
-        scenes = set(s.scene_id for s in samples)
+        scenes = {s.scene_id for s in samples}
         assert len(scenes) >= 3
 
 
@@ -176,7 +176,7 @@ class TestMockStage2Factory:
         )
 
         confidences = set()
-        for i in range(8):
+        for _i in range(8):
             result = agent.run(task, bundle)
             confidences.add(round(result.result.confidence, 1))
 
@@ -206,7 +206,7 @@ class TestMockStage2Factory:
 
         # One-shot should have some insufficient evidence cases
         has_low_conf = False
-        for i in range(10):
+        for _i in range(10):
             result = agent.run(task, bundle)
             if result.result.confidence < 0.6:
                 has_low_conf = True

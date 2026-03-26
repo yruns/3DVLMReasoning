@@ -219,7 +219,7 @@ class TestCropsOnlyAblationRunner:
         )
         # Should not raise, but should warn
         with patch("loguru.logger.warning") as mock_warn:
-            runner = CropsOnlyAblationRunner(config=invalid_config, use_mock=True)
+            CropsOnlyAblationRunner(config=invalid_config, use_mock=True)
             assert mock_warn.called
 
     def test_runner_validates_config_warns_if_crops_disabled(self):
@@ -235,7 +235,7 @@ class TestCropsOnlyAblationRunner:
             ),
         )
         with patch("loguru.logger.warning") as mock_warn:
-            runner = CropsOnlyAblationRunner(config=invalid_config, use_mock=True)
+            CropsOnlyAblationRunner(config=invalid_config, use_mock=True)
             assert mock_warn.called
 
     def test_runner_validates_config_warns_if_views_enabled(self):
@@ -251,13 +251,13 @@ class TestCropsOnlyAblationRunner:
             ),
         )
         with patch("loguru.logger.warning") as mock_warn:
-            runner = CropsOnlyAblationRunner(config=invalid_config, use_mock=True)
+            CropsOnlyAblationRunner(config=invalid_config, use_mock=True)
             assert mock_warn.called
 
     def test_runner_creates_output_dir(self, tmp_path: Path):
         """Runner should create output directory."""
         output_dir = tmp_path / "ablation_output"
-        runner = CropsOnlyAblationRunner(use_mock=True, output_dir=output_dir)
+        CropsOnlyAblationRunner(use_mock=True, output_dir=output_dir)
         assert output_dir.exists()
 
 

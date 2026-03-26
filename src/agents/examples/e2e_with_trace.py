@@ -44,7 +44,7 @@ def run_with_trace(
     task_query: str,
     k: int = 2,
     max_turns: int = 4,
-    output_dir: Optional[Path] = None,
+    output_dir: Path | None = None,
 ) -> Path:
     """Run Stage 1 -> Stage 2 pipeline and generate HTML trace report.
 

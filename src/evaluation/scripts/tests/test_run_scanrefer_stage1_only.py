@@ -50,13 +50,13 @@ class TestMockScanReferSamples:
     def test_mock_sample_diversity(self):
         """Test mock samples have diverse object categories."""
         samples = create_mock_scanrefer_samples(50)
-        categories = set(s.object_name for s in samples)
+        categories = {s.object_name for s in samples}
         assert len(categories) > 5, "Should have diverse object categories"
 
     def test_mock_sample_scenes(self):
         """Test mock samples cover multiple scenes."""
         samples = create_mock_scanrefer_samples(50)
-        scenes = set(s.scene_id for s in samples)
+        scenes = {s.scene_id for s in samples}
         assert len(scenes) > 1, "Should cover multiple scenes"
 
     def test_mock_sample_query_property(self):
@@ -220,7 +220,7 @@ class TestRunScanReferStage1OnlyBaseline:
         """Test that Stage 2 is disabled in the baseline."""
         with tempfile.TemporaryDirectory() as tmp_dir:
             output_path = Path(tmp_dir) / "results.json"
-            result = run_scanrefer_stage1_only(
+            run_scanrefer_stage1_only(
                 output_path=output_path,
                 max_samples=3,
                 use_mock=True,

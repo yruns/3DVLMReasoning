@@ -317,7 +317,7 @@ class SQA3DDataset:
             answers = [a for a in answers if a] or [""]
 
             # Determine answer type
-            answer_type_raw = ann.get("answer_type", "other")
+            ann.get("answer_type", "other")
             if len(answers[0].split()) == 1:
                 answer_type = "single_word"
             else:
@@ -352,11 +352,11 @@ class SQA3DDataset:
 
     def get_question_types(self) -> list[str]:
         """Get list of unique question types."""
-        return sorted(set(s.question_type for s in self.samples))
+        return sorted({s.question_type for s in self.samples})
 
     def get_scenes(self) -> list[str]:
         """Get list of unique scene IDs."""
-        return sorted(set(s.scene_id for s in self.samples))
+        return sorted({s.scene_id for s in self.samples})
 
     def filter_by_scene(self, scene_id: str) -> SQA3DDataset:
         """Create a new dataset filtered by scene."""

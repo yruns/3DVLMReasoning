@@ -562,7 +562,7 @@ class TestCrossBenchmarkPipeline(unittest.TestCase):
         runtime = Stage2RuntimeState(bundle=bundle.model_copy(deep=True))
         tools = {tool.name: tool for tool in agent._build_runtime_tools(runtime)}
 
-        response = tools["request_more_views"].invoke(
+        tools["request_more_views"].invoke(
             {
                 "request_text": "Need wider view of the room",
                 "frame_indices": [0],
