@@ -371,3 +371,21 @@ Note: The standard `claude` CLI fallback does not work in this environment.
 ### Python Environment on Linux
 
 On Linux, the `.venv` has been deleted. After `conda activate conceptgraph`, bare `python` correctly resolves to conda's python with all dependencies (torch, SAM, open_clip, Florence-2). See the **Package Management** section above for details.
+
+### GPU Usage on Linux (MANDATORY)
+
+**GPU 1 is broken on the Linux server.** Do NOT use `CUDA_VISIBLE_DEVICES=1`. It causes CUDA initialization failures that crash the entire process.
+
+When running GPU tasks, use any of GPUs 0, 2, 3, 4, 5, 6, 7:
+
+```bash
+# Single GPU
+export CUDA_VISIBLE_DEVICES=0
+
+# Multi-GPU parallel (assign one scene per GPU, skip GPU 1)
+for scene_gpu in "scene_a:0" "scene_b:2" "scene_c:3" "scene_d:4"; do
+    ...
+done
+```
+
+Always check GPU availability before launching: `nvidia-smi --query-gpu=index,memory.free --format=csv,noheader`
