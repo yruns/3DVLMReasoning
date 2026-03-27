@@ -90,9 +90,13 @@ DIRECT hypothesis (always rank=1):
 
 PROXY hypothesis (rank=2, only in multi mode):
 - Created when target or anchor is UNKNOW
-- For missing ANCHOR: replace UNKNOW anchor with semantically similar categories from scene
-  (e.g., if "bed" is missing but target is "pillow", try "sofa" or "armchair" as proxy anchor)
-- For missing TARGET: replace UNKNOW target with related categories from scene
+- CRITICAL: Only replace UNKNOW parts. Preserve all non-UNKNOW categories and spatial structure exactly.
+- For missing ANCHOR: replace ONLY the UNKNOW anchor with semantically similar categories from scene.
+  Keep all other anchors unchanged. (e.g., "between table and bed" where bed is missing →
+  anchor1=["table"] stays, anchor2=["sofa","armchair"] replaces bed. Both anchors preserved.)
+- For missing TARGET: replace ONLY the UNKNOW target with related categories from scene.
+  Keep ALL spatial constraints and anchors exactly as in the DIRECT hypothesis.
+- For BETWEEN relations: ALWAYS keep 2 separate anchors. Never collapse into 1.
 
 CONTEXT hypothesis (rank=3, used as last resort):
 - Created when both direct and proxy may fail
@@ -315,7 +319,78 @@ NOTE: "laptop" is NOT in scene. PROXY tries related objects like "book". CONTEXT
   ]
 }
 
-=== EXAMPLE 5: Semantic expansion only, all exist (SINGLE mode) ===
+=== EXAMPLE 5: BETWEEN relation with missing target (MULTI mode, preserve both anchors) ===
+Query: "the blue object between the table and the fridge" (scene has: table, fridge, bag, chair - NO "blue object" match)
+NOTE: Target is UNKNOW. PROXY replaces target with scene objects ("bag"). BOTH anchors "table" and "fridge" are preserved exactly.
+{
+  "format_version": "hypothesis_output_v1",
+  "parse_mode": "multi",
+  "hypotheses": [
+    {
+      "kind": "direct",
+      "rank": 1,
+      "grounding_query": {
+        "raw_query": "the blue object between the table and the fridge",
+        "root": {
+          "categories": ["UNKNOW"],
+          "attributes": ["blue"],
+          "spatial_constraints": [
+            {
+              "relation": "between",
+              "anchors": [
+                {"categories": ["table"], "attributes": [], "spatial_constraints": [], "select_constraint": null},
+                {"categories": ["fridge"], "attributes": [], "spatial_constraints": [], "select_constraint": null}
+              ]
+            }
+          ],
+          "select_constraint": null
+        },
+        "expect_unique": true
+      },
+      "lexical_hints": ["blue", "table", "fridge"]
+    },
+    {
+      "kind": "proxy",
+      "rank": 2,
+      "grounding_query": {
+        "raw_query": "proxy for: the blue object between the table and the fridge",
+        "root": {
+          "categories": ["bag", "chair"],
+          "attributes": ["blue"],
+          "spatial_constraints": [
+            {
+              "relation": "between",
+              "anchors": [
+                {"categories": ["table"], "attributes": [], "spatial_constraints": [], "select_constraint": null},
+                {"categories": ["fridge"], "attributes": [], "spatial_constraints": [], "select_constraint": null}
+              ]
+            }
+          ],
+          "select_constraint": null
+        },
+        "expect_unique": true
+      },
+      "lexical_hints": ["proxy"]
+    },
+    {
+      "kind": "context",
+      "rank": 3,
+      "grounding_query": {
+        "raw_query": "context for: the blue object between the table and the fridge",
+        "root": {
+          "categories": ["table", "fridge"],
+          "attributes": [],
+          "spatial_constraints": [],
+          "select_constraint": null
+        },
+        "expect_unique": false
+      },
+      "lexical_hints": ["context"]
+    }
+  ]
+}
+
+=== EXAMPLE 6: Semantic expansion only, all exist (SINGLE mode) ===
 Query: "the cushion on the couch" (scene has: sofa, sofa_seat_cushion, pillow, throw_pillow, door)
 NOTE: "cushion" expands to all cushion-like categories; "couch" maps to "sofa". All exist → SINGLE mode.
 {
