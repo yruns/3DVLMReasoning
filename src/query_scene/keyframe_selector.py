@@ -354,10 +354,8 @@ class KeyframeSelector:
         # Set image paths
         self._set_image_paths()
 
-        # Build category index
-        self.scene_categories = list(
-            {obj.object_tag if obj.object_tag else obj.category for obj in self.objects}
-        )
+        # Build category index (multi-label: includes minority detection classes)
+        self.scene_categories = self._build_multilabel_categories()
 
         logger.success(
             f"Loaded {len(self.objects)} objects, {len(self.camera_poses)} poses"
@@ -414,6 +412,7 @@ class KeyframeSelector:
                 clip_ft=clip_ft,
                 image_idx=image_idx,
                 xyxy=xyxy,
+                class_name=class_names,
             )
             self.objects.append(scene_obj)
 
@@ -439,6 +438,47 @@ class KeyframeSelector:
             non_zero = norms.squeeze(-1) > 0
             aligned[non_zero] = aligned[non_zero] / (norms[non_zero] + 1e-8)
             self.object_features = aligned
+
+    # Labels that are verbs, adjectives, abstract terms, or body parts —
+    # not useful as object categories for scene graph retrieval.
+    _NOISE_LABELS: frozenset[str] = frozenset({
+        "sit", "lay", "hang", "open", "fill", "push", "lead to", "take",
+        "walk", "attach", "hide", "slide", "curl", "sleep", "stand", "make",
+        "wrap", "sew", "lead", "roll", "draw", "writing", "mark",
+        "couple", "selfie", "peak", "shine", "comfort", "mess", "stuff",
+        "dormitory", "camouflage", "flat", "twin", "back", "half",
+        "man", "woman", "person", "head", "nose", "hand", "foot", "face",
+        "item", "object",
+    })
+
+    def _build_multilabel_categories(self) -> list[str]:
+        """Build scene categories including minority detection labels.
+
+        Unlike the previous approach that only kept the majority-vote primary
+        category, this method includes ALL class names detected >= 2 times
+        for each 3D object. This prevents information loss where e.g. an
+        object with 6 "sink" and 4 "lamp" detections would previously drop
+        "lamp" entirely.
+        """
+        all_cats: set[str] = set()
+        for obj in self.objects:
+            # Always include the primary category
+            primary = obj.object_tag if obj.object_tag else obj.category
+            if primary and primary.lower() not in self._NOISE_LABELS:
+                all_cats.add(primary)
+
+            # Include minority detection labels with count >= 2
+            if obj.class_name:
+                counts = Counter(obj.class_name)
+                for cls, cnt in counts.items():
+                    if (
+                        cnt >= 2
+                        and cls
+                        and cls.lower() not in self._NOISE_LABELS
+                    ):
+                        all_cats.add(cls)
+
+        return sorted(all_cats)
 
     def _load_affordances(self, affordance_file: Path) -> None:
         """Load and merge affordance data."""
@@ -1061,60 +1101,17 @@ class KeyframeSelector:
         """
         Generate scene visualization images for multimodal query parsing.
 
-        Generates a Bird's Eye View (BEV) image with mesh background only
-        (no object markers or labels) for pure visual understanding by LLM.
-        Images are cached based on config hash in scene_path/bev/.
+        Uses OpenEQA ScanNet BEV (high-quality mesh-based rendering with
+        frustum filtering). Raises on failure — no silent fallback.
 
         Returns:
             List of image paths (currently k=1)
         """
-        import hashlib
-        from dataclasses import asdict
+        from .bev_builder import OpenEQAScanNetBEVBuilder
 
-        from .bev_builder import ReplicaBEVBuilder, ReplicaDefaultBEVConfig
-
-        # Use global default config for consistency with LLMEvaluator
-        config = ReplicaDefaultBEVConfig
-
-        # Compute config hash for caching
-        config_dict = asdict(config)
-        config_str = str(sorted(config_dict.items()))
-        config_hash = hashlib.md5(config_str.encode()).hexdigest()[:8]
-
-        # Create bev directory under scene path
-        bev_dir = self.scene_path / "bev"
-        bev_dir.mkdir(parents=True, exist_ok=True)
-        output_path = bev_dir / f"scene_bev_{config_hash}.png"
-
-        # Check cache: if file exists with same config hash, skip generation
-        if output_path.exists():
-            logger.info(f"[KeyframeSelector] Using cached BEV image: {output_path}")
-            return [str(output_path)]
-
-        # Find mesh file (e.g., room0_mesh.ply in parent directory)
-        scene_name = self.scene_path.name
-        mesh_path = self.scene_path.parent / f"{scene_name}_mesh.ply"
-        if not mesh_path.exists():
-            # Try triangulated version
-            mesh_path = self.scene_path.parent / f"{scene_name}_mesh_triangulated.ply"
-        if not mesh_path.exists():
-            # Try current directory
-            mesh_path = self.scene_path / f"{scene_name}_mesh.ply"
-        if not mesh_path.exists():
-            mesh_path = None
-
-        builder = ReplicaBEVBuilder(config=config)
-
-        # Pass SceneObjects and mesh path
-        _, bev_path, _ = builder.build(
-            objects=self.objects,
-            output_path=output_path,
-            mesh_path=mesh_path,
-        )
-        logger.info(
-            f"[KeyframeSelector] Generated BEV image (config={config_hash}): {bev_path}"
-        )
-
+        builder = OpenEQAScanNetBEVBuilder()
+        _, bev_path = builder.build_from_scene(scene_path=self.scene_path)
+        logger.info(f"[KeyframeSelector] ScanNet BEV ready: {bev_path}")
         return [str(bev_path)]
 
     def normalize_hypothesis_output(self, payload: Any) -> HypothesisOutputV1:
