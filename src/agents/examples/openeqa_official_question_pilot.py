@@ -31,11 +31,12 @@ from agents.examples.openeqa_single_scene_pilot import (  # noqa: E402
     build_bundle,
     ensure_runtime_scene,
     infer_stride,
-    run_stage1,
     run_stage2,
     save_json,
+    serialize_stage1_result,
     serialize_stage2_result,
 )
+from query_scene.keyframe_selector import KeyframeSelector  # noqa: E402
 from benchmarks.openeqa_official_eval import (  # noqa: E402
     DEFAULT_OFFICIAL_REPO_ROOT,
     evaluate_predictions_with_official_llm_match,
@@ -355,59 +356,95 @@ def build_stage1_query_candidates(question: str) -> list[str]:
     return unique
 
 
-def run_stage1_with_fallback(
+_GROUNDING_RANK = {"direct_grounded": 0, "proxy_grounded": 1, "context_only": 2}
+
+
+def run_stage1_ranked(
     sample: dict[str, Any],
     scene_root: Path,
     runtime_scene: Path,
     stride: int,
     args: argparse.Namespace,
 ):
+    """Run Stage 1 with all query candidates, return the best by grounding quality.
+
+    Ranking: direct_grounded > proxy_grounded > context_only.
+    No silent fallback — LLM rewrite failure and Stage 1 errors propagate.
+    """
     queries = build_stage1_query_candidates(sample["question"])
 
     # LLM rewrite: insert retrieval-oriented queries at the front
     if getattr(args, "llm_rewrite", False):
-        try:
-            rewritten = llm_rewrite_qa_to_retrieval(sample["question"])
-            if rewritten:
-                logger.info(
-                    "[LLMRewrite] {} -> {}",
-                    sample["question"][:60],
-                    rewritten,
-                )
-                # Deduplicate while preserving order: LLM rewrites first
-                seen = set()
-                merged: list[str] = []
-                for q in rewritten + queries:
-                    q_key = q.strip().lower()
-                    if q_key not in seen:
-                        seen.add(q_key)
-                        merged.append(q)
-                queries = merged
-        except Exception as exc:
-            logger.warning("[LLMRewrite] failed, falling back to heuristics: {}", exc)
+        rewritten = llm_rewrite_qa_to_retrieval(sample["question"])
+        if rewritten:
+            logger.info(
+                "[LLMRewrite] {} -> {}",
+                sample["question"][:60],
+                rewritten,
+            )
+            seen = set()
+            merged: list[str] = []
+            for q in rewritten + queries:
+                q_key = q.strip().lower()
+                if q_key not in seen:
+                    seen.add(q_key)
+                    merged.append(q)
+            queries = merged
 
-    last_error: Exception | None = None
+    # Build selector once (expensive: loads scene data, CLIP features, BEV)
+    selector = KeyframeSelector.from_scene_path(
+        str(runtime_scene),
+        stride=stride,
+        llm_model=args.llm_model,
+        use_pool=None,
+    )
+
+    best: tuple[int, str, KeyframeResult, dict[str, Any]] | None = None
 
     for query in queries:
-        try:
-            selector, stage1_result, stage1_summary = run_stage1(
-                runtime_scene=runtime_scene,
-                scene_root=scene_root,
-                stride=stride,
-                query=query,
-                k=args.k,
-                llm_model=args.llm_model,
-            )
-            stage1_summary["official_question"] = sample["question"]
-            stage1_summary["stage1_query_used"] = query
-            stage1_summary["stage1_query_candidates"] = queries
-            return selector, stage1_result, stage1_summary
-        except Exception as exc:
-            last_error = exc
+        result = selector.select_keyframes_v2(query, k=args.k)
+        summary = serialize_stage1_result(
+            scene_root, runtime_scene, stride, selector, result
+        )
+        status = summary["status"]
 
-    raise RuntimeError(
-        f"Stage 1 failed for official question after {len(queries)} query variants: {last_error}"
-    )
+        if not result.keyframe_paths:
+            logger.warning(
+                "[Stage1Ranked] query={!r} produced no keyframes (status={})",
+                query,
+                status,
+            )
+            continue
+
+        rank = _GROUNDING_RANK.get(status, 99)
+        logger.info(
+            "[Stage1Ranked] query={!r} status={} rank={} keyframes={}",
+            query,
+            status,
+            rank,
+            len(result.keyframe_paths),
+        )
+
+        # direct_grounded is optimal — return immediately
+        if status == "direct_grounded":
+            summary["official_question"] = sample["question"]
+            summary["stage1_query_used"] = query
+            summary["stage1_query_candidates"] = queries
+            return selector, result, summary
+
+        if best is None or rank < best[0]:
+            best = (rank, query, result, summary)
+
+    if best is None:
+        raise RuntimeError(
+            f"Stage 1 produced no keyframes for any of {len(queries)} query variants"
+        )
+
+    _, used_query, best_result, best_summary = best
+    best_summary["official_question"] = sample["question"]
+    best_summary["stage1_query_used"] = used_query
+    best_summary["stage1_query_candidates"] = queries
+    return selector, best_result, best_summary
 
 
 def extract_prediction_text(stage_summary: dict[str, Any]) -> str | None:
@@ -433,7 +470,7 @@ def run_one_sample(sample: dict[str, Any], args: argparse.Namespace) -> dict[str
         )
         stride = infer_stride(scene_root / "conceptgraph")
 
-    selector, stage1_result, stage1_summary = run_stage1_with_fallback(
+    selector, stage1_result, stage1_summary = run_stage1_ranked(
         sample=sample,
         scene_root=scene_root,
         runtime_scene=runtime_scene,

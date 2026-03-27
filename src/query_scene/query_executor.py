@@ -109,13 +109,34 @@ class QueryExecutor:
         self._quick_filters = QuickFilters() if use_quick_filters else None
         self._attribute_filter = AttributeFilter() if use_quick_filters else None
 
-        # Build category index
+        # Build category index (primary category only)
         self._category_index: dict[str, list[SceneObject]] = {}
         for obj in objects:
             category = self._get_category(obj).lower()
             if category not in self._category_index:
                 self._category_index[category] = []
             self._category_index[category].append(obj)
+
+        # Build multi-label index: maps minority detection class names to objects.
+        # An object detected as ["sink"x6, "lamp"x4] has primary="sink" in
+        # _category_index, but "lamp" only appears here — preventing the 65%
+        # class loss from majority-vote.
+        self._multilabel_index: dict[str, list[SceneObject]] = {}
+        for obj in objects:
+            if not hasattr(obj, "class_name") or not obj.class_name:
+                continue
+            primary = self._get_category(obj).lower()
+            from collections import Counter
+
+            counts = Counter(obj.class_name)
+            for cls, cnt in counts.items():
+                cls_lower = cls.lower() if cls else ""
+                # Skip primary (already in _category_index), empty, or low-count
+                if not cls_lower or cls_lower == primary or cnt < 2:
+                    continue
+                if cls_lower not in self._multilabel_index:
+                    self._multilabel_index[cls_lower] = []
+                self._multilabel_index[cls_lower].append(obj)
 
         # Execution cache for memoization
         self._cache: dict[str, ExecutionResult] = {}
@@ -281,7 +302,7 @@ class QueryExecutor:
             )
             return matches
 
-        # Fallback: substring matching for each category
+        # Fallback 1: substring matching on primary categories
         for category in categories:
             category_lower = category.lower()
             for cat, objs in self._category_index.items():
@@ -297,7 +318,22 @@ class QueryExecutor:
             )
             return matches
 
-        # CLIP similarity fallback (if available) - use first category
+        # Fallback 2: multi-label exact match (minority detection classes)
+        for category in categories:
+            category_lower = category.lower()
+            if category_lower in self._multilabel_index:
+                for obj in self._multilabel_index[category_lower]:
+                    if obj.obj_id not in seen_ids:
+                        matches.append(obj)
+                        seen_ids.add(obj.obj_id)
+
+        if matches:
+            logger.debug(
+                f"[QueryExecutor] Multi-label match for categories {categories}: {len(matches)} objects"
+            )
+            return matches
+
+        # Fallback 3: CLIP similarity (if available) - use first category
         if (
             self.clip_features is not None
             and self.clip_encoder is not None
