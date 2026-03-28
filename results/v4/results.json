@@ -1,0 +1,753 @@
+{
+  "version": "v4",
+  "description": "Multi-label vocab + ranked query (had 9 None predictions bug)",
+  "n_questions": 100,
+  "stage2": {
+    "mean": 2.44,
+    "n": 100,
+    "distribution": {
+      "0": 9,
+      "1": 46,
+      "2": 4,
+      "3": 4,
+      "4": 7,
+      "5": 30
+    }
+  },
+  "e2e": {
+    "mean": 2.86,
+    "n": 91,
+    "distribution": {
+      "1": 41,
+      "2": 2,
+      "3": 9,
+      "4": 7,
+      "5": 32
+    }
+  },
+  "e2e_vs_stage2": {
+    "delta": 0.42,
+    "e2e_better": 12,
+    "e2e_worse": 7,
+    "same": 72
+  },
+  "by_category": {
+    "spatial understanding": {
+      "s2_mean": 1.59,
+      "e2e_mean": 1.78,
+      "n": 27
+    },
+    "object recognition": {
+      "s2_mean": 3.16,
+      "e2e_mean": 3.19,
+      "n": 37
+    },
+    "attribute recognition": {
+      "s2_mean": 2.33,
+      "e2e_mean": 2.61,
+      "n": 36
+    }
+  },
+  "per_question": {
+    "14774f3f-d14b-4e18-b5de-6e827a4d9e94": {
+      "question": "Where is the trashcan?",
+      "answer": "In the corner",
+      "category": "spatial understanding",
+      "s2_score": 4,
+      "e2e_score": 4
+    },
+    "b0b40220-5e47-40ea-9298-167b140c242c": {
+      "question": "What food is on the counter?",
+      "answer": "Cheerios",
+      "category": "object recognition",
+      "s2_score": 2,
+      "e2e_score": 3
+    },
+    "e845f82a-d55c-42f8-88e3-8e9fcaf5bd02": {
+      "question": "What red object is the below the windows?",
+      "answer": "Fire extinguisher",
+      "category": "object recognition",
+      "s2_score": 2,
+      "e2e_score": 1
+    },
+    "f829e253-ca9a-4456-b2d3-70e1a7a2eecd": {
+      "question": "What color are the blinds?",
+      "answer": "White",
+      "category": "attribute recognition",
+      "s2_score": 5,
+      "e2e_score": 5
+    },
+    "ce2f5613-88a1-4401-86dc-cbb968f56179": {
+      "question": "What color is the soda can?",
+      "answer": "purple or red",
+      "category": "attribute recognition",
+      "s2_score": 5,
+      "e2e_score": 4
+    },
+    "1392c3bc-4899-4728-85b1-e4458282ed22": {
+      "question": "What color is the wire for the headphones?",
+      "answer": "blue",
+      "category": "attribute recognition",
+      "s2_score": 5,
+      "e2e_score": 1
+    },
+    "30d7a3fe-abd8-4db0-91a1-28195f49c321": {
+      "question": "What is the blue object behind the tissue box and next to the phone on the table?",
+      "answer": "Lysol cleaning wipes",
+      "category": "object recognition",
+      "s2_score": 4,
+      "e2e_score": 4
+    },
+    "c9f3033f-3fc5-4859-a210-1ee90b212a14": {
+      "question": "Is there space under the table by the window?",
+      "answer": "no, there are shoes, a machine and a trash bin",
+      "category": "spatial understanding",
+      "s2_score": 4,
+      "e2e_score": 1
+    },
+    "5c047691-c116-45c7-a553-4493bbc1b949": {
+      "question": "Does the table with the monitor have space for a few more cup?",
+      "answer": "yes there is space by the keyboard and mouse",
+      "category": "spatial understanding",
+      "s2_score": 1,
+      "e2e_score": 4
+    },
+    "56f1da24-d4ad-4f6f-8630-b3d80e6e205e": {
+      "question": "Which fruit can you see on the dining table?",
+      "answer": "banana",
+      "category": "object recognition",
+      "s2_score": 5,
+      "e2e_score": 5
+    },
+    "962b8661-a1bd-4536-b08d-49fc1634d058": {
+      "question": "What is to the left of the office table?",
+      "answer": "lamp",
+      "category": "object recognition",
+      "s2_score": 4,
+      "e2e_score": 5
+    },
+    "acdc1502-9c5a-422a-a712-4359f947ac24": {
+      "question": "What is the color of the bottle kept below the office table?",
+      "answer": "blue",
+      "category": "attribute recognition",
+      "s2_score": 5,
+      "e2e_score": 5
+    },
+    "a403b6f1-5e99-4644-aad6-772a0c9d8f90": {
+      "question": "Where are the paper towels?",
+      "answer": "Above the trashcan",
+      "category": "spatial understanding",
+      "s2_score": 1,
+      "e2e_score": 1
+    },
+    "4208a065-4c5d-4cea-a49a-3967d53cc6a8": {
+      "question": "What is between office table and couch?",
+      "answer": "lamp",
+      "category": "spatial understanding",
+      "s2_score": 1,
+      "e2e_score": 1
+    },
+    "20554aef-f6cc-47c0-b9a4-7fe850fd3988": {
+      "question": "What is kept underneath the table?",
+      "answer": "trash bin",
+      "category": "object recognition",
+      "s2_score": 1,
+      "e2e_score": 1
+    },
+    "e0c78ad1-3c42-4973-ac92-cc88466d22f0": {
+      "question": "What is kept on the left side of the table?",
+      "answer": "laptop",
+      "category": "object recognition",
+      "s2_score": 5,
+      "e2e_score": 5
+    },
+    "76a15ad3-96a9-4061-8195-ab8ae12aebb3": {
+      "question": "What is color of my toothbrush?",
+      "answer": "White and blue",
+      "category": "attribute recognition",
+      "s2_score": 1,
+      "e2e_score": 1
+    },
+    "941531b0-77e3-4151-b8fe-eaf6f81a3fe0": {
+      "question": "What is in front of the pile of clothes on the table?",
+      "answer": "toothbrush",
+      "category": "spatial understanding",
+      "s2_score": 1,
+      "e2e_score": 1
+    },
+    "fe05b434-7317-4502-96c1-0a02c8a56ea2": {
+      "question": "What does the sign near the stairs say?",
+      "answer": "exit",
+      "category": "object recognition",
+      "s2_score": 5,
+      "e2e_score": 5
+    },
+    "a0141ef9-a198-401b-be14-401182a3b27f": {
+      "question": "What is the red object next to the sofa?",
+      "answer": "vacuum cleaner",
+      "category": "object recognition",
+      "s2_score": 1,
+      "e2e_score": 1
+    },
+    "c5c06434-6fe6-4772-b7a6-d111f55fc7ad": {
+      "question": "What is the color of the couch in the living room?",
+      "answer": "white",
+      "category": "attribute recognition",
+      "s2_score": 1,
+      "e2e_score": 1
+    },
+    "f1a9ecf0-89c1-429c-bce2-8b5f862b6e3d": {
+      "question": "What is color of my flower pot?",
+      "answer": "yellow",
+      "category": "attribute recognition",
+      "s2_score": 1,
+      "e2e_score": 1
+    },
+    "018b71ee-f0d5-4774-87d6-f0a673a423ec": {
+      "question": "What is the color of sofa near the table?",
+      "answer": "green",
+      "category": "attribute recognition",
+      "s2_score": 1,
+      "e2e_score": 1
+    },
+    "89adc84a-3e7a-4a14-9dcc-82f4f91c0afc": {
+      "question": "What white machine is closest to the vacuum cleaner?",
+      "answer": "Dryer",
+      "category": "object recognition",
+      "s2_score": 4,
+      "e2e_score": 3
+    },
+    "41294b24-4e8f-4c19-a8d8-0ed1247090ec": {
+      "question": "What is between brown and green sofa?",
+      "answer": "white table",
+      "category": "spatial understanding",
+      "s2_score": 1,
+      "e2e_score": 1
+    },
+    "47856f10-786a-4ceb-ad55-c583326c0dd0": {
+      "question": "Is the room well-lit?",
+      "answer": "No",
+      "category": "attribute recognition",
+      "s2_score": 5,
+      "e2e_score": 5
+    },
+    "019f71a9-46c6-4b0f-b909-fb520416173b": {
+      "question": "Where should I look for the other shoe?",
+      "answer": "In the cabinets",
+      "category": "spatial understanding",
+      "s2_score": 1,
+      "e2e_score": 1
+    },
+    "85adf68a-bf69-48fa-b612-6c10912e0f33": {
+      "question": "What is behind the vacuum cleaner?",
+      "answer": "alarm",
+      "category": "spatial understanding",
+      "s2_score": 1,
+      "e2e_score": 3
+    },
+    "9aa9815f-f10f-4fd3-824e-4e190b1a1722": {
+      "question": "What is the pink box on the shelf?",
+      "answer": "a Sketchers shoe box",
+      "category": "object recognition",
+      "s2_score": 4,
+      "e2e_score": 4
+    },
+    "9bd38301-7b12-4855-82e8-03ac7086dd96": {
+      "question": "Is the room organized?",
+      "answer": "Yes",
+      "category": "attribute recognition",
+      "s2_score": 1,
+      "e2e_score": 1
+    },
+    "70e43adf-2354-453d-9122-7cb61b5a4641": {
+      "question": "What object is in the middle of the floor?",
+      "answer": "Shoe",
+      "category": "object recognition",
+      "s2_score": 1,
+      "e2e_score": 1
+    },
+    "28348a31-3b08-4084-a7b3-057e160a9f8f": {
+      "question": "What color are most of the hangers?",
+      "answer": "White",
+      "category": "attribute recognition",
+      "s2_score": 5,
+      "e2e_score": 5
+    },
+    "70ca554d-cee2-47c9-8abd-a02e019c7656": {
+      "question": "Which side of the closet is emptier?",
+      "answer": "The right side",
+      "category": "spatial understanding",
+      "s2_score": 1,
+      "e2e_score": 1
+    },
+    "62f3078c-03f5-4908-9079-c1ce15491699": {
+      "question": "What's on the top bunk but not the bottom bunk?",
+      "answer": "A sleeping bag",
+      "category": "object recognition",
+      "s2_score": 1,
+      "e2e_score": 1
+    },
+    "d40eec6b-6d09-4bc6-9648-65f8e899965d": {
+      "question": "What''s the orange thing on the shelf to the right?",
+      "answer": "a sleeping bag",
+      "category": "object recognition",
+      "s2_score": 5,
+      "e2e_score": 5
+    },
+    "d1d0700c-225f-4b65-a787-8881fde764b7": {
+      "question": "What's the room number?",
+      "answer": "103",
+      "category": "object recognition",
+      "s2_score": 1,
+      "e2e_score": 1
+    },
+    "2c0e67a2-7625-40dc-ae37-00057910055a": {
+      "question": "What's on the wall above the top bunk",
+      "answer": "a wood shelf",
+      "category": "spatial understanding",
+      "s2_score": 1,
+      "e2e_score": 1
+    },
+    "fa04915a-aee0-4ec7-8b10-3728448d2efa": {
+      "question": "What color is the deadbolt",
+      "answer": "Black",
+      "category": "attribute recognition",
+      "s2_score": 1,
+      "e2e_score": 5
+    },
+    "35d8886d-c5ba-455f-b1a7-6fb7807a951f": {
+      "question": "What's under the window sill?",
+      "answer": "a backpack",
+      "category": "spatial understanding",
+      "s2_score": 1,
+      "e2e_score": 1
+    },
+    "632fe59a-2bb4-4e46-bd50-f6b40392ad54": {
+      "question": "What color are the water bottles?",
+      "answer": "green",
+      "category": "attribute recognition",
+      "s2_score": 5,
+      "e2e_score": 5
+    },
+    "740ae41e-9ca0-471a-82e5-546db7842ac4": {
+      "question": "What is sticking out from behind the TV",
+      "answer": "A powerstrip ",
+      "category": "object recognition",
+      "s2_score": 3,
+      "e2e_score": 3
+    },
+    "e35875b7-5844-4f4b-9354-1ac985495869": {
+      "question": "What color are the patio chairs?",
+      "answer": "White",
+      "category": "attribute recognition",
+      "s2_score": 1,
+      "e2e_score": 1
+    },
+    "9a25945c-5653-402f-909a-349792a31c7b": {
+      "question": "What color is the purse hanging on the right side?",
+      "answer": "Pink",
+      "category": "attribute recognition",
+      "s2_score": 1,
+      "e2e_score": 1
+    },
+    "ccf7e23b-7abe-47d0-8fee-131e9065e22a": {
+      "question": "What is the large object on the patio",
+      "answer": "A glass table",
+      "category": "object recognition",
+      "s2_score": 1,
+      "e2e_score": 3
+    },
+    "9dd79112-9b74-470d-abd1-1ffeebbac352": {
+      "question": "What is on the top shelf?",
+      "answer": "A paper bag",
+      "category": "object recognition",
+      "s2_score": 1,
+      "e2e_score": 1
+    },
+    "cf59aff3-3a6d-43df-9e56-bee517336d05": {
+      "question": "How many cups does the mr coffee make?",
+      "answer": "12",
+      "category": "attribute recognition",
+      "s2_score": 5,
+      "e2e_score": 5
+    },
+    "549c93e6-8d6f-460c-a971-53c14a1f74cd": {
+      "question": "What color is the bottom jacket?",
+      "answer": "Cream",
+      "category": "attribute recognition",
+      "s2_score": 1,
+      "e2e_score": 1
+    },
+    "3904a12e-13c0-4942-9577-75b4c53ac799": {
+      "question": "How many boxes are on the fourth shelf?",
+      "answer": "two",
+      "category": "spatial understanding",
+      "s2_score": 5,
+      "e2e_score": 5
+    },
+    "d76e6beb-7a4e-40eb-bb33-7c7185a070dd": {
+      "question": "What is kept on the white table?",
+      "answer": "computer",
+      "category": "object recognition",
+      "s2_score": 1,
+      "e2e_score": 1
+    },
+    "82b4ae1a-8098-41ab-84de-5fd07899a77d": {
+      "question": "Which object is kept near all brown tables to their left?",
+      "answer": "trash bin",
+      "category": "object recognition",
+      "s2_score": 1,
+      "e2e_score": 1
+    },
+    "7a96d76f-b71f-4e35-90c6-36f9ace86d8b": {
+      "question": "What is the color of the computer mouse?",
+      "answer": "white",
+      "category": "attribute recognition",
+      "s2_score": 5,
+      "e2e_score": 5
+    },
+    "0e369744-5723-4f41-a9e9-bb5185ccffd4": {
+      "question": "What is hanging on the back wall of the dining room?",
+      "answer": "a world map",
+      "category": "spatial understanding",
+      "s2_score": 1,
+      "e2e_score": 5
+    },
+    "07401190-3ebe-4cf0-a234-cfda55795868": {
+      "question": "What is in the blue bin?",
+      "answer": "Paper",
+      "category": "object recognition",
+      "s2_score": 5,
+      "e2e_score": 5
+    },
+    "08c65643-1f03-48fe-a6e8-c1d02ee4e027": {
+      "question": "What is to the right of the brown table?",
+      "answer": "book shelf",
+      "category": "spatial understanding",
+      "s2_score": 5,
+      "e2e_score": 5
+    },
+    "a3438480-9f46-41be-b844-9c7468315873": {
+      "question": "What is the white object on left side of the table?",
+      "answer": "sewing machine",
+      "category": "object recognition",
+      "s2_score": 5,
+      "e2e_score": 5
+    },
+    "b5d424fb-fa1e-417d-9e35-093cad58376b": {
+      "question": "What color are the pillows?",
+      "answer": "white",
+      "category": "attribute recognition",
+      "s2_score": 5,
+      "e2e_score": 5
+    },
+    "58b620a5-2ac0-484f-a6b9-d44123bcca13": {
+      "question": "What is above the sewing machine?",
+      "answer": "lamp",
+      "category": "spatial understanding",
+      "s2_score": 5,
+      "e2e_score": 4
+    },
+    "0ef94e7a-431d-4f84-80d5-0ce3b26a5eff": {
+      "question": "What is color of the water bottle?",
+      "answer": "light blue",
+      "category": "attribute recognition",
+      "s2_score": 1,
+      "e2e_score": 2
+    },
+    "3add68e4-194b-4d28-9b41-d1980fb2c4ae": {
+      "question": "What color is my hat?",
+      "answer": "brown",
+      "category": "attribute recognition",
+      "s2_score": 1,
+      "e2e_score": 1
+    },
+    "2f7ae8d8-efb7-4382-9eea-f9beee1d6a72": {
+      "question": "Which electronic item is kept next to the fan?",
+      "answer": "charger",
+      "category": "object recognition",
+      "s2_score": 5,
+      "e2e_score": 5
+    },
+    "b9702e2c-87a8-40d7-931e-28abbd4818dc": {
+      "question": "What is inside the basket kept on clothing rack stand?",
+      "answer": "pillows",
+      "category": "object recognition",
+      "s2_score": 3,
+      "e2e_score": 1
+    },
+    "f0b13382-3545-4008-973a-bdaf47159381": {
+      "question": "What is the white and green object on the table?",
+      "answer": "toothbrush",
+      "category": "object recognition",
+      "s2_score": 5,
+      "e2e_score": 5
+    },
+    "7ae999ea-a082-43dc-9e2d-200efe91c03a": {
+      "question": "Which blue object is between table and fridge?",
+      "answer": "recycling bin",
+      "category": "spatial understanding",
+      "s2_score": 1,
+      "e2e_score": 1
+    },
+    "5cbb9ad9-1929-4312-bc6a-cabf669043d8": {
+      "question": "What is hanging on the hooks next to the door?",
+      "answer": "bathrobes",
+      "category": "object recognition",
+      "s2_score": 2,
+      "e2e_score": 3
+    },
+    "6d9b2620-325a-4c12-8c3a-58aaa6068152": {
+      "question": "What is the color of my toothbrush?",
+      "answer": "white and green",
+      "category": "attribute recognition",
+      "s2_score": 1,
+      "e2e_score": 1
+    },
+    "eef57ae1-f959-4d38-bbd2-e182dcd64a7b": {
+      "question": "What is the color of the cloth hangar?",
+      "answer": "brown",
+      "category": "attribute recognition",
+      "s2_score": 1,
+      "e2e_score": 1
+    },
+    "3a2a65ca-8e98-4e84-ac36-d352131f3ca7": {
+      "question": "Where can you see the lamp?",
+      "answer": "in the mirror above the sink",
+      "category": "spatial understanding",
+      "s2_score": 1,
+      "e2e_score": 1
+    },
+    "0fba8ce5-d4b1-4585-ad22-9a4290907469": {
+      "question": "What is between the two fridge along the wall?",
+      "answer": "door",
+      "category": "spatial understanding",
+      "s2_score": 1,
+      "e2e_score": 1
+    },
+    "dc4dc9eb-8311-4cd0-ad16-303441445164": {
+      "question": "What is color of the bridge in the painting?",
+      "answer": "pink",
+      "category": "attribute recognition",
+      "s2_score": 0,
+      "e2e_score": null
+    },
+    "13069f9c-0540-43f7-9a2c-67292be59c45": {
+      "question": "Which device is the person using to record the video?",
+      "answer": "ipad",
+      "category": "object recognition",
+      "s2_score": 3,
+      "e2e_score": 3
+    },
+    "c9fa0dcd-de50-4b46-8f4c-88400a41fa8f": {
+      "question": "What is the shape of the table?",
+      "answer": "round",
+      "category": "attribute recognition",
+      "s2_score": 5,
+      "e2e_score": 5
+    },
+    "2ad261f5-abca-4f27-a570-820c9c2f9760": {
+      "question": "Can I throw more thrash in the gray trash bin?",
+      "answer": "No",
+      "category": "spatial understanding",
+      "s2_score": 1,
+      "e2e_score": 1
+    },
+    "88a472ed-4344-435e-b80d-4c6f0db5ed96": {
+      "question": "Which object is kept on the table in the corner?",
+      "answer": "lamp",
+      "category": "object recognition",
+      "s2_score": 5,
+      "e2e_score": 5
+    },
+    "5d4a12ff-17f5-4a36-85da-2260c50c2bf5": {
+      "question": "What is between fireplace and sofa along the wall?",
+      "answer": "door",
+      "category": "spatial understanding",
+      "s2_score": 1,
+      "e2e_score": 1
+    },
+    "90457509-f76f-4a0a-a7b8-ea095c58a0cb": {
+      "question": "What is the red object on the kitchen counter?",
+      "answer": "coffee machine",
+      "category": "object recognition",
+      "s2_score": 2,
+      "e2e_score": 2
+    },
+    "1d4d333e-c5e4-443f-833b-719cd8521387": {
+      "question": "What is the black object behind the laptop?",
+      "answer": "monitor",
+      "category": "object recognition",
+      "s2_score": 5,
+      "e2e_score": 5
+    },
+    "8d02f444-6fe6-41ac-8a56-f923d81ab2c8": {
+      "question": "What is color of the can next to the monitor?",
+      "answer": "brown",
+      "category": "attribute recognition",
+      "s2_score": 1,
+      "e2e_score": 3
+    },
+    "6ee3c4cd-2aa9-4a45-b08b-f5c27264c672": {
+      "question": "What is between sofa and kitchen counter?",
+      "answer": "stools",
+      "category": "spatial understanding",
+      "s2_score": 1,
+      "e2e_score": 1
+    },
+    "c006256c-c0c8-47c2-9b05-4d8fbf75bd44": {
+      "question": "What is color of the person's hair?",
+      "answer": "black",
+      "category": "attribute recognition",
+      "s2_score": 1,
+      "e2e_score": 1
+    },
+    "45dfc5d0-db2a-4de6-8dc7-8a1100d719ba": {
+      "question": "Which sports item is present in the room?",
+      "answer": "basketball",
+      "category": "object recognition",
+      "s2_score": 5,
+      "e2e_score": 5
+    },
+    "9a09d135-1e8b-4f55-811a-d2bac6af03b0": {
+      "question": "What color pattern is on the pillow? ",
+      "answer": "checkerboard pattern",
+      "category": "attribute recognition",
+      "s2_score": 0,
+      "e2e_score": null
+    },
+    "b7fc30fc-3014-4589-b6a0-23453cd26841": {
+      "question": "What is behind the sofa?",
+      "answer": "lamp",
+      "category": "spatial understanding",
+      "s2_score": 0,
+      "e2e_score": null
+    },
+    "8e2458a5-22f6-4cb1-88b3-aec81d59452d": {
+      "question": "What is the color of the vacuum cleaner?",
+      "answer": "black",
+      "category": "attribute recognition",
+      "s2_score": 1,
+      "e2e_score": 5
+    },
+    "c3c79f08-b726-4dc8-85b5-e1a2c3b363bb": {
+      "question": "Which animal plushie is on the top shelf?",
+      "answer": "frog",
+      "category": "object recognition",
+      "s2_score": 5,
+      "e2e_score": 5
+    },
+    "e80efdc3-a589-419f-a59a-9afd824867a2": {
+      "question": "What is the color of the wall with the whiteboard?",
+      "answer": "red",
+      "category": "attribute recognition",
+      "s2_score": 5,
+      "e2e_score": 5
+    },
+    "e087f46f-1fd5-4054-8db0-16b04fd8ab09": {
+      "question": "What is the color of the biggest robot in the painting?",
+      "answer": "red",
+      "category": "attribute recognition",
+      "s2_score": 1,
+      "e2e_score": 5
+    },
+    "f635297a-67d9-4a72-acbe-ff32dbe9fa43": {
+      "question": "What is in front of television?",
+      "answer": "black chair and red chair",
+      "category": "spatial understanding",
+      "s2_score": 0,
+      "e2e_score": null
+    },
+    "ce189a94-cd18-4868-a98b-9576e5db9128": {
+      "question": "What is the color of non-black chairs?",
+      "answer": "red",
+      "category": "attribute recognition",
+      "s2_score": 5,
+      "e2e_score": 5
+    },
+    "134e115b-2956-457f-90e6-a1983a2ca2fb": {
+      "question": "What is the green colored object on the table?",
+      "answer": "calculator",
+      "category": "object recognition",
+      "s2_score": 1,
+      "e2e_score": 1
+    },
+    "94951922-fc1a-4c14-898d-0e5d6407de9a": {
+      "question": "What is the gray object in corner of the room?",
+      "answer": "trash bin",
+      "category": "object recognition",
+      "s2_score": 5,
+      "e2e_score": 5
+    },
+    "00e8e77b-6d1d-45da-bedb-ca2b0868b9ed": {
+      "question": "What is on top of the calculator?",
+      "answer": "red notebook",
+      "category": "spatial understanding",
+      "s2_score": 0,
+      "e2e_score": null
+    },
+    "0b172e4a-7d92-4c4c-923d-9016fe12006d": {
+      "question": "What is between pencil and red notebook on top of another notebook?",
+      "answer": "mobile phone",
+      "category": "spatial understanding",
+      "s2_score": 0,
+      "e2e_score": null
+    },
+    "6ad7b496-d50d-4aa3-9b3e-2fa6d9c398b3": {
+      "question": "What is the color of the thickest book on the shelf?",
+      "answer": "red",
+      "category": "attribute recognition",
+      "s2_score": 1,
+      "e2e_score": 1
+    },
+    "4099caf7-210d-4e32-b9c6-8e23bf923503": {
+      "question": "What is plugged into the wall by the door?",
+      "answer": "A roomba",
+      "category": "object recognition",
+      "s2_score": 0,
+      "e2e_score": null
+    },
+    "15025844-de18-4bbf-bae5-604c74c622b6": {
+      "question": "What colors are the toolboxes?",
+      "answer": "Orange and blue",
+      "category": "attribute recognition",
+      "s2_score": 0,
+      "e2e_score": null
+    },
+    "e0b667f8-4df0-4823-9f6f-c4bb8b7d7575": {
+      "question": "What color is the armchair by the desk?",
+      "answer": "Tan or brown",
+      "category": "attribute recognition",
+      "s2_score": 0,
+      "e2e_score": null
+    },
+    "e48cb9e2-a686-4833-ae3d-846a0be01921": {
+      "question": "What is the white object hanging on the red wall?",
+      "answer": "whiteboard",
+      "category": "object recognition",
+      "s2_score": 5,
+      "e2e_score": 5
+    },
+    "3673c28f-e524-48f8-8756-a4bfdcded8a3": {
+      "question": "What is the red thing under the desk?",
+      "answer": "a cooler",
+      "category": "object recognition",
+      "s2_score": 4,
+      "e2e_score": 4
+    },
+    "bdcbfd8c-94de-43f0-9f6c-01ce0099787b": {
+      "question": "What is in the corner between the french doors leading outside and the solid wood door?",
+      "answer": "The desk along with a chair and a an armchair",
+      "category": "spatial understanding",
+      "s2_score": 3,
+      "e2e_score": 3
+    },
+    "310af73b-9806-4e93-8916-c67b3bce5700": {
+      "question": "What is the color of square photo frame?",
+      "answer": "blue",
+      "category": "attribute recognition",
+      "s2_score": 1,
+      "e2e_score": 1
+    }
+  }
+}
