@@ -84,15 +84,15 @@ def create_more_views_callback(
                         candidate_object_ids.append(obj.obj_id)
                         break
 
-        # Also search based on user-provided object_terms
+        # Search object_terms using KeyframeSelector.find_objects() which
+        # supports string match + CLIP semantic fallback. This allows the
+        # agent to discover objects not in the original hypothesis (e.g.,
+        # "fire extinguisher" even if labeled as "canister" in the scene graph).
         for term in object_terms:
-            term_lower = term.lower()
-            for obj in keyframe_selector.objects:
-                obj_cat = getattr(obj, "category", "") or ""
-                obj_tag = getattr(obj, "object_tag", "") or ""
-                if term_lower in obj_cat.lower() or term_lower in obj_tag.lower():
-                    if obj.obj_id not in candidate_object_ids:
-                        candidate_object_ids.append(obj.obj_id)
+            matched = keyframe_selector.find_objects(term, top_k=5)
+            for obj in matched:
+                if obj.obj_id not in candidate_object_ids:
+                    candidate_object_ids.append(obj.obj_id)
 
         if not candidate_object_ids:
             return Stage2ToolResult(
