@@ -233,8 +233,8 @@ def parse_args() -> argparse.Namespace:
         type=float,
         default=0.6,
         help=(
-            "When Stage 2 completed with confidence >= this value AND E2E acquired "
-            "no new evidence (0 tool calls), prefer Stage 2's answer to avoid "
+            "Stage2 confidence threshold for skipping E2E. Only skip E2E when "
+            "Stage2 completed with confidence >= this value. Below this threshold, "
             "non-deterministic downgrades. Set to 0 to disable."
         ),
     )
@@ -517,14 +517,22 @@ def run_one_sample(sample: dict[str, Any], args: argparse.Namespace) -> dict[str
     save_json(sample_dir / "stage2.json", stage2_summary)
     stage2_answer = extract_prediction_text(stage2_summary)
 
-    # E2E (with tools): only run when Stage2 has insufficient evidence.
-    # When Stage2 already completed, E2E without new evidence is just a
-    # stochastic re-roll that can only degrade via VLM non-determinism.
-    if stage2_summary["status"] != "completed":
-        logger.info(
-            "[E2E] Stage2 status={}, running E2E with tools",
-            stage2_summary["status"],
+    # E2E (with tools): run when Stage2 needs more evidence OR when Stage2
+    # completed but with low confidence (likely a guess, not a confident answer).
+    # Only skip E2E when Stage2 completed with high confidence.
+    guard_threshold = getattr(args, "confidence_guard", 0.6)
+    s2_confident = (
+        stage2_summary["status"] == "completed"
+        and stage2_summary["confidence"] >= guard_threshold
+    )
+
+    if not s2_confident:
+        reason = (
+            f"status={stage2_summary['status']}"
+            if stage2_summary["status"] != "completed"
+            else f"completed but low conf={stage2_summary['confidence']:.2f} < {guard_threshold}"
         )
+        logger.info("[E2E] Stage2 {}, running E2E with tools", reason)
         e2e_result = run_stage2(
             bundle=bundle,
             task_query=sample["question"],
@@ -543,8 +551,9 @@ def run_one_sample(sample: dict[str, Any], args: argparse.Namespace) -> dict[str
         e2e_answer = extract_prediction_text(e2e_summary)
     else:
         logger.info(
-            "[E2E] Stage2 completed (conf={:.2f}), skipping E2E re-roll",
+            "[E2E] Stage2 completed with high confidence ({:.2f} >= {:.2f}), skipping E2E",
             stage2_summary["confidence"],
+            guard_threshold,
         )
         e2e_summary = stage2_summary
         e2e_answer = stage2_answer
