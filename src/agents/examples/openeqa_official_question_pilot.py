@@ -369,13 +369,18 @@ def run_stage1_ranked(
     """Run Stage 1 with all query candidates, return the best by grounding quality.
 
     Ranking: direct_grounded > proxy_grounded > context_only.
-    No silent fallback — LLM rewrite failure and Stage 1 errors propagate.
+    LLM rewrite is optional enhancement — rate-limit errors skip it, not abort.
+    Stage 1 execution errors propagate (no silent fallback).
     """
     queries = build_stage1_query_candidates(sample["question"])
 
-    # LLM rewrite: insert retrieval-oriented queries at the front
+    # LLM rewrite: optional enhancement, inserts retrieval-oriented queries
     if getattr(args, "llm_rewrite", False):
-        rewritten = llm_rewrite_qa_to_retrieval(sample["question"])
+        try:
+            rewritten = llm_rewrite_qa_to_retrieval(sample["question"])
+        except Exception as exc:
+            logger.warning("[LLMRewrite] skipped ({}): {}", type(exc).__name__, exc)
+            rewritten = None
         if rewritten:
             logger.info(
                 "[LLMRewrite] {} -> {}",
@@ -624,20 +629,16 @@ def main() -> None:
             sample["clip_id"],
             sample["category"],
         )
-        try:
-            row = run_one_sample(sample, args)
-            logger.info(
-                "[Official] done question_id={} stage1={} stage2={} e2e={} tools(e2e)={}",
-                sample["question_id"],
-                row["stage1_status"],
-                row["stage2_status"],
-                row["e2e_status"],
-                row["e2e_tool_calls"],
-            )
-            return row
-        except Exception as exc:
-            logger.exception("[Official] failed question_id={}", sample["question_id"])
-            return {**sample, "error": str(exc)}
+        row = run_one_sample(sample, args)
+        logger.info(
+            "[Official] done question_id={} stage1={} stage2={} e2e={} tools(e2e)={}",
+            sample["question_id"],
+            row["stage1_status"],
+            row["stage2_status"],
+            row["e2e_status"],
+            row["e2e_tool_calls"],
+        )
+        return row
 
     num_workers = max(1, getattr(args, "workers", 1))
     if num_workers > 1:
@@ -653,12 +654,15 @@ def main() -> None:
                 executor.submit(_run_sample, sample): sample for sample in work_items
             }
             for future in concurrent.futures.as_completed(future_to_sample):
-                row = future.result()
-                if (
-                    "error" in row
-                    and args.require_stage1_success
-                    and not args.question_id
-                ):
+                sample = future_to_sample[future]
+                try:
+                    row = future.result()
+                except Exception as exc:
+                    logger.error(
+                        "[Official] question_id={} failed: {}",
+                        sample["question_id"],
+                        exc,
+                    )
                     continue
                 results.append(row)
                 logger.info(
@@ -669,8 +673,6 @@ def main() -> None:
     else:
         for sample in work_items:
             row = _run_sample(sample)
-            if "error" in row and args.require_stage1_success and not args.question_id:
-                continue
             results.append(row)
 
     summary = {
