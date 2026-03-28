@@ -499,6 +499,7 @@ def run_one_sample(sample: dict[str, Any], args: argparse.Namespace) -> dict[str
 
     bundle = build_bundle(selector, stage1_result, clip_id)
 
+    # Stage 2 (no tools): baseline VLM reasoning on keyframes
     stage2_result = run_stage2(
         bundle=bundle,
         task_query=sample["question"],
@@ -516,42 +517,37 @@ def run_one_sample(sample: dict[str, Any], args: argparse.Namespace) -> dict[str
     save_json(sample_dir / "stage2.json", stage2_summary)
     stage2_answer = extract_prediction_text(stage2_summary)
 
-    e2e_result = run_stage2(
-        bundle=bundle,
-        task_query=sample["question"],
-        max_reasoning_turns=args.max_reasoning_turns,
-        enable_callbacks=True,
-        selector=selector,
-        scene_id=clip_id,
-        max_additional_views=args.max_additional_views,
-    )
-    e2e_summary = serialize_stage2_result(
-        "e2e",
-        e2e_result,
-        initial_keyframes=len(bundle.keyframes),
-    )
-    save_json(sample_dir / "e2e.json", e2e_summary)
-    e2e_answer = extract_prediction_text(e2e_summary)
-
-    # Confidence guard: if Stage 2 completed with high confidence and E2E
-    # acquired no new evidence (0 tool calls), the E2E answer is just a
-    # non-deterministic re-roll on the same keyframes.  Prefer Stage 2's
-    # answer to avoid random downgrades.
-    # When E2E used 0 tools, it has no information advantage over Stage2 —
-    # it's just a stochastic re-roll of the same VLM on the same images.
-    # Always prefer Stage2 when it completed, regardless of confidence.
-    e2e_guarded = False
-    if (
-        stage2_summary["status"] == "completed"
-        and len(e2e_summary["tool_trace"]) == 0
-    ):
+    # E2E (with tools): only run when Stage2 has insufficient evidence.
+    # When Stage2 already completed, E2E without new evidence is just a
+    # stochastic re-roll that can only degrade via VLM non-determinism.
+    if stage2_summary["status"] != "completed":
         logger.info(
-            "[ConfidenceGuard] Stage2 completed (conf={:.2f}) and E2E used 0 tools → "
-            "preferring Stage2 answer (no new evidence acquired)",
+            "[E2E] Stage2 status={}, running E2E with tools",
+            stage2_summary["status"],
+        )
+        e2e_result = run_stage2(
+            bundle=bundle,
+            task_query=sample["question"],
+            max_reasoning_turns=args.max_reasoning_turns,
+            enable_callbacks=True,
+            selector=selector,
+            scene_id=clip_id,
+            max_additional_views=args.max_additional_views,
+        )
+        e2e_summary = serialize_stage2_result(
+            "e2e",
+            e2e_result,
+            initial_keyframes=len(bundle.keyframes),
+        )
+        save_json(sample_dir / "e2e.json", e2e_summary)
+        e2e_answer = extract_prediction_text(e2e_summary)
+    else:
+        logger.info(
+            "[E2E] Stage2 completed (conf={:.2f}), skipping E2E re-roll",
             stage2_summary["confidence"],
         )
+        e2e_summary = stage2_summary
         e2e_answer = stage2_answer
-        e2e_guarded = True
 
     return {
         **sample_meta,
@@ -565,8 +561,7 @@ def run_one_sample(sample: dict[str, Any], args: argparse.Namespace) -> dict[str
         "e2e_answer": e2e_answer,
         "e2e_confidence": e2e_summary["confidence"],
         "e2e_tool_calls": len(e2e_summary["tool_trace"]),
-        "e2e_final_keyframes": e2e_summary["final_keyframes"],
-        "e2e_guarded": e2e_guarded,
+        "e2e_final_keyframes": e2e_summary.get("final_keyframes", len(bundle.keyframes)),
         "artifact_dir": str(sample_dir),
     }
 
