@@ -17,6 +17,7 @@ Usage:
 
 from __future__ import annotations
 
+from collections import Counter
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
@@ -126,8 +127,6 @@ class QueryExecutor:
             if not hasattr(obj, "class_name") or not obj.class_name:
                 continue
             primary = self._get_category(obj).lower()
-            from collections import Counter
-
             counts = Counter(obj.class_name)
             for cls, cnt in counts.items():
                 cls_lower = cls.lower() if cls else ""

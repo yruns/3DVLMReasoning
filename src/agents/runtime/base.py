@@ -283,7 +283,7 @@ class BaseStage2Runtime(ABC):
             "1. request_more_views(mode='targeted', object_terms=[...]) — get views showing specific objects\n"
             "2. request_more_views(mode='explore') — get views of unseen scene regions\n"
             "3. request_crops(object_terms=[...]) — zoom into small/ambiguous objects with annotated bboxes\n"
-            "4. switch_or_expand_hypothesis(new_query='...') — re-run retrieval with a different query\n"
+            "4. switch_or_expand_hypothesis(new_query='...') — re-run retrieval with a different query (costly, use as last resort)\n"
             "Use multiple tools across turns: explore → crop details → answer.\n\n"
             f"{uncertainty_instructions}"
             "Framework constraints:\n"

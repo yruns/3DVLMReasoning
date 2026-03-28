@@ -264,9 +264,13 @@ def create_crop_callback(
 
         # Find matching scene objects via find_objects (CLIP fallback)
         target_objects = []
+        seen_ids: set[int] = set()
         for term in object_terms:
             matched = keyframe_selector.find_objects(term, top_k=3)
-            target_objects.extend(matched)
+            for obj in matched:
+                if obj.obj_id not in seen_ids:
+                    target_objects.append(obj)
+                    seen_ids.add(obj.obj_id)
 
         if not target_objects:
             return Stage2ToolResult(
@@ -453,6 +457,9 @@ def _generate_crop_for_object(
         )
     )
 
+    # Track this view so subsequent crops don't duplicate it
+    existing_view_ids.add(best_view)
+
     logger.info(
         "[Stage1Callback] Generated crop: obj={} ({}) view={} size={}x{} -> {}",
         target_obj.obj_id,
@@ -485,9 +492,12 @@ def create_hypothesis_callback(
     """Create a callback that re-runs Stage 1 with a new query.
 
     The agent provides a new_query string. This callback:
-    1. Runs select_keyframes_v2 with the new query
+    1. Runs select_keyframes_v2 with the new query (triggers LLM parser call)
     2. Appends the new keyframes to the existing bundle (incremental)
     3. Returns the updated bundle
+
+    Note: Each invocation triggers a full Stage 1 LLM parser call (~2-5s latency).
+    Use sparingly — prefer request_more_views or request_crops first.
     """
 
     def callback(
