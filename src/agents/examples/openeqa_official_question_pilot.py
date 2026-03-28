@@ -537,21 +537,17 @@ def run_one_sample(sample: dict[str, Any], args: argparse.Namespace) -> dict[str
     # acquired no new evidence (0 tool calls), the E2E answer is just a
     # non-deterministic re-roll on the same keyframes.  Prefer Stage 2's
     # answer to avoid random downgrades.
-    # Additional condition: only guard when E2E is not MORE confident than
-    # Stage 2 — if E2E is more confident, it may have a legitimate
-    # different interpretation worth keeping.
+    # When E2E used 0 tools, it has no information advantage over Stage2 —
+    # it's just a stochastic re-roll of the same VLM on the same images.
+    # Always prefer Stage2 when it completed, regardless of confidence.
     e2e_guarded = False
-    guard_threshold = getattr(args, "confidence_guard", 0.6)
     if (
-        guard_threshold > 0
-        and stage2_summary["status"] == "completed"
-        and stage2_summary["confidence"] >= guard_threshold
+        stage2_summary["status"] == "completed"
         and len(e2e_summary["tool_trace"]) == 0
-        and e2e_summary["confidence"] <= stage2_summary["confidence"]
     ):
         logger.info(
             "[ConfidenceGuard] Stage2 completed (conf={:.2f}) and E2E used 0 tools → "
-            "preferring Stage2 answer over E2E re-roll",
+            "preferring Stage2 answer (no new evidence acquired)",
             stage2_summary["confidence"],
         )
         e2e_answer = stage2_answer
