@@ -175,7 +175,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--max-reasoning-turns",
         type=int,
-        default=3,
+        default=10,
         help="Maximum Stage 2 reasoning turns.",
     )
     parser.add_argument(
