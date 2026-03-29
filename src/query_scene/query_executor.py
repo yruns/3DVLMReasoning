@@ -85,7 +85,6 @@ class QueryExecutor:
         clip_features: np.ndarray | None = None,
         clip_encoder: Any | None = None,
         use_quick_filters: bool = True,
-        strict_mode: bool = False,
     ):
         """
         Initialize the query executor.
@@ -96,15 +95,12 @@ class QueryExecutor:
             clip_features: Optional pre-computed CLIP features for objects
             clip_encoder: Optional CLIP text encoder for semantic matching
             use_quick_filters: Whether to use quick filters for pre-filtering
-            strict_mode: If True, return empty when anchor objects not found.
-                         If False (default), return all candidates as fallback.
         """
         self.objects = objects
         self.relation_checker = relation_checker or SpatialRelationChecker()
         self.clip_features = clip_features
         self.clip_encoder = clip_encoder
         self.use_quick_filters = use_quick_filters
-        self.strict_mode = strict_mode
 
         # Quick filters for fast pre-filtering
         self._quick_filters = QuickFilters() if use_quick_filters else None
@@ -358,31 +354,30 @@ class QueryExecutor:
     def _find_by_clip_similarity(
         self, category: str, top_k: int = 10, min_similarity: float = 0.2
     ) -> list[SceneObject]:
-        """Find objects by CLIP text-image similarity."""
-        try:
-            # Encode text
-            text_feature = self.clip_encoder(category)
-            if text_feature is None:
-                return []
+        """Find objects by CLIP text-image similarity.
 
-            # Compute similarities
-            similarities = self.clip_features @ text_feature
-            top_indices = np.argsort(-similarities)[:top_k]
-
-            matches = [
-                self.objects[i] for i in top_indices if similarities[i] > min_similarity
-            ]
-
-            if matches:
-                logger.info(
-                    f"[QueryExecutor] CLIP matched '{category}' -> "
-                    f"{[(self._get_category(m), f'{similarities[self.objects.index(m)]:.2f}') for m in matches[:3]]}"
-                )
-
-            return matches
-        except Exception as e:
-            logger.warning(f"[QueryExecutor] CLIP matching failed: {e}")
+        Returns empty list when CLIP encoder unavailable (open_clip not installed).
+        Raises on encoding failure when CLIP IS loaded.
+        """
+        text_feature = self.clip_encoder(category)
+        if text_feature is None:
             return []
+
+        # Compute similarities
+        similarities = self.clip_features @ text_feature
+        top_indices = np.argsort(-similarities)[:top_k]
+
+        matches = [
+            self.objects[i] for i in top_indices if similarities[i] > min_similarity
+        ]
+
+        if matches:
+            logger.info(
+                f"[QueryExecutor] CLIP matched '{category}' -> "
+                f"{[(self._get_category(m), f'{similarities[self.objects.index(m)]:.2f}') for m in matches[:3]]}"
+            )
+
+        return matches
 
     def _filter_by_attributes(
         self,
@@ -448,16 +443,10 @@ class QueryExecutor:
 
         if not anchor_objects:
             logger.warning(
-                f"[QueryExecutor] No anchor objects found for relation '{constraint.relation}'"
+                f"[QueryExecutor] No anchor objects found for relation '{constraint.relation}'. "
+                "Returning empty — spatial constraint cannot be evaluated without anchors."
             )
-            if self.strict_mode:
-                # Strict mode: return empty when anchor not found
-                logger.debug("[QueryExecutor] Strict mode: returning empty result")
-                return [], {}
-            else:
-                # Lenient mode (default): return all candidates as fallback
-                logger.debug("[QueryExecutor] Lenient mode: returning all candidates")
-                return candidates, {obj.obj_id: 1.0 for obj in candidates}
+            return [], {}
 
         # Phase 1: Quick filter (if available)
         pre_filtered = candidates
@@ -470,12 +459,12 @@ class QueryExecutor:
                 f"{len(candidates)} -> {len(pre_filtered)} candidates"
             )
 
-            # If quick filter eliminated all candidates, fall back to full list
             if not pre_filtered:
                 logger.warning(
-                    "[QueryExecutor] Quick filter eliminated all candidates, using full list"
+                    f"[QueryExecutor] Quick filter '{constraint.relation}' eliminated all "
+                    f"{len(candidates)} candidates. Returning empty — no spatial match."
                 )
-                pre_filtered = candidates
+                return [], {}
 
         # Phase 2: Full spatial relation check
         filtered = []
@@ -717,7 +706,6 @@ def execute_query(
     query: GroundingQuery,
     objects: list[SceneObject],
     relation_checker: SpatialRelationChecker | None = None,
-    strict_mode: bool = False,
 ) -> ExecutionResult:
     """
     Execute a grounding query against scene objects.
@@ -726,10 +714,9 @@ def execute_query(
         query: GroundingQuery to execute
         objects: List of scene objects
         relation_checker: Optional spatial relation checker
-        strict_mode: If True, return empty when anchor objects not found
 
     Returns:
         ExecutionResult with matched objects
     """
-    executor = QueryExecutor(objects, relation_checker, strict_mode=strict_mode)
+    executor = QueryExecutor(objects, relation_checker)
     return executor.execute(query)

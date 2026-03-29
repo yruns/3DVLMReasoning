@@ -36,11 +36,11 @@ from agents.examples.openeqa_single_scene_pilot import (  # noqa: E402
     serialize_stage1_result,
     serialize_stage2_result,
 )
-from query_scene.keyframe_selector import KeyframeSelector  # noqa: E402
 from benchmarks.openeqa_official_eval import (  # noqa: E402
     DEFAULT_OFFICIAL_REPO_ROOT,
     evaluate_predictions_with_official_llm_match,
 )
+from query_scene.keyframe_selector import KeyframeResult, KeyframeSelector  # noqa: E402
 from utils.llm_client import get_langchain_chat_model  # noqa: E402
 
 # Per-scene lock to prevent parallel workers from racing on runtime cache setup
@@ -369,18 +369,14 @@ def run_stage1_ranked(
     """Run Stage 1 with all query candidates, return the best by grounding quality.
 
     Ranking: direct_grounded > proxy_grounded > context_only.
-    LLM rewrite is optional enhancement — rate-limit errors skip it, not abort.
+    LLM rewrite errors propagate (no silent fallback).
     Stage 1 execution errors propagate (no silent fallback).
     """
     queries = build_stage1_query_candidates(sample["question"])
 
-    # LLM rewrite: optional enhancement, inserts retrieval-oriented queries
+    # LLM rewrite: inserts retrieval-oriented queries when enabled
     if getattr(args, "llm_rewrite", False):
-        try:
-            rewritten = llm_rewrite_qa_to_retrieval(sample["question"])
-        except Exception as exc:
-            logger.warning("[LLMRewrite] skipped ({}): {}", type(exc).__name__, exc)
-            rewritten = None
+        rewritten = llm_rewrite_qa_to_retrieval(sample["question"])
         if rewritten:
             logger.info(
                 "[LLMRewrite] {} -> {}",
@@ -570,7 +566,9 @@ def run_one_sample(sample: dict[str, Any], args: argparse.Namespace) -> dict[str
         "e2e_answer": e2e_answer,
         "e2e_confidence": e2e_summary["confidence"],
         "e2e_tool_calls": len(e2e_summary["tool_trace"]),
-        "e2e_final_keyframes": e2e_summary.get("final_keyframes", len(bundle.keyframes)),
+        "e2e_final_keyframes": e2e_summary.get(
+            "final_keyframes", len(bundle.keyframes)
+        ),
         "artifact_dir": str(sample_dir),
     }
 
@@ -653,6 +651,7 @@ def main() -> None:
             future_to_sample = {
                 executor.submit(_run_sample, sample): sample for sample in work_items
             }
+            failed_samples: list[dict] = []
             for future in concurrent.futures.as_completed(future_to_sample):
                 sample = future_to_sample[future]
                 try:
@@ -663,6 +662,9 @@ def main() -> None:
                         sample["question_id"],
                         exc,
                     )
+                    failed_samples.append(
+                        {"question_id": sample["question_id"], "error": str(exc)}
+                    )
                     continue
                 results.append(row)
                 logger.info(
@@ -670,10 +672,19 @@ def main() -> None:
                     len(results),
                     len(work_items),
                 )
+            if failed_samples:
+                logger.error(
+                    "[Official] {} samples FAILED and are missing from results: {}",
+                    len(failed_samples),
+                    [s["question_id"] for s in failed_samples],
+                )
     else:
         for sample in work_items:
             row = _run_sample(sample)
             results.append(row)
+
+    # Collect failed samples from parallel execution (empty if sequential)
+    _failed = failed_samples if num_workers > 1 else []
 
     summary = {
         "json_path": str(args.json_path),
@@ -681,9 +692,17 @@ def main() -> None:
         "num_candidate_pool": len(candidate_pool),
         "requested_results": target_results,
         "num_results": len(results),
+        "num_failed": len(_failed),
+        "failed_samples": _failed,
         "unique_scenes": args.unique_scenes,
         "results": results,
     }
+
+    # Save batch summary BEFORE scoring — scoring can crash (rate limit, network)
+    # and we must not lose the inference results.
+    summary_path = args.output_root / "official_batch_summary.json"
+    save_json(summary_path, summary)
+    logger.info("Saved inference summary to {}", summary_path)
 
     if args.evaluate and results:
         question_id_to_sample = {sample["question_id"]: sample for sample in samples}
@@ -698,6 +717,11 @@ def main() -> None:
         stage2_predictions = build_prediction_file(results, "stage2_answer")
         stage2_predictions_path = args.output_root / "official_predictions_stage2.json"
         save_json(stage2_predictions_path, stage2_predictions)
+
+        e2e_predictions = build_prediction_file(results, "e2e_answer")
+        e2e_predictions_path = args.output_root / "official_predictions_e2e.json"
+        save_json(e2e_predictions_path, e2e_predictions)
+
         stage2_eval = evaluate_predictions_with_official_llm_match(
             dataset_items=dataset_subset,
             predictions=stage2_predictions,
@@ -706,9 +730,6 @@ def main() -> None:
             eval_model=args.eval_model,
         )
 
-        e2e_predictions = build_prediction_file(results, "e2e_answer")
-        e2e_predictions_path = args.output_root / "official_predictions_e2e.json"
-        save_json(e2e_predictions_path, e2e_predictions)
         e2e_eval = evaluate_predictions_with_official_llm_match(
             dataset_items=dataset_subset,
             predictions=e2e_predictions,
@@ -726,18 +747,16 @@ def main() -> None:
             "e2e_predictions_path": str(e2e_predictions_path),
             "e2e": e2e_eval,
         }
+        # Re-save with evaluation scores appended
+        save_json(summary_path, summary)
+        logger.info("Updated summary with evaluation scores: {}", summary_path)
     elif args.evaluate:
         summary["evaluation"] = {
             "official_repo_root": str(args.official_repo_root),
             "eval_model": args.eval_model,
             "warning": "No results were available to evaluate.",
         }
-
-    save_json(args.output_root / "official_batch_summary.json", summary)
-    logger.info(
-        "Saved official summary to {}",
-        args.output_root / "official_batch_summary.json",
-    )
+        save_json(summary_path, summary)
 
 
 if __name__ == "__main__":
