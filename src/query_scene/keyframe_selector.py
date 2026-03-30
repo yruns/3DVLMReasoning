@@ -348,6 +348,15 @@ class KeyframeSelector:
         if affordance_file and affordance_file.exists():
             self._load_affordances(affordance_file)
 
+        # Enrich with LLM-generated metadata (enriched_objects.json)
+        enrichment_file = self.scene_path / "enriched_objects.json"
+        if not enrichment_file.exists():
+            raise FileNotFoundError(
+                f"Enrichment file not found: {enrichment_file}. "
+                f"Run `python -m src.scripts.enrich_objects` first."
+            )
+        self._load_enrichment(enrichment_file)
+
         # Load camera poses
         self._load_camera_poses()
 
@@ -538,6 +547,38 @@ class KeyframeSelector:
                 if isinstance(affs, dict):
                     obj.affordances = affs
                     obj.co_objects = affs.get("co_objects", obj.co_objects)
+
+    def _load_enrichment(self, enrichment_file: Path) -> None:
+        """Load LLM-generated object enrichment from enriched_objects.json."""
+        with open(enrichment_file) as f:
+            data = json.load(f)
+
+        enrich_by_id = {
+            int(entry["obj_id"]): entry
+            for entry in data.get("objects", [])
+            if entry.get("status") == "success"
+        }
+
+        enriched_count = 0
+        for obj in self.objects:
+            entry = enrich_by_id.get(obj.obj_id)
+            if entry is None:
+                continue
+            enrichment = entry.get("enrichment", {})
+            obj.category = enrichment.get("category", obj.category)
+            obj.object_tag = obj.category
+            obj.summary = enrichment.get("description", obj.summary)
+            obj.affordance_category = enrichment.get(
+                "usability", obj.affordance_category
+            )
+            obj.co_objects = enrichment.get("nearby_objects", obj.co_objects)
+            obj.affordances = enrichment
+            enriched_count += 1
+
+        logger.info(
+            f"Loaded enrichment for {enriched_count}/{len(self.objects)} objects "
+            f"from {enrichment_file.name}"
+        )
 
     def _load_camera_poses(self) -> None:
         """Load camera poses from trajectory file."""
