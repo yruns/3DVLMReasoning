@@ -1083,6 +1083,48 @@ class KeyframeSelector:
 
         return selected
 
+    def _pad_keyframes_to_minimum(
+        self,
+        selected: list[int],
+        object_ids: list[int],
+        min_count: int = 3,
+    ) -> list[int]:
+        """Pad keyframes using highest-visibility views if below min_count.
+
+        Uses deterministic visibility-based selection from view_to_objects.
+        """
+        if len(selected) >= min_count:
+            return selected
+
+        selected = list(selected)
+        selected_set = set(selected)
+
+        # Collect candidate views from target objects
+        candidate_views: set[int] = set()
+        for obj_id in object_ids:
+            for view_id, _ in self.object_to_views.get(obj_id, []):
+                candidate_views.add(view_id)
+
+        # If target objects have no views, use all views sorted by total visibility
+        if not candidate_views:
+            candidate_views = set(self.view_to_objects.keys())
+
+        unused = candidate_views - selected_set
+
+        # Rank by aggregate visibility score
+        view_total_scores: list[tuple[int, float]] = []
+        for view_id in unused:
+            total = sum(score for _, score in self.view_to_objects.get(view_id, []))
+            view_total_scores.append((view_id, total))
+        view_total_scores.sort(key=lambda x: x[1], reverse=True)
+
+        for view_id, _ in view_total_scores:
+            if len(selected) >= min_count:
+                break
+            selected.append(view_id)
+
+        return selected
+
     def _spatial_filter(
         self,
         candidates: list[SceneObject],
@@ -1301,6 +1343,19 @@ class KeyframeSelector:
                         cleaned.append(cat)
                         seen.add(cat)
             node.categories = cleaned if cleaned else ["UNKNOW"]
+
+        # Mark root as open_ended when target is UNKNOW with spatial constraints
+        root = sanitized.root
+        if (
+            root.categories == ["UNKNOW"]
+            and root.spatial_constraints
+            and any(
+                "UNKNOW" not in anchor.categories
+                for sc in root.spatial_constraints
+                for anchor in sc.anchors
+            )
+        ):
+            root.open_ended = True
 
         return sanitized
 
@@ -1549,6 +1604,11 @@ class KeyframeSelector:
             keyframe_indices = self.get_joint_coverage_views(
                 [obj.obj_id for obj in target_objects[:5]], max_views=k
             )
+
+        # Ensure minimum keyframe count (pad with high-visibility views)
+        keyframe_indices = self._pad_keyframes_to_minimum(
+            keyframe_indices, all_object_ids, min_count=min(k, 3)
+        )
 
         keyframe_paths = []
         frame_mappings = []

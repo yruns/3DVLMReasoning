@@ -495,13 +495,13 @@ def run_one_sample(sample: dict[str, Any], args: argparse.Namespace) -> dict[str
 
     bundle = build_bundle(selector, stage1_result, clip_id)
 
-    # Stage 2 (no tools): baseline VLM reasoning on keyframes
+    # Stage 2 (with tools): VLM reasoning with evidence-seeking callbacks
     stage2_result = run_stage2(
         bundle=bundle,
         task_query=sample["question"],
         max_reasoning_turns=args.max_reasoning_turns,
-        enable_callbacks=False,
-        selector=None,
+        enable_callbacks=True,
+        selector=selector,
         scene_id=clip_id,
         max_additional_views=args.max_additional_views,
     )

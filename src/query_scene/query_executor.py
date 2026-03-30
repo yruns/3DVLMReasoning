@@ -202,10 +202,18 @@ class QueryExecutor:
         )
 
         # Step 1: Find candidates by categories (supports semantic expansion)
-        candidates = self._find_by_categories(node.categories)
-        logger.debug(
-            f"[QueryExecutor] Found {len(candidates)} candidates for categories {node.categories}"
-        )
+        if node.open_ended and node.spatial_constraints:
+            # Open-ended query: return ALL objects, let spatial constraints filter
+            candidates = list(self.objects)
+            logger.info(
+                f"[QueryExecutor] Open-ended query: starting with all "
+                f"{len(candidates)} objects for spatial filtering"
+            )
+        else:
+            candidates = self._find_by_categories(node.categories)
+            logger.debug(
+                f"[QueryExecutor] Found {len(candidates)} candidates for categories {node.categories}"
+            )
 
         if not candidates:
             result = ExecutionResult(node_id=node.node_id, matched_objects=[])
