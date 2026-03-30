@@ -354,6 +354,8 @@ def _generate_crop_for_object(
             continue
         # Score by bbox area (larger = better visibility)
         x1, y1, x2, y2 = xyxy
+        if x2 <= x1 or y2 <= y1:
+            continue
         area = (x2 - x1) * (y2 - y1)
         if area > best_score:
             best_score = area
@@ -369,6 +371,8 @@ def _generate_crop_for_object(
             if not hasattr(xyxy, "__len__") or len(xyxy) != 4:
                 continue
             x1, y1, x2, y2 = xyxy
+            if x2 <= x1 or y2 <= y1:
+                continue
             area = (x2 - x1) * (y2 - y1)
             if area > best_score:
                 best_score = area
@@ -402,6 +406,9 @@ def _generate_crop_for_object(
     crop_x2 = min(img_w, int(cx + crop_w / 2))
     crop_y2 = min(img_h, int(cy + crop_h / 2))
 
+    if crop_x2 <= crop_x1 or crop_y2 <= crop_y1:
+        return False
+
     # Draw red bounding boxes for ALL objects visible in this view
     draw = ImageDraw.Draw(img)
     view_objects = selector.view_to_objects.get(best_view, [])
@@ -418,6 +425,8 @@ def _generate_crop_for_object(
             if not hasattr(xyxy, "__len__") or len(xyxy) != 4:
                 continue
             bx1, by1, bx2, by2 = [int(v) for v in xyxy]
+            if bx2 <= bx1 or by2 <= by1:
+                continue
             # Red for target object, orange for others
             color = "red" if obj.obj_id == target_obj.obj_id else "orange"
             width = 3 if obj.obj_id == target_obj.obj_id else 1
