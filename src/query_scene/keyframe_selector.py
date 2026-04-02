@@ -1344,7 +1344,9 @@ class KeyframeSelector:
                         seen.add(cat)
             node.categories = cleaned if cleaned else ["UNKNOW"]
 
-        # Mark root as open_ended when target is UNKNOW with spatial constraints
+        # Mark root as open_ended when target is UNKNOW with spatial constraints,
+        # but NOT for comparative/attributive queries about the anchor itself
+        # (e.g., "Which side of the closet is emptier?" should keep open_ended=False)
         root = sanitized.root
         if (
             root.categories == ["UNKNOW"]
@@ -1355,7 +1357,17 @@ class KeyframeSelector:
                 for anchor in sc.anchors
             )
         ):
-            root.open_ended = True
+            # Skip open_ended for comparative relations that ask about anchor properties
+            comparative_relations = {
+                "side_of", "part_of", "section_of", "half_of",
+                "top_of", "bottom_of", "left_of", "right_of",
+            }
+            is_comparative = any(
+                sc.relation.lower().replace(" ", "_") in comparative_relations
+                for sc in root.spatial_constraints
+            )
+            if not is_comparative:
+                root.open_ended = True
 
         return sanitized
 
@@ -1586,15 +1598,43 @@ class KeyframeSelector:
 
         # Step 3: Collect anchor objects for joint coverage
         anchor_objects: list[SceneObject] = []
+        between_anchors: list[SceneObject] = []
         for constraint in selected_query.root.spatial_constraints:
             for anchor_node in constraint.anchors:
                 anchor_result = self._get_query_executor()._execute_node(anchor_node)
                 anchor_objects.extend(anchor_result.matched_objects)
+            # Track "between" anchor pairs for midpoint retrieval
+            if constraint.relation.lower() == "between" and len(anchor_objects) >= 2:
+                between_anchors = anchor_objects[-2:]
+
+        # Step 3b: For "between" queries, find objects near the spatial midpoint
+        midpoint_object_ids: list[int] = []
+        if between_anchors and len(between_anchors) >= 2:
+            c1 = getattr(between_anchors[0], "centroid", None)
+            c2 = getattr(between_anchors[1], "centroid", None)
+            if c1 is not None and c2 is not None:
+                import numpy as np
+
+                midpoint = (np.asarray(c1) + np.asarray(c2)) / 2.0
+                # Find objects closest to midpoint for view selection
+                obj_dists = []
+                for obj in self.objects:
+                    oc = getattr(obj, "centroid", None)
+                    if oc is not None:
+                        dist = float(np.linalg.norm(np.asarray(oc) - midpoint))
+                        obj_dists.append((obj.obj_id, dist))
+                obj_dists.sort(key=lambda x: x[1])
+                midpoint_object_ids = [oid for oid, _ in obj_dists[:5]]
+                logger.info(
+                    f"[V3] 'between' query: midpoint objects {midpoint_object_ids}"
+                )
 
         # Step 4: Select keyframes
         all_object_ids = [obj.obj_id for obj in target_objects[:5]]
         if anchor_objects:
             all_object_ids.extend([obj.obj_id for obj in anchor_objects[:3]])
+        if midpoint_object_ids:
+            all_object_ids.extend(midpoint_object_ids)
 
         if strategy == "joint_coverage":
             keyframe_indices = self.get_joint_coverage_views(
