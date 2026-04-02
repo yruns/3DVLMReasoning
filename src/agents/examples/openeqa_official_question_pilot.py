@@ -213,7 +213,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--workers",
         type=int,
-        default=1,
+        default=6,
         help=(
             "Number of parallel workers for running samples. "
             "Recommended: gemini_pool_size * 1.5 (e.g., 8 for 5-key pool). "
