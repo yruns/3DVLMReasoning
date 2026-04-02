@@ -620,6 +620,8 @@ def main() -> None:
     work_items = candidate_pool[:target_results]
     results: list[dict[str, Any]] = []
 
+    max_sample_retries = getattr(args, "max_sample_retries", 5)
+
     def _run_sample(sample: dict[str, Any]) -> dict[str, Any]:
         logger.info(
             "[Official] running question_id={} clip={} category={}",
@@ -627,16 +629,41 @@ def main() -> None:
             sample["clip_id"],
             sample["category"],
         )
-        row = run_one_sample(sample, args)
-        logger.info(
-            "[Official] done question_id={} stage1={} stage2={} e2e={} tools(e2e)={}",
-            sample["question_id"],
-            row["stage1_status"],
-            row["stage2_status"],
-            row["e2e_status"],
-            row["e2e_tool_calls"],
-        )
-        return row
+        last_exc = None
+        for attempt in range(max_sample_retries):
+            try:
+                row = run_one_sample(sample, args)
+                logger.info(
+                    "[Official] done question_id={} stage1={} stage2={} e2e={} tools(e2e)={}",
+                    sample["question_id"],
+                    row["stage1_status"],
+                    row["stage2_status"],
+                    row["e2e_status"],
+                    row["e2e_tool_calls"],
+                )
+                return row
+            except Exception as exc:
+                last_exc = exc
+                err_str = str(exc).lower()
+                is_retryable = any(
+                    kw in err_str
+                    for kw in ["500", "502", "503", "429", "rate limit", "server error",
+                               "timeout", "connection", "resource exhausted"]
+                )
+                if not is_retryable or attempt >= max_sample_retries - 1:
+                    raise
+                import time
+                wait = min(10 * 2**attempt, 120)
+                logger.warning(
+                    "[Official] question_id={} attempt {}/{} failed ({}), retrying in {}s",
+                    sample["question_id"],
+                    attempt + 1,
+                    max_sample_retries,
+                    exc,
+                    wait,
+                )
+                time.sleep(wait)
+        raise last_exc
 
     num_workers = max(1, getattr(args, "workers", 1))
     if num_workers > 1:
