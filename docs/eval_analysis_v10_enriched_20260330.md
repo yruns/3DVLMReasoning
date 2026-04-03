@@ -54,24 +54,28 @@ These fields flow downstream via `stage1_adapters.py:build_object_context()` →
 | v5 | 2.730 | 2.790 | 100 | — |
 | v6 | 2.950 | 2.640 | 100 | — |
 | v7 | 2.850 | 2.270 | 100 | — |
-| v8 | 2.980 | 2.600 | 100 | Previous best |
-| v9 | 2.860 | 2.560 | 100 | Strict no-fallback |
-| **v10** | **3.214** | **2.816** | **98** | **LLM enrichment** |
+| v8 | 2.980 (49.5) | 2.600 | 100 | Previous best |
+| v9 | 2.860 (46.5) | 2.560 | 100 | Strict no-fallback |
+| **v10** | **3.214 (55.4)** | **2.816** | **98** | **LLM enrichment** |
+
+*Note: MNAS = (raw_mean - 1) / 4 * 100. Values in parentheses are MNAS.*
 
 ### 2.2 v10 vs v9 (Direct Predecessor)
 
 | Metric | v9 | v10 | Delta |
 |--------|:---:|:---:|:-----:|
-| E2E mean | 2.860 | **3.214** | **+0.354 (+12.4%)** |
-| Stage2 mean | 2.560 | **2.816** | **+0.256 (+10.0%)** |
+| E2E MNAS | 46.5 | **55.4** | **+8.9** |
+| E2E raw | 2.860 | **3.214** | **+0.354** |
+| Stage2 raw | 2.560 | **2.816** | **+0.256** |
 | Failed | 0 | 2 | +2 |
 
 ### 2.3 v10 vs v8 (Historical Best)
 
 | Metric | v8 | v10 | Delta |
 |--------|:---:|:---:|:-----:|
-| E2E mean | 2.980 | **3.214** | **+0.234 (+7.9%)** |
-| Stage2 mean | 2.600 | **2.816** | **+0.216 (+8.3%)** |
+| E2E MNAS | 49.5 | **55.4** | **+5.9** |
+| E2E raw | 2.980 | **3.214** | **+0.234** |
+| Stage2 raw | 2.600 | **2.816** | **+0.216** |
 
 ### 2.4 Score Distribution (E2E)
 

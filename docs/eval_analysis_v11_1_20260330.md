@@ -2,7 +2,7 @@
 
 **Date**: 2026-03-30
 **Branch**: `feat/v11-evidence-seeking-fixes`
-**Baseline**: v11.1 E2E mean 3.505 (+22.6% vs v9), 97/100 completed
+**Baseline**: v11.1 E2E MNAS 62.6 (raw 3.505, +22.6% vs v9), 97/100 completed
 **Analyzed**: All 29 cases with E2E score <= 2 (28 score=1, 1 score=2)
 **Method**: 6 parallel reviewer agents, each examining 10+ raw images per scene
 
