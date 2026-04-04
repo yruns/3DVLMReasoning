@@ -28,3 +28,44 @@ Each version has its own summary file documenting changes, results, and failure 
 | 4 | CoV (Qwen3-VL) | 58.8 |
 | 5 | GraphPad | 55.3 |
 | 6 | GPT-4V | 51.3 |
+
+## Evaluation Commands
+
+### Full OpenEQA Run (inference + LLM judge scoring)
+
+```bash
+python -m src.agents.examples.openeqa_official_question_pilot \
+    --json-path data/open-eqa-v0.json \
+    --data-root data/OpenEQA/scannet \
+    --max-samples 1200 \
+    --workers 6 \
+    --evaluate \
+    --output-root tmp/openeqa_eval_v13_full
+```
+
+### Key Flags
+
+| Flag | Description |
+|------|-------------|
+| `--json-path` | Official OpenEQA question set |
+| `--data-root` | Root of prepared ScanNet scenes |
+| `--max-samples` | Total questions to run (1200 = all available) |
+| `--workers` | Parallel inference workers (default 6) |
+| `--evaluate` | Enable LLM-match judge scoring after inference |
+| `--eval-model` | Judge model (default `gemini-2.5-pro`, uses GeminiClientPool) |
+| `--output-root` | Results directory |
+| `--num-scenes` / `--questions-per-scene` | Alternative to --max-samples for subset runs (e.g., `--num-scenes 20 --questions-per-scene 5` = 100Q) |
+
+### Re-run Scoring Only (predictions already saved)
+
+```python
+from benchmarks.openeqa_official_eval import evaluate_predictions_with_official_llm_match
+evaluate_predictions_with_official_llm_match(
+    dataset_items=dataset,
+    predictions=e2e_preds,
+    output_path=Path("tmp/.../official_predictions_e2e-metrics.json"),
+    eval_model="gemini-2.5-pro",
+    max_workers=12,
+    max_retries=10,
+)
+```
