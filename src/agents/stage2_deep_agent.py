@@ -96,8 +96,10 @@ class Stage2DeepResearchAgent:
     def _build_runtime_tools(self, runtime: Stage2RuntimeState):
         return self._runtime.build_runtime_tools(runtime)
 
-    def _build_system_prompt(self, task: Stage2TaskSpec) -> str:
-        return self._runtime.build_system_prompt(task)
+    def _build_system_prompt(
+        self, task: Stage2TaskSpec, object_context: dict[str, str] | None = None
+    ) -> str:
+        return self._runtime.build_system_prompt(task, object_context=object_context)
 
     def _build_subagents(self, task: Stage2TaskSpec):
         return self._runtime.build_subagents(task)
@@ -135,7 +137,7 @@ class Stage2DeepResearchAgent:
         graph = create_deep_agent(
             model=self._get_llm(),
             tools=self._build_runtime_tools(runtime),
-            system_prompt=self._build_system_prompt(task),
+            system_prompt=self._build_system_prompt(task, object_context=bundle.object_context),
             subagents=self._build_subagents(task),
             response_format=Stage2StructuredResponse,
             name="query_scene_stage2_agent",

@@ -453,7 +453,7 @@ class DeepAgentsStage2Runtime(BaseStage2Runtime):
         graph = create_deep_agent(
             model=self.get_llm(),
             tools=tools,
-            system_prompt=self.build_system_prompt(task),
+            system_prompt=self.build_system_prompt(task, object_context=bundle.object_context),
             subagents=self.build_subagents(task),
             response_format=Stage2StructuredResponse,
             name="query_scene_stage2_agent",

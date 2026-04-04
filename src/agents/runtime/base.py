@@ -231,7 +231,28 @@ class BaseStage2Runtime(ABC):
             return "No matching object context found for requested terms."
         return json.dumps(selected, indent=2, ensure_ascii=False)
 
-    def build_system_prompt(self, task: Stage2TaskSpec) -> str:
+    @staticmethod
+    def _format_scene_inventory(object_context: dict[str, str] | None) -> str:
+        """Format object context as a scene inventory for the system prompt."""
+        if not object_context:
+            return ""
+        lines = []
+        for name, desc in sorted(object_context.items()):
+            short_desc = desc[:120].replace("\n", " ")
+            lines.append(f"- {name}: {short_desc}")
+        inventory = "\n".join(lines)
+        return (
+            "Scene object inventory (from 3D scene graph + LLM enrichment):\n"
+            "Use this to identify objects that may be in the scene but not immediately "
+            "visible in your keyframes. Cross-reference when identifying objects.\n"
+            f"{inventory}\n\n"
+        )
+
+    def build_system_prompt(
+        self,
+        task: Stage2TaskSpec,
+        object_context: dict[str, str] | None = None,
+    ) -> str:
         """Build the agent system prompt."""
         plan_instructions = {
             Stage2PlanMode.OFF: (
@@ -304,6 +325,7 @@ class BaseStage2Runtime(ABC):
             "Do NOT default to the largest/most obvious object in frame. Consider ALL objects "
             "including small items on surfaces, items on the floor, and partially occluded objects.\n\n"
             f"{uncertainty_instructions}"
+            f"{self._format_scene_inventory(object_context)}"
             "Framework constraints:\n"
             "- This runtime is built with LangChain v1 and DeepAgents.\n"
             "- Use the built-in todo planning capability according to the selected plan mode.\n"
