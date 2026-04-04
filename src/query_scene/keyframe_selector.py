@@ -348,16 +348,23 @@ class KeyframeSelector:
         if affordance_file and affordance_file.exists():
             self._load_affordances(affordance_file)
 
+        # Enrich with LLM-generated metadata (enriched_objects.json)
+        enrichment_file = self.scene_path / "enriched_objects.json"
+        if not enrichment_file.exists():
+            raise FileNotFoundError(
+                f"Enrichment file not found: {enrichment_file}. "
+                f"Run `python -m src.scripts.enrich_objects` first."
+            )
+        self._load_enrichment(enrichment_file)
+
         # Load camera poses
         self._load_camera_poses()
 
         # Set image paths
         self._set_image_paths()
 
-        # Build category index
-        self.scene_categories = list(
-            {obj.object_tag if obj.object_tag else obj.category for obj in self.objects}
-        )
+        # Build category index (multi-label: includes minority detection classes)
+        self.scene_categories = self._build_multilabel_categories()
 
         logger.success(
             f"Loaded {len(self.objects)} objects, {len(self.camera_poses)} poses"
@@ -414,6 +421,7 @@ class KeyframeSelector:
                 clip_ft=clip_ft,
                 image_idx=image_idx,
                 xyxy=xyxy,
+                class_name=class_names,
             )
             self.objects.append(scene_obj)
 
@@ -440,6 +448,84 @@ class KeyframeSelector:
             aligned[non_zero] = aligned[non_zero] / (norms[non_zero] + 1e-8)
             self.object_features = aligned
 
+    # Labels that are verbs, adjectives, abstract terms, or body parts —
+    # not useful as object categories for scene graph retrieval.
+    _NOISE_LABELS: frozenset[str] = frozenset(
+        {
+            "sit",
+            "lay",
+            "hang",
+            "open",
+            "fill",
+            "push",
+            "lead to",
+            "take",
+            "walk",
+            "attach",
+            "hide",
+            "slide",
+            "curl",
+            "sleep",
+            "stand",
+            "make",
+            "wrap",
+            "sew",
+            "lead",
+            "roll",
+            "draw",
+            "writing",
+            "mark",
+            "couple",
+            "selfie",
+            "peak",
+            "shine",
+            "comfort",
+            "mess",
+            "stuff",
+            "dormitory",
+            "camouflage",
+            "flat",
+            "twin",
+            "back",
+            "half",
+            "man",
+            "woman",
+            "person",
+            "head",
+            "nose",
+            "hand",
+            "foot",
+            "face",
+            "item",
+            "object",
+        }
+    )
+
+    def _build_multilabel_categories(self) -> list[str]:
+        """Build scene categories including minority detection labels.
+
+        Unlike the previous approach that only kept the majority-vote primary
+        category, this method includes ALL class names detected >= 2 times
+        for each 3D object. This prevents information loss where e.g. an
+        object with 6 "sink" and 4 "lamp" detections would previously drop
+        "lamp" entirely.
+        """
+        all_cats: set[str] = set()
+        for obj in self.objects:
+            # Always include the primary category
+            primary = obj.object_tag if obj.object_tag else obj.category
+            if primary and primary.lower() not in self._NOISE_LABELS:
+                all_cats.add(primary)
+
+            # Include minority detection labels with count >= 2
+            if obj.class_name:
+                counts = Counter(obj.class_name)
+                for cls, cnt in counts.items():
+                    if cnt >= 2 and cls and cls.lower() not in self._NOISE_LABELS:
+                        all_cats.add(cls)
+
+        return sorted(all_cats)
+
     def _load_affordances(self, affordance_file: Path) -> None:
         """Load and merge affordance data."""
         with open(affordance_file) as f:
@@ -461,6 +547,38 @@ class KeyframeSelector:
                 if isinstance(affs, dict):
                     obj.affordances = affs
                     obj.co_objects = affs.get("co_objects", obj.co_objects)
+
+    def _load_enrichment(self, enrichment_file: Path) -> None:
+        """Load LLM-generated object enrichment from enriched_objects.json."""
+        with open(enrichment_file) as f:
+            data = json.load(f)
+
+        enrich_by_id = {
+            int(entry["obj_id"]): entry
+            for entry in data.get("objects", [])
+            if entry.get("status") == "success"
+        }
+
+        enriched_count = 0
+        for obj in self.objects:
+            entry = enrich_by_id.get(obj.obj_id)
+            if entry is None:
+                continue
+            enrichment = entry.get("enrichment", {})
+            obj.category = enrichment.get("category", obj.category)
+            obj.object_tag = obj.category
+            obj.summary = enrichment.get("description", obj.summary)
+            obj.affordance_category = enrichment.get(
+                "usability", obj.affordance_category
+            )
+            obj.co_objects = enrichment.get("nearby_objects", obj.co_objects)
+            obj.affordances = enrichment
+            enriched_count += 1
+
+        logger.info(
+            f"Loaded enrichment for {enriched_count}/{len(self.objects)} objects "
+            f"from {enrichment_file.name}"
+        )
 
     def _load_camera_poses(self) -> None:
         """Load camera poses from trajectory file."""
@@ -497,7 +615,10 @@ class KeyframeSelector:
                             ]
                         )
                         all_poses.append(pose)
-                    except Exception:
+                    except (ValueError, IndexError) as exc:
+                        logger.warning(
+                            f"[KeyframeSelector] Malformed pose at line {i} in traj.txt: {exc}"
+                        )
                         continue
 
         # Apply stride
@@ -534,17 +655,16 @@ class KeyframeSelector:
     def _load_or_build_visibility_index(self) -> None:
         """Load precomputed visibility index or build online.
 
-        Prefers offline index from scene_path/indices/visibility_index.pkl
-        Falls back to online computation if not available.
+        Prefers offline index from scene_path/indices/visibility_index.pkl.
+        If the file exists but fails to load, raises instead of silently falling back.
+        If the file does not exist, builds online with a warning.
         """
         index_path = self.scene_path / "indices" / "visibility_index.pkl"
 
         if index_path.exists():
-            try:
-                self._load_visibility_index(index_path)
-                return
-            except Exception as e:
-                logger.warning(f"Failed to load visibility index: {e}")
+            # File exists — must load successfully or raise
+            self._load_visibility_index(index_path)
+            return
 
         logger.warning(
             f"Visibility index not found at {index_path}. "
@@ -790,49 +910,50 @@ class KeyframeSelector:
         return scores
 
     def _load_clip_model(self) -> None:
-        """Load CLIP model for text encoding."""
+        """Load CLIP model for text encoding.
+
+        Does nothing if open_clip is not installed (macOS dev without GPU).
+        Raises on load failure when open_clip IS installed (broken env).
+        """
         if self._clip_model is not None:
             return
 
         if not HAS_CLIP:
-            logger.error("CLIP not available")
+            # open_clip not installed — CLIP features unavailable (acceptable on macOS)
             return
 
         logger.info("Loading CLIP model...")
 
-        try:
-            model, _, _ = open_clip.create_model_and_transforms(
-                "ViT-H-14", "laion2b_s32b_b79k"
-            )
-            self._clip_model = model.eval()
-            self._clip_tokenizer = open_clip.get_tokenizer("ViT-H-14")
+        model, _, _ = open_clip.create_model_and_transforms(
+            "ViT-H-14", "laion2b_s32b_b79k"
+        )
+        self._clip_model = model.eval()
+        self._clip_tokenizer = open_clip.get_tokenizer("ViT-H-14")
 
-            if torch.cuda.is_available():
-                self._clip_model = self._clip_model.cuda()
+        if torch.cuda.is_available():
+            self._clip_model = self._clip_model.cuda()
 
-            logger.success("CLIP model loaded")
-        except Exception as e:
-            logger.error(f"Failed to load CLIP: {e}")
+        logger.success("CLIP model loaded")
 
     def _encode_text(self, text: str) -> np.ndarray | None:
-        """Encode text to CLIP feature."""
+        """Encode text to CLIP feature.
+
+        Returns None if CLIP is not available (open_clip not installed).
+        Raises on encoding failure when CLIP IS loaded.
+        """
         self._load_clip_model()
 
         if self._clip_model is None:
             return None
 
-        try:
-            tokens = self._clip_tokenizer([text])
-            if torch.cuda.is_available():
-                tokens = tokens.cuda()
+        tokens = self._clip_tokenizer([text])
+        if torch.cuda.is_available():
+            tokens = tokens.cuda()
 
-            with torch.no_grad():
-                feat = self._clip_model.encode_text(tokens)
-                feat = feat / feat.norm(dim=-1, keepdim=True)
-                return feat.cpu().numpy().flatten()
-        except Exception as e:
-            logger.warning(f"Text encoding failed: {e}")
-            return None
+        with torch.no_grad():
+            feat = self._clip_model.encode_text(tokens)
+            feat = feat / feat.norm(dim=-1, keepdim=True)
+            return feat.cpu().numpy().flatten()
 
     def find_objects(self, query_term: str, top_k: int = 10) -> list[SceneObject]:
         """Find objects matching a query term.
@@ -862,27 +983,33 @@ class KeyframeSelector:
             matches.sort(key=lambda x: x[1], reverse=True)
             return [m[0] for m in matches[:top_k]]
 
-        # Stage 2: CLIP semantic matching
+        # Stage 2: CLIP semantic matching (skipped when open_clip not installed)
         if self.object_features is not None:
             query_feat = self._encode_text(query_term)
-            if query_feat is not None:
-                # Compute similarities
-                similarities = self.object_features @ query_feat
-                top_indices = np.argsort(-similarities)[:top_k]
+            if query_feat is None:
+                logger.warning(
+                    f"No objects found for '{query_term}' "
+                    "(CLIP unavailable, string match exhausted)"
+                )
+                return []
+            # Compute similarities
+            similarities = self.object_features @ query_feat
+            top_indices = np.argsort(-similarities)[:top_k]
 
-                # Filter by minimum similarity
-                min_sim = 0.2
-                matches = [
-                    (self.objects[i], similarities[i])
-                    for i in top_indices
-                    if similarities[i] > min_sim
-                ]
+            # Filter by minimum similarity
+            min_sim = 0.2
+            matches = [
+                (self.objects[i], similarities[i])
+                for i in top_indices
+                if similarities[i] > min_sim
+            ]
 
-                if matches:
-                    logger.info(
-                        f"CLIP matched '{query_term}' -> {[(m[0].object_tag or m[0].category, f'{m[1]:.2f}') for m in matches[:5]]}"
-                    )
-                    return [m[0] for m in matches]
+            if matches:
+                logger.info(
+                    f"CLIP matched '{query_term}' -> "
+                    f"{[(m[0].object_tag or m[0].category, f'{m[1]:.2f}') for m in matches[:5]]}"
+                )
+                return [m[0] for m in matches]
 
         logger.warning(f"No objects found for '{query_term}'")
         return []
@@ -953,6 +1080,48 @@ class KeyframeSelector:
             for obj_id in object_ids:
                 obj_score = view_scores.get(best_view, {}).get(obj_id, 0)
                 covered_quality[obj_id] = max(covered_quality[obj_id], obj_score)
+
+        return selected
+
+    def _pad_keyframes_to_minimum(
+        self,
+        selected: list[int],
+        object_ids: list[int],
+        min_count: int = 3,
+    ) -> list[int]:
+        """Pad keyframes using highest-visibility views if below min_count.
+
+        Uses deterministic visibility-based selection from view_to_objects.
+        """
+        if len(selected) >= min_count:
+            return selected
+
+        selected = list(selected)
+        selected_set = set(selected)
+
+        # Collect candidate views from target objects
+        candidate_views: set[int] = set()
+        for obj_id in object_ids:
+            for view_id, _ in self.object_to_views.get(obj_id, []):
+                candidate_views.add(view_id)
+
+        # If target objects have no views, use all views sorted by total visibility
+        if not candidate_views:
+            candidate_views = set(self.view_to_objects.keys())
+
+        unused = candidate_views - selected_set
+
+        # Rank by aggregate visibility score
+        view_total_scores: list[tuple[int, float]] = []
+        for view_id in unused:
+            total = sum(score for _, score in self.view_to_objects.get(view_id, []))
+            view_total_scores.append((view_id, total))
+        view_total_scores.sort(key=lambda x: x[1], reverse=True)
+
+        for view_id, _ in view_total_scores:
+            if len(selected) >= min_count:
+                break
+            selected.append(view_id)
 
         return selected
 
@@ -1061,60 +1230,17 @@ class KeyframeSelector:
         """
         Generate scene visualization images for multimodal query parsing.
 
-        Generates a Bird's Eye View (BEV) image with mesh background only
-        (no object markers or labels) for pure visual understanding by LLM.
-        Images are cached based on config hash in scene_path/bev/.
+        Uses OpenEQA ScanNet BEV (high-quality mesh-based rendering with
+        frustum filtering). Raises on failure — no silent fallback.
 
         Returns:
             List of image paths (currently k=1)
         """
-        import hashlib
-        from dataclasses import asdict
+        from .bev_builder import OpenEQAScanNetBEVBuilder
 
-        from .bev_builder import ReplicaBEVBuilder, ReplicaDefaultBEVConfig
-
-        # Use global default config for consistency with LLMEvaluator
-        config = ReplicaDefaultBEVConfig
-
-        # Compute config hash for caching
-        config_dict = asdict(config)
-        config_str = str(sorted(config_dict.items()))
-        config_hash = hashlib.md5(config_str.encode()).hexdigest()[:8]
-
-        # Create bev directory under scene path
-        bev_dir = self.scene_path / "bev"
-        bev_dir.mkdir(parents=True, exist_ok=True)
-        output_path = bev_dir / f"scene_bev_{config_hash}.png"
-
-        # Check cache: if file exists with same config hash, skip generation
-        if output_path.exists():
-            logger.info(f"[KeyframeSelector] Using cached BEV image: {output_path}")
-            return [str(output_path)]
-
-        # Find mesh file (e.g., room0_mesh.ply in parent directory)
-        scene_name = self.scene_path.name
-        mesh_path = self.scene_path.parent / f"{scene_name}_mesh.ply"
-        if not mesh_path.exists():
-            # Try triangulated version
-            mesh_path = self.scene_path.parent / f"{scene_name}_mesh_triangulated.ply"
-        if not mesh_path.exists():
-            # Try current directory
-            mesh_path = self.scene_path / f"{scene_name}_mesh.ply"
-        if not mesh_path.exists():
-            mesh_path = None
-
-        builder = ReplicaBEVBuilder(config=config)
-
-        # Pass SceneObjects and mesh path
-        _, bev_path, _ = builder.build(
-            objects=self.objects,
-            output_path=output_path,
-            mesh_path=mesh_path,
-        )
-        logger.info(
-            f"[KeyframeSelector] Generated BEV image (config={config_hash}): {bev_path}"
-        )
-
+        builder = OpenEQAScanNetBEVBuilder()
+        _, bev_path = builder.build_from_scene(scene_path=self.scene_path)
+        logger.info(f"[KeyframeSelector] ScanNet BEV ready: {bev_path}")
         return [str(bev_path)]
 
     def normalize_hypothesis_output(self, payload: Any) -> HypothesisOutputV1:
@@ -1217,6 +1343,31 @@ class KeyframeSelector:
                         cleaned.append(cat)
                         seen.add(cat)
             node.categories = cleaned if cleaned else ["UNKNOW"]
+
+        # Mark root as open_ended when target is UNKNOW with spatial constraints,
+        # but NOT for comparative/attributive queries about the anchor itself
+        # (e.g., "Which side of the closet is emptier?" should keep open_ended=False)
+        root = sanitized.root
+        if (
+            root.categories == ["UNKNOW"]
+            and root.spatial_constraints
+            and any(
+                "UNKNOW" not in anchor.categories
+                for sc in root.spatial_constraints
+                for anchor in sc.anchors
+            )
+        ):
+            # Skip open_ended for comparative relations that ask about anchor properties
+            comparative_relations = {
+                "side_of", "part_of", "section_of", "half_of",
+                "top_of", "bottom_of", "left_of", "right_of",
+            }
+            is_comparative = any(
+                sc.relation.lower().replace(" ", "_") in comparative_relations
+                for sc in root.spatial_constraints
+            )
+            if not is_comparative:
+                root.open_ended = True
 
         return sanitized
 
@@ -1447,15 +1598,43 @@ class KeyframeSelector:
 
         # Step 3: Collect anchor objects for joint coverage
         anchor_objects: list[SceneObject] = []
+        between_anchors: list[SceneObject] = []
         for constraint in selected_query.root.spatial_constraints:
             for anchor_node in constraint.anchors:
                 anchor_result = self._get_query_executor()._execute_node(anchor_node)
                 anchor_objects.extend(anchor_result.matched_objects)
+            # Track "between" anchor pairs for midpoint retrieval
+            if constraint.relation.lower() == "between" and len(anchor_objects) >= 2:
+                between_anchors = anchor_objects[-2:]
+
+        # Step 3b: For "between" queries, find objects near the spatial midpoint
+        midpoint_object_ids: list[int] = []
+        if between_anchors and len(between_anchors) >= 2:
+            c1 = getattr(between_anchors[0], "centroid", None)
+            c2 = getattr(between_anchors[1], "centroid", None)
+            if c1 is not None and c2 is not None:
+                import numpy as np
+
+                midpoint = (np.asarray(c1) + np.asarray(c2)) / 2.0
+                # Find objects closest to midpoint for view selection
+                obj_dists = []
+                for obj in self.objects:
+                    oc = getattr(obj, "centroid", None)
+                    if oc is not None:
+                        dist = float(np.linalg.norm(np.asarray(oc) - midpoint))
+                        obj_dists.append((obj.obj_id, dist))
+                obj_dists.sort(key=lambda x: x[1])
+                midpoint_object_ids = [oid for oid, _ in obj_dists[:5]]
+                logger.info(
+                    f"[V3] 'between' query: midpoint objects {midpoint_object_ids}"
+                )
 
         # Step 4: Select keyframes
         all_object_ids = [obj.obj_id for obj in target_objects[:5]]
         if anchor_objects:
             all_object_ids.extend([obj.obj_id for obj in anchor_objects[:3]])
+        if midpoint_object_ids:
+            all_object_ids.extend(midpoint_object_ids)
 
         if strategy == "joint_coverage":
             keyframe_indices = self.get_joint_coverage_views(
@@ -1465,6 +1644,11 @@ class KeyframeSelector:
             keyframe_indices = self.get_joint_coverage_views(
                 [obj.obj_id for obj in target_objects[:5]], max_views=k
             )
+
+        # Ensure minimum keyframe count (pad with high-visibility views)
+        keyframe_indices = self._pad_keyframes_to_minimum(
+            keyframe_indices, all_object_ids, min_count=min(k, 3)
+        )
 
         keyframe_paths = []
         frame_mappings = []

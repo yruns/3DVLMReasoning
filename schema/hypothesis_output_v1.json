@@ -123,6 +123,10 @@
             }
           ]
         },
+        "open_ended": {
+          "type": "boolean",
+          "default": false
+        },
         "node_id": {
           "type": "string"
         }

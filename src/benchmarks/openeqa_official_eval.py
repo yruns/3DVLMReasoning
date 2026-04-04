@@ -64,8 +64,7 @@ def _messages_to_prompt(messages: list[dict[str, Any]]) -> str:
     return "\n\n".join(part for part in parts if part).strip()
 
 
-def _make_official_call_adapter(default_model: str):
-    client_cache: dict[tuple[str, float, int], Any] = {}
+def _make_official_call_adapter(default_model: str, max_retries: int = 10):
 
     def call_openai_api(
         messages: list[dict[str, Any]],
@@ -76,27 +75,30 @@ def _make_official_call_adapter(default_model: str):
         verbose: bool = False,
     ) -> str:
         deployment = model or default_model
-        cache_key = (deployment, float(temperature), int(max_tokens))
-        client = client_cache.get(cache_key)
-        if client is None:
-            client = get_langchain_chat_model(
-                deployment_name=deployment,
-                temperature=temperature,
-                max_tokens=max_tokens,
-                use_pool="gemini" in deployment.lower(),
-            )
-            client_cache[cache_key] = client
-
         prompt = _messages_to_prompt(messages)
         if not prompt:
             raise ValueError("Official evaluation received an empty prompt.")
 
-        if seed is not None and verbose:
-            logger.info(
-                "Official eval backend ignores seed={} for model={}", seed, deployment
-            )
+        # Use pool's built-in retry + key rotation for Gemini models
+        if "gemini" in deployment.lower():
+            from utils.llm_client import GeminiClientPool
 
-        response = client.invoke(prompt)
+            pool = GeminiClientPool.get_instance()
+            response = pool.invoke_with_full_retry(
+                prompt,
+                temperature=temperature,
+                max_tokens=max_tokens,
+                max_retries=max_retries,
+            )
+        else:
+            client = get_langchain_chat_model(
+                deployment_name=deployment,
+                temperature=temperature,
+                max_tokens=max_tokens,
+                use_pool=False,
+            )
+            response = client.invoke(prompt)
+
         text = _normalize_response_content(
             getattr(response, "content", response)
         ).strip()
@@ -119,12 +121,18 @@ def evaluate_predictions_with_official_llm_match(
     official_repo_root: Path = DEFAULT_OFFICIAL_REPO_ROOT,
     eval_model: str = "gemini-2.5-pro",
     verbose: bool = False,
+    max_workers: int = 12,
+    max_retries: int = 10,
 ) -> dict[str, Any]:
     """Score predictions with the upstream OpenEQA LLM-match evaluator.
 
     ``dataset_items`` and ``predictions`` should describe the same question ids.
     ``output_path`` stores the raw official score mapping ``{question_id: score}``.
+    ``max_workers`` controls concurrent scoring threads (uses pool key rotation).
+    ``max_retries`` controls per-request retry count on rate limits.
     """
+    import threading
+    from concurrent.futures import ThreadPoolExecutor, as_completed
 
     if not dataset_items:
         raise ValueError("No dataset items were provided for evaluation.")
@@ -145,12 +153,33 @@ def evaluate_predictions_with_official_llm_match(
             f"missing={missing_predictions[:5]} extra={extra_predictions[:5]}"
         )
 
-    official_llm_match.call_openai_api = _make_official_call_adapter(eval_model)
+    official_llm_match.call_openai_api = _make_official_call_adapter(
+        eval_model, max_retries=max_retries
+    )
     official_llm_match.set_openai_key = lambda key=None: None
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    # Load existing scores for resume support
     all_scores: dict[str, int] = {}
-    for prediction in predictions:
+    if output_path.exists():
+        existing = json.loads(output_path.read_text(encoding="utf-8"))
+        all_scores = {k: v for k, v in existing.items() if isinstance(v, int)}
+        if all_scores:
+            logger.info(
+                f"[EvalScoring] Resuming: {len(all_scores)} already scored"
+            )
+
+    # Filter to unscored predictions
+    unscored = [p for p in predictions if p["question_id"] not in all_scores]
+    logger.info(
+        f"[EvalScoring] Scoring {len(unscored)} predictions "
+        f"({len(all_scores)} existing) with {max_workers} workers"
+    )
+
+    save_lock = threading.Lock()
+
+    def score_one(prediction: dict[str, Any]) -> tuple[str, int]:
         question_id = prediction["question_id"]
         item = question_id_to_item[question_id]
         score = official_llm_match.get_llm_match_score(
@@ -161,10 +190,24 @@ def evaluate_predictions_with_official_llm_match(
             openai_model=eval_model,
             verbose=verbose,
         )
-        all_scores[question_id] = int(score)
-        output_path.write_text(
-            json.dumps(all_scores, indent=2, ensure_ascii=False) + "\n"
-        )
+        return question_id, int(score)
+
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = {
+            executor.submit(score_one, pred): pred["question_id"]
+            for pred in unscored
+        }
+        for future in as_completed(futures):
+            question_id, score = future.result()
+            with save_lock:
+                all_scores[question_id] = score
+                output_path.write_text(
+                    json.dumps(all_scores, indent=2, ensure_ascii=False) + "\n"
+                )
+            logger.info(
+                f"[EvalScoring] {question_id[:8]}... score={score} "
+                f"({len(all_scores)}/{len(predictions)})"
+            )
 
     raw_scores = np.array(list(all_scores.values()), dtype=float)
     scaled_scores = (

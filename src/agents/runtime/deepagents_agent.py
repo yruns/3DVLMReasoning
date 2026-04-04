@@ -296,6 +296,82 @@ class DeepAgentsStage2Runtime(BaseStage2Runtime):
             )
         return HumanMessage(content=content)
 
+    def _build_evidence_nudge(
+        self,
+        response: Stage2StructuredResponse,
+        runtime: Stage2RuntimeState,
+    ) -> HumanMessage:
+        """Build a follow-up message that nudges the agent to seek evidence.
+
+        Called when the agent returned insufficient_evidence / needs_more_evidence
+        but still has turns remaining. Adapts its guidance based on whether
+        evidence-acquisition callbacks are configured.
+        """
+        available_tools: list[str] = []
+        has_acquisition_tools = False
+
+        if self.more_views_callback is not None:
+            has_acquisition_tools = True
+            available_tools.append(
+                "request_more_views — ask for additional keyframes showing "
+                "specific objects or regions you need to see"
+            )
+        if self.crop_callback is not None:
+            has_acquisition_tools = True
+            available_tools.append(
+                "request_crops — ask for close-up crops of specific objects "
+                "in the current keyframes"
+            )
+        if self.hypothesis_callback is not None:
+            has_acquisition_tools = True
+            available_tools.append(
+                "switch_or_expand_hypothesis — request a different retrieval "
+                "hypothesis from Stage 1"
+            )
+
+        # Always-available tools
+        available_tools.append(
+            "inspect_stage1_metadata — review the Stage-1 hypothesis and "
+            "frame mapping to understand what was retrieved and why"
+        )
+        available_tools.append(
+            "retrieve_object_context — get scene-level or object-specific "
+            "context summaries for additional clues"
+        )
+
+        tools_list = "\n".join(f"  - {t}" for t in available_tools)
+
+        uncertainties_text = ""
+        if response.uncertainties:
+            uncertainties_text = (
+                "Your reported uncertainties:\n"
+                + "\n".join(f"  - {u}" for u in response.uncertainties)
+                + "\n\n"
+            )
+
+        if has_acquisition_tools:
+            action_guidance = (
+                "Use the evidence-seeking tools to acquire the missing views or crops, "
+                "then re-examine the images and produce your final answer."
+            )
+        else:
+            action_guidance = (
+                "Look more carefully at the existing keyframes — the answer may be "
+                "partially visible even if not obvious at first glance. Use "
+                "inspect_stage1_metadata or retrieve_object_context to gather "
+                "additional clues. Then provide your best answer with appropriate "
+                "confidence, rather than reporting insufficient evidence."
+            )
+
+        prompt = (
+            "You reported that the current evidence is insufficient to answer the question. "
+            "Do NOT give up — try harder before concluding.\n\n"
+            f"{uncertainties_text}"
+            f"Available tools:\n{tools_list}\n\n"
+            f"{action_guidance}"
+        )
+        return HumanMessage(content=[{"type": "text", "text": prompt}])
+
     def build_evidence_update_message(
         self,
         runtime: Stage2RuntimeState,
@@ -377,7 +453,7 @@ class DeepAgentsStage2Runtime(BaseStage2Runtime):
         graph = create_deep_agent(
             model=self.get_llm(),
             tools=tools,
-            system_prompt=self.build_system_prompt(task),
+            system_prompt=self.build_system_prompt(task, object_context=bundle.object_context),
             subagents=self.build_subagents(task),
             response_format=Stage2StructuredResponse,
             name="query_scene_stage2_agent",
@@ -473,6 +549,31 @@ class DeepAgentsStage2Runtime(BaseStage2Runtime):
                     logger.info(
                         "[DeepAgentsStage2Runtime] turn {}: injecting new evidence, continuing loop",
                         turns_used,
+                    )
+                    continue
+
+            # If agent reported insufficient/needs-more evidence and we have
+            # remaining turns, nudge it to actively seek evidence or
+            # re-examine the existing frames instead of giving up.
+            if (
+                structured is not None
+                and turns_used < task.max_reasoning_turns
+            ):
+                response = Stage2StructuredResponse.model_validate(structured)
+                if response.status in (
+                    Stage2Status.INSUFFICIENT_EVIDENCE,
+                    Stage2Status.NEEDS_MORE_EVIDENCE,
+                ):
+                    nudge = self._build_evidence_nudge(response, runtime)
+                    if "messages" in raw_state:
+                        messages = raw_state["messages"]
+                    messages.append(nudge)
+                    logger.info(
+                        "[DeepAgentsStage2Runtime] turn {}: agent reported {}, "
+                        "nudging to seek more evidence ({} turns remaining)",
+                        turns_used,
+                        response.status.value,
+                        task.max_reasoning_turns - turns_used,
                     )
                     continue
 

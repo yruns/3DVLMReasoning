@@ -271,6 +271,14 @@ class QueryNode(BaseModel):
         description="Selection constraint like 'nearest', 'largest', 'second'",
     )
 
+    open_ended: bool = Field(
+        default=False,
+        description="True when the query asks 'what is near/behind/on X?' with "
+        "an unknown target. When open_ended=True, categories=['UNKNOW'] and "
+        "spatial_constraints define the anchor. The executor returns ALL objects "
+        "matching the spatial relation, not a specific category.",
+    )
+
     node_id: str = Field(
         default="", description="Unique identifier for tracking during execution"
     )

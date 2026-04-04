@@ -231,7 +231,28 @@ class BaseStage2Runtime(ABC):
             return "No matching object context found for requested terms."
         return json.dumps(selected, indent=2, ensure_ascii=False)
 
-    def build_system_prompt(self, task: Stage2TaskSpec) -> str:
+    @staticmethod
+    def _format_scene_inventory(object_context: dict[str, str] | None) -> str:
+        """Format object context as a scene inventory for the system prompt."""
+        if not object_context:
+            return ""
+        lines = []
+        for name, desc in sorted(object_context.items()):
+            short_desc = desc[:120].replace("\n", " ")
+            lines.append(f"- {name}: {short_desc}")
+        inventory = "\n".join(lines)
+        return (
+            "Scene object inventory (from 3D scene graph + LLM enrichment):\n"
+            "Use this to identify objects that may be in the scene but not immediately "
+            "visible in your keyframes. Cross-reference when identifying objects.\n"
+            f"{inventory}\n\n"
+        )
+
+    def build_system_prompt(
+        self,
+        task: Stage2TaskSpec,
+        object_context: dict[str, str] | None = None,
+    ) -> str:
         """Build the agent system prompt."""
         plan_instructions = {
             Stage2PlanMode.OFF: (
@@ -273,13 +294,38 @@ class BaseStage2Runtime(ABC):
             "- Prefer evidence-seeking behavior over one-shot answering.\n"
             "- Use tools when keyframes are insufficient; do not hallucinate missing evidence.\n"
             "- Explicitly surface uncertainty when the necessary evidence is absent.\n\n"
-            "CRITICAL - Look before requesting:\n"
+            "CRITICAL - Evidence-seeking protocol:\n"
             "- ALWAYS examine the provided keyframe images FIRST before calling any tools.\n"
             "- If the answer is clearly visible in the current images, answer directly.\n"
-            "- Only call request_more_views, request_crops, or switch_or_expand_hypothesis "
-            "when you have SPECIFIC evidence gaps that cannot be resolved from current images.\n"
-            "- When requesting more evidence, explain what specific visual detail is missing.\n\n"
+            "- If the TARGET OBJECT or QUERIED ATTRIBUTE is NOT visible in ANY keyframe, "
+            "you MUST seek more evidence before answering or reporting insufficient_evidence. "
+            "Do NOT guess from contextual clues when the target is simply not in frame.\n\n"
+            "Tool strategy (use in this order):\n"
+            "1. request_more_views(mode='targeted', object_terms=[...]) — get views showing specific objects\n"
+            "2. request_more_views(mode='explore') — get views of unseen scene regions\n"
+            "3. request_crops(object_terms=[...]) — zoom into small/ambiguous objects with annotated bboxes\n"
+            "4. switch_or_expand_hypothesis(new_query='...') — re-run retrieval with a different query (costly, use as last resort)\n"
+            "Use multiple tools across turns: explore → crop details → answer.\n\n"
+            "MANDATORY tool-usage rules:\n"
+            "- If your answer CONTRADICTS the question's premise (e.g., question asks about 'non-black chairs' "
+            "but you only see black ones), you MUST call request_more_views before answering.\n"
+            "- If the target object is NOT visible in ANY keyframe, you MUST call request_more_views at least once.\n"
+            "- For ALL color/attribute questions, you MUST call request_crops on the target object BEFORE answering. No exceptions.\n"
+            "- When describing colors, list ALL distinct colors visible on the object, not just the dominant one "
+            "(e.g., 'white with green accents' not just 'teal').\n"
+            "- For YES/NO state questions (full/empty, clean/dirty, well-lit/dark, organized), "
+            "you MUST request_crops or request_more_views before answering, regardless of confidence.\n"
+            "- For spatial 'between X and Y' questions, verify BOTH landmarks are visible before answering.\n"
+            "- Do NOT report confidence > 0.7 if you used zero tools and the question involves "
+            "spatial relations, object attributes, or object identification.\n\n"
+            "SELF-CHECK before final answer:\n"
+            "- Does your answer contradict the question premise? If so, request more views.\n"
+            "- For spatial questions, list at least 2-3 candidate objects before selecting your answer.\n"
+            "- WARNING: The correct answer may be a smaller or less prominent object. "
+            "Do NOT default to the largest/most obvious object in frame. Consider ALL objects "
+            "including small items on surfaces, items on the floor, and partially occluded objects.\n\n"
             f"{uncertainty_instructions}"
+            f"{self._format_scene_inventory(object_context)}"
             "Framework constraints:\n"
             "- This runtime is built with LangChain v1 and DeepAgents.\n"
             "- Use the built-in todo planning capability according to the selected plan mode.\n"

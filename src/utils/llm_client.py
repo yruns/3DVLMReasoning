@@ -335,6 +335,64 @@ class GeminiClientPool:
         )
         raise last_error or RuntimeError("All API keys rate limited")
 
+    def invoke_with_full_retry(
+        self,
+        prompt: str,
+        temperature: float = 0.0,
+        max_tokens: int | None = None,
+        max_retries: int = 10,
+    ) -> Any:
+        """Invoke LLM with multi-round retry across all pool keys.
+
+        Unlike invoke_with_retry which gives up after one pass through all keys,
+        this method retries multiple rounds with exponential backoff between rounds.
+        """
+        import time
+
+        self._ensure_initialized()
+        from loguru import logger
+
+        last_error = None
+        for attempt in range(max_retries):
+            config_idx = self.get_next_config_index()
+            config = self._configs[config_idx]
+            key_id = self._get_key_id(config_idx)
+
+            try:
+                client = AzureChatOpenAI(
+                    azure_deployment=config["model_name"],
+                    model=config["model_name"],
+                    api_key=config["api_key"],
+                    azure_endpoint=config["endpoint"],
+                    api_version=config["api_version"],
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                    timeout=120,
+                    max_retries=0,
+                )
+                result = client.invoke(prompt)
+                self._record_request(config_idx, rate_limited=False)
+                return result
+            except Exception as e:
+                if _is_rate_limit_error(e):
+                    self._record_request(config_idx, rate_limited=True)
+                    wait = min(3 * 2**attempt, 60)
+                    logger.warning(
+                        f"[GeminiPool] Key {key_id} rate limited "
+                        f"(attempt {attempt + 1}/{max_retries}), "
+                        f"rotating to next key in {wait}s"
+                    )
+                    last_error = e
+                    time.sleep(wait)
+                    continue
+                self._record_request(config_idx, rate_limited=False)
+                raise
+
+        logger.error(
+            f"[GeminiPool] All {max_retries} retries exhausted across pool"
+        )
+        raise last_error or RuntimeError("All retries exhausted")
+
     @property
     def pool_size(self) -> int:
         """Number of unique keys in the pool."""
