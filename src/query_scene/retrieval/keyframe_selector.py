@@ -497,7 +497,10 @@ class KeyframeSelector:
                             ]
                         )
                         all_poses.append(pose)
-                    except Exception:
+                    except (ValueError, IndexError) as exc:
+                        logger.warning(
+                            f"[KeyframeSelector] Malformed pose at line {i} in traj.txt: {exc}"
+                        )
                         continue
 
         # Apply stride
@@ -534,17 +537,14 @@ class KeyframeSelector:
     def _load_or_build_visibility_index(self) -> None:
         """Load precomputed visibility index or build online.
 
-        Prefers offline index from scene_path/indices/visibility_index.pkl
-        Falls back to online computation if not available.
+        Prefers offline index from scene_path/indices/visibility_index.pkl.
+        If the file exists but fails to load, raises instead of silently falling back.
         """
         index_path = self.scene_path / "indices" / "visibility_index.pkl"
 
         if index_path.exists():
-            try:
-                self._load_visibility_index(index_path)
-                return
-            except Exception as e:
-                logger.warning(f"Failed to load visibility index: {e}")
+            self._load_visibility_index(index_path)
+            return
 
         logger.warning(
             f"Visibility index not found at {index_path}. "
@@ -790,49 +790,49 @@ class KeyframeSelector:
         return scores
 
     def _load_clip_model(self) -> None:
-        """Load CLIP model for text encoding."""
+        """Load CLIP model for text encoding.
+
+        Does nothing if open_clip is not installed (macOS dev without GPU).
+        Raises on load failure when open_clip IS installed (broken env).
+        """
         if self._clip_model is not None:
             return
 
         if not HAS_CLIP:
-            logger.error("CLIP not available")
             return
 
         logger.info("Loading CLIP model...")
 
-        try:
-            model, _, _ = open_clip.create_model_and_transforms(
-                "ViT-H-14", "laion2b_s32b_b79k"
-            )
-            self._clip_model = model.eval()
-            self._clip_tokenizer = open_clip.get_tokenizer("ViT-H-14")
+        model, _, _ = open_clip.create_model_and_transforms(
+            "ViT-H-14", "laion2b_s32b_b79k"
+        )
+        self._clip_model = model.eval()
+        self._clip_tokenizer = open_clip.get_tokenizer("ViT-H-14")
 
-            if torch.cuda.is_available():
-                self._clip_model = self._clip_model.cuda()
+        if torch.cuda.is_available():
+            self._clip_model = self._clip_model.cuda()
 
-            logger.success("CLIP model loaded")
-        except Exception as e:
-            logger.error(f"Failed to load CLIP: {e}")
+        logger.success("CLIP model loaded")
 
     def _encode_text(self, text: str) -> np.ndarray | None:
-        """Encode text to CLIP feature."""
+        """Encode text to CLIP feature.
+
+        Returns None if CLIP is not available (open_clip not installed).
+        Raises on encoding failure when CLIP IS loaded.
+        """
         self._load_clip_model()
 
         if self._clip_model is None:
             return None
 
-        try:
-            tokens = self._clip_tokenizer([text])
-            if torch.cuda.is_available():
-                tokens = tokens.cuda()
+        tokens = self._clip_tokenizer([text])
+        if torch.cuda.is_available():
+            tokens = tokens.cuda()
 
-            with torch.no_grad():
-                feat = self._clip_model.encode_text(tokens)
-                feat = feat / feat.norm(dim=-1, keepdim=True)
-                return feat.cpu().numpy().flatten()
-        except Exception as e:
-            logger.warning(f"Text encoding failed: {e}")
-            return None
+        with torch.no_grad():
+            feat = self._clip_model.encode_text(tokens)
+            feat = feat / feat.norm(dim=-1, keepdim=True)
+            return feat.cpu().numpy().flatten()
 
     def find_objects(self, query_term: str, top_k: int = 10) -> list[SceneObject]:
         """Find objects matching a query term.
@@ -862,27 +862,33 @@ class KeyframeSelector:
             matches.sort(key=lambda x: x[1], reverse=True)
             return [m[0] for m in matches[:top_k]]
 
-        # Stage 2: CLIP semantic matching
+        # Stage 2: CLIP semantic matching (skipped when open_clip not installed)
         if self.object_features is not None:
             query_feat = self._encode_text(query_term)
-            if query_feat is not None:
-                # Compute similarities
-                similarities = self.object_features @ query_feat
-                top_indices = np.argsort(-similarities)[:top_k]
+            if query_feat is None:
+                logger.warning(
+                    f"No objects found for '{query_term}' "
+                    "(CLIP unavailable, string match exhausted)"
+                )
+                return []
+            # Compute similarities
+            similarities = self.object_features @ query_feat
+            top_indices = np.argsort(-similarities)[:top_k]
 
-                # Filter by minimum similarity
-                min_sim = 0.2
-                matches = [
-                    (self.objects[i], similarities[i])
-                    for i in top_indices
-                    if similarities[i] > min_sim
-                ]
+            # Filter by minimum similarity
+            min_sim = 0.2
+            matches = [
+                (self.objects[i], similarities[i])
+                for i in top_indices
+                if similarities[i] > min_sim
+            ]
 
-                if matches:
-                    logger.info(
-                        f"CLIP matched '{query_term}' -> {[(m[0].object_tag or m[0].category, f'{m[1]:.2f}') for m in matches[:5]]}"
-                    )
-                    return [m[0] for m in matches]
+            if matches:
+                logger.info(
+                    f"CLIP matched '{query_term}' -> "
+                    f"{[(m[0].object_tag or m[0].category, f'{m[1]:.2f}') for m in matches[:5]]}"
+                )
+                return [m[0] for m in matches]
 
         logger.warning(f"No objects found for '{query_term}'")
         return []

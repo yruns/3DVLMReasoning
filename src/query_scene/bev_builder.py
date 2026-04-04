@@ -892,6 +892,395 @@ SceneBEVGenerator = ReplicaBEVBuilder
 
 
 # ============================================================================
+# OpenEQA ScanNet BEV Builder
+# ============================================================================
+
+
+@dataclass
+class OpenEQAScanNetBEVConfig:
+    """Configuration for OpenEQA ScanNet BEV rendering."""
+
+    image_size: int = 1500
+    fov_deg: float = 80.0
+    camera_height_factor: float = 0.7  # camera height = max_xy_extent * factor
+    frustum_stride: int = 10  # sample every Nth camera for visibility check
+    frustum_margin_px: int = 50  # pixel margin for frustum visibility
+    frustum_max_depth: float = 10.0  # max depth in meters
+    ceiling_normal_threshold: float = -0.5  # faces with normal_z below this are ceiling
+    trajectory_color: tuple[int, int, int] = (59, 130, 246)  # blue
+    trajectory_width: int = 2
+    background_color: tuple[int, int, int] = (245, 245, 245)
+    # ScanNet data root for automatic mesh discovery
+    scannet_data_root: str = "data/scannetv2"
+
+
+class OpenEQAScanNetBEVBuilder:
+    """BEV builder for OpenEQA ScanNet scenes using full-resolution ScanNet meshes.
+
+    This builder produces high-quality bird's-eye view images by:
+    1. Loading the full-resolution ``_vh_clean.ply`` mesh from ScanNet v2
+    2. Filtering triangles to only those visible from the camera trajectory (frustum test)
+    3. Removing downward-facing ceiling triangles via surface normal filtering
+    4. Rendering with perspective projection from above using painter's algorithm
+    5. Overlaying the camera trajectory path
+
+    Usage::
+
+        builder = OpenEQAScanNetBEVBuilder()
+        img, path = builder.build(
+            mesh_path="data/scannetv2/scene0709_00/scene0709_00_vh_clean.ply",
+            traj_path="data/OpenEQA/scannet/002-scannet-scene0709_00/conceptgraph/traj.txt",
+            intrinsic_path="data/OpenEQA/scannet/002-scannet-scene0709_00/raw/intrinsic_color.txt",
+            output_path="bev/scene_bev.png",
+        )
+
+    Or auto-discover all paths from a scene path::
+
+        builder = OpenEQAScanNetBEVBuilder()
+        img, path = builder.build_from_scene(
+            scene_path="data/OpenEQA/scannet/002-scannet-scene0709_00/conceptgraph",
+            output_path="bev/scene_bev.png",
+        )
+    """
+
+    def __init__(self, config: OpenEQAScanNetBEVConfig | None = None) -> None:
+        self.config = config or OpenEQAScanNetBEVConfig()
+
+    def build(
+        self,
+        mesh_path: str | Path,
+        traj_path: str | Path,
+        intrinsic_path: str | Path,
+        output_path: str | Path | None = None,
+        img_w: int = 1296,
+        img_h: int = 968,
+    ) -> tuple[np.ndarray, Path]:
+        """Render a BEV image from ScanNet mesh filtered by camera frustum.
+
+        Args:
+            mesh_path: Path to ``<scanId>_vh_clean.ply``
+            traj_path: Path to ``traj.txt`` (4x4 camera-to-world per line)
+            intrinsic_path: Path to ``intrinsic_color.txt`` (4x4 intrinsic matrix)
+            output_path: Where to save the PNG (auto-generated if None)
+            img_w: Original image width for frustum calculation
+            img_h: Original image height for frustum calculation
+
+        Returns:
+            Tuple of (rendered_image_array, output_path)
+        """
+        cfg = self.config
+        mesh_path = Path(mesh_path)
+        traj_path = Path(traj_path)
+        intrinsic_path = Path(intrinsic_path)
+
+        if not mesh_path.exists():
+            raise FileNotFoundError(f"Mesh not found: {mesh_path}")
+        if not traj_path.exists():
+            raise FileNotFoundError(f"Trajectory not found: {traj_path}")
+        if not intrinsic_path.exists():
+            raise FileNotFoundError(f"Intrinsics not found: {intrinsic_path}")
+
+        # Load mesh
+        mesh = o3d.io.read_triangle_mesh(str(mesh_path))
+        mesh.compute_triangle_normals()
+        verts = np.asarray(mesh.vertices, dtype=np.float64)
+        tris = np.asarray(mesh.triangles)
+        colors = np.asarray(mesh.vertex_colors, dtype=np.float32)
+        normals = np.asarray(mesh.triangle_normals)
+
+        # Load camera data
+        K = np.loadtxt(str(intrinsic_path))[:3, :3]
+        fx, fy, cx, cy = K[0, 0], K[1, 1], K[0, 2], K[1, 2]
+        traj = np.loadtxt(str(traj_path)).reshape(-1, 4, 4)
+        cam_positions = traj[:, :3, 3]
+
+        # Step 1: Frustum visibility filtering
+        visible = self._compute_frustum_visibility(
+            verts, traj, fx, fy, cx, cy, img_w, img_h
+        )
+        tri_visible = visible[tris[:, 0]] & visible[tris[:, 1]] & visible[tris[:, 2]]
+
+        # Step 2: Remove ceiling faces (facing downward)
+        facing_down = normals[:, 2] < cfg.ceiling_normal_threshold
+        tri_keep = tri_visible & (~facing_down)
+        kept_tris = tris[tri_keep]
+
+        if len(kept_tris) == 0:
+            # Fallback: render all visible tris without ceiling filter
+            kept_tris = tris[tri_visible]
+
+        # Step 3: Perspective rendering from above
+        img = self._render_perspective(verts, colors, kept_tris, cam_positions)
+
+        # Step 4: Overlay camera trajectory
+        img = self._draw_trajectory(img, verts, cam_positions)
+
+        # Save
+        if output_path is None:
+            fd, tmp = tempfile.mkstemp(suffix=".png", prefix="bev_scannet_")
+            output_path = Path(tmp)
+        else:
+            output_path = Path(output_path)
+
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        cv2.imwrite(str(output_path), cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
+        return img, output_path
+
+    def _config_hash(self) -> str:
+        """Compute a short hash of the current config for cache keying."""
+        import hashlib
+        from dataclasses import asdict
+
+        d = asdict(self.config)
+        s = str(sorted(d.items()))
+        return hashlib.md5(s.encode()).hexdigest()[:8]
+
+    def build_from_scene(
+        self,
+        scene_path: str | Path,
+        output_path: str | Path | None = None,
+    ) -> tuple[np.ndarray, Path]:
+        """Auto-discover mesh, trajectory, and intrinsics from a scene path.
+
+        Searches for the ScanNet mesh in ``data/scannetv2/<scene_id>/`` based on
+        the scene_info.json or clip directory naming convention.
+
+        BEV images are cached to ``<scene_path>/bev/scene_bev_scannet_<config_hash>.png``
+        inside the conceptgraph folder. Subsequent calls with the same config
+        return the cached image without re-rendering.
+
+        Args:
+            scene_path: Path to the scene's conceptgraph directory
+                        (e.g., ``data/OpenEQA/scannet/002-scannet-scene0709_00/conceptgraph``)
+            output_path: Where to save the PNG. If None, auto-generates a
+                         cache path under ``scene_path/bev/``.
+
+        Returns:
+            Tuple of (rendered_image_array, output_path)
+        """
+        scene_path = Path(scene_path)
+        cfg = self.config
+        scannet_root = Path(cfg.scannet_data_root)
+
+        # Resolve conceptgraph dir
+        cg_dir = scene_path if scene_path.name == "conceptgraph" else scene_path
+        clip_dir = cg_dir.parent if cg_dir.name == "conceptgraph" else cg_dir
+        clip_name = clip_dir.name
+
+        # Default output path with config hash for caching
+        if output_path is None:
+            bev_dir = cg_dir / "bev"
+            bev_dir.mkdir(parents=True, exist_ok=True)
+            output_path = bev_dir / f"scene_bev_scannet_{self._config_hash()}.png"
+
+        # Check cache
+        output_path = Path(output_path)
+        if output_path.exists():
+            img = cv2.imread(str(output_path))
+            if img is not None:
+                return cv2.cvtColor(img, cv2.COLOR_BGR2RGB), output_path
+
+        # Discover ScanNet scene ID
+        scan_id = self._extract_scan_id(clip_name, cg_dir)
+
+        # Find mesh
+        mesh_path = scannet_root / scan_id / f"{scan_id}_vh_clean.ply"
+        if not mesh_path.exists():
+            mesh_path = scannet_root / scan_id / f"{scan_id}_vh_clean_2.ply"
+        if not mesh_path.exists():
+            raise FileNotFoundError(
+                f"No ScanNet mesh found for {scan_id} in {scannet_root}. "
+                f"Run: python scripts/download_scannet_mesh.py --scenes {scan_id} --types _vh_clean.ply"
+            )
+
+        # Find trajectory
+        traj_path = cg_dir / "traj.txt"
+        if not traj_path.exists():
+            traj_path = clip_dir / "conceptgraph" / "traj.txt"
+
+        # Find intrinsics
+        intrinsic_path = clip_dir / "raw" / "intrinsic_color.txt"
+        if not intrinsic_path.exists():
+            intrinsic_path = cg_dir / "intrinsic_color.txt"
+
+        return self.build(
+            mesh_path=mesh_path,
+            traj_path=traj_path,
+            intrinsic_path=intrinsic_path,
+            output_path=output_path,
+        )
+
+    def _extract_scan_id(self, clip_name: str, scene_path: Path) -> str:
+        """Extract ScanNet scene ID from clip directory name or scene_info.json."""
+        # Try scene_info.json first
+        info_path = scene_path / "scene_info.json"
+        if not info_path.exists():
+            info_path = scene_path.parent / "conceptgraph" / "scene_info.json"
+        if info_path.exists():
+            import json
+            info = json.loads(info_path.read_text())
+            scene_id = info.get("scene_id")
+            if scene_id:
+                return scene_id
+
+        # Parse from clip name: "002-scannet-scene0709_00" -> "scene0709_00"
+        parts = clip_name.split("-", 2)
+        if len(parts) >= 3 and parts[2].startswith("scene"):
+            return parts[2]
+
+        # Last resort: use clip name as-is
+        return clip_name
+
+    def _compute_frustum_visibility(
+        self,
+        verts: np.ndarray,
+        traj: np.ndarray,
+        fx: float,
+        fy: float,
+        cx: float,
+        cy: float,
+        img_w: int,
+        img_h: int,
+    ) -> np.ndarray:
+        """Compute per-vertex visibility across all camera frustums."""
+        cfg = self.config
+        visible = np.zeros(len(verts), dtype=bool)
+        margin = cfg.frustum_margin_px
+
+        for i in range(0, len(traj), cfg.frustum_stride):
+            pose = traj[i]
+            if np.any(np.isnan(pose)):
+                continue
+            w2c = np.linalg.inv(pose)
+            pts_cam = (w2c[:3, :3] @ verts.T).T + w2c[:3, 3]
+            z = pts_cam[:, 2]
+            u = fx * pts_cam[:, 0] / np.maximum(z, 0.01) + cx
+            v = fy * pts_cam[:, 1] / np.maximum(z, 0.01) + cy
+            visible |= (
+                (z > 0.1)
+                & (u >= -margin)
+                & (u < img_w + margin)
+                & (v >= -margin)
+                & (v < img_h + margin)
+                & (z < cfg.frustum_max_depth)
+            )
+        return visible
+
+    def _render_perspective(
+        self,
+        verts: np.ndarray,
+        colors: np.ndarray,
+        tris: np.ndarray,
+        cam_positions: np.ndarray,
+    ) -> np.ndarray:
+        """Render triangles with perspective projection from above.
+
+        Uses a virtual camera positioned above the scene center looking straight
+        down, with near-to-far painter's algorithm so floor/furniture surfaces
+        overwrite any remaining ceiling fragments.
+        """
+        cfg = self.config
+        size = cfg.image_size
+
+        # Compute scene bounds from visible geometry
+        used_vert_ids = np.unique(tris.ravel())
+        vis_verts = verts[used_vert_ids]
+        bmin = vis_verts.min(axis=0)
+        bmax = vis_verts.max(axis=0)
+        center = (bmin + bmax) / 2
+        extent = bmax - bmin
+
+        # Virtual camera above scene center
+        max_xy = max(extent[0], extent[1])
+        cam_height = max_xy * cfg.camera_height_factor
+        eye = np.array([center[0], center[1], bmax[2] + cam_height])
+
+        # View matrix: X→right, -Y→down, -Z→forward (looking down)
+        R = np.array([[1.0, 0.0, 0.0], [0.0, -1.0, 0.0], [0.0, 0.0, -1.0]])
+        t = -R @ eye
+
+        # Perspective projection
+        fov = np.radians(cfg.fov_deg)
+        f = size / (2.0 * np.tan(fov / 2.0))
+        c = size / 2.0
+
+        # Store transform for trajectory drawing
+        self._view_R = R
+        self._view_t = t
+        self._view_f = f
+        self._view_c = c
+
+        # Project all vertices
+        v_cam = (R @ verts.T).T + t
+        z_cam = np.clip(v_cam[:, 2], 0.01, None)
+        x_img = f * v_cam[:, 0] / z_cam + c
+        y_img = f * v_cam[:, 1] / z_cam + c
+
+        # Sort triangles near-to-far (near = small Z in camera = top of scene)
+        # This ensures floor/furniture overwrites ceiling remnants
+        tri_v_cam = v_cam[tris]
+        tri_depths = tri_v_cam[:, :, 2].mean(axis=1)
+        order = np.argsort(tri_depths)
+
+        # Prepare triangle pixel coordinates and colors
+        tri_x = x_img[tris].astype(np.int32)
+        tri_y = y_img[tris].astype(np.int32)
+        tri_pts = np.stack([tri_x, tri_y], axis=-1)
+
+        tri_colors = colors[tris]
+        avg_bgr = (tri_colors.mean(axis=1) * 255).astype(np.uint8)[:, ::-1]
+
+        # Rasterize
+        img = np.ones((size, size, 3), dtype=np.uint8)
+        img[:] = cfg.background_color
+        for j in order:
+            p = tri_pts[j]
+            if np.any(p < -500) or np.any(p > size + 500):
+                continue
+            cv2.fillPoly(img, [p], tuple(int(c_val) for c_val in avg_bgr[j]))
+
+        return cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+
+    def _draw_trajectory(
+        self,
+        img: np.ndarray,
+        verts: np.ndarray,
+        cam_positions: np.ndarray,
+    ) -> np.ndarray:
+        """Draw camera trajectory on the BEV image."""
+        cfg = self.config
+        R, t, f, c = self._view_R, self._view_t, self._view_f, self._view_c
+
+        for i in range(len(cam_positions) - 1):
+            p1_w, p2_w = cam_positions[i], cam_positions[i + 1]
+            if np.any(np.isnan(p1_w)) or np.any(np.isnan(p2_w)):
+                continue
+            p1_cam = R @ p1_w + t
+            p2_cam = R @ p2_w + t
+            if p1_cam[2] < 0.01 or p2_cam[2] < 0.01:
+                continue
+            p1x = f * p1_cam[0] / p1_cam[2] + c
+            p1y = f * p1_cam[1] / p1_cam[2] + c
+            p2x = f * p2_cam[0] / p2_cam[2] + c
+            p2y = f * p2_cam[1] / p2_cam[2] + c
+            if any(np.isnan(v) or np.isinf(v) for v in (p1x, p1y, p2x, p2y)):
+                continue
+            cv2.line(
+                img,
+                (int(p1x), int(p1y)),
+                (int(p2x), int(p2y)),
+                cfg.trajectory_color,
+                cfg.trajectory_width,
+                cv2.LINE_AA,
+            )
+
+        return img
+
+
+OpenEQADefaultBEVConfig = OpenEQAScanNetBEVConfig()
+
+
+# ============================================================================
 # Default Configs
 # ============================================================================
 
@@ -927,7 +1316,8 @@ def create_bev_builder(
     builders = {
         "replica": ReplicaBEVBuilder,
         "generic": GenericBEVBuilder,
-        # Future: "scannet": ScanNetBEVBuilder,
+        "scannet": ReplicaBEVBuilder,  # ScanNet uses same object format
+        "openeqa_scannet": None,  # Use OpenEQAScanNetBEVBuilder directly
     }
 
     if dataset not in builders:

@@ -9,6 +9,8 @@ This module provides classes for building:
 
 from __future__ import annotations
 
+import platform
+import sys
 from dataclasses import dataclass
 from typing import Any
 
@@ -18,14 +20,20 @@ from scipy.spatial import KDTree
 
 from ..core import ObjectNode, RegionNode, ViewScore
 
-# Optional FAISS import
 try:
     import faiss
 
     HAS_FAISS = True
 except ImportError:
     HAS_FAISS = False
-    logger.warning("FAISS not available, using numpy fallback for vector search")
+    if platform.system() == "Linux":
+        raise ImportError(
+            "FAISS is required on Linux for vector search. "
+            "Install with: conda install -c conda-forge faiss-cpu"
+        ) from None
+    logger.info(
+        "FAISS not available on %s — using numpy for vector search", sys.platform
+    )
 
 
 class CLIPIndex:
@@ -92,7 +100,7 @@ class CLIPIndex:
             self.index = faiss.IndexFlatIP(self.feature_dim)
             self.index.add(normalized.astype(np.float32))
         else:
-            # Numpy fallback
+            # Numpy path (macOS)
             self.index = normalized
 
     def search(
@@ -120,7 +128,7 @@ class CLIPIndex:
             scores = scores[0]
             indices = indices[0]
         else:
-            # Numpy fallback
+            # Numpy path (macOS)
             scores = (self.index @ query.T).flatten()
             indices = np.argsort(scores)[::-1][:top_k]
             scores = scores[indices]
@@ -1176,7 +1184,7 @@ class PointLevelIndex:
                 for idx, score in zip(indices[0], scores[0], strict=False)
             ]
         else:
-            # Numpy fallback
+            # Numpy path (macOS)
             similarities = self.point_features @ query_feat
             top_indices = np.argsort(-similarities)[:top_k]
             return [(int(idx), float(similarities[idx])) for idx in top_indices]

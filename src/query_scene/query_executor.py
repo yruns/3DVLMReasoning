@@ -17,6 +17,7 @@ Usage:
 
 from __future__ import annotations
 
+from collections import Counter
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
@@ -84,7 +85,6 @@ class QueryExecutor:
         clip_features: np.ndarray | None = None,
         clip_encoder: Any | None = None,
         use_quick_filters: bool = True,
-        strict_mode: bool = False,
     ):
         """
         Initialize the query executor.
@@ -95,27 +95,43 @@ class QueryExecutor:
             clip_features: Optional pre-computed CLIP features for objects
             clip_encoder: Optional CLIP text encoder for semantic matching
             use_quick_filters: Whether to use quick filters for pre-filtering
-            strict_mode: If True, return empty when anchor objects not found.
-                         If False (default), return all candidates as fallback.
         """
         self.objects = objects
         self.relation_checker = relation_checker or SpatialRelationChecker()
         self.clip_features = clip_features
         self.clip_encoder = clip_encoder
         self.use_quick_filters = use_quick_filters
-        self.strict_mode = strict_mode
 
         # Quick filters for fast pre-filtering
         self._quick_filters = QuickFilters() if use_quick_filters else None
         self._attribute_filter = AttributeFilter() if use_quick_filters else None
 
-        # Build category index
+        # Build category index (primary category only)
         self._category_index: dict[str, list[SceneObject]] = {}
         for obj in objects:
             category = self._get_category(obj).lower()
             if category not in self._category_index:
                 self._category_index[category] = []
             self._category_index[category].append(obj)
+
+        # Build multi-label index: maps minority detection class names to objects.
+        # An object detected as ["sink"x6, "lamp"x4] has primary="sink" in
+        # _category_index, but "lamp" only appears here — preventing the 65%
+        # class loss from majority-vote.
+        self._multilabel_index: dict[str, list[SceneObject]] = {}
+        for obj in objects:
+            if not hasattr(obj, "class_name") or not obj.class_name:
+                continue
+            primary = self._get_category(obj).lower()
+            counts = Counter(obj.class_name)
+            for cls, cnt in counts.items():
+                cls_lower = cls.lower() if cls else ""
+                # Skip primary (already in _category_index), empty, or low-count
+                if not cls_lower or cls_lower == primary or cnt < 2:
+                    continue
+                if cls_lower not in self._multilabel_index:
+                    self._multilabel_index[cls_lower] = []
+                self._multilabel_index[cls_lower].append(obj)
 
         # Execution cache for memoization
         self._cache: dict[str, ExecutionResult] = {}
@@ -186,10 +202,18 @@ class QueryExecutor:
         )
 
         # Step 1: Find candidates by categories (supports semantic expansion)
-        candidates = self._find_by_categories(node.categories)
-        logger.debug(
-            f"[QueryExecutor] Found {len(candidates)} candidates for categories {node.categories}"
-        )
+        if node.open_ended and node.spatial_constraints:
+            # Open-ended query: return ALL objects, let spatial constraints filter
+            candidates = list(self.objects)
+            logger.info(
+                f"[QueryExecutor] Open-ended query: starting with all "
+                f"{len(candidates)} objects for spatial filtering"
+            )
+        else:
+            candidates = self._find_by_categories(node.categories)
+            logger.debug(
+                f"[QueryExecutor] Found {len(candidates)} candidates for categories {node.categories}"
+            )
 
         if not candidates:
             result = ExecutionResult(node_id=node.node_id, matched_objects=[])
@@ -281,7 +305,7 @@ class QueryExecutor:
             )
             return matches
 
-        # Fallback: substring matching for each category
+        # Fallback 1: substring matching on primary categories
         for category in categories:
             category_lower = category.lower()
             for cat, objs in self._category_index.items():
@@ -297,7 +321,22 @@ class QueryExecutor:
             )
             return matches
 
-        # CLIP similarity fallback (if available) - use first category
+        # Fallback 2: multi-label exact match (minority detection classes)
+        for category in categories:
+            category_lower = category.lower()
+            if category_lower in self._multilabel_index:
+                for obj in self._multilabel_index[category_lower]:
+                    if obj.obj_id not in seen_ids:
+                        matches.append(obj)
+                        seen_ids.add(obj.obj_id)
+
+        if matches:
+            logger.debug(
+                f"[QueryExecutor] Multi-label match for categories {categories}: {len(matches)} objects"
+            )
+            return matches
+
+        # Fallback 3: CLIP similarity (if available) - use first category
         if (
             self.clip_features is not None
             and self.clip_encoder is not None
@@ -323,31 +362,30 @@ class QueryExecutor:
     def _find_by_clip_similarity(
         self, category: str, top_k: int = 10, min_similarity: float = 0.2
     ) -> list[SceneObject]:
-        """Find objects by CLIP text-image similarity."""
-        try:
-            # Encode text
-            text_feature = self.clip_encoder(category)
-            if text_feature is None:
-                return []
+        """Find objects by CLIP text-image similarity.
 
-            # Compute similarities
-            similarities = self.clip_features @ text_feature
-            top_indices = np.argsort(-similarities)[:top_k]
-
-            matches = [
-                self.objects[i] for i in top_indices if similarities[i] > min_similarity
-            ]
-
-            if matches:
-                logger.info(
-                    f"[QueryExecutor] CLIP matched '{category}' -> "
-                    f"{[(self._get_category(m), f'{similarities[self.objects.index(m)]:.2f}') for m in matches[:3]]}"
-                )
-
-            return matches
-        except Exception as e:
-            logger.warning(f"[QueryExecutor] CLIP matching failed: {e}")
+        Returns empty list when CLIP encoder unavailable (open_clip not installed).
+        Raises on encoding failure when CLIP IS loaded.
+        """
+        text_feature = self.clip_encoder(category)
+        if text_feature is None:
             return []
+
+        # Compute similarities
+        similarities = self.clip_features @ text_feature
+        top_indices = np.argsort(-similarities)[:top_k]
+
+        matches = [
+            self.objects[i] for i in top_indices if similarities[i] > min_similarity
+        ]
+
+        if matches:
+            logger.info(
+                f"[QueryExecutor] CLIP matched '{category}' -> "
+                f"{[(self._get_category(m), f'{similarities[self.objects.index(m)]:.2f}') for m in matches[:3]]}"
+            )
+
+        return matches
 
     def _filter_by_attributes(
         self,
@@ -413,16 +451,10 @@ class QueryExecutor:
 
         if not anchor_objects:
             logger.warning(
-                f"[QueryExecutor] No anchor objects found for relation '{constraint.relation}'"
+                f"[QueryExecutor] No anchor objects found for relation '{constraint.relation}'. "
+                "Returning empty — spatial constraint cannot be evaluated without anchors."
             )
-            if self.strict_mode:
-                # Strict mode: return empty when anchor not found
-                logger.debug("[QueryExecutor] Strict mode: returning empty result")
-                return [], {}
-            else:
-                # Lenient mode (default): return all candidates as fallback
-                logger.debug("[QueryExecutor] Lenient mode: returning all candidates")
-                return candidates, {obj.obj_id: 1.0 for obj in candidates}
+            return [], {}
 
         # Phase 1: Quick filter (if available)
         pre_filtered = candidates
@@ -435,12 +467,12 @@ class QueryExecutor:
                 f"{len(candidates)} -> {len(pre_filtered)} candidates"
             )
 
-            # If quick filter eliminated all candidates, fall back to full list
             if not pre_filtered:
                 logger.warning(
-                    "[QueryExecutor] Quick filter eliminated all candidates, using full list"
+                    f"[QueryExecutor] Quick filter '{constraint.relation}' eliminated all "
+                    f"{len(candidates)} candidates. Returning empty — no spatial match."
                 )
-                pre_filtered = candidates
+                return [], {}
 
         # Phase 2: Full spatial relation check
         filtered = []
@@ -682,7 +714,6 @@ def execute_query(
     query: GroundingQuery,
     objects: list[SceneObject],
     relation_checker: SpatialRelationChecker | None = None,
-    strict_mode: bool = False,
 ) -> ExecutionResult:
     """
     Execute a grounding query against scene objects.
@@ -691,10 +722,9 @@ def execute_query(
         query: GroundingQuery to execute
         objects: List of scene objects
         relation_checker: Optional spatial relation checker
-        strict_mode: If True, return empty when anchor objects not found
 
     Returns:
         ExecutionResult with matched objects
     """
-    executor = QueryExecutor(objects, relation_checker, strict_mode=strict_mode)
+    executor = QueryExecutor(objects, relation_checker)
     return executor.execute(query)
