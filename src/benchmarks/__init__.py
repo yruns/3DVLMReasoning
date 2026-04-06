@@ -9,6 +9,12 @@ Supported benchmarks:
 """
 
 from .base import BenchmarkAdapter, BenchmarkSample
+from .embodiedscan_eval import (
+    compute_oriented_iou_3d,
+    evaluate_vg_predictions,
+    euler_to_rotation_matrix,
+    oriented_bbox_to_corners,
+)
 from .embodiedscan_loader import EmbodiedScanDataset, EmbodiedScanVGSample
 from .openeqa_loader import OpenEQADataset, OpenEQASample, download_openeqa
 from .scanrefer_loader import (
@@ -39,6 +45,10 @@ __all__ = [
     # EmbodiedScan
     "EmbodiedScanDataset",
     "EmbodiedScanVGSample",
+    "compute_oriented_iou_3d",
+    "evaluate_vg_predictions",
+    "euler_to_rotation_matrix",
+    "oriented_bbox_to_corners",
     # OpenEQA
     "OpenEQADataset",
     "OpenEQASample",
