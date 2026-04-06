@@ -41,7 +41,6 @@ class EmbodiedScanVGSample(BenchmarkSample):
 
     Attributes:
         scan_id: Full scan identifier (e.g., "scannet/scene0415_00").
-        text: VG referring expression (alias for query).
         target_id: GT instance ID (bbox_id in PKL).
         target: GT object category name.
         distractor_ids: Instance IDs of distractor objects.
@@ -49,12 +48,10 @@ class EmbodiedScanVGSample(BenchmarkSample):
         anchor_ids: Instance IDs of anchor objects.
         tokens_positive: Token span indices for target in text.
         gt_bbox_3d: 9-DOF bbox [cx,cy,cz,dx,dy,dz,alpha,beta,gamma].
-        instances: All instances in this scene (from PKL).
-        images_meta: Image metadata for this scene (from PKL).
+        text: Property alias for query (the VG referring expression).
     """
 
     scan_id: str = ""
-    text: str = ""
     target_id: int = -1
     target: str = ""
     distractor_ids: list[int] = field(default_factory=list)
@@ -62,8 +59,11 @@ class EmbodiedScanVGSample(BenchmarkSample):
     anchor_ids: list[int] = field(default_factory=list)
     tokens_positive: list[list[int]] = field(default_factory=list)
     gt_bbox_3d: list[float] | None = None
-    instances: list[dict[str, Any]] | None = None
-    images_meta: list[dict[str, Any]] | None = None
+
+    @property
+    def text(self) -> str:
+        """VG referring expression (alias for query)."""
+        return self.query
 
 
 class EmbodiedScanDataset:
@@ -170,6 +170,13 @@ class EmbodiedScanDataset:
                 len(vg_entries),
             )
 
+        # --- Pre-build bbox lookup dicts per scene ---
+        bbox_lookup: dict[str, dict[int, list[float]]] = {}
+        for scan_id_key, scene_data in scene_index.items():
+            bbox_lookup[scan_id_key] = _build_bbox_dict(
+                scene_data["instances"]
+            )
+
         # --- Build samples ---
         samples: list[EmbodiedScanVGSample] = []
         skipped = 0
@@ -179,25 +186,21 @@ class EmbodiedScanDataset:
                 break
 
             scan_id = entry["scan_id"]
-            scene_data = scene_index.get(scan_id)
-            if scene_data is None:
+            if scan_id not in scene_index:
                 skipped += 1
                 continue
 
             # Extract scene_id (last component, e.g. "scene0415_00")
             scene_id = scan_id.split("/")[-1]
 
-            # Look up GT bbox from PKL instances
-            gt_bbox = _find_instance_bbox(
-                scene_data["instances"], entry["target_id"]
-            )
+            # O(1) GT bbox lookup
+            gt_bbox = bbox_lookup[scan_id].get(entry["target_id"])
 
             sample = EmbodiedScanVGSample(
                 sample_id=f"es_vg_{split}_{idx}",
                 scene_id=scene_id,
                 query=entry["text"],
                 scan_id=scan_id,
-                text=entry["text"],
                 target_id=entry["target_id"],
                 target=entry["target"],
                 distractor_ids=entry.get("distractor_ids", []),
@@ -330,17 +333,31 @@ class EmbodiedScanDataset:
         return sorted({s.scene_id for s in self._samples})
 
 
+def _normalize_bbox(bbox: Any) -> list[float]:
+    """Convert bbox_3d to a plain list of floats."""
+    if isinstance(bbox, np.ndarray):
+        return bbox.tolist()
+    return list(bbox)
+
+
+def _build_bbox_dict(
+    instances: list[dict[str, Any]],
+) -> dict[int, list[float]]:
+    """Build {bbox_id: bbox_3d} lookup dict for O(1) access."""
+    return {
+        inst["bbox_id"]: _normalize_bbox(inst["bbox_3d"])
+        for inst in instances
+    }
+
+
 def _find_instance_bbox(
     instances: list[dict[str, Any]], target_id: int
 ) -> list[float] | None:
     """Find bbox_3d for a target instance by bbox_id.
 
-    Returns None if not found.
+    Returns None if not found. Used by get_gt_bbox() for ad-hoc lookups.
     """
     for inst in instances:
         if inst["bbox_id"] == target_id:
-            bbox = inst["bbox_3d"]
-            if isinstance(bbox, np.ndarray):
-                return bbox.tolist()
-            return list(bbox)
+            return _normalize_bbox(inst["bbox_3d"])
     return None

@@ -244,7 +244,6 @@ class TestEmbodiedScanVGSample:
             scene_id="scene0001_00",
             query="the bag near the bathtub",
             scan_id="scannet/scene0001_00",
-            text="the bag near the bathtub",
             target_id=1,
             target="bag",
             distractor_ids=[2],
@@ -256,6 +255,13 @@ class TestEmbodiedScanVGSample:
         assert s.target == "bag"
         assert len(s.gt_bbox_3d) == 9
         assert s.gt_bbox_3d[0] == 1.0
+
+    def test_text_is_query_alias(self) -> None:
+        s = EmbodiedScanVGSample(
+            sample_id="x", scene_id="y", query="find the chair"
+        )
+        assert s.text == "find the chair"
+        assert s.text is s.query
 
     def test_is_benchmark_sample_subclass(self) -> None:
         s = EmbodiedScanVGSample(
