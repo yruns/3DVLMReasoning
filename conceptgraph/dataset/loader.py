@@ -948,7 +948,10 @@ class ScannetOpenEQADataset(GradSLAMDataset):
 
         # Resolve the directory that actually holds frames / intrinsics.
         raw_candidate = Path(self.input_folder).parent / "raw"
-        if raw_candidate.is_dir() and any(raw_candidate.glob("*-rgb.png")):
+        if raw_candidate.is_dir() and (
+            any(raw_candidate.glob("*-rgb.png"))
+            or any(raw_candidate.glob("*-rgb.jpg"))
+        ):
             self.raw_folder = str(raw_candidate)
         else:
             self.raw_folder = self.input_folder
@@ -975,6 +978,8 @@ class ScannetOpenEQADataset(GradSLAMDataset):
 
     def get_filepaths(self):
         color_paths = natsorted(glob.glob(f"{self.raw_folder}/*-rgb.png"))
+        if not color_paths:
+            color_paths = natsorted(glob.glob(f"{self.raw_folder}/*-rgb.jpg"))
         depth_paths = natsorted(glob.glob(f"{self.raw_folder}/*-depth.png"))
         embedding_paths = None
         if self.load_embeddings:
