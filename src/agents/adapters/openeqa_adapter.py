@@ -13,10 +13,10 @@ from typing import Any
 
 from loguru import logger
 
-from src.agents.core.agent_config import Stage2TaskType
-from src.agents.core.task_types import Stage2AgentResult, Stage2TaskSpec
-from src.benchmarks.base import BenchmarkAdapter, BenchmarkSample
-from src.benchmarks.openeqa_loader import OpenEQADataset, OpenEQASample
+from agents.core.agent_config import Stage2TaskType
+from agents.core.task_types import Stage2AgentResult, Stage2TaskSpec
+from benchmarks.base import BenchmarkAdapter, BenchmarkSample
+from benchmarks.openeqa_loader import OpenEQADataset, OpenEQASample
 
 
 class OpenEQAAdapter(BenchmarkAdapter):

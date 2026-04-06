@@ -90,7 +90,7 @@ def default_payload_schema(task_type: Stage2TaskType) -> dict[str, Any]:
     if task_type == Stage2TaskType.VISUAL_GROUNDING:
         return {
             "selected_object_id": "int|str",
-            "bbox_3d": "[cx, cy, cz, dx, dy, dz]",
+            "bbox_3d": "[cx, cy, cz, dx, dy, dz, alpha, beta, gamma]",
             "target_description": "str",
             "grounding_rationale": "str",
             "alternative_candidates": ["str"],

@@ -35,6 +35,8 @@ from loguru import logger
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(PROJECT_ROOT))
 
+import threading  # noqa: E402
+
 from agents.adapters.embodiedscan_adapter import (  # noqa: E402
     EmbodiedScanVGAdapter,
 )
@@ -50,6 +52,17 @@ from query_scene.keyframe_selector import KeyframeSelector  # noqa: E402
 
 DEFAULT_DATA_ROOT = PROJECT_ROOT / "data" / "embodiedscan"
 DEFAULT_OUTPUT_ROOT = PROJECT_ROOT / "tmp" / "embodiedscan_vg_runs"
+
+# Per-scene lock to prevent parallel workers from racing on scene data
+_scene_locks: dict[str, threading.Lock] = {}
+_scene_locks_guard = threading.Lock()
+
+
+def _get_scene_lock(scene_id: str) -> threading.Lock:
+    with _scene_locks_guard:
+        if scene_id not in _scene_locks:
+            _scene_locks[scene_id] = threading.Lock()
+        return _scene_locks[scene_id]
 
 
 def parse_args() -> argparse.Namespace:
@@ -122,8 +135,10 @@ def run_one_sample(
         }
 
     try:
-        # Stage 1: keyframe selection
-        selector = KeyframeSelector.from_scene_path(str(cg_path))
+        # Acquire per-scene lock to prevent parallel workers
+        # from racing on the same scene's cached data
+        with _get_scene_lock(sample.scene_id):
+            selector = KeyframeSelector.from_scene_path(str(cg_path))
         stage1_result = selector.select_keyframes_v2(sample.query, k=k)
 
         # Build evidence bundle
