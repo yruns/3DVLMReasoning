@@ -69,7 +69,10 @@ def default_output_instruction(task_type: Stage2TaskType) -> str:
         return "Answer the question and keep the answer grounded in cited frames."
     if task_type == Stage2TaskType.VISUAL_GROUNDING:
         return (
-            "Identify the best supporting frame(s) and explain the grounding evidence."
+            "Identify and localize the described object in the 3D scene. "
+            "Select the best matching object from the scene inventory. "
+            "Return its object ID and 3D bounding box. "
+            "If multiple candidates exist, explain why you chose one over others."
         )
     if task_type == Stage2TaskType.NAV_PLAN:
         return (
@@ -86,9 +89,11 @@ def default_payload_schema(task_type: Stage2TaskType) -> dict[str, Any]:
         return {"answer": "str", "supporting_claims": ["str"]}
     if task_type == Stage2TaskType.VISUAL_GROUNDING:
         return {
-            "best_frames": ["int"],
+            "selected_object_id": "int|str",
+            "bbox_3d": "[cx, cy, cz, dx, dy, dz]",
             "target_description": "str",
             "grounding_rationale": "str",
+            "alternative_candidates": ["str"],
         }
     if task_type == Stage2TaskType.NAV_PLAN:
         return {
@@ -232,6 +237,54 @@ class BaseStage2Runtime(ABC):
         return json.dumps(selected, indent=2, ensure_ascii=False)
 
     @staticmethod
+    def _format_vg_candidates(
+        extra_metadata: dict[str, Any],
+    ) -> str:
+        """Format VG candidate objects with 3D positions for the prompt."""
+        candidates = extra_metadata.get("vg_candidates", [])
+        if not candidates:
+            return ""
+        lines = ["## Object Candidates for Grounding\n"]
+        for c in candidates:
+            line = (
+                f"- [ID={c['obj_id']}] {c['category']}: "
+                f"position=({c['cx']:.2f}, {c['cy']:.2f}, {c['cz']:.2f}), "
+                f"size=({c['dx']:.2f}, {c['dy']:.2f}, {c['dz']:.2f})"
+            )
+            desc = c.get("description", "")
+            if desc:
+                line += f"\n  Description: {desc[:100]}"
+            lines.append(line)
+        return "\n".join(lines) + "\n\n"
+
+    @staticmethod
+    def _format_vg_section(extra_schema: dict[str, Any]) -> str:
+        """Build the VG-specific system prompt section."""
+        return (
+            "## Visual Grounding Protocol\n\n"
+            "You are localizing a target object described in natural language.\n\n"
+            "### Object Candidate List\n"
+            "The scene inventory below lists all detected objects with their 3D locations.\n"
+            "Your task is to SELECT the object that best matches the description.\n\n"
+            "### Grounding Strategy (in order):\n"
+            "1. Parse the description for target category + spatial constraints\n"
+            "2. Filter candidates by category match\n"
+            "3. If spatial anchors mentioned (e.g., 'near the table'), verify spatial relations\n"
+            "4. Use request_crops to verify visual attributes (color, shape, material)\n"
+            "5. Use request_more_views if target is not visible in current keyframes\n\n"
+            "### Output Requirements:\n"
+            "- selected_object_id: ID from the scene inventory\n"
+            "- bbox_3d: The selected object's 3D bounding box\n"
+            "- grounding_rationale: Evidence for why this object matches\n\n"
+            "### MANDATORY Rules:\n"
+            "- NEVER guess an object ID without visual verification\n"
+            "- If multiple candidates of same category, MUST use spatial/attribute "
+            "evidence to disambiguate\n"
+            "- If description mentions spatial relation, verify BOTH target and anchor "
+            "are visible\n\n"
+        )
+
+    @staticmethod
     def _format_scene_inventory(object_context: dict[str, str] | None) -> str:
         """Format object context as a scene inventory for the system prompt."""
         if not object_context:
@@ -286,6 +339,11 @@ class BaseStage2Runtime(ABC):
             "- Your confidence score should reflect actual evidence quality, not task difficulty.\n\n"
         )
 
+        vg_section = ""
+        if task.task_type == Stage2TaskType.VISUAL_GROUNDING:
+            extra = task.expected_output_schema or {}
+            vg_section = self._format_vg_section(extra)
+
         return (
             "You are the Stage-2 research agent for query-scene.\n\n"
             "Research role:\n"
@@ -325,6 +383,7 @@ class BaseStage2Runtime(ABC):
             "Do NOT default to the largest/most obvious object in frame. Consider ALL objects "
             "including small items on surfaces, items on the floor, and partially occluded objects.\n\n"
             f"{uncertainty_instructions}"
+            f"{vg_section}"
             f"{self._format_scene_inventory(object_context)}"
             "Framework constraints:\n"
             "- This runtime is built with LangChain v1 and DeepAgents.\n"
