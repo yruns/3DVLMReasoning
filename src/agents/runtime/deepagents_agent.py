@@ -19,6 +19,7 @@ from ..models import (
     Stage2Status,
     Stage2StructuredResponse,
     Stage2TaskSpec,
+    Stage2TaskType,
 )
 from .base import (
     BaseStage2Runtime,
@@ -268,6 +269,13 @@ class DeepAgentsStage2Runtime(BaseStage2Runtime):
             task.task_type
         )
 
+        # Inject VG candidate list for visual grounding tasks
+        vg_candidates_section = ""
+        if task.task_type == Stage2TaskType.VISUAL_GROUNDING:
+            vg_candidates_section = self._format_vg_candidates(
+                bundle.extra_metadata or {}
+            )
+
         prompt = (
             f"Task type: {task.task_type.value}\n"
             f"User query: {task.user_query}\n"
@@ -278,6 +286,7 @@ class DeepAgentsStage2Runtime(BaseStage2Runtime):
             f"Scene id: {bundle.scene_id or 'unknown'}\n\n"
             f"Current keyframes:\n{chr(10).join(keyframe_lines)}\n\n"
             f"Stage-1 hypothesis summary:\n{hypothesis_text}\n\n"
+            f"{vg_candidates_section}"
             f"Scene summary:\n{bundle.scene_summary or 'N/A'}\n\n"
             f"Available object context keys:\n"
             f"{sorted(bundle.object_context.keys()) if bundle.object_context else []}\n\n"

@@ -198,7 +198,25 @@ def evaluate_vg_predictions(
         if pred_bbox is None or gt_bbox is None:
             iou = 0.0
         else:
-            iou = compute_oriented_iou_3d(pred_bbox, gt_bbox)
+            try:
+                # Guard against malformed bbox values that slipped past parsing
+                pred_bbox = [float(v) for v in pred_bbox[:9]]
+                gt_bbox = [float(v) for v in gt_bbox[:9]]
+                if len(pred_bbox) < 6 or len(gt_bbox) < 6:
+                    iou = 0.0
+                else:
+                    # Pad missing euler angles
+                    while len(pred_bbox) < 9:
+                        pred_bbox.append(0.0)
+                    while len(gt_bbox) < 9:
+                        gt_bbox.append(0.0)
+                    iou = compute_oriented_iou_3d(pred_bbox, gt_bbox)
+            except (TypeError, ValueError, IndexError):
+                logger.warning(
+                    "Invalid bbox for {}: pred={}, gt={}",
+                    sample.sample_id, pred_bbox, gt_bbox,
+                )
+                iou = 0.0
 
         ious.append(iou)
         cat_ious.setdefault(sample.target, []).append(iou)

@@ -96,6 +96,16 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--max-samples", type=int, default=None)
     parser.add_argument("--mini", action="store_true")
     parser.add_argument("--k", type=int, default=5, help="Top-k keyframes")
+    parser.add_argument(
+        "--llm-model",
+        default="gemini-2.5-pro",
+        help="LLM model for Stage 1 query parsing",
+    )
+    parser.add_argument(
+        "--stage2-model",
+        default=None,
+        help="Override Stage 2 VLM model (default: config default)",
+    )
     parser.add_argument("--workers", type=int, default=1)
     parser.add_argument(
         "--output-dir",
@@ -107,6 +117,17 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Load samples and show stats without running Stage 2",
     )
+    parser.add_argument(
+        "--diverse",
+        action="store_true",
+        help="Sample diversely across scenes (N per scene)",
+    )
+    parser.add_argument(
+        "--per-scene",
+        type=int,
+        default=3,
+        help="Samples per scene in diverse mode",
+    )
     return parser.parse_args()
 
 
@@ -115,6 +136,7 @@ def run_one_sample(
     adapter: EmbodiedScanVGAdapter,
     config: Stage2DeepAgentConfig,
     k: int = 5,
+    llm_model: str = "gemini-2.5-pro",
 ) -> dict[str, Any]:
     """Run full pipeline on a single VG sample.
 
@@ -138,8 +160,12 @@ def run_one_sample(
         # Acquire per-scene lock to prevent parallel workers
         # from racing on the same scene's cached data
         with _get_scene_lock(sample.scene_id):
-            selector = KeyframeSelector.from_scene_path(str(cg_path))
-        stage1_result = selector.select_keyframes_v2(sample.query, k=k)
+            selector = KeyframeSelector.from_scene_path(
+                str(cg_path), llm_model=llm_model, stride=1
+            )
+        stage1_result = selector.select_keyframes_v2(
+            sample.query, k=k, use_visual_context=False
+        )
 
         # Build evidence bundle
         object_context = build_object_context(selector.objects)
@@ -150,7 +176,11 @@ def run_one_sample(
         )
 
         # Inject VG candidates from scene graph objects
-        vg_candidates = adapter.build_vg_candidates(selector.objects)
+        # Apply axis alignment to transform CG coords → EmbodiedScan coords
+        align_mat = adapter.get_axis_align_matrix(sample.scan_id)
+        vg_candidates = adapter.build_vg_candidates(
+            selector.objects, axis_align_matrix=align_mat
+        )
         bundle = bundle.model_copy(
             update={
                 "extra_metadata": {
@@ -173,14 +203,38 @@ def run_one_sample(
         }
 
     except Exception as exc:
-        logger.error("Failed on {}: {}", sample.sample_id, exc)
+        err_str = str(exc)
+        # Retry on 429 rate limit with backoff
+        if "429" in err_str:
+            for retry in range(1, 4):
+                wait = 30 * retry
+                logger.warning(
+                    "429 rate limit on {} — retry {}/3 after {}s",
+                    sample.sample_id, retry, wait,
+                )
+                time.sleep(wait)
+                try:
+                    agent = Stage2DeepResearchAgent(config=config)
+                    result = agent.run(task, bundle)
+                    prediction = adapter.extract_prediction(sample, result)
+                    return {
+                        "sample": sample,
+                        "prediction": prediction,
+                        "result": result,
+                    }
+                except Exception as retry_exc:
+                    if "429" not in str(retry_exc):
+                        err_str = str(retry_exc)
+                        break
+
+        logger.error("Failed on {}: {}", sample.sample_id, err_str)
         return {
             "sample": sample,
             "prediction": {
                 "sample_id": sample.sample_id,
                 "bbox_3d": None,
             },
-            "error": str(exc),
+            "error": err_str,
         }
 
 
@@ -193,12 +247,40 @@ def main() -> None:
         data_root=args.data_root,
         scene_data_root=args.scene_data_root,
     )
+    # Load all samples (no max) if diverse, then subsample later
+    load_max = None if args.diverse else args.max_samples
     samples = adapter.load_samples(
         split=args.split,
         source_filter=source_filter,
-        max_samples=args.max_samples,
+        max_samples=load_max,
         mini=args.mini,
     )
+
+    # Diverse sampling: N samples per scene, only from scenes with CG data
+    if args.diverse:
+        import os
+        from collections import defaultdict
+
+        scene_data_root = args.scene_data_root or args.data_root
+        by_scene: dict[str, list] = defaultdict(list)
+        for s in samples:
+            scene_name = s.scan_id.split("/")[-1] if hasattr(s, "scan_id") else s.scene_id
+            cg_path = scene_data_root / scene_name / "conceptgraph"
+            if cg_path.is_dir():
+                by_scene[scene_name].append(s)
+
+        diverse_samples = []
+        for scene_name in sorted(by_scene.keys()):
+            diverse_samples.extend(by_scene[scene_name][: args.per_scene])
+
+        if args.max_samples:
+            diverse_samples = diverse_samples[: args.max_samples]
+        samples = diverse_samples
+        logger.info(
+            "Diverse sampling: {} samples from {} scenes",
+            len(samples), len(by_scene),
+        )
+
     logger.info("Loaded {} VG samples", len(samples))
 
     if args.dry_run:
@@ -214,7 +296,10 @@ def main() -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
     logger.info("Output: {}", output_dir)
 
-    config = Stage2DeepAgentConfig()
+    config_kwargs = {"confidence_threshold": 0.15}
+    if args.stage2_model:
+        config_kwargs["model_name"] = args.stage2_model
+    config = Stage2DeepAgentConfig(**config_kwargs)
 
     # 3. Run pipeline
     all_results: list[dict[str, Any]] = []
@@ -229,13 +314,13 @@ def main() -> None:
                 sample.sample_id,
                 sample.query[:60],
             )
-            result = run_one_sample(sample, adapter, config, args.k)
+            result = run_one_sample(sample, adapter, config, args.k, args.llm_model)
             all_results.append(result)
     else:
         with ThreadPoolExecutor(max_workers=args.workers) as pool:
             futures = {
                 pool.submit(
-                    run_one_sample, s, adapter, config, args.k
+                    run_one_sample, s, adapter, config, args.k, args.llm_model
                 ): s
                 for s in vg_samples
             }

@@ -11,9 +11,11 @@ BenchmarkAdapter interface. Handles:
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 from loguru import logger
 
 from agents.core.agent_config import Stage2TaskType
@@ -24,6 +26,52 @@ from benchmarks.embodiedscan_loader import (
     EmbodiedScanDataset,
     EmbodiedScanVGSample,
 )
+
+
+def _parse_bbox_3d(raw: Any) -> list[float] | None:
+    """Parse bbox_3d from VLM output into a validated 9-float list.
+
+    Handles: None, list[float], JSON string, incomplete lists,
+    nested lists, and non-numeric values.
+    """
+    if raw is None:
+        return None
+
+    # If string, try JSON parse
+    if isinstance(raw, str):
+        raw = raw.strip()
+        if not raw:
+            return None
+        try:
+            raw = json.loads(raw)
+        except (json.JSONDecodeError, ValueError):
+            logger.warning("bbox_3d is unparseable string: {}", raw[:100])
+            return None
+
+    # Flatten single-nested list (e.g. [[cx,cy,...]])
+    if isinstance(raw, (list, tuple)) and len(raw) == 1 and isinstance(raw[0], (list, tuple)):
+        raw = raw[0]
+
+    if not isinstance(raw, (list, tuple)):
+        logger.warning("bbox_3d is not a list: {}", type(raw))
+        return None
+
+    # Need at least 6 values (cx,cy,cz,dx,dy,dz); pad missing angles with 0
+    if len(raw) < 6:
+        logger.warning("bbox_3d too short ({} values): {}", len(raw), raw)
+        return None
+
+    try:
+        values = [float(v) for v in raw[:9]]
+    except (TypeError, ValueError) as exc:
+        logger.warning("bbox_3d contains non-numeric values: {} — {}", raw, exc)
+        return None
+
+    # Pad to 9 elements (missing euler angles default to 0)
+    while len(values) < 9:
+        values.append(0.0)
+
+    return values
 
 
 class EmbodiedScanVGAdapter(BenchmarkAdapter):
@@ -111,17 +159,37 @@ class EmbodiedScanVGAdapter(BenchmarkAdapter):
             scene_name = sample.scene_id
         return self.scene_data_root / scene_name
 
+    def get_axis_align_matrix(self, scan_id: str) -> np.ndarray | None:
+        """Get the axis alignment matrix for a scene from EmbodiedScan metadata.
+
+        This transforms ConceptGraph coordinates (ScanNet raw frame)
+        to EmbodiedScan aligned coordinates.
+        """
+        if self._dataset is None:
+            return None
+        scene_info = self._dataset.get_scene_info(scan_id)
+        if scene_info is None:
+            return None
+        mat = scene_info.get("axis_align_matrix")
+        if mat is not None:
+            return np.array(mat, dtype=np.float64)
+        return None
+
     def build_vg_candidates(
-        self, scene_objects: Any
+        self,
+        scene_objects: Any,
+        axis_align_matrix: np.ndarray | None = None,
     ) -> list[dict[str, Any]]:
         """Build VG candidate list from ConceptGraph scene objects.
 
         Converts scene graph objects into the format expected by the
-        VLM's object candidate prompt section.
+        VLM's object candidate prompt section. Applies axis_align_matrix
+        to transform from ConceptGraph to EmbodiedScan coordinates.
 
         Args:
             scene_objects: Iterable of objects with obj_id, category,
-                centroid, and bbox_extent attributes.
+                and centroid attributes.
+            axis_align_matrix: 4x4 transformation matrix (optional).
 
         Returns:
             List of candidate dicts for injection into extra_metadata.
@@ -129,21 +197,40 @@ class EmbodiedScanVGAdapter(BenchmarkAdapter):
         candidates = []
         for obj in scene_objects:
             centroid = getattr(obj, "centroid", None)
-            extent = getattr(obj, "bbox_extent", None)
-            if centroid is None or extent is None:
+            if centroid is None:
                 continue
+
+            # Transform centroid to EmbodiedScan coordinates
+            ctr = np.array(centroid, dtype=np.float64)
+            if axis_align_matrix is not None:
+                ctr_h = np.append(ctr, 1.0)
+                ctr = (axis_align_matrix @ ctr_h)[:3]
+
+            # Try to get extent from pcd, bbox, or default
+            extent = getattr(obj, "bbox_extent", None)
+            if extent is None:
+                pcd = getattr(obj, "pcd_np", None)
+                if pcd is not None and len(pcd) > 0:
+                    pts = np.array(pcd)
+                    extent = pts.max(axis=0) - pts.min(axis=0)
+                else:
+                    extent = [0.3, 0.3, 0.3]
+
+            category = getattr(obj, "category", "unknown")
+            if category in ("wall", "floor", "ceiling"):
+                continue
+
+            desc = getattr(obj, "summary", "") or getattr(obj, "description", "")
             candidates.append({
                 "obj_id": getattr(obj, "obj_id", id(obj)),
-                "category": getattr(obj, "category", "unknown"),
-                "cx": float(centroid[0]),
-                "cy": float(centroid[1]),
-                "cz": float(centroid[2]),
+                "category": category,
+                "cx": float(ctr[0]),
+                "cy": float(ctr[1]),
+                "cz": float(ctr[2]),
                 "dx": float(extent[0]),
                 "dy": float(extent[1]),
                 "dz": float(extent[2]),
-                "description": str(
-                    getattr(obj, "description", "")
-                )[:200],
+                "description": str(desc)[:200],
             })
         return candidates
 
@@ -153,12 +240,14 @@ class EmbodiedScanVGAdapter(BenchmarkAdapter):
         """Extract 3D bbox prediction from agent output.
 
         Reads selected_object_id and bbox_3d from the agent's
-        structured payload.
+        structured payload.  Handles common VLM output issues:
+        bbox_3d may be a JSON string, incomplete list, or wrong type.
         """
         payload = result.result.payload
+        bbox_3d = _parse_bbox_3d(payload.get("bbox_3d"))
         return {
             "sample_id": sample.sample_id,
-            "bbox_3d": payload.get("bbox_3d"),
+            "bbox_3d": bbox_3d,
             "selected_object_id": payload.get("selected_object_id"),
             "confidence": result.result.confidence,
         }
