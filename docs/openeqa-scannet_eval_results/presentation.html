@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>3DVLMReasoning — OpenEQA Progress</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=Source+Sans+3:wght@300;400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#080c18;--bg2:#0d1225;--surface:#111832;--surface2:#1a2340;
+  --cyan:#00d4ff;--gold:#f5a623;--green:#22c55e;--red:#ef4444;
+  --text:#e2e8f0;--muted:#64748b;--dim:#334155;
+  --font-display:'Playfair Display',Georgia,serif;
+  --font-body:'Source Sans 3','Segoe UI',sans-serif;
+  --font-mono:'JetBrains Mono','Consolas',monospace;
+}
+html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:var(--font-body)}
+/* grain overlay */
+body::after{content:'';position:fixed;inset:0;pointer-events:none;opacity:.03;
+  background:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");z-index:9999}
+
+.deck{position:relative;width:100vw;height:100vh}
+.slide{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;
+  padding:3rem 5rem;opacity:0;pointer-events:none;transform:translateY(20px);
+  transition:opacity .5s ease,transform .5s ease}
+.slide.active{opacity:1;pointer-events:auto;transform:translateY(0)}
+
+/* nav */
+.nav{position:fixed;bottom:1.5rem;left:50%;transform:translateX(-50%);display:flex;gap:.5rem;z-index:100}
+.nav-dot{width:10px;height:10px;border-radius:50%;background:var(--dim);border:none;cursor:pointer;
+  transition:all .3s}
+.nav-dot.active{background:var(--cyan);box-shadow:0 0 8px var(--cyan)}
+.slide-counter{position:fixed;bottom:1.5rem;right:2rem;font-family:var(--font-mono);font-size:.75rem;
+  color:var(--muted);z-index:100}
+.key-hint{position:fixed;bottom:1.5rem;left:2rem;font-size:.7rem;color:var(--dim);z-index:100}
+
+/* titles */
+h1{font-family:var(--font-display);font-size:2.8rem;font-weight:900;line-height:1.15;
+  background:linear-gradient(135deg,var(--text),var(--cyan));-webkit-background-clip:text;
+  -webkit-text-fill-color:transparent;margin-bottom:.5rem}
+h2{font-family:var(--font-display);font-size:1.6rem;font-weight:700;color:var(--cyan);
+  margin-bottom:1.5rem;letter-spacing:.02em}
+h3{font-family:var(--font-body);font-size:1.1rem;font-weight:700;color:var(--text);margin-bottom:.6rem}
+
+.tag{display:inline-block;padding:.15rem .6rem;border-radius:2px;font-size:.7rem;font-weight:600;
+  font-family:var(--font-mono);letter-spacing:.05em;text-transform:uppercase}
+.tag-cyan{background:rgba(0,212,255,.12);color:var(--cyan);border:1px solid rgba(0,212,255,.25)}
+.tag-gold{background:rgba(245,166,35,.12);color:var(--gold);border:1px solid rgba(245,166,35,.25)}
+.tag-green{background:rgba(34,197,94,.12);color:var(--green);border:1px solid rgba(34,197,94,.25)}
+
+/* stat cards */
+.stats{display:flex;gap:1.2rem;margin:1.5rem 0}
+.stat{background:var(--surface);border:1px solid rgba(255,255,255,.05);padding:1.2rem 1.5rem;
+  flex:1;border-radius:4px;position:relative;overflow:hidden}
+.stat::before{content:'';position:absolute;top:0;left:0;right:0;height:2px}
+.stat.cyan::before{background:var(--cyan)}.stat.gold::before{background:var(--gold)}
+.stat.green::before{background:var(--green)}.stat.red::before{background:var(--red)}
+.stat-val{font-family:var(--font-mono);font-size:2rem;font-weight:700;line-height:1}
+.stat-label{font-size:.75rem;color:var(--muted);margin-top:.3rem;text-transform:uppercase;
+  letter-spacing:.08em}
+
+/* tables */
+table{width:100%;border-collapse:collapse;font-size:.85rem}
+th{text-align:left;padding:.6rem .8rem;color:var(--cyan);font-weight:600;font-size:.7rem;
+  text-transform:uppercase;letter-spacing:.08em;border-bottom:1px solid var(--dim)}
+td{padding:.55rem .8rem;border-bottom:1px solid rgba(255,255,255,.04)}
+tr:hover td{background:rgba(0,212,255,.03)}
+tr.highlight{background:rgba(0,212,255,.08)}
+tr.highlight td{font-weight:700;color:var(--gold)}
+
+/* chart containers */
+.chart-wrap{position:relative;background:var(--surface);border:1px solid rgba(255,255,255,.05);
+  border-radius:4px;padding:1rem}
+canvas{display:block}
+
+/* two-col layout */
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:2rem;align-items:start}
+.cols-60-40{grid-template-columns:3fr 2fr}
+.cols-40-60{grid-template-columns:2fr 3fr}
+
+/* architecture flow */
+.arch{display:flex;gap:1rem;margin:1rem 0}
+.arch-box{flex:1;background:var(--surface);border:1px solid rgba(255,255,255,.06);border-radius:4px;
+  padding:1rem;position:relative}
+.arch-box h3{font-size:.9rem;margin-bottom:.5rem}
+.arch-box::before{content:'';position:absolute;top:0;left:0;right:0;height:2px}
+.arch-box.s1::before{background:var(--cyan)}.arch-box.s2::before{background:var(--gold)}
+.arch-box.e2e::before{background:var(--green)}
+.arch-item{font-size:.78rem;color:var(--muted);padding:.2rem 0;padding-left:.8rem;position:relative}
+.arch-item::before{content:'';position:absolute;left:0;top:.55rem;width:4px;height:4px;
+  border-radius:50%;background:currentColor}
+.arch-arrow{display:flex;align-items:center;color:var(--dim);font-size:1.2rem;flex:0 0 auto}
+
+/* work stats grid */
+.work-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:.8rem}
+.work-item{background:var(--surface);border:1px solid rgba(255,255,255,.05);padding:.8rem;
+  text-align:center;border-radius:4px}
+.work-item .stat-val{font-size:1.4rem}
+.work-item .stat-label{font-size:.65rem}
+
+/* category bars */
+.cat-bar-row{display:flex;align-items:center;margin:.4rem 0;font-size:.8rem}
+.cat-bar-label{width:120px;text-align:right;padding-right:.8rem;color:var(--muted);flex-shrink:0}
+.cat-bar-track{flex:1;height:22px;background:var(--bg);border-radius:2px;position:relative;overflow:hidden}
+.cat-bar-fill{height:100%;border-radius:2px;position:absolute;left:0;top:0;transition:width 1s ease}
+.cat-bar-val{position:absolute;right:-40px;top:0;line-height:22px;font-family:var(--font-mono);
+  font-size:.75rem;font-weight:600;width:36px}
+.cat-bar-ghost{height:100%;border-radius:2px;position:absolute;left:0;top:0;opacity:.25}
+
+/* doughnut legend */
+.legend{display:flex;flex-wrap:wrap;gap:.5rem .8rem;margin-top:.8rem}
+.legend-item{display:flex;align-items:center;gap:.4rem;font-size:.75rem;color:var(--muted)}
+.legend-dot{width:10px;height:10px;border-radius:2px}
+
+/* slide-specific */
+.cover-sub{font-family:var(--font-body);font-size:1.1rem;color:var(--muted);font-weight:300;
+  margin-bottom:2rem}
+.cover-meta{font-size:.8rem;color:var(--dim);margin-top:2rem;font-family:var(--font-mono)}
+
+.next-list{list-style:none;counter-reset:next}
+.next-list li{counter-increment:next;padding:.6rem 0;border-bottom:1px solid rgba(255,255,255,.04);
+  font-size:.85rem;display:flex;gap:.8rem}
+.next-list li::before{content:counter(next);font-family:var(--font-mono);font-weight:700;
+  color:var(--cyan);font-size:1rem;flex-shrink:0;width:1.2rem}
+.next-desc{color:var(--muted);font-size:.78rem;margin-top:.15rem}
+
+/* animate in */
+.slide.active .anim{animation:fadeUp .5s ease both}
+@keyframes fadeUp{from{opacity:0;transform:translateY(15px)}to{opacity:1;transform:translateY(0)}}
+.anim:nth-child(1){animation-delay:.1s}.anim:nth-child(2){animation-delay:.2s}
+.anim:nth-child(3){animation-delay:.3s}.anim:nth-child(4){animation-delay:.4s}
+.anim:nth-child(5){animation-delay:.5s}.anim:nth-child(6){animation-delay:.6s}
+
+/* thank you */
+.ty-center{text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%}
+.ty-center h1{font-size:4rem;margin-bottom:1rem}
+
+@media(max-width:900px){
+  .slide{padding:2rem}
+  h1{font-size:2rem}
+  .cols,.cols-60-40,.cols-40-60{grid-template-columns:1fr}
+  .work-grid{grid-template-columns:repeat(2,1fr)}
+  .arch{flex-direction:column}
+  .arch-arrow{transform:rotate(90deg)}
+}
+</style>
+</head>
+<body>
+
+<div class="deck" id="deck">
+
+<!-- SLIDE 1: Cover -->
+<div class="slide active" data-slide="0">
+  <div>
+    <span class="tag tag-gold anim" style="margin-bottom:1rem">OpenEQA ScanNet EM-EQA</span>
+    <h1 class="anim">3D场景理解中的<br>证据搜索型 VLM Agent</h1>
+    <p class="cover-sub anim">Evidence-Seeking VLM Agent for 3D Scene Understanding</p>
+    <div class="stats anim">
+      <div class="stat cyan"><div class="stat-val" data-count="73.1">0</div><div class="stat-label">MNAS Score</div></div>
+      <div class="stat gold"><div class="stat-val">#1</div><div class="stat-label">OpenEQA Rank</div></div>
+      <div class="stat green"><div class="stat-val">+21.8</div><div class="stat-label">vs GPT-4V</div></div>
+      <div class="stat cyan"><div class="stat-val">1050</div><div class="stat-label">Questions</div></div>
+    </div>
+    <p class="cover-meta anim">乐书豪 &middot; 北京邮电大学 &middot; 2026-04-08 组会汇报</p>
+  </div>
+</div>
+
+<!-- SLIDE 2: Task Background -->
+<div class="slide" data-slide="1">
+  <h2 class="anim">任务背景</h2>
+  <div class="cols anim">
+    <div>
+      <h3>OpenEQA <span class="tag tag-cyan">CVPR 2024</span></h3>
+      <p style="color:var(--muted);font-size:.9rem;line-height:1.7;margin-bottom:1.2rem">
+        <strong style="color:var(--text)">Embodied Question Answering</strong> — 给定3D场景的RGB-D视频序列，回答关于场景的自然语言问题。
+        <br>ScanNet EM-EQA分支：<strong style="color:var(--text)">1200+</strong>问题，<strong style="color:var(--text)">89</strong>个室内场景
+        <br>评测指标：<strong style="color:var(--cyan)">MNAS</strong> (0-100) = (LLM_match_mean - 1) / 4 &times; 100
+        <br>Human Performance：<strong style="color:var(--gold)">87.7</strong> MNAS
+      </p>
+    </div>
+    <div>
+      <h3>7类问答</h3>
+      <table>
+        <tr><td style="color:var(--cyan);font-weight:600">Object State</td><td style="color:var(--muted)">"Is the shower dry?"</td></tr>
+        <tr><td style="color:var(--cyan);font-weight:600">Localization</td><td style="color:var(--muted)">"Where are the paper towels?"</td></tr>
+        <tr><td style="color:var(--cyan);font-weight:600">Attribute</td><td style="color:var(--muted)">"What color is the sofa?"</td></tr>
+        <tr><td style="color:var(--cyan);font-weight:600">Functional</td><td style="color:var(--muted)">"Where can I take a nap?"</td></tr>
+        <tr><td style="color:var(--cyan);font-weight:600">Spatial</td><td style="color:var(--muted)">"What is behind the sofa?"</td></tr>
+        <tr><td style="color:var(--cyan);font-weight:600">Object Rec</td><td style="color:var(--muted)">"What is the red object?"</td></tr>
+        <tr><td style="color:var(--cyan);font-weight:600">World Knowledge</td><td style="color:var(--muted)">"What brand is the laptop?"</td></tr>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- SLIDE 3: Architecture -->
+<div class="slide" data-slide="2">
+  <h2 class="anim">系统架构</h2>
+  <div class="arch anim">
+    <div class="arch-box s1">
+      <h3 style="color:var(--cyan)">Stage 1: Keyframe Retrieval</h3>
+      <div class="arch-item">LLM Query Parser &rarr; 结构化假设</div>
+      <div class="arch-item">ConceptGraph 3D场景图匹配</div>
+      <div class="arch-item">LLM Enrichment (5097 objects, Gemini 2.5 Pro)</div>
+      <div class="arch-item">"Between" 空间中点检索</div>
+      <div class="arch-item">最少3帧可见性采样</div>
+    </div>
+    <div class="arch-arrow">&rarr;</div>
+    <div class="arch-box s2">
+      <h3 style="color:var(--gold)">Stage 2: Evidence-Seeking VLM</h3>
+      <div class="arch-item">GPT-5.4 分析关键帧</div>
+      <div class="arch-item">场景物体清单注入 System Prompt</div>
+      <div class="arch-item">Tools: request_more_views, request_crops</div>
+      <div class="arch-item">强制颜色/属性问题先 crop 再回答</div>
+      <div class="arch-item">Self-check + 显著性偏差纠正</div>
+    </div>
+    <div class="arch-arrow">&rarr;</div>
+    <div class="arch-box e2e" style="flex:.6">
+      <h3 style="color:var(--green)">E2E</h3>
+      <div class="arch-item">低置信度时扩展推理</div>
+      <div class="arch-item">额外工具调用</div>
+    </div>
+  </div>
+  <div class="stats anim" style="margin-top:1rem">
+    <div class="stat cyan"><div class="stat-val">119</div><div class="stat-label">Files Changed</div></div>
+    <div class="stat gold"><div class="stat-val">+14,199</div><div class="stat-label">Lines of Code</div></div>
+    <div class="stat green"><div class="stat-val">32</div><div class="stat-label">Commits</div></div>
+    <div class="stat cyan"><div class="stat-val">6</div><div class="stat-label">Iterations</div></div>
+    <div class="stat gold"><div class="stat-val">30+</div><div class="stat-label">Agent Teams</div></div>
+  </div>
+</div>
+
+<!-- SLIDE 4: Iteration Chart -->
+<div class="slide" data-slide="3">
+  <h2 class="anim">迭代优化路径 (v9 &rarr; v14)</h2>
+  <div class="cols-60-40 anim">
+    <div class="chart-wrap">
+      <canvas id="chartIter" height="280"></canvas>
+    </div>
+    <div>
+      <h3>每轮关键改进</h3>
+      <table style="font-size:.8rem">
+        <tr><td style="color:var(--cyan);font-weight:700;white-space:nowrap">v10 +8.9</td><td style="color:var(--muted)">LLM物体enrichment<br><span style="font-size:.7rem">89场景 &times; 5097物体</span></td></tr>
+        <tr><td style="color:var(--cyan);font-weight:700;white-space:nowrap">v11 +7.2</td><td style="color:var(--muted)">Evidence-seeking tools<br><span style="font-size:.7rem">最少3帧保障</span></td></tr>
+        <tr><td style="color:var(--cyan);font-weight:700;white-space:nowrap">v12 +2.4</td><td style="color:var(--muted)">GPT-5.4 + 空间中点检索</td></tr>
+        <tr><td style="color:var(--cyan);font-weight:700;white-space:nowrap">v13 +6.4</td><td style="color:var(--muted)">强制crop + 过度自信校准<br><span style="font-size:.7rem">首次全量1050Q</span></td></tr>
+        <tr><td style="color:var(--cyan);font-weight:700;white-space:nowrap">v14 +1.8</td><td style="color:var(--muted)">场景物体清单注入prompt</td></tr>
+      </table>
+      <div style="background:var(--surface);padding:.8rem;border-radius:4px;margin-top:1rem;border-left:3px solid var(--gold)">
+        <div style="font-family:var(--font-mono);font-size:1.4rem;font-weight:700;color:var(--gold)">+26.6 MNAS</div>
+        <div style="font-size:.75rem;color:var(--muted)">总提升 +57.2%</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SLIDE 5: Leaderboard -->
+<div class="slide" data-slide="4">
+  <h2 class="anim">OpenEQA ScanNet 排行榜</h2>
+  <div class="cols-60-40 anim">
+    <div>
+      <table>
+        <thead><tr><th style="width:50px">Rank</th><th>Method</th><th style="text-align:right;width:80px">MNAS</th></tr></thead>
+        <tbody>
+          <tr style="color:var(--dim)"><td>&mdash;</td><td>Human</td><td style="text-align:right;font-family:var(--font-mono)">87.7</td></tr>
+          <tr class="highlight"><td style="color:var(--gold)">#1</td><td>Ours (v14)</td><td style="text-align:right;font-family:var(--font-mono);color:var(--gold)">73.1</td></tr>
+          <tr><td>#2</td><td>Gemini 1.5 Flash</td><td style="text-align:right;font-family:var(--font-mono)">72.5</td></tr>
+          <tr><td>#3</td><td>GLM-4.6V + Chain-of-View</td><td style="text-align:right;font-family:var(--font-mono)">67.0</td></tr>
+          <tr><td>#4</td><td>CoV (Qwen3-VL)</td><td style="text-align:right;font-family:var(--font-mono)">58.8</td></tr>
+          <tr><td>#5</td><td>GraphPad (Gemini 2.0 Flash)</td><td style="text-align:right;font-family:var(--font-mono)">55.3</td></tr>
+          <tr><td>#6</td><td>GPT-4V <span class="tag tag-cyan" style="font-size:.55rem">CVPR'24</span></td><td style="text-align:right;font-family:var(--font-mono)">51.3</td></tr>
+          <tr><td>#7</td><td>GPT-4 + ConceptGraphs</td><td style="text-align:right;font-family:var(--font-mono)">37.8</td></tr>
+          <tr><td>#8</td><td>GPT-4 (blind)</td><td style="text-align:right;font-family:var(--font-mono)">32.5</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div>
+      <div class="stats" style="flex-direction:column;gap:.8rem">
+        <div class="stat green" style="text-align:center">
+          <div class="stat-val" style="font-size:2.5rem">+21.8</div>
+          <div class="stat-label">vs GPT-4V</div>
+        </div>
+        <div class="stat cyan" style="text-align:center">
+          <div class="stat-val" style="font-size:2.5rem">+35.3</div>
+          <div class="stat-label">vs ConceptGraphs</div>
+        </div>
+        <div class="stat gold" style="text-align:center">
+          <div class="stat-val" style="font-size:1.4rem">Localization 78.0</div>
+          <div class="stat-label">超越 Human 77.3</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SLIDE 6: Per-Category -->
+<div class="slide" data-slide="5">
+  <h2 class="anim">按类别分析 <span style="font-size:.9rem;color:var(--muted);font-family:var(--font-body)">(v14, 1050Q)</span></h2>
+  <div class="cols-60-40 anim">
+    <div>
+      <div id="catBars"></div>
+    </div>
+    <div>
+      <div style="background:var(--surface);padding:1rem;border-radius:4px;border-left:3px solid var(--green);margin-bottom:1rem">
+        <h3 style="color:var(--green);font-size:.9rem">强项</h3>
+        <p style="font-size:.82rem;color:var(--muted);line-height:1.6">
+          Object State <strong style="color:var(--text)">84.7</strong> &amp;
+          Localization <strong style="color:var(--text)">78.0</strong>
+          <br>3D场景图 + evidence-seeking 的核心优势
+        </p>
+      </div>
+      <div style="background:var(--surface);padding:1rem;border-radius:4px;border-left:3px solid var(--red);margin-bottom:1rem">
+        <h3 style="color:var(--red);font-size:.9rem">最大差距</h3>
+        <p style="font-size:.82rem;color:var(--muted);line-height:1.6">
+          Spatial <strong style="color:var(--text)">60.4</strong> vs Human <strong style="color:var(--text)">86.7</strong>
+          <br>-26.3 MNAS gap
+        </p>
+      </div>
+      <div style="background:var(--surface);padding:1rem;border-radius:4px;border-left:3px solid var(--cyan)">
+        <h3 style="color:var(--cyan);font-size:.9rem">全面超越 GPT-4V</h3>
+        <p style="font-size:.82rem;color:var(--muted)">每个类别至少 <strong style="color:var(--gold)">+16.5 MNAS</strong></p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SLIDE 7: Failure Analysis -->
+<div class="slide" data-slide="6">
+  <h2 class="anim">Failure Analysis 与改进空间</h2>
+  <div class="cols anim">
+    <div>
+      <div class="chart-wrap" style="display:flex;align-items:center;justify-content:center;flex-direction:column">
+        <canvas id="chartDoughnut" width="260" height="260"></canvas>
+        <div class="legend" id="doughnutLegend"></div>
+      </div>
+    </div>
+    <div>
+      <div style="background:var(--surface);padding:1rem;border-radius:4px;border-left:3px solid var(--red);margin-bottom:1rem">
+        <h3 style="color:var(--red);font-size:.9rem">核心发现</h3>
+        <p style="font-size:.85rem;color:var(--muted);line-height:1.7">
+          <strong style="color:var(--gold);font-size:1.3rem">51%</strong> 的失败case中，<br>
+          GT答案物体已在 enrichment 数据中
+          <br><span style="color:var(--dim)">&rarr; 不是数据问题，是推理问题</span>
+        </p>
+      </div>
+      <div style="background:var(--surface);padding:1rem;border-radius:4px;border-left:3px solid var(--gold);margin-bottom:1rem">
+        <h3 style="color:var(--gold);font-size:.9rem">方法论</h3>
+        <p style="font-size:.82rem;color:var(--muted);line-height:1.6">
+          每轮分析全部低分case<br>
+          每个case查看 <strong style="color:var(--text)">10+</strong> 张原始场景图像<br>
+          <strong style="color:var(--text)">30+</strong> 个并行 agent 团队
+        </p>
+      </div>
+      <div style="background:var(--surface);padding:1rem;border-radius:4px;border-left:3px solid var(--cyan)">
+        <h3 style="color:var(--cyan);font-size:.9rem">估计天花板</h3>
+        <p style="font-size:.85rem;color:var(--muted)">
+          当前 <strong style="color:var(--cyan)">73.1</strong> &rarr;
+          可达 <strong style="color:var(--gold)">~78</strong> &rarr;
+          Human <strong style="color:var(--text)">87.7</strong>
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SLIDE 8: Workload + Next -->
+<div class="slide" data-slide="7">
+  <h2 class="anim">工作量总结 &amp; Next Steps</h2>
+  <div class="work-grid anim" style="margin-bottom:1.5rem">
+    <div class="work-item"><div class="stat-val" style="color:var(--cyan)">119</div><div class="stat-label">Files Changed</div></div>
+    <div class="work-item"><div class="stat-val" style="color:var(--gold)">+14,199</div><div class="stat-label">Lines of Code</div></div>
+    <div class="work-item"><div class="stat-val" style="color:var(--green)">32</div><div class="stat-label">Commits</div></div>
+    <div class="work-item"><div class="stat-val" style="color:var(--cyan)">6轮</div><div class="stat-label">Iterations</div></div>
+    <div class="work-item"><div class="stat-val" style="color:var(--gold)">10次</div><div class="stat-label">Evaluations</div></div>
+    <div class="work-item"><div class="stat-val" style="color:var(--green)">~300</div><div class="stat-label">Cases Analyzed</div></div>
+    <div class="work-item"><div class="stat-val" style="color:var(--cyan)">30+</div><div class="stat-label">Agent Teams</div></div>
+    <div class="work-item"><div class="stat-val" style="color:var(--gold)">5097</div><div class="stat-label">Objects Enriched</div></div>
+  </div>
+  <div class="anim">
+    <h3>Next Steps</h3>
+    <ul class="next-list">
+      <li><div><strong>Spatial Understanding 提升</strong><div class="next-desc">当前60.4 目标~68 &mdash; BEV引导的空间推理 + 多视角一致性检查</div></div></li>
+      <li><div><strong>小物体检测</strong><div class="next-desc">扩展 GSA/RAM 检测词汇, SAM v2 精细分割</div></div></li>
+      <li><div><strong>World Knowledge</strong><div class="next-desc">外部知识库对接, OCR 工具集成</div></div></li>
+      <li><div><strong>HM3D 数据集扩展</strong><div class="next-desc">当前仅 ScanNet, 计划扩展到 HM3D split</div></div></li>
+    </ul>
+  </div>
+</div>
+
+<!-- SLIDE 9: Thank You -->
+<div class="slide" data-slide="8">
+  <div class="ty-center">
+    <h1 class="anim" style="font-size:3.5rem;margin-bottom:.5rem">Thank You</h1>
+    <p class="anim" style="color:var(--muted);font-size:1.1rem;margin-bottom:2rem">Questions?</p>
+    <div class="stats anim" style="max-width:500px">
+      <div class="stat gold" style="text-align:center"><div class="stat-val">73.1</div><div class="stat-label">MNAS</div></div>
+      <div class="stat cyan" style="text-align:center"><div class="stat-val">#1</div><div class="stat-label">Rank</div></div>
+    </div>
+  </div>
+</div>
+
+</div>
+
+<!-- Navigation -->
+<div class="nav" id="nav"></div>
+<div class="slide-counter" id="counter">1 / 9</div>
+<div class="key-hint">&larr; &rarr; or click to navigate</div>
+
+<script>
+// Slide navigation
+const slides = document.querySelectorAll('.slide');
+const nav = document.getElementById('nav');
+const counter = document.getElementById('counter');
+let current = 0;
+
+slides.forEach((_, i) => {
+  const dot = document.createElement('button');
+  dot.className = 'nav-dot' + (i === 0 ? ' active' : '');
+  dot.onclick = () => goTo(i);
+  nav.appendChild(dot);
+});
+
+function goTo(n) {
+  slides[current].classList.remove('active');
+  nav.children[current].classList.remove('active');
+  current = Math.max(0, Math.min(n, slides.length - 1));
+  slides[current].classList.add('active');
+  nav.children[current].classList.add('active');
+  counter.textContent = `${current + 1} / ${slides.length}`;
+  if (current === 3) drawIterChart();
+  if (current === 5) buildCatBars();
+  if (current === 6) drawDoughnut();
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); goTo(current + 1); }
+  if (e.key === 'ArrowLeft') goTo(current - 1);
+});
+document.addEventListener('click', e => {
+  if (e.target.closest('.nav') || e.target.closest('a')) return;
+  if (e.clientX > window.innerWidth / 2) goTo(current + 1);
+  else goTo(current - 1);
+});
+
+// ===== Charts =====
+
+// Iteration bar chart
+let iterDrawn = false;
+function drawIterChart() {
+  if (iterDrawn) return; iterDrawn = true;
+  const c = document.getElementById('chartIter');
+  const ctx = c.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  c.width = c.offsetWidth * dpr; c.height = 280 * dpr;
+  ctx.scale(dpr, dpr);
+  const W = c.offsetWidth, H = 280;
+
+  const data = [
+    { label: 'v9', val: 46.5, color: '#334155' },
+    { label: 'v10', val: 55.4, color: '#0891b2' },
+    { label: 'v11', val: 62.6, color: '#0891b2' },
+    { label: 'v12', val: 65.0, color: '#0891b2' },
+    { label: 'v13', val: 71.4, color: '#00d4ff' },
+    { label: 'v14', val: 73.1, color: '#f5a623' },
+  ];
+  const pad = { t: 20, b: 40, l: 40, r: 20 };
+  const cw = W - pad.l - pad.r, ch = H - pad.t - pad.b;
+  const barW = cw / data.length * 0.6, gap = cw / data.length * 0.4;
+  const maxVal = 85;
+
+  // grid
+  ctx.strokeStyle = '#1e293b'; ctx.lineWidth = 0.5;
+  for (let v = 30; v <= 80; v += 10) {
+    const y = pad.t + ch - (v / maxVal * ch);
+    ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(W - pad.r, y); ctx.stroke();
+    ctx.fillStyle = '#475569'; ctx.font = '11px JetBrains Mono';
+    ctx.textAlign = 'right'; ctx.fillText(v, pad.l - 6, y + 4);
+  }
+
+  // bars with animation
+  data.forEach((d, i) => {
+    const x = pad.l + i * (barW + gap) + gap / 2;
+    const barH = d.val / maxVal * ch;
+    const y = pad.t + ch - barH;
+    ctx.fillStyle = d.color;
+    ctx.beginPath();
+    ctx.roundRect(x, y, barW, barH, [3, 3, 0, 0]);
+    ctx.fill();
+    // value
+    ctx.fillStyle = '#e2e8f0'; ctx.font = 'bold 12px JetBrains Mono';
+    ctx.textAlign = 'center'; ctx.fillText(d.val, x + barW / 2, y - 6);
+    // label
+    ctx.fillStyle = '#64748b'; ctx.font = '11px Source Sans 3';
+    ctx.fillText(d.label, x + barW / 2, H - pad.b + 16);
+  });
+
+  // Human reference line
+  const hy = pad.t + ch - (87.7 / maxVal * ch);
+  ctx.strokeStyle = '#f5a623'; ctx.lineWidth = 1; ctx.setLineDash([4, 4]);
+  ctx.beginPath(); ctx.moveTo(pad.l, hy); ctx.lineTo(W - pad.r, hy); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#f5a623'; ctx.font = '10px JetBrains Mono';
+  ctx.textAlign = 'left'; ctx.fillText('Human 87.7', W - pad.r - 70, hy - 4);
+}
+
+// Category bars
+let catBuilt = false;
+function buildCatBars() {
+  if (catBuilt) return; catBuilt = true;
+  const container = document.getElementById('catBars');
+  const cats = [
+    { name: 'Object State', ours: 84.7, gpt4v: 63.2, human: 98.7 },
+    { name: 'Localization', ours: 78.0, gpt4v: 42.0, human: 77.3 },
+    { name: 'Attribute', ours: 77.5, gpt4v: 57.2, human: 87.9 },
+    { name: 'Functional', ours: 76.9, gpt4v: 57.4, human: 81.8 },
+    { name: 'World Know', ours: 67.2, gpt4v: 50.7, human: 87.2 },
+    { name: 'Object Rec', ours: 66.0, gpt4v: 43.4, human: 87.9 },
+    { name: 'Spatial', ours: 60.4, gpt4v: 33.6, human: 86.7 },
+  ];
+  cats.forEach((c, i) => {
+    const row = document.createElement('div');
+    row.className = 'cat-bar-row';
+    row.innerHTML = `
+      <div class="cat-bar-label">${c.name}</div>
+      <div class="cat-bar-track" style="margin-right:45px">
+        <div class="cat-bar-ghost" style="width:${c.gpt4v}%;background:#475569"></div>
+        <div class="cat-bar-fill" style="width:0%;background:${c.ours >= c.human ? '#22c55e' : '#00d4ff'}"></div>
+        <div class="cat-bar-val" style="color:${c.ours >= c.human ? '#22c55e' : '#e2e8f0'}">${c.ours}</div>
+      </div>
+    `;
+    container.appendChild(row);
+    setTimeout(() => {
+      row.querySelector('.cat-bar-fill').style.width = c.ours + '%';
+    }, 100 + i * 80);
+  });
+  // legend
+  const leg = document.createElement('div');
+  leg.style.cssText = 'display:flex;gap:1.2rem;margin-top:.6rem;padding-left:120px;font-size:.7rem;color:var(--muted)';
+  leg.innerHTML = '<span><span style="display:inline-block;width:10px;height:10px;background:#00d4ff;border-radius:2px;margin-right:4px;vertical-align:middle"></span>Ours</span>' +
+    '<span><span style="display:inline-block;width:10px;height:10px;background:#475569;border-radius:2px;margin-right:4px;vertical-align:middle"></span>GPT-4V</span>';
+  container.appendChild(leg);
+}
+
+// Doughnut chart
+let doughnutDrawn = false;
+function drawDoughnut() {
+  if (doughnutDrawn) return; doughnutDrawn = true;
+  const c = document.getElementById('chartDoughnut');
+  const ctx = c.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  c.width = 260 * dpr; c.height = 260 * dpr;
+  ctx.scale(dpr, dpr);
+  const cx = 130, cy = 130, r = 100, inner = 55;
+
+  const data = [
+    { label: 'VLM感知', val: 35, color: '#2563eb' },
+    { label: '检索失败', val: 24, color: '#0891b2' },
+    { label: '可见性', val: 12, color: '#f5a623' },
+    { label: '空间推理', val: 8, color: '#ef4444' },
+    { label: '状态识别', val: 7, color: '#8b5cf6' },
+    { label: 'GT问题', val: 5, color: '#475569' },
+  ];
+  const total = data.reduce((s, d) => s + d.val, 0);
+  let angle = -Math.PI / 2;
+
+  data.forEach(d => {
+    const sweep = (d.val / total) * Math.PI * 2;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, angle, angle + sweep);
+    ctx.arc(cx, cy, inner, angle + sweep, angle, true);
+    ctx.closePath();
+    ctx.fillStyle = d.color;
+    ctx.fill();
+    // label
+    const mid = angle + sweep / 2;
+    const lx = cx + (r + inner) / 2 * Math.cos(mid);
+    const ly = cy + (r + inner) / 2 * Math.sin(mid);
+    if (d.val >= 8) {
+      ctx.fillStyle = '#fff'; ctx.font = 'bold 11px Source Sans 3';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(d.val + '%', lx, ly);
+    }
+    angle += sweep;
+  });
+
+  // center text
+  ctx.fillStyle = '#e2e8f0'; ctx.font = 'bold 18px JetBrains Mono';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText('222', cx, cy - 8);
+  ctx.fillStyle = '#64748b'; ctx.font = '10px Source Sans 3';
+  ctx.fillText('low-score cases', cx, cy + 10);
+
+  // legend
+  const legend = document.getElementById('doughnutLegend');
+  data.forEach(d => {
+    legend.innerHTML += `<div class="legend-item"><div class="legend-dot" style="background:${d.color}"></div>${d.label} ${d.val}%</div>`;
+  });
+}
+</script>
+</body>
+</html>
