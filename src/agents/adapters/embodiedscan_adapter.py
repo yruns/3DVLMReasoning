@@ -239,16 +239,26 @@ class EmbodiedScanVGAdapter(BenchmarkAdapter):
     ) -> dict[str, Any]:
         """Extract 3D bbox prediction from agent output.
 
-        Reads selected_object_id and bbox_3d from the agent's
-        structured payload.  Handles common VLM output issues:
-        bbox_3d may be a JSON string, incomplete list, or wrong type.
+        Prefers tool-filled data (from select_object tool stored in
+        raw_state) over VLM text output. Falls back to payload parsing.
         """
+        raw = result.raw_state or {}
         payload = result.result.payload
-        bbox_3d = _parse_bbox_3d(payload.get("bbox_3d"))
+
+        # Prefer tool-filled bbox from select_object
+        bbox_3d = raw.get("vg_selected_bbox_3d")
+        if bbox_3d is None:
+            bbox_3d = _parse_bbox_3d(payload.get("bbox_3d"))
+
+        selected_id = (
+            raw.get("vg_selected_object_id")
+            or payload.get("selected_object_id")
+        )
+
         return {
             "sample_id": sample.sample_id,
             "bbox_3d": bbox_3d,
-            "selected_object_id": payload.get("selected_object_id"),
+            "selected_object_id": selected_id,
             "confidence": result.result.confidence,
         }
 

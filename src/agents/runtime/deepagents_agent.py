@@ -193,13 +193,60 @@ class DeepAgentsStage2Runtime(BaseStage2Runtime):
             )
             return response_obj.response_text
 
-        return [
+        tools = [
             inspect_stage1_metadata,
             retrieve_object_context,
             request_more_views,
             request_crops,
             switch_or_expand_hypothesis,
         ]
+
+        # VG-specific tools — only for VISUAL_GROUNDING tasks with scene objects
+        if (
+            runtime.task_type == Stage2TaskType.VISUAL_GROUNDING
+            and runtime.vg_scene_objects is not None
+        ):
+            from ..tools.select_object import handle_select_object
+            from ..tools.spatial_compare import handle_spatial_compare
+
+            @tool
+            def select_object(object_id: int, rationale: str) -> str:
+                """Select an object from the scene inventory by its ID to finalize
+                your visual grounding answer. This looks up the precise 3D bounding
+                box from the scene graph. You MUST call this tool exactly once to
+                complete any visual grounding task."""
+                response = handle_select_object(runtime, object_id, rationale)
+                runtime.record(
+                    "select_object",
+                    {"object_id": object_id, "rationale": rationale},
+                    response,
+                )
+                return response
+
+            @tool
+            def spatial_compare(
+                target_category: str, relation: str, anchor_category: str
+            ) -> str:
+                """Compare spatial relationships between object categories.
+                Returns objects of target_category ranked by distance to
+                anchor_category. relation must be 'closest_to' or 'farthest_from'."""
+                response = handle_spatial_compare(
+                    runtime, target_category, relation, anchor_category
+                )
+                runtime.record(
+                    "spatial_compare",
+                    {
+                        "target_category": target_category,
+                        "relation": relation,
+                        "anchor_category": anchor_category,
+                    },
+                    response,
+                )
+                return response
+
+            tools.extend([select_object, spatial_compare])
+
+        return tools
 
     def build_subagents(self, task: Stage2TaskSpec) -> list[dict[str, Any]]:
         """Build optional DeepAgents subagents for richer decomposition.
@@ -457,7 +504,28 @@ class DeepAgentsStage2Runtime(BaseStage2Runtime):
         Returns:
             Tuple of (graph, runtime_state)
         """
+        import numpy as np
+
         runtime = Stage2RuntimeState(bundle=bundle.model_copy(deep=True))
+        runtime.task_type = task.task_type
+
+        # Populate VG tool state from bundle extra_metadata
+        if task.task_type == Stage2TaskType.VISUAL_GROUNDING:
+            extra = runtime.bundle.extra_metadata or {}
+            runtime.vg_scene_objects = extra.get("scene_objects")
+            mat = extra.get("axis_align_matrix")
+            if mat is not None:
+                runtime.vg_axis_align_matrix = np.array(mat, dtype=np.float64)
+            # Remove non-serializable objects from bundle copy
+            # (inspect_stage1_metadata JSON-serializes extra_metadata)
+            cleaned = {
+                k: v for k, v in extra.items()
+                if k not in ("scene_objects", "axis_align_matrix")
+            }
+            runtime.bundle = runtime.bundle.model_copy(
+                update={"extra_metadata": cleaned}
+            )
+
         tools = self.build_runtime_tools(runtime)
         graph = create_deep_agent(
             model=self.get_llm(),
@@ -607,10 +675,18 @@ class DeepAgentsStage2Runtime(BaseStage2Runtime):
         final_response = self.apply_uncertainty_stopping(
             final_response, can_acquire_more_evidence
         )
+
+        # Export VG tool results into raw_state for extract_prediction
+        result_state = {k: v for k, v in raw_state.items() if k != "messages"}
+        if runtime.vg_selected_object_id is not None:
+            result_state["vg_selected_object_id"] = runtime.vg_selected_object_id
+            result_state["vg_selected_bbox_3d"] = runtime.vg_selected_bbox_3d
+            result_state["vg_selection_rationale"] = runtime.vg_selection_rationale
+
         return Stage2AgentResult(
             task=task,
             result=final_response,
             tool_trace=runtime.tool_trace,
             final_bundle=runtime.bundle,
-            raw_state={k: v for k, v in raw_state.items() if k != "messages"},
+            raw_state=result_state,
         )

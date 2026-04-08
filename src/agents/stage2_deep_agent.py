@@ -130,93 +130,22 @@ class Stage2DeepResearchAgent:
     def build_agent(self, task: Stage2TaskSpec, bundle: Stage2EvidenceBundle):
         """Build the DeepAgents graph and runtime state.
 
-        This keeps the historical patch point where tests monkeypatch
-        ``create_deep_agent`` on ``agents.stage2_deep_agent``.
+        Delegates to the runtime implementation which handles VG tool
+        registration, axis alignment, and other task-type-specific setup.
         """
-        runtime = Stage2RuntimeState(bundle=bundle.model_copy(deep=True))
-        graph = create_deep_agent(
-            model=self._get_llm(),
-            tools=self._build_runtime_tools(runtime),
-            system_prompt=self._build_system_prompt(task, object_context=bundle.object_context),
-            subagents=self._build_subagents(task),
-            response_format=Stage2StructuredResponse,
-            name="query_scene_stage2_agent",
-        )
-        return graph, runtime
+        return self._runtime.build_agent(task, bundle)
 
     def run(
         self,
         task: Stage2TaskSpec,
         bundle: Stage2EvidenceBundle,
     ) -> Stage2AgentResult:
-        """Execute the Stage-2 DeepAgent with iterative evidence refinement."""
-        graph, runtime = self.build_agent(task, bundle)
-        message = self._build_user_message(task, runtime)
-        logger.info(
-            "[Stage2DeepResearchAgent] task={} plan_mode={} keyframes={} max_turns={}",
-            task.task_type.value,
-            task.plan_mode.value,
-            len(runtime.bundle.keyframes),
-            task.max_reasoning_turns,
-        )
+        """Execute the Stage-2 DeepAgent with iterative evidence refinement.
 
-        messages = [message]
-        raw_state: dict[str, Any] = {}
-        turns_used = 0
-
-        while turns_used < task.max_reasoning_turns:
-            turns_used += 1
-            raw_state = graph.invoke({"messages": messages})
-
-            structured = raw_state.get("structured_response")
-            if structured is not None:
-                response = Stage2StructuredResponse.model_validate(structured)
-                if response.status in (Stage2Status.COMPLETED, Stage2Status.FAILED):
-                    logger.info(
-                        "[Stage2DeepResearchAgent] completed at turn {} with status={}",
-                        turns_used,
-                        response.status.value,
-                    )
-                    break
-
-            if runtime.consume_evidence_update():
-                evidence_message = self._build_evidence_update_message(runtime)
-                if evidence_message is not None:
-                    if "messages" in raw_state:
-                        messages = raw_state["messages"]
-                    messages.append(evidence_message)
-                    logger.info(
-                        "[Stage2DeepResearchAgent] turn {}: injecting new evidence, continuing loop",
-                        turns_used,
-                    )
-                    continue
-
-            break
-
-        logger.info(
-            "[Stage2DeepResearchAgent] finished after {} turns, tool_calls={}",
-            turns_used,
-            len(runtime.tool_trace),
-        )
-
-        can_acquire_more_evidence = turns_used < task.max_reasoning_turns and (
-            self.more_views_callback is not None
-            or self.crop_callback is not None
-            or self.hypothesis_callback is not None
-        )
-
-        final_response = self._normalize_final_response(task, raw_state)
-        final_response = self._apply_uncertainty_stopping(
-            final_response,
-            can_acquire_more_evidence,
-        )
-        return Stage2AgentResult(
-            task=task,
-            result=final_response,
-            tool_trace=runtime.tool_trace,
-            final_bundle=runtime.bundle,
-            raw_state={k: v for k, v in raw_state.items() if k != "messages"},
-        )
+        Delegates to the runtime implementation which handles VG tool
+        state export and other task-type-specific logic.
+        """
+        return self._runtime.run(task, bundle)
 
 
 __all__ = [

@@ -414,10 +414,20 @@ class KeyframeSelector:
             image_idx = obj.get("image_idx", [])
             xyxy = obj.get("xyxy", [])
 
+            # Keep bbox for VG tools (select_object computes precise extent)
+            bbox_np_raw = obj.get("bbox_np")
+            bbox_np_arr = (
+                np.asarray(bbox_np_raw, dtype=np.float32)
+                if bbox_np_raw is not None
+                else None
+            )
+
             scene_obj = SceneObject(
                 obj_id=len(self.objects),
                 category=category,
                 centroid=centroid,
+                pcd_np=pcd_np,
+                bbox_np=bbox_np_arr,
                 clip_ft=clip_ft,
                 image_idx=image_idx,
                 xyxy=xyxy,

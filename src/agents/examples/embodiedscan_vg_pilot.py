@@ -186,6 +186,10 @@ def run_one_sample(
                 "extra_metadata": {
                     **bundle.extra_metadata,
                     "vg_candidates": vg_candidates,
+                    "scene_objects": selector.objects,
+                    "axis_align_matrix": (
+                        align_mat.tolist() if align_mat is not None else None
+                    ),
                 }
             }
         )

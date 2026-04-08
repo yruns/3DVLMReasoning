@@ -40,6 +40,14 @@ class Stage2RuntimeState:
         default_factory=set
     )  # Track already-injected images
 
+    # VG tool state — populated for VISUAL_GROUNDING tasks only
+    task_type: Stage2TaskType | None = None
+    vg_scene_objects: list[Any] | None = None
+    vg_axis_align_matrix: Any | None = None  # np.ndarray stored as Any
+    vg_selected_object_id: int | None = None
+    vg_selected_bbox_3d: list[float] | None = None
+    vg_selection_rationale: str = ""
+
     def record(
         self, tool_name: str, tool_input: dict[str, Any], response_text: str
     ) -> None:
@@ -89,10 +97,10 @@ def default_payload_schema(task_type: Stage2TaskType) -> dict[str, Any]:
         return {"answer": "str", "supporting_claims": ["str"]}
     if task_type == Stage2TaskType.VISUAL_GROUNDING:
         return {
-            "selected_object_id": "int|str",
-            "bbox_3d": "[cx, cy, cz, dx, dy, dz, alpha, beta, gamma]",
+            "selected_object_id": "int (auto-filled by select_object tool)",
+            "bbox_3d": "auto-filled by select_object tool — do NOT set manually",
             "target_description": "str",
-            "grounding_rationale": "str",
+            "grounding_rationale": "str (auto-filled by select_object tool)",
             "alternative_candidates": ["str"],
         }
     if task_type == Stage2TaskType.NAV_PLAN:
@@ -263,31 +271,25 @@ class BaseStage2Runtime(ABC):
         return (
             "## Visual Grounding Protocol\n\n"
             "You are localizing a target object described in natural language.\n\n"
-            "### Object Candidate List\n"
-            "The user message includes a list of detected objects with their 3D positions "
-            "and sizes. Your task is to SELECT the object that best matches the description.\n\n"
+            "### Available VG Tools\n"
+            "- select_object(object_id, rationale): Finalize your answer by selecting\n"
+            "  an object from the candidate list. This tool looks up the precise 3D\n"
+            "  bounding box from the scene graph. You MUST call this exactly once.\n"
+            "- spatial_compare(target_category, relation, anchor_category): Compare\n"
+            "  spatial relationships. Use when the description mentions 'closest to',\n"
+            "  'farthest from', 'near', 'far from'. Returns ranked list with distances.\n\n"
             "### Grounding Strategy (in order):\n"
             "1. Parse the description for target category + spatial constraints\n"
-            "2. Filter candidates by category match\n"
-            "3. If spatial anchors mentioned (e.g., 'near the table'), verify spatial relations "
-            "using 3D positions\n"
-            "4. Use request_crops to verify visual attributes (color, shape, material)\n"
-            "5. Use request_more_views if target is not visible in current keyframes\n\n"
-            "### Output Requirements:\n"
-            "- selected_object_id: ID from the candidate list\n"
-            "- bbox_3d: Construct from the selected object's position and size: "
-            "[cx, cy, cz, dx, dy, dz, 0, 0, 0]. "
-            "Copy position as cx,cy,cz and size as dx,dy,dz. "
-            "Set rotation angles to 0.\n"
-            "- grounding_rationale: Evidence for why this object matches\n\n"
+            "2. If spatial relation mentioned, call spatial_compare FIRST\n"
+            "3. Use request_crops to verify visual attributes if needed\n"
+            "4. Use request_more_views if target is not visible in keyframes\n"
+            "5. Call select_object(object_id, rationale) to finalize your answer\n\n"
             "### MANDATORY Rules:\n"
-            "- ALWAYS set bbox_3d from the candidate's position and size — never return "
-            "'unknown' or null for bbox_3d if you selected an object\n"
-            "- NEVER guess an object ID without visual verification\n"
-            "- If multiple candidates of same category, MUST use spatial/attribute "
-            "evidence to disambiguate\n"
-            "- If description mentions spatial relation, verify BOTH target and anchor "
-            "are visible\n\n"
+            "- You MUST call select_object exactly once to complete the task\n"
+            "- select_object auto-fills bbox_3d — do NOT output bbox_3d yourself\n"
+            "- If description mentions spatial relation ('near', 'far', 'closest',\n"
+            "  'farthest', 'between'), call spatial_compare before select_object\n"
+            "- NEVER guess — use spatial_compare for disambiguation\n\n"
         )
 
     @staticmethod
