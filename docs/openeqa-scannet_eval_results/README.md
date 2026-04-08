@@ -19,15 +19,22 @@ Each version has its own summary file documenting changes, results, and failure 
 
 ## Leaderboard (OpenEQA ScanNet EM-EQA)
 
-| # | Method | MNAS |
-|---|--------|:----:|
-| - | Human | 87.7 |
-| **1** | **Ours (v14)** | **73.1** |
-| 2 | Gemini 1.5 Flash | 72.5 |
-| 3 | GLM-4.6V + CoV | 67.0 |
-| 4 | CoV (Qwen3-VL) | 58.8 |
-| 5 | GraphPad | 55.3 |
-| 6 | GPT-4V | 51.3 |
+See [leaderboard.md](leaderboard.md) for the full list with paper references.
+
+| # | Method | ScanNet MNAS | Paper | Judge |
+|---|--------|:----:|-------|:-----:|
+| - | Human | 87.7 | OpenEQA (CVPR 2024) | - |
+| 1 | Gemini 1.5 Flash (50f) | 74.0 | AlanaVLM (arXiv 2024) | GPT-4 |
+| **2** | **Ours (v14)** | **73.1** | **This work** | **Gemini 2.5 Pro** |
+| 3 | Gemini 1.5 Pro (50f) | 66.9 | AlanaVLM (arXiv 2024) | GPT-4 |
+| 4 | GPT-4V (50f, full eval) | 57.4 | AlanaVLM (arXiv 2024) | GPT-4 |
+| 5 | GPT-4V (500Q subset) | 51.3 | OpenEQA (CVPR 2024) | GPT-4 |
+| 6 | R-EQA + Qwen2.5-VL | 49.1 | R-EQA (Workshop 2025) | GPT-4 |
+| 7 | GPT-4 + LLaVA-1.5 | 45.4 | OpenEQA (CVPR 2024) | GPT-4 |
+| 8 | GPT-4 + ConceptGraphs | 37.8 | OpenEQA (CVPR 2024) | GPT-4 |
+| 9 | GPT-4 (blind) | 32.5 | OpenEQA (CVPR 2024) | GPT-4 |
+
+**Note:** Our judge is Gemini 2.5 Pro; all other entries use GPT-4. Scores not directly comparable.
 
 ## Evaluation Commands
 
