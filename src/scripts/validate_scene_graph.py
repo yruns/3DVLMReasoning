@@ -68,6 +68,7 @@ def resolve_view_image_paths(
 ) -> list[Path]:
     candidates = [
         sorted(scene_path.glob("*-rgb.png")),
+        sorted(scene_path.glob("*-rgb.jpg")),
         sorted(scene_path.glob("results/frame*.jpg")),
         sorted(scene_path.glob("results/*.png")),
         sorted(scene_path.glob("color/*.jpg")),
