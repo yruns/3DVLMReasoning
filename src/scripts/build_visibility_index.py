@@ -230,145 +230,226 @@ def check_depth_visibility(
         return 0.0
 
 
+def _project_points(
+    pts_3d: np.ndarray,
+    pose: np.ndarray,
+    K: np.ndarray,
+    img_w: int,
+    img_h: int,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Project 3D world points to 2D pixel coordinates.
+
+    Args:
+        pts_3d: (N, 3) world-frame points
+        pose: 4x4 cam-to-world matrix
+        K: 3x3 intrinsic matrix
+        img_w, img_h: image dimensions
+
+    Returns:
+        u, v: (M,) pixel coords of valid points
+        z_cam: (M,) depth in camera frame
+        valid_mask: (N,) bool mask — True for points in front of camera
+                    AND inside image bounds
+    """
+    w2c = np.linalg.inv(pose)
+    pts_h = np.hstack([pts_3d, np.ones((len(pts_3d), 1))])  # (N, 4)
+    pts_cam = (w2c @ pts_h.T).T  # (N, 4)
+
+    z = pts_cam[:, 2]
+    in_front = z > 0.05
+
+    fx, fy, cx, cy = K[0, 0], K[1, 1], K[0, 2], K[1, 2]
+    u = np.full(len(pts_3d), -1.0)
+    v = np.full(len(pts_3d), -1.0)
+    u[in_front] = fx * pts_cam[in_front, 0] / z[in_front] + cx
+    v[in_front] = fy * pts_cam[in_front, 1] / z[in_front] + cy
+
+    in_bounds = in_front & (u >= 0) & (u < img_w) & (v >= 0) & (v < img_h)
+    return u, v, z, in_bounds
+
+
 def build_visibility_index(
     objects: list[dict[str, Any]],
     poses: list[np.ndarray],
     depth_paths: list[Path] | None = None,
     intrinsics: np.ndarray | None = None,
     max_distance: float = 5.0,
-    use_depth: bool = False,
+    use_depth: bool = True,
     stride: int = 1,
+    img_w: int = 1296,
+    img_h: int = 968,
+    depth_scale: float = 1000.0,
+    depth_tolerance: float = 0.15,
+    min_visible_ratio: float = 0.03,
+    min_visible_points: int = 5,
 ) -> tuple[dict[int, list[tuple[int, float]]], dict[int, list[tuple[int, float]]]]:
-    """Build bidirectional visibility index using detection ground truth.
+    """Build bidirectional visibility index via 3D point-cloud projection.
 
-    Uses the object's image_idx field (frames where object was actually detected)
-    as ground truth, combined with geometric scoring for ranking.
+    For every (object, view) pair the algorithm:
+      1. Projects the object's 3D point cloud into the camera frame.
+      2. Discards points behind the camera (z <= 0).
+      3. Discards points outside image bounds.
+      4. (Optional) Checks depth-map occlusion — a projected point is
+         considered occluded when the measured depth is significantly
+         less than the point's camera-frame depth.
+      5. Computes a visibility score = visible_ratio * coverage_score,
+         where visible_ratio = n_visible / n_total and coverage_score
+         reflects how much of the image the projected bbox occupies
+         (penalising edge-clipped projections).
 
     Args:
-        objects: List of objects with image_idx and centroids
-        poses: Camera poses
-        depth_paths: Depth image paths (optional, unused)
-        intrinsics: Camera intrinsics (optional, unused)
-        max_distance: Maximum viewing distance for scoring
-        use_depth: Unused (kept for API compatibility)
-        stride: Frame stride (unused, image_idx is already in view coordinates)
+        objects: Object list from conceptgraph pkl (each has 'pcd_np').
+        poses: Per-frame cam-to-world 4x4 matrices.
+        depth_paths: Per-frame depth image paths (same order as poses).
+        intrinsics: 3x3 or 4x4 camera intrinsic matrix.
+        max_distance: Ignore objects whose centroid is farther than this.
+        use_depth: If True *and* depth_paths is provided, do occlusion
+                   filtering with the depth map.
+        stride: Kept for API compat (unused — caller slices poses).
+        img_w, img_h: RGB image dimensions (pixels).
+        depth_scale: Divisor to convert uint16 depth to metres.
+        depth_tolerance: Depth tolerance in metres for occlusion check.
+        min_visible_ratio: Minimum fraction of points visible to count.
+        min_visible_points: Minimum absolute visible point count.
 
     Returns:
-        Tuple of:
-        - object_to_views: object_id -> [(view_id, score), ...] sorted by score desc
-        - view_to_objects: view_id -> [(object_id, score), ...] sorted by score desc
+        (object_to_views, view_to_objects) — each maps id to
+        [(other_id, score), …] sorted by score descending.
     """
-    logger.info(f"Building visibility index for {len(objects)} objects")
-    logger.info("Using detection ground truth (image_idx) for visibility")
+    if intrinsics is None:
+        raise ValueError("intrinsics is required for projection-based visibility")
+
+    K = intrinsics[:3, :3] if intrinsics.shape[0] >= 4 else intrinsics
+    img_area = img_w * img_h
+
+    do_depth = use_depth and depth_paths is not None and len(depth_paths) > 0
+    logger.info(
+        f"Building projection-based visibility index: "
+        f"{len(objects)} objects × {len(poses)} views, "
+        f"depth_occlusion={'ON' if do_depth else 'OFF'}"
+    )
+
+    # Pre-extract per-object 3D points and centroids
+    obj_points: list[np.ndarray | None] = []
+    obj_centroids: list[np.ndarray | None] = []
+    for obj in objects:
+        pts = obj.get("pcd_np")
+        if pts is not None and len(pts) > 0:
+            pts = np.asarray(pts, dtype=np.float64)
+            if pts.ndim == 1:
+                pts = pts.reshape(-1, 3)
+            obj_points.append(pts[:, :3])
+            obj_centroids.append(pts[:, :3].mean(axis=0))
+        else:
+            obj_points.append(None)
+            obj_centroids.append(None)
 
     object_to_views: dict[int, list[tuple[int, float]]] = {}
     view_to_objects: dict[int, list[tuple[int, float]]] = {}
 
-    # Image dimensions for completeness calculation (Replica default)
-    img_width, img_height = 1200, 680
-    img_area = img_width * img_height
+    # Pre-compute world-to-camera and camera positions
+    w2c_list = []
+    cam_positions = []
+    for pose in poses:
+        w2c_list.append(np.linalg.inv(pose))
+        cam_positions.append(pose[:3, 3])
 
-    for obj_idx, obj in enumerate(tqdm(objects, desc="Building visibility index")):
-        # Get frames where this object was actually detected
-        image_idxs = obj.get("image_idx", [])
-        if not image_idxs:
+    for obj_idx in tqdm(range(len(objects)), desc="Building visibility index"):
+        pts = obj_points[obj_idx]
+        centroid = obj_centroids[obj_idx]
+        if pts is None or centroid is None:
             continue
 
-        # Get bbox and pixel area lists for completeness scoring
-        xyxy_list = obj.get("xyxy", [])
-        pixel_area_list = obj.get("pixel_area", [])
+        n_total = len(pts)
+        pts_h = np.hstack([pts, np.ones((n_total, 1))])  # (N, 4)
+        scores: list[tuple[int, float]] = []
 
-        # Get object centroid for geometric scoring
-        centroid = get_object_centroid(obj)
-
-        scores = []
-
-        # Build a lookup: view_id -> list of indices in image_idxs
-        view_to_indices = {}
-        for i, vid in enumerate(image_idxs):
-            if vid not in view_to_indices:
-                view_to_indices[vid] = []
-            view_to_indices[vid].append(i)
-
-        for view_id, indices in view_to_indices.items():
-            if view_id >= len(poses):
+        for view_id in range(len(poses)):
+            # Quick distance cull
+            cam_pos = cam_positions[view_id]
+            dist = np.linalg.norm(centroid - cam_pos)
+            if dist > max_distance:
                 continue
 
-            # === 1. Completeness Score (most important, 50% weight) ===
-            # Based on bbox size and whether it's clipped by image boundary
-            best_completeness = 0.0
-            for idx in indices:
-                if idx < len(xyxy_list) and xyxy_list[idx] is not None:
-                    xyxy = xyxy_list[idx]
-                    if len(xyxy) == 4:
-                        x1, y1, x2, y2 = xyxy
-                        bbox_w = x2 - x1
-                        bbox_h = y2 - y1
-                        bbox_area = bbox_w * bbox_h
+            # Project to camera frame
+            w2c = w2c_list[view_id]
+            pts_cam = (w2c @ pts_h.T).T  # (N, 4)
+            z = pts_cam[:, 2]
 
-                        # Size score: larger bbox is better (normalized by image area)
-                        # Cap at 0.3 of image area to avoid oversized objects
-                        size_score = min(1.0, bbox_area / (img_area * 0.3))
+            in_front = z > 0.05
+            if in_front.sum() < min_visible_points:
+                continue
 
-                        # Completeness penalty: penalize if bbox touches image boundary
-                        margin = 10  # pixels
-                        is_clipped = (
-                            x1 < margin
-                            or y1 < margin
-                            or x2 > img_width - margin
-                            or y2 > img_height - margin
-                        )
-                        clip_penalty = 0.3 if is_clipped else 0.0
+            # Project to pixel coords
+            z_valid = z[in_front]
+            u = K[0, 0] * pts_cam[in_front, 0] / z_valid + K[0, 2]
+            v = K[1, 1] * pts_cam[in_front, 1] / z_valid + K[1, 2]
 
-                        completeness = max(0, size_score - clip_penalty)
-                        best_completeness = max(best_completeness, completeness)
+            in_bounds = (u >= 0) & (u < img_w) & (v >= 0) & (v < img_h)
+            n_in_bounds = int(in_bounds.sum())
+            if n_in_bounds < min_visible_points:
+                continue
 
-            # === 2. Geometric Score (30% weight) ===
-            geo_score = 0.0
-            if not np.allclose(centroid, 0):
-                pose = poses[view_id]
-                dist_score, angle_score = compute_geometric_visibility(
-                    centroid, pose, max_distance
-                )
-                geo_score = 0.6 * dist_score + 0.4 * angle_score
+            # Depth occlusion check
+            n_visible = n_in_bounds
+            if do_depth and view_id < len(depth_paths):
+                depth_map = cv2.imread(str(depth_paths[view_id]), cv2.IMREAD_UNCHANGED)
+                if depth_map is not None:
+                    depth_m = depth_map.astype(np.float32) / depth_scale
+                    dh, dw = depth_m.shape[:2]
+                    # Scale projection coords from RGB resolution to depth resolution
+                    scale_u = dw / img_w
+                    scale_v = dh / img_h
+                    u_d = np.clip((u[in_bounds] * scale_u).astype(int), 0, dw - 1)
+                    v_d = np.clip((v[in_bounds] * scale_v).astype(int), 0, dh - 1)
+                    z_proj = z_valid[in_bounds]
+                    measured = depth_m[v_d, u_d]
+                    # Point is visible if depth is valid and not occluded
+                    valid_depth = measured > 0.1
+                    not_occluded = measured >= (z_proj - depth_tolerance)
+                    visible_mask = valid_depth & not_occluded
+                    n_visible = int(visible_mask.sum())
 
-            # === 3. Detection Quality Score (20% weight) ===
-            # Based on pixel area if available, or detection count
-            quality_score = 0.0
-            for idx in indices:
-                if idx < len(pixel_area_list) and pixel_area_list[idx]:
-                    # Normalize pixel area (larger is better)
-                    pa = pixel_area_list[idx]
-                    quality_score = max(quality_score, min(1.0, pa / (img_area * 0.2)))
-            if quality_score == 0:
-                # Fallback: more detections = higher quality
-                quality_score = min(1.0, len(indices) / 3.0)
+            if n_visible < min_visible_points:
+                continue
 
-            # === Combined Score ===
-            # Completeness is most important (50%), then geometry (30%), then quality (20%)
-            combined = 0.5 * best_completeness + 0.3 * geo_score + 0.2 * quality_score
+            visible_ratio = n_visible / n_total
+            if visible_ratio < min_visible_ratio:
+                continue
 
-            scores.append((view_id, float(combined)))
+            # Coverage score: projected bbox area / image area (capped)
+            u_vis = u[in_bounds]
+            v_vis = v[in_bounds]
+            bbox_area = (u_vis.max() - u_vis.min()) * (v_vis.max() - v_vis.min())
+            coverage = min(1.0, bbox_area / (img_area * 0.3))
 
-            # Add to reverse index
-            if view_id not in view_to_objects:
-                view_to_objects[view_id] = []
-            view_to_objects[view_id].append((obj_idx, float(combined)))
+            # Edge-clip penalty
+            margin = 10
+            is_clipped = (
+                u_vis.min() < margin
+                or v_vis.min() < margin
+                or u_vis.max() > img_w - margin
+                or v_vis.max() > img_h - margin
+            )
+            clip_penalty = 0.2 if is_clipped else 0.0
 
-        # Sort by score descending
+            # Combined score
+            score = 0.5 * visible_ratio + 0.3 * max(0, coverage - clip_penalty) + 0.2 * (1.0 - dist / max_distance)
+
+            scores.append((view_id, float(score)))
+            view_to_objects.setdefault(view_id, []).append((obj_idx, float(score)))
+
         scores.sort(key=lambda x: x[1], reverse=True)
         object_to_views[obj_idx] = scores
 
-    # Sort view_to_objects by score descending
+    # Sort reverse index
     for view_id in view_to_objects:
         view_to_objects[view_id].sort(key=lambda x: x[1], reverse=True)
 
-    total_obj_mappings = sum(len(v) for v in object_to_views.values())
-    sum(len(v) for v in view_to_objects.values())
-
+    total_mappings = sum(len(v) for v in object_to_views.values())
     logger.success(
-        f"Built bidirectional index: {len(object_to_views)} objects, "
-        f"{len(view_to_objects)} views, {total_obj_mappings} mappings"
+        f"Built projection-based index: {len(object_to_views)} objects, "
+        f"{len(view_to_objects)} views, {total_mappings} mappings"
     )
 
     return object_to_views, view_to_objects
@@ -441,30 +522,44 @@ def main():
     poses = all_poses[:: args.stride]
     logger.info(f"Loaded {len(poses)} poses (stride={args.stride})")
 
-    # Depth paths
-    depth_paths = None
+    # Load intrinsics — try scene-level files first, then raw/
     intrinsics = None
+    for candidate in [
+        scene_path / "intrinsic_color.txt",
+        raw_dir / "intrinsic_color.txt",
+        scene_path / "intrinsic.txt",
+    ]:
+        if candidate.exists():
+            intrinsics = np.loadtxt(candidate).astype(np.float32)
+            logger.info(f"Loaded intrinsics from {candidate}")
+            break
+    if intrinsics is None:
+        raise FileNotFoundError(
+            f"No intrinsic file found for {scene_path}. "
+            "Expected intrinsic_color.txt in scene or raw directory."
+        )
 
+    # Detect image dimensions from first RGB
+    img_w, img_h = 1296, 968  # default
+    rgb_candidates = sorted((raw_dir if raw_dir.exists() else scene_path).glob("*-rgb.*"))
+    if rgb_candidates:
+        _img = cv2.imread(str(rgb_candidates[0]))
+        if _img is not None:
+            img_h, img_w = _img.shape[:2]
+            logger.info(f"Detected image size: {img_w}x{img_h}")
+
+    # Depth paths — collect from raw/ directory
+    depth_paths: list[Path] | None = None
     if args.use_depth:
-        depth_dir = scene_path / "results"
-        if depth_dir.exists():
+        depth_dir = raw_dir if raw_dir.exists() else scene_path
+        depth_files = sorted(depth_dir.glob("*-depth.png"))
+        if not depth_files:
             depth_files = sorted(depth_dir.glob("depth*.png"))
-            depth_paths = [
-                depth_files[i]
-                for i in range(0, len(depth_files), args.stride)
-                if i < len(depth_files)
-            ]
-            logger.info(f"Found {len(depth_paths)} depth images")
-
-            # Default intrinsics for Replica
-            intrinsics = np.array(
-                [
-                    [600.0, 0, 599.5],
-                    [0, 600.0, 339.5],
-                    [0, 0, 1],
-                ],
-                dtype=np.float32,
-            )
+        if depth_files:
+            depth_paths = depth_files[:: args.stride]
+            logger.info(f"Found {len(depth_paths)} depth images for occlusion check")
+        else:
+            logger.warning("No depth images found, disabling occlusion check")
 
     # Build bidirectional index
     start_time = time.time()
@@ -477,6 +572,8 @@ def main():
         max_distance=args.max_distance,
         use_depth=args.use_depth,
         stride=args.stride,
+        img_w=img_w,
+        img_h=img_h,
     )
 
     elapsed = time.time() - start_time

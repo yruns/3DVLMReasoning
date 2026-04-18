@@ -414,10 +414,20 @@ class KeyframeSelector:
             image_idx = obj.get("image_idx", [])
             xyxy = obj.get("xyxy", [])
 
+            # Keep bbox for VG tools (select_object computes precise extent)
+            bbox_np_raw = obj.get("bbox_np")
+            bbox_np_arr = (
+                np.asarray(bbox_np_raw, dtype=np.float32)
+                if bbox_np_raw is not None
+                else None
+            )
+
             scene_obj = SceneObject(
                 obj_id=len(self.objects),
                 category=category,
                 centroid=centroid,
+                pcd_np=pcd_np,
+                bbox_np=bbox_np_arr,
                 clip_ft=clip_ft,
                 image_idx=image_idx,
                 xyxy=xyxy,
@@ -629,13 +639,28 @@ class KeyframeSelector:
         ]
 
     def _set_image_paths(self) -> None:
-        """Set paths to RGB and depth images."""
-        results_dir = self.scene_path / "results"
+        """Set paths to RGB and depth images.
 
-        # Find all RGB images
+        Checks multiple layouts:
+        1. conceptgraph/results/frame*.jpg (OpenEQA/ConceptGraph standard)
+        2. ../raw/*-rgb.jpg (EmbodiedScan prepared scenes)
+        """
+        results_dir = self.scene_path / "results"
+        raw_dir = self.scene_path.parent / "raw"
+
+        # Find all RGB images — try standard results/ first
         all_images = sorted(results_dir.glob("frame*.jpg"))
         if not all_images:
             all_images = sorted(results_dir.glob("*.jpg"))
+
+        # Fallback: EmbodiedScan raw/ layout (*-rgb.jpg)
+        if not all_images and raw_dir.is_dir():
+            all_images = sorted(raw_dir.glob("*-rgb.jpg"))
+            if all_images:
+                logger.info(
+                    "Using raw/ layout ({} images from {})",
+                    len(all_images), raw_dir,
+                )
 
         # Apply stride
         self.image_paths = [
@@ -644,8 +669,11 @@ class KeyframeSelector:
             if i < len(all_images)
         ]
 
-        # Find depth images
+        # Find depth images — try both layouts
         all_depths = sorted(results_dir.glob("depth*.png"))
+        if not all_depths and raw_dir.is_dir():
+            all_depths = sorted(raw_dir.glob("*-depth.png"))
+
         self.depth_paths = [
             all_depths[i]
             for i in range(0, len(all_depths), self.stride)
@@ -1545,6 +1573,7 @@ class KeyframeSelector:
         k: int = 3,
         strategy: str = "joint_coverage",
         hidden_categories: Iterable[str] | None = None,
+        use_visual_context: bool = True,
     ) -> KeyframeResult:
         """
         Select keyframes from the new structured output `HypothesisOutputV1`.
@@ -1553,11 +1582,17 @@ class KeyframeSelector:
         1) Parse query into hypotheses (single or multi)
         2) Execute hypotheses by rank
         3) Select keyframes from first successful hypothesis
+
+        Args:
+            use_visual_context: If True, generate BEV image for multimodal
+                query parsing. Set False when scene mesh is unavailable.
         """
         logger.info(f"[V3] Selecting {k} keyframes for: '{query}'")
 
         # Step 1: Parse to new unified structure
-        hypothesis_output = self.parse_query_hypotheses(query, max_hypotheses=3)
+        hypothesis_output = self.parse_query_hypotheses(
+            query, max_hypotheses=3, use_visual_context=use_visual_context
+        )
         logger.info(
             f"[V3] Parsed format={hypothesis_output.format_version}, "
             f"mode={hypothesis_output.parse_mode.value}, "

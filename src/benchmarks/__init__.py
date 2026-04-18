@@ -4,9 +4,18 @@ Supported benchmarks:
 - OpenEQA: Embodied Question Answering (CVPR 2024)
 - SQA3D: Situated Question Answering in 3D Scenes (CVPR 2023)
 - ScanRefer: 3D Visual Grounding (ECCV 2020)
+- EmbodiedScan: 3D Visual Grounding with Oriented BBoxes
 - EAI: Embodied Agent Interface (NeurIPS 2024)
 """
 
+from .base import BenchmarkAdapter, BenchmarkSample
+from .embodiedscan_eval import (
+    compute_oriented_iou_3d,
+    evaluate_vg_predictions,
+    euler_to_rotation_matrix,
+    oriented_bbox_to_corners,
+)
+from .embodiedscan_loader import EmbodiedScanDataset, EmbodiedScanVGSample
 from .openeqa_loader import OpenEQADataset, OpenEQASample, download_openeqa
 from .scanrefer_loader import (
     BoundingBox3D,
@@ -30,6 +39,16 @@ from .sqa3d_loader import (
 )
 
 __all__ = [
+    # Base
+    "BenchmarkAdapter",
+    "BenchmarkSample",
+    # EmbodiedScan
+    "EmbodiedScanDataset",
+    "EmbodiedScanVGSample",
+    "compute_oriented_iou_3d",
+    "evaluate_vg_predictions",
+    "euler_to_rotation_matrix",
+    "oriented_bbox_to_corners",
     # OpenEQA
     "OpenEQADataset",
     "OpenEQASample",

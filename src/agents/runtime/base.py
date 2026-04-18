@@ -40,6 +40,14 @@ class Stage2RuntimeState:
         default_factory=set
     )  # Track already-injected images
 
+    # VG tool state — populated for VISUAL_GROUNDING tasks only
+    task_type: Stage2TaskType | None = None
+    vg_scene_objects: list[Any] | None = None
+    vg_axis_align_matrix: Any | None = None  # np.ndarray stored as Any
+    vg_selected_object_id: int | None = None
+    vg_selected_bbox_3d: list[float] | None = None
+    vg_selection_rationale: str = ""
+
     def record(
         self, tool_name: str, tool_input: dict[str, Any], response_text: str
     ) -> None:
@@ -69,7 +77,10 @@ def default_output_instruction(task_type: Stage2TaskType) -> str:
         return "Answer the question and keep the answer grounded in cited frames."
     if task_type == Stage2TaskType.VISUAL_GROUNDING:
         return (
-            "Identify the best supporting frame(s) and explain the grounding evidence."
+            "Identify and localize the described object in the 3D scene. "
+            "Select the best matching object from the scene inventory. "
+            "Return its object ID and 3D bounding box. "
+            "If multiple candidates exist, explain why you chose one over others."
         )
     if task_type == Stage2TaskType.NAV_PLAN:
         return (
@@ -86,9 +97,11 @@ def default_payload_schema(task_type: Stage2TaskType) -> dict[str, Any]:
         return {"answer": "str", "supporting_claims": ["str"]}
     if task_type == Stage2TaskType.VISUAL_GROUNDING:
         return {
-            "best_frames": ["int"],
+            "selected_object_id": "int (auto-filled by select_object tool)",
+            "bbox_3d": "auto-filled by select_object tool — do NOT set manually",
             "target_description": "str",
-            "grounding_rationale": "str",
+            "grounding_rationale": "str (auto-filled by select_object tool)",
+            "alternative_candidates": ["str"],
         }
     if task_type == Stage2TaskType.NAV_PLAN:
         return {
@@ -232,6 +245,54 @@ class BaseStage2Runtime(ABC):
         return json.dumps(selected, indent=2, ensure_ascii=False)
 
     @staticmethod
+    def _format_vg_candidates(
+        extra_metadata: dict[str, Any],
+    ) -> str:
+        """Format VG candidate objects with 3D positions for the prompt."""
+        candidates = extra_metadata.get("vg_candidates", [])
+        if not candidates:
+            return ""
+        lines = ["## Object Candidates for Grounding\n"]
+        for c in candidates:
+            line = (
+                f"- [ID={c['obj_id']}] {c['category']}: "
+                f"position=({c['cx']:.2f}, {c['cy']:.2f}, {c['cz']:.2f}), "
+                f"size=({c['dx']:.2f}, {c['dy']:.2f}, {c['dz']:.2f})"
+            )
+            desc = c.get("description", "")
+            if desc:
+                line += f"\n  Description: {desc[:100]}"
+            lines.append(line)
+        return "\n".join(lines) + "\n\n"
+
+    @staticmethod
+    def _format_vg_section(extra_schema: dict[str, Any]) -> str:
+        """Build the VG-specific system prompt section."""
+        return (
+            "## Visual Grounding Protocol\n\n"
+            "You are localizing a target object described in natural language.\n\n"
+            "### Available VG Tools\n"
+            "- select_object(object_id, rationale): Finalize your answer by selecting\n"
+            "  an object from the candidate list. This tool looks up the precise 3D\n"
+            "  bounding box from the scene graph. You MUST call this exactly once.\n"
+            "- spatial_compare(target_category, relation, anchor_category): Compare\n"
+            "  spatial relationships. Use when the description mentions 'closest to',\n"
+            "  'farthest from', 'near', 'far from'. Returns ranked list with distances.\n\n"
+            "### Grounding Strategy (in order):\n"
+            "1. Parse the description for target category + spatial constraints\n"
+            "2. If spatial relation mentioned, call spatial_compare FIRST\n"
+            "3. Use request_crops to verify visual attributes if needed\n"
+            "4. Use request_more_views if target is not visible in keyframes\n"
+            "5. Call select_object(object_id, rationale) to finalize your answer\n\n"
+            "### MANDATORY Rules:\n"
+            "- You MUST call select_object exactly once to complete the task\n"
+            "- select_object auto-fills bbox_3d — do NOT output bbox_3d yourself\n"
+            "- If description mentions spatial relation ('near', 'far', 'closest',\n"
+            "  'farthest', 'between'), call spatial_compare before select_object\n"
+            "- NEVER guess — use spatial_compare for disambiguation\n\n"
+        )
+
+    @staticmethod
     def _format_scene_inventory(object_context: dict[str, str] | None) -> str:
         """Format object context as a scene inventory for the system prompt."""
         if not object_context:
@@ -286,6 +347,11 @@ class BaseStage2Runtime(ABC):
             "- Your confidence score should reflect actual evidence quality, not task difficulty.\n\n"
         )
 
+        vg_section = ""
+        if task.task_type == Stage2TaskType.VISUAL_GROUNDING:
+            extra = task.expected_output_schema or {}
+            vg_section = self._format_vg_section(extra)
+
         return (
             "You are the Stage-2 research agent for query-scene.\n\n"
             "Research role:\n"
@@ -325,6 +391,7 @@ class BaseStage2Runtime(ABC):
             "Do NOT default to the largest/most obvious object in frame. Consider ALL objects "
             "including small items on surfaces, items on the floor, and partially occluded objects.\n\n"
             f"{uncertainty_instructions}"
+            f"{vg_section}"
             f"{self._format_scene_inventory(object_context)}"
             "Framework constraints:\n"
             "- This runtime is built with LangChain v1 and DeepAgents.\n"
