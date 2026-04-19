@@ -128,6 +128,10 @@ class DeepAgentsStage2Runtime(BaseStage2Runtime):
               'targeted' — find views covering specified object_terms (default)
               'explore' — find views maximally different from existing keyframes
               'temporal_fan' — get temporal neighbors around pinned frame_indices
+
+            frame_indices:
+              Preferred pins for retrieval, capped at max_additional_views.
+              Excess pins are dropped rather than treated as an error.
             """
             request = {
                 "request_text": request_text,

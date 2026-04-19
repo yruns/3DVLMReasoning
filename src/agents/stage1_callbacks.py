@@ -129,11 +129,32 @@ def _targeted_views(
     frame_indices: list[int],
 ) -> list[int]:
     """Find views covering specified objects (hypothesis + object_terms)."""
-    pinned = [
-        view_id
-        for view_id in (int(v) for v in frame_indices)
-        if 0 <= view_id < len(selector.camera_poses) and view_id not in existing_view_ids
-    ]
+    num_poses = len(selector.camera_poses)
+    pinned: list[int] = []
+    dropped: list[object] = []
+    for raw_view_id in frame_indices:
+        try:
+            view_id = int(raw_view_id)
+        except (TypeError, ValueError):
+            dropped.append(raw_view_id)
+            continue
+
+        if not (0 <= view_id < num_poses) or view_id in existing_view_ids:
+            dropped.append(raw_view_id)
+            continue
+        pinned.append(view_id)
+
+    if dropped:
+        logger.warning(
+            "[_targeted_views] dropped invalid/existing frame_indices: {}",
+            dropped,
+        )
+    if len(pinned) > max_views:
+        logger.warning(
+            "[_targeted_views] truncating pinned frame_indices from {} to {}",
+            len(pinned),
+            max_views,
+        )
 
     candidate_object_ids: list[int] = []
 

@@ -142,6 +142,9 @@ class Stage2DeepResearchAgent:
         this module so older tests can patch ``create_deep_agent`` and wrapper
         methods such as ``_get_llm()`` / ``_build_runtime_tools()`` directly.
         """
+        # WARNING: this wrapper intentionally mirrors the runtime implementation
+        # in runtime/deepagents_agent.py so legacy tests can patch this class
+        # directly. Changes here must stay in sync with the runtime copy.
         import numpy as np
 
         runtime = Stage2RuntimeState(bundle=bundle.model_copy(deep=True))
@@ -188,6 +191,9 @@ class Stage2DeepResearchAgent:
         This intentionally calls ``self.build_agent(...)`` so older tests can
         patch the wrapper method and avoid live backend calls.
         """
+        # WARNING: this wrapper intentionally mirrors the runtime loop in
+        # runtime/deepagents_agent.py so legacy patch-on-class tests keep
+        # working. Changes here must stay in sync with the runtime copy.
         graph, runtime = self.build_agent(task, bundle)
         message = self._build_user_message(task, runtime)
         logger.info(

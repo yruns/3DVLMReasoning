@@ -484,6 +484,22 @@ class TestStage2DeepAgent(unittest.TestCase):
 
         self.assertEqual(selected, [2])
 
+        selector.find_objects = lambda term, top_k=5: [
+            type("Object", (), {"obj_id": 7})()
+        ]
+        selector.get_joint_coverage_views = lambda object_ids, max_views: [3, 5]
+
+        merged = _targeted_views(
+            selector=selector,
+            bundle=Stage2EvidenceBundle(scene_id="room0"),
+            object_terms=["chair"],
+            existing_view_ids={1},
+            max_views=3,
+            frame_indices=[2],
+        )
+
+        self.assertEqual(merged, [2, 3, 5])
+
     def test_temporal_fan_returns_neighbors_below_overlap_threshold(self) -> None:
         selector = type("Selector", (), {})()
         selector.camera_poses = []

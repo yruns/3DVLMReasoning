@@ -23,6 +23,8 @@ def load_scene_intrinsic(scene_raw_dir: Path) -> tuple[np.ndarray, tuple[int, in
     if np.allclose(k, 0.0) or np.any(np.isclose(np.diag(k), 0.0)):
         raise ValueError("intrinsic matrix is degenerate")
 
+    # TODO: read (W, H) from scene_info.json when supporting non-ScanNet corpora.
+    # ScanNet is invariant at 1296x968 so hardcoding is safe for v15 OpenEQA eval.
     return k, (1296, 968)
 
 
@@ -33,16 +35,20 @@ def frustum_overlap_l1(
     img_wh: tuple[int, int],
     scene_depth: float = 2.0,
 ) -> float:
-    """Approximate overlap using only pose geometry."""
+    """Approximate overlap using only pose geometry.
+
+    Note: L1 underestimates parallax for translations parallel to the view
+    direction (pure forward/backward dolly). L2 handles this correctly via
+    depth reprojection. Use L2 when dolly motion is significant.
+    """
     pose_a = _validate_pose(pose_a, "pose_a")
     pose_b = _validate_pose(pose_b, "pose_b")
-    fx, fy = _validate_intrinsic(k)
-    width, height = _validate_img_wh(img_wh)
+    fx, _fy = _validate_intrinsic(k)
+    width, _height = _validate_img_wh(img_wh)
     if scene_depth <= 0:
         raise ValueError("scene_depth must be positive")
 
     fov_h = 2.0 * np.arctan(width / (2.0 * fx))
-    _ = 2.0 * np.arctan(height / (2.0 * fy))
 
     forward_a = _normalize(-pose_a[:3, 2], "pose_a forward")
     forward_b = _normalize(-pose_b[:3, 2], "pose_b forward")
@@ -83,10 +89,16 @@ def frustum_overlap_l2(
     k: np.ndarray,
     img_wh: tuple[int, int],
     subsample: int = 8,
+    depth_min: float = 0.1,
+    depth_max: float = 10.0,
 ) -> float:
     """Estimate overlap by reprojecting valid anchor pixels into camera B."""
     if subsample <= 0:
         raise ValueError("subsample must be positive")
+    if depth_min <= 0:
+        raise ValueError("depth_min must be positive")
+    if depth_max <= depth_min:
+        raise ValueError("depth_max must be greater than depth_min")
 
     pose_a = _validate_pose(pose_a, "pose_a")
     pose_b = _validate_pose(pose_b, "pose_b")
@@ -103,8 +115,7 @@ def frustum_overlap_l2(
     if depth_h == 0 or depth_w == 0:
         raise ValueError("depth_a is empty")
 
-    valid_mask = (depth > 0.1) & (depth < 10.0)
-    if not np.any(valid_mask):
+    if not np.any((depth > depth_min) & (depth < depth_max)):
         raise ValueError("depth_a has no valid depth samples")
 
     effective_k = _rescale_intrinsic(k, (width, height), (depth_w, depth_h))
@@ -120,7 +131,7 @@ def frustum_overlap_l2(
     sample_u = grid_u.astype(np.int64)
     sample_v = grid_v.astype(np.int64)
     sampled_depth = depth[sample_v, sample_u]
-    sampled_valid = (sampled_depth > 0.1) & (sampled_depth < 10.0)
+    sampled_valid = (sampled_depth > depth_min) & (sampled_depth < depth_max)
     if not np.any(sampled_valid):
         raise ValueError("depth_a has no valid depth samples after subsampling")
 
@@ -139,7 +150,7 @@ def frustum_overlap_l2(
     z_b = points_cam_b[:, 2]
     x_b = points_cam_b[:, 0]
     y_b = points_cam_b[:, 1]
-    valid_b = z_b > 0.1
+    valid_b = z_b > depth_min
     if not np.any(valid_b):
         return 0.0
 

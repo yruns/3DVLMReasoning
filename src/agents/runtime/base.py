@@ -380,7 +380,7 @@ class BaseStage2Runtime(ABC):
             "Do NOT guess from contextual clues when the target is simply not in frame.\n\n"
             "Tool strategy (use in this order):\n"
             "1. request_more_views(mode='targeted', object_terms=[...]) — get views showing specific objects\n"
-            "2. request_more_views(mode='explore') — get views of unseen scene regions; optional frame_indices=[...] pins specific frames you already want, and the selector treats them as the first preferred candidates.\n"
+            "2. request_more_views(mode='explore') — get views of unseen scene regions; optional frame_indices=[...] pins specific frames you already want, capped at the per-call max, and the selector treats them as the first preferred candidates.\n"
             f"{temporal_fan_line}"
             f"{crops_index}. request_crops(object_terms=[...]) — zoom into small/ambiguous objects with annotated bboxes\n"
             f"{hypothesis_index}. switch_or_expand_hypothesis(new_query='...') — re-run retrieval with a different query (costly, use as last resort)\n"
