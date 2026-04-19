@@ -1897,6 +1897,7 @@ class KeyframeSelector:
         hidden_categories: Iterable[str] | None = None,
         use_visual_context: bool = True,
         pose_aware: bool = False,
+        frustum_method: str = "l1",
     ) -> KeyframeResult:
         """
         Select keyframes from the new structured output `HypothesisOutputV1`.
@@ -1999,12 +2000,14 @@ class KeyframeSelector:
                 all_object_ids,
                 max_views=k,
                 pose_aware=pose_aware,
+                frustum_method=frustum_method,
             )
         else:
             keyframe_indices = self.get_joint_coverage_views(
                 [obj.obj_id for obj in target_objects[:5]],
                 max_views=k,
                 pose_aware=pose_aware,
+                frustum_method=frustum_method,
             )
 
         # Ensure minimum keyframe count (pad with high-visibility views)
@@ -2013,6 +2016,7 @@ class KeyframeSelector:
             all_object_ids,
             min_count=min(k, 3),
             pose_aware=pose_aware,
+            frustum_method=frustum_method,
         )
 
         keyframe_paths = []

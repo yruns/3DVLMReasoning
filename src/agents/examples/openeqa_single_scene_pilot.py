@@ -323,6 +323,7 @@ def run_stage2(
     selector: KeyframeSelector | None,
     scene_id: str,
     max_additional_views: int,
+    enable_temporal_fan: bool = False,
 ) -> Any:
     callbacks = None
     if enable_callbacks:
@@ -339,6 +340,7 @@ def run_stage2(
             include_thoughts=False,
             max_images=6,
             max_tokens=4000,
+            enable_temporal_fan=enable_temporal_fan,
         ),
         more_views_callback=callbacks.more_views if callbacks else None,
         crop_callback=callbacks.crops if callbacks else None,

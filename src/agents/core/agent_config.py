@@ -67,6 +67,10 @@ class Stage2DeepAgentConfig(BaseModel):
         description="When True, agent will stop with 'insufficient_evidence' if confidence "
         "is below threshold and no more evidence can be acquired.",
     )
+    enable_temporal_fan: bool = Field(
+        default=False,
+        description="When True, advertise mode='temporal_fan' in the Stage 2 prompt.",
+    )
 
 
 __all__ = [

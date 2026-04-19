@@ -238,6 +238,28 @@ def parse_args() -> argparse.Namespace:
             "non-deterministic downgrades. Set to 0 to disable."
         ),
     )
+    parser.add_argument(
+        "--pose-aware",
+        action="store_true",
+        help="Enable v15 trajectory-aware joint coverage in Stage 1.",
+    )
+    parser.add_argument(
+        "--frustum-method",
+        choices=["l1", "l2"],
+        default="l1",
+        help="Frustum overlap method for pose-aware Stage 1 scoring.",
+    )
+    parser.add_argument(
+        "--enable-temporal-fan",
+        action="store_true",
+        help="Advertise mode='temporal_fan' in the Stage 2 prompt.",
+    )
+    parser.add_argument(
+        "--force-selection",
+        type=Path,
+        default=None,
+        help="Pin the exact official_selected_questions.json subset for apples-to-apples evals.",
+    )
     return parser.parse_args()
 
 
@@ -261,6 +283,48 @@ def load_official_scannet_samples(
         sample["category"] = item.get("category", "unknown")
         samples.append(sample)
     return samples
+
+
+def apply_force_selection(
+    samples: list[dict[str, Any]],
+    *,
+    force_selection_path: Path,
+    live_question_ids: set[str],
+) -> list[dict[str, Any]]:
+    forced_payload = json.loads(force_selection_path.read_text())
+    forced_question_ids = [
+        str(item["question_id"])
+        for item in forced_payload
+        if isinstance(item, dict) and item.get("question_id") is not None
+    ]
+    if len(forced_question_ids) != len(forced_payload):
+        raise ValueError(
+            f"force_selection must be a list of question dicts with question_id: {force_selection_path}"
+        )
+
+    missing_live = sorted(set(forced_question_ids) - set(live_question_ids))
+    if missing_live:
+        raise ValueError(
+            "force_selection question_ids not present in live JSON: "
+            + ", ".join(missing_live)
+        )
+
+    filtered = [
+        sample for sample in samples if sample["question_id"] in set(forced_question_ids)
+    ]
+    if len(filtered) != len(forced_question_ids):
+        filtered_ids = {sample["question_id"] for sample in filtered}
+        missing_filtered = [
+            question_id
+            for question_id in forced_question_ids
+            if question_id not in filtered_ids
+        ]
+        raise ValueError(
+            "force_selection question_ids missing after current filters: "
+            + ", ".join(missing_filtered)
+        )
+
+    return filtered
 
 
 def matches_filters(sample: dict[str, Any], args: argparse.Namespace) -> bool:
@@ -403,7 +467,12 @@ def run_stage1_ranked(
     best: tuple[int, str, KeyframeResult, dict[str, Any]] | None = None
 
     for query in queries:
-        result = selector.select_keyframes_v2(query, k=args.k)
+        result = selector.select_keyframes_v2(
+            query,
+            k=args.k,
+            pose_aware=args.pose_aware,
+            frustum_method=args.frustum_method,
+        )
         summary = serialize_stage1_result(
             scene_root, runtime_scene, stride, selector, result
         )
@@ -504,6 +573,7 @@ def run_one_sample(sample: dict[str, Any], args: argparse.Namespace) -> dict[str
         selector=selector,
         scene_id=clip_id,
         max_additional_views=args.max_additional_views,
+        enable_temporal_fan=args.enable_temporal_fan,
     )
     stage2_summary = serialize_stage2_result(
         "stage2",
@@ -537,6 +607,7 @@ def run_one_sample(sample: dict[str, Any], args: argparse.Namespace) -> dict[str
             selector=selector,
             scene_id=clip_id,
             max_additional_views=args.max_additional_views,
+            enable_temporal_fan=args.enable_temporal_fan,
         )
         e2e_summary = serialize_stage2_result(
             "e2e",
@@ -608,10 +679,18 @@ def main() -> None:
     )
 
     candidate_pool = build_candidate_pool(samples, args)
+    if args.force_selection is not None:
+        candidate_pool = apply_force_selection(
+            candidate_pool,
+            force_selection_path=args.force_selection,
+            live_question_ids={sample["question_id"] for sample in samples},
+        )
     if not candidate_pool:
         raise RuntimeError("No official OpenEQA samples matched the requested filters.")
 
-    if args.question_id:
+    if args.force_selection is not None:
+        target_results = len(candidate_pool)
+    elif args.question_id:
         target_results = 1
     elif args.num_scenes is not None and args.questions_per_scene is not None:
         target_results = len(candidate_pool)  # already bounded by build_candidate_pool

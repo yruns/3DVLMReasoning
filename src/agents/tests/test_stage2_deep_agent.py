@@ -860,6 +860,22 @@ class TestUncertaintyAwareStopping(unittest.TestCase):
         self.assertIn("insufficient_evidence", prompt)
         self.assertIn("Uncertainty-aware stopping", prompt)
 
+    def test_system_prompt_gates_temporal_fan_on_config(self) -> None:
+        task = Stage2TaskSpec(
+            task_type=Stage2TaskType.QA,
+            user_query="Test query",
+        )
+
+        prompt_default = Stage2DeepResearchAgent(
+            config=Stage2DeepAgentConfig(enable_temporal_fan=False)
+        )._build_system_prompt(task)
+        prompt_enabled = Stage2DeepResearchAgent(
+            config=Stage2DeepAgentConfig(enable_temporal_fan=True)
+        )._build_system_prompt(task)
+
+        self.assertNotIn("mode='temporal_fan'", prompt_default)
+        self.assertIn("mode='temporal_fan'", prompt_enabled)
+
     def test_can_acquire_more_evidence_with_callbacks(self) -> None:
         """Verify evidence acquisition is possible when callbacks are configured."""
         agent = Stage2DeepResearchAgent(
