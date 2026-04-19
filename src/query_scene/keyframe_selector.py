@@ -280,6 +280,13 @@ class KeyframeSelector:
         self.object_to_views: dict[int, list[tuple[int, float]]] = {}
         # view_to_objects: view_id -> [(obj_id, score), ...] sorted by score desc
         self.view_to_objects: dict[int, list[tuple[int, float]]] = {}
+        self.pose_velocities = np.array([], dtype=np.float64)
+        self.pose_turn_rates = np.array([], dtype=np.float64)
+        self.dwell_score = np.array([], dtype=np.float64)
+        self.turn_score = np.array([], dtype=np.float64)
+        self._K: np.ndarray | None = None
+        self._img_wh: tuple[int, int] | None = None
+        self._depth_cache: dict[int, np.ndarray] = {}
 
         # CLIP model (lazy loaded)
         self._clip_model = None
@@ -359,6 +366,7 @@ class KeyframeSelector:
 
         # Load camera poses
         self._load_camera_poses()
+        self._compute_trajectory_stats()
 
         # Set image paths
         self._set_image_paths()
@@ -637,6 +645,100 @@ class KeyframeSelector:
             for i in range(0, len(all_poses), self.stride)
             if i < len(all_poses)
         ]
+
+    def _compute_trajectory_stats(self) -> None:
+        """Compute per-view translational and rotational trajectory saliency."""
+        num_poses = len(self.camera_poses)
+        if num_poses < 2:
+            raise ValueError(f"Cannot compute trajectory stats with {num_poses} poses")
+
+        translations = np.asarray(
+            [pose[:3, 3] for pose in self.camera_poses],
+            dtype=np.float64,
+        )
+        translation_steps = np.linalg.norm(np.diff(translations, axis=0), axis=1)
+        velocities = np.empty(num_poses, dtype=np.float64)
+        velocities[:-1] = translation_steps
+        velocities[-1] = translation_steps[-1]
+
+        forward_vectors = np.asarray(
+            [self._normalize_vector(-pose[:3, 2]) for pose in self.camera_poses],
+            dtype=np.float64,
+        )
+        cos_turn = np.sum(
+            forward_vectors[:-1] * forward_vectors[1:],
+            axis=1,
+        )
+        turn_steps = np.arccos(np.clip(cos_turn, -1.0, 1.0))
+        turn_rates = np.empty(num_poses, dtype=np.float64)
+        turn_rates[:-1] = turn_steps
+        turn_rates[-1] = turn_steps[-1]
+
+        smoothed_velocity = self._median_smooth_1d(velocities, radius=2)
+        smoothed_turn = self._median_smooth_1d(turn_rates, radius=2)
+
+        self.pose_velocities = velocities
+        self.pose_turn_rates = turn_rates
+        self.dwell_score = 1.0 / (1.0 + 5.0 * smoothed_velocity)
+        turn_p95 = float(np.percentile(smoothed_turn, 95))
+        if turn_p95 <= 1e-8:
+            self.turn_score = np.zeros_like(smoothed_turn)
+        else:
+            self.turn_score = np.clip(smoothed_turn / turn_p95, 0.0, 1.0)
+
+    @staticmethod
+    def _median_smooth_1d(values: np.ndarray, radius: int = 2) -> np.ndarray:
+        values = np.asarray(values, dtype=np.float64)
+        smoothed = np.empty_like(values)
+        for index in range(values.shape[0]):
+            start = max(0, index - radius)
+            end = min(values.shape[0], index + radius + 1)
+            smoothed[index] = float(np.median(values[start:end]))
+        return smoothed
+
+    @staticmethod
+    def _normalize_vector(vector: np.ndarray) -> np.ndarray:
+        norm = float(np.linalg.norm(vector))
+        if not np.isfinite(norm) or norm <= 1e-8:
+            raise ValueError("camera forward vector is degenerate")
+        return np.asarray(vector, dtype=np.float64) / norm
+
+    def _resolve_raw_dir(self) -> Path:
+        """Return the raw scene directory with intrinsic and per-frame images."""
+        raw_dir = self.scene_path.parent / "raw"
+        if not raw_dir.exists():
+            raise FileNotFoundError(f"raw dir not found next to scene: {raw_dir}")
+        return raw_dir
+
+    def _get_intrinsic(self) -> tuple[np.ndarray, tuple[int, int]]:
+        if self._K is None or self._img_wh is None:
+            from .frustum import load_scene_intrinsic
+
+            self._K, self._img_wh = load_scene_intrinsic(self._resolve_raw_dir())
+        return self._K, self._img_wh
+
+    def _load_depth_for_view(self, view_id: int) -> np.ndarray:
+        """Load one raw depth map in meters and cache it in-memory."""
+        if view_id in self._depth_cache:
+            return self._depth_cache[view_id]
+        if view_id < 0 or view_id >= len(self.camera_poses):
+            raise ValueError(f"view_id {view_id} out of range")
+
+        from PIL import Image
+
+        frame_id = self.map_view_to_frame(view_id)
+        depth_path = self._resolve_raw_dir() / f"{frame_id:06d}-depth.png"
+        if not depth_path.exists():
+            raise FileNotFoundError(depth_path)
+
+        depth = np.asarray(Image.open(depth_path), dtype=np.float32) / 1000.0
+        if depth.ndim != 2:
+            raise ValueError(f"depth image must be HxW, got {depth.shape}")
+        if not np.isfinite(depth).all():
+            raise ValueError(f"depth image contains non-finite values: {depth_path}")
+
+        self._depth_cache[view_id] = depth
+        return depth
 
     def _set_image_paths(self) -> None:
         """Set paths to RGB and depth images.
@@ -1051,6 +1153,12 @@ class KeyframeSelector:
         self,
         object_ids: list[int],
         max_views: int = 3,
+        *,
+        pose_aware: bool = False,
+        frustum_overlap_threshold: float = 0.7,
+        redundancy_penalty: float = 0.2,
+        dwell_weight: float = 0.15,
+        frustum_method: str = "l1",
     ) -> list[int]:
         """Greedy selection of views that maximize joint coverage of objects.
 
@@ -1061,8 +1169,13 @@ class KeyframeSelector:
         Returns:
             List of selected view indices
         """
+        if not pose_aware:
+            return self._get_joint_coverage_views_v14(object_ids, max_views=max_views)
+
         if not object_ids:
             return []
+
+        self._validate_frustum_method(frustum_method)
 
         # Collect all candidate views
         candidate_views: set[int] = set()
@@ -1090,11 +1203,21 @@ class KeyframeSelector:
 
             for view_id in candidate_views - set(selected):
                 # Compute marginal gain
-                gain = 0.0
+                base_gain = 0.0
                 for obj_id in object_ids:
                     obj_score = view_scores.get(view_id, {}).get(obj_id, 0)
                     if obj_score > covered_quality[obj_id]:
-                        gain += obj_score - covered_quality[obj_id]
+                        base_gain += obj_score - covered_quality[obj_id]
+
+                gain = self._apply_pose_aware_gain(
+                    base_gain=base_gain,
+                    view_id=view_id,
+                    selected=selected,
+                    frustum_overlap_threshold=frustum_overlap_threshold,
+                    redundancy_penalty=redundancy_penalty,
+                    dwell_weight=dwell_weight,
+                    frustum_method=frustum_method,
+                )
 
                 if gain > best_gain:
                     best_gain, best_view = gain, view_id
@@ -1111,21 +1234,152 @@ class KeyframeSelector:
 
         return selected
 
+    def _get_joint_coverage_views_v14(
+        self,
+        object_ids: list[int],
+        max_views: int = 3,
+    ) -> list[int]:
+        """Preserve the original visibility-only greedy selector exactly."""
+        if not object_ids:
+            return []
+
+        candidate_views: set[int] = set()
+        for obj_id in object_ids:
+            for view_id, _ in self.object_to_views.get(obj_id, []):
+                candidate_views.add(view_id)
+
+        if not candidate_views:
+            return []
+
+        view_scores: dict[int, dict[int, float]] = {}
+        for obj_id in object_ids:
+            for view_id, score in self.object_to_views.get(obj_id, []):
+                if view_id not in view_scores:
+                    view_scores[view_id] = {}
+                view_scores[view_id][obj_id] = score
+
+        selected: list[int] = []
+        covered_quality = dict.fromkeys(object_ids, 0.0)
+
+        for _ in range(max_views):
+            best_view, best_gain = None, 0.0
+
+            for view_id in candidate_views - set(selected):
+                gain = 0.0
+                for obj_id in object_ids:
+                    obj_score = view_scores.get(view_id, {}).get(obj_id, 0)
+                    if obj_score > covered_quality[obj_id]:
+                        gain += obj_score - covered_quality[obj_id]
+
+                if gain > best_gain:
+                    best_gain, best_view = gain, view_id
+
+            if best_view is None:
+                break
+
+            selected.append(best_view)
+
+            for obj_id in object_ids:
+                obj_score = view_scores.get(best_view, {}).get(obj_id, 0)
+                covered_quality[obj_id] = max(covered_quality[obj_id], obj_score)
+
+        return selected
+
+    @staticmethod
+    def _validate_frustum_method(frustum_method: str) -> None:
+        if frustum_method not in {"l1", "l2"}:
+            raise ValueError(
+                f"frustum_method must be 'l1' or 'l2', got {frustum_method!r}"
+            )
+
+    def _apply_pose_aware_gain(
+        self,
+        *,
+        base_gain: float,
+        view_id: int,
+        selected: list[int],
+        frustum_overlap_threshold: float,
+        redundancy_penalty: float,
+        dwell_weight: float,
+        frustum_method: str,
+    ) -> float:
+        if base_gain <= 0.0:
+            return 0.0
+
+        gain = float(base_gain)
+        if selected:
+            overlaps = [
+                self._compute_view_frustum_overlap(
+                    anchor_view_id=view_id,
+                    neighbor_view_id=selected_view,
+                    frustum_method=frustum_method,
+                )
+                for selected_view in selected
+            ]
+            if any(overlap > frustum_overlap_threshold for overlap in overlaps):
+                gain *= redundancy_penalty
+
+        dwell = 0.0
+        if 0 <= view_id < len(self.dwell_score):
+            dwell = float(self.dwell_score[view_id])
+        gain *= 1.0 + dwell_weight * dwell
+        return gain
+
+    def _compute_view_frustum_overlap(
+        self,
+        *,
+        anchor_view_id: int,
+        neighbor_view_id: int,
+        frustum_method: str,
+    ) -> float:
+        self._validate_frustum_method(frustum_method)
+        if anchor_view_id < 0 or anchor_view_id >= len(self.camera_poses):
+            raise ValueError(f"anchor_view_id {anchor_view_id} out of range")
+        if neighbor_view_id < 0 or neighbor_view_id >= len(self.camera_poses):
+            raise ValueError(f"neighbor_view_id {neighbor_view_id} out of range")
+
+        k, img_wh = self._get_intrinsic()
+        pose_anchor = self.camera_poses[anchor_view_id]
+        pose_neighbor = self.camera_poses[neighbor_view_id]
+
+        if frustum_method == "l1":
+            from .frustum import frustum_overlap_l1
+
+            return frustum_overlap_l1(pose_anchor, pose_neighbor, k, img_wh)
+
+        from .frustum import frustum_overlap_l2
+
+        depth = self._load_depth_for_view(anchor_view_id)
+        return frustum_overlap_l2(depth, pose_anchor, pose_neighbor, k, img_wh)
+
     def _pad_keyframes_to_minimum(
         self,
         selected: list[int],
         object_ids: list[int],
         min_count: int = 3,
+        *,
+        pose_aware: bool = False,
+        frustum_overlap_threshold: float = 0.7,
+        redundancy_penalty: float = 0.2,
+        dwell_weight: float = 0.15,
+        frustum_method: str = "l1",
     ) -> list[int]:
         """Pad keyframes using highest-visibility views if below min_count.
 
         Uses deterministic visibility-based selection from view_to_objects.
         """
+        if not pose_aware:
+            return self._pad_keyframes_to_minimum_v14(
+                selected,
+                object_ids,
+                min_count=min_count,
+            )
+
         if len(selected) >= min_count:
             return selected
 
+        self._validate_frustum_method(frustum_method)
         selected = list(selected)
-        selected_set = set(selected)
 
         # Collect candidate views from target objects
         candidate_views: set[int] = set()
@@ -1137,9 +1391,55 @@ class KeyframeSelector:
         if not candidate_views:
             candidate_views = set(self.view_to_objects.keys())
 
+        while len(selected) < min_count:
+            best_view = None
+            best_score = 0.0
+            for view_id in candidate_views - set(selected):
+                base_total = sum(
+                    score for _, score in self.view_to_objects.get(view_id, [])
+                )
+                score = self._apply_pose_aware_gain(
+                    base_gain=base_total,
+                    view_id=view_id,
+                    selected=selected,
+                    frustum_overlap_threshold=frustum_overlap_threshold,
+                    redundancy_penalty=redundancy_penalty,
+                    dwell_weight=dwell_weight,
+                    frustum_method=frustum_method,
+                )
+                if score > best_score:
+                    best_score = score
+                    best_view = view_id
+
+            if best_view is None:
+                break
+            selected.append(best_view)
+
+        return selected
+
+    def _pad_keyframes_to_minimum_v14(
+        self,
+        selected: list[int],
+        object_ids: list[int],
+        min_count: int = 3,
+    ) -> list[int]:
+        """Preserve the original visibility-only padding behavior exactly."""
+        if len(selected) >= min_count:
+            return selected
+
+        selected = list(selected)
+        selected_set = set(selected)
+
+        candidate_views: set[int] = set()
+        for obj_id in object_ids:
+            for view_id, _ in self.object_to_views.get(obj_id, []):
+                candidate_views.add(view_id)
+
+        if not candidate_views:
+            candidate_views = set(self.view_to_objects.keys())
+
         unused = candidate_views - selected_set
 
-        # Rank by aggregate visibility score
         view_total_scores: list[tuple[int, float]] = []
         for view_id in unused:
             total = sum(score for _, score in self.view_to_objects.get(view_id, []))
@@ -1574,6 +1874,7 @@ class KeyframeSelector:
         strategy: str = "joint_coverage",
         hidden_categories: Iterable[str] | None = None,
         use_visual_context: bool = True,
+        pose_aware: bool = False,
     ) -> KeyframeResult:
         """
         Select keyframes from the new structured output `HypothesisOutputV1`.
@@ -1673,16 +1974,23 @@ class KeyframeSelector:
 
         if strategy == "joint_coverage":
             keyframe_indices = self.get_joint_coverage_views(
-                all_object_ids, max_views=k
+                all_object_ids,
+                max_views=k,
+                pose_aware=pose_aware,
             )
         else:
             keyframe_indices = self.get_joint_coverage_views(
-                [obj.obj_id for obj in target_objects[:5]], max_views=k
+                [obj.obj_id for obj in target_objects[:5]],
+                max_views=k,
+                pose_aware=pose_aware,
             )
 
         # Ensure minimum keyframe count (pad with high-visibility views)
         keyframe_indices = self._pad_keyframes_to_minimum(
-            keyframe_indices, all_object_ids, min_count=min(k, 3)
+            keyframe_indices,
+            all_object_ids,
+            min_count=min(k, 3),
+            pose_aware=pose_aware,
         )
 
         keyframe_paths = []
