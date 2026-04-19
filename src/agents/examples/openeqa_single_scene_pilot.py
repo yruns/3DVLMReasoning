@@ -313,6 +313,7 @@ def build_bundle(
         stage1_result,
         scene_id=scene_id,
         scene_summary=f"OpenEQA scene {scene_id} with {len(selector.objects)} detected objects.",
+        selector=selector,
     )
 
 

@@ -5,6 +5,8 @@ from __future__ import annotations
 from collections.abc import Iterable
 from pathlib import Path
 
+import numpy as np
+
 from .models import (
     KeyframeEvidence,
     Stage1HypothesisSummary,
@@ -58,6 +60,7 @@ def build_stage2_evidence_bundle(
     bev_image_path: str | None = None,
     scene_summary: str = "",
     object_context: dict[str, str] | None = None,
+    selector: object | None = None,
 ) -> Stage2EvidenceBundle:
     """Convert a `KeyframeResult`-like object into a Stage-2 evidence bundle."""
     metadata = dict(getattr(keyframe_result, "metadata", {}) or {})
@@ -90,26 +93,43 @@ def build_stage2_evidence_bundle(
         or getattr(keyframe_result, "selection_scores", {})
         or {}
     )
+    previous_view_id: int | None = None
     for idx, image_path in enumerate(
         getattr(keyframe_result, "keyframe_paths", []) or []
     ):
         mapping = frame_mappings[idx] if idx < len(frame_mappings) else {}
+        resolved_view_id = mapping.get(
+            "resolved_view_id", mapping.get("requested_view_id")
+        )
+        note = metadata.get("status", "")
+        if (
+            selector is not None
+            and getattr(selector, "pose_aware_enabled", False)
+            and resolved_view_id is not None
+        ):
+            note = _build_temporal_note(
+                selector,
+                view_id=int(resolved_view_id),
+                order=idx + 1,
+                total=len(getattr(keyframe_result, "keyframe_paths", []) or []),
+                prev_view_id=previous_view_id,
+            )
         keyframes.append(
             KeyframeEvidence(
                 keyframe_idx=idx,
                 image_path=str(Path(image_path)),
-                view_id=mapping.get(
-                    "resolved_view_id", mapping.get("requested_view_id")
-                ),
+                view_id=resolved_view_id,
                 frame_id=mapping.get(
                     "resolved_frame_id", mapping.get("requested_frame_id")
                 ),
                 score=selection_scores.get(
-                    mapping.get("resolved_view_id", mapping.get("requested_view_id"))
+                    resolved_view_id
                 ),
-                note=metadata.get("status", ""),
+                note=note,
             )
         )
+        if resolved_view_id is not None:
+            previous_view_id = int(resolved_view_id)
 
     hypothesis = None
     if selected_hypothesis is not None:
@@ -137,3 +157,52 @@ def build_stage2_evidence_bundle(
         hypothesis=hypothesis,
         extra_metadata=metadata,
     )
+
+
+def _build_temporal_note(
+    selector: object,
+    *,
+    view_id: int,
+    order: int,
+    total: int,
+    prev_view_id: int | None,
+) -> str:
+    parts = [f"order={order}/{total}"]
+
+    dwell_scores = np.asarray(getattr(selector, "dwell_score", []), dtype=np.float64)
+    if 0 <= view_id < len(dwell_scores):
+        if dwell_scores[view_id] > 0.7:
+            parts.append("dwell")
+        elif dwell_scores[view_id] < 0.3:
+            parts.append("traverse")
+
+    camera_poses = getattr(selector, "camera_poses", [])
+    if (
+        prev_view_id is not None
+        and 0 <= prev_view_id < len(camera_poses)
+        and 0 <= view_id < len(camera_poses)
+    ):
+        prev_forward = -np.asarray(camera_poses[prev_view_id][:3, 2], dtype=np.float64)
+        cur_forward = -np.asarray(camera_poses[view_id][:3, 2], dtype=np.float64)
+        prev_norm = float(np.linalg.norm(prev_forward))
+        cur_norm = float(np.linalg.norm(cur_forward))
+        if prev_norm > 1e-8 and cur_norm > 1e-8:
+            cos_theta = float(
+                np.clip(
+                    np.dot(prev_forward / prev_norm, cur_forward / cur_norm),
+                    -1.0,
+                    1.0,
+                )
+            )
+            dtheta_deg = float(np.degrees(np.arccos(cos_theta)))
+            parts.append(f"heading=+{dtheta_deg:.0f}°")
+
+    neighbors: list[int] = []
+    for delta in (-2, -1, 1, 2):
+        neighbor = view_id + delta
+        if 0 <= neighbor < len(camera_poses) and neighbor != prev_view_id:
+            neighbors.append(neighbor)
+    if neighbors:
+        parts.append(f"neighbors={neighbors}")
+
+    return " ".join(parts)

@@ -287,6 +287,7 @@ class KeyframeSelector:
         self._K: np.ndarray | None = None
         self._img_wh: tuple[int, int] | None = None
         self._depth_cache: dict[int, np.ndarray] = {}
+        self.pose_aware_enabled = False
 
         # CLIP model (lazy loaded)
         self._clip_model = None
@@ -1918,6 +1919,7 @@ class KeyframeSelector:
             use_visual_context: If True, generate BEV image for multimodal
                 query parsing. Set False when scene mesh is unavailable.
         """
+        self.pose_aware_enabled = pose_aware
         logger.info(f"[V3] Selecting {k} keyframes for: '{query}'")
 
         # Step 1: Parse to new unified structure
