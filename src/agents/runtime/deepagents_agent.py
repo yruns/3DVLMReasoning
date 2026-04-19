@@ -127,7 +127,7 @@ class DeepAgentsStage2Runtime(BaseStage2Runtime):
             mode:
               'targeted' — find views covering specified object_terms (default)
               'explore' — find views maximally different from existing keyframes
-              'temporal_fan' — NOT YET WIRED (T4/S2 work)
+              'temporal_fan' — get temporal neighbors around pinned frame_indices
             """
             request = {
                 "request_text": request_text,

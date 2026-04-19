@@ -4,6 +4,8 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+import numpy as np
+
 from agents import (
     Stage2DeepAgentConfig,
     Stage2DeepResearchAgent,
@@ -19,7 +21,7 @@ from agents.models import (
     Stage2StructuredResponse,
 )
 from agents.runtime import Stage2RuntimeState, ToolChoiceCompatibleAzureChatOpenAI
-from agents.stage1_callbacks import _targeted_views
+from agents.stage1_callbacks import _targeted_views, _temporal_fan_views
 from query_scene.keyframe_selector import KeyframeResult, SceneObject
 
 
@@ -481,6 +483,115 @@ class TestStage2DeepAgent(unittest.TestCase):
         )
 
         self.assertEqual(selected, [2])
+
+    def test_temporal_fan_returns_neighbors_below_overlap_threshold(self) -> None:
+        selector = type("Selector", (), {})()
+        selector.camera_poses = []
+        for view_id in range(10):
+            pose = np.eye(4, dtype=np.float64)
+            pose[0, 3] = float(view_id)
+            selector.camera_poses.append(pose)
+        selector._get_intrinsic = lambda: (
+            np.array(
+                [
+                    [1165.723022, 0.0, 648.0],
+                    [0.0, 1165.738037, 484.0],
+                    [0.0, 0.0, 1.0],
+                ],
+                dtype=np.float64,
+            ),
+            (1296, 968),
+        )
+
+        def fake_overlap(pose_a, pose_b, k, img_wh):
+            delta = int(abs(pose_a[0, 3] - pose_b[0, 3]))
+            if delta == 1:
+                return 0.45
+            if delta == 2:
+                return 0.40
+            return 0.90
+
+        with patch(
+            "query_scene.frustum.frustum_overlap_l1",
+            side_effect=fake_overlap,
+        ):
+            selected = _temporal_fan_views(
+                selector=selector,
+                bundle=Stage2EvidenceBundle(scene_id="room0"),
+                anchor_frame_indices=[5],
+                existing_view_ids={5},
+                max_views=4,
+                max_overlap=0.5,
+                window_max=3,
+                frustum_method="l1",
+            )
+
+        self.assertEqual(set(selected), {3, 4, 6, 7})
+
+    def test_temporal_fan_raises_on_empty_anchor(self) -> None:
+        selector = type("Selector", (), {})()
+        selector.camera_poses = [np.eye(4, dtype=np.float64) for _ in range(3)]
+        selector._get_intrinsic = lambda: (
+            np.array(
+                [
+                    [1165.723022, 0.0, 648.0],
+                    [0.0, 1165.738037, 484.0],
+                    [0.0, 0.0, 1.0],
+                ],
+                dtype=np.float64,
+            ),
+            (1296, 968),
+        )
+
+        with self.assertRaisesRegex(
+            ValueError,
+            "temporal_fan requires at least one anchor frame index",
+        ):
+            _temporal_fan_views(
+                selector=selector,
+                bundle=Stage2EvidenceBundle(scene_id="room0"),
+                anchor_frame_indices=[],
+                existing_view_ids=set(),
+                max_views=3,
+            )
+
+    def test_temporal_fan_raises_on_all_redundant_neighborhood(self) -> None:
+        selector = type("Selector", (), {})()
+        selector.camera_poses = []
+        for view_id in range(10):
+            pose = np.eye(4, dtype=np.float64)
+            pose[0, 3] = float(view_id)
+            selector.camera_poses.append(pose)
+        selector._get_intrinsic = lambda: (
+            np.array(
+                [
+                    [1165.723022, 0.0, 648.0],
+                    [0.0, 1165.738037, 484.0],
+                    [0.0, 0.0, 1.0],
+                ],
+                dtype=np.float64,
+            ),
+            (1296, 968),
+        )
+
+        with patch(
+            "query_scene.frustum.frustum_overlap_l1",
+            return_value=0.95,
+        ):
+            with self.assertRaisesRegex(
+                RuntimeError,
+                r"temporal_fan found no neighbors with overlap ≤ 0.5",
+            ):
+                _temporal_fan_views(
+                    selector=selector,
+                    bundle=Stage2EvidenceBundle(scene_id="room0"),
+                    anchor_frame_indices=[5],
+                    existing_view_ids={5},
+                    max_views=3,
+                    max_overlap=0.5,
+                    window_max=3,
+                    frustum_method="l1",
+                )
 
 
 if __name__ == "__main__":

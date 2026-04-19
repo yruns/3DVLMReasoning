@@ -37,6 +37,7 @@ def create_more_views_callback(
     Supports two modes:
     - **targeted** (default): find views covering specified objects
     - **explore**: find views maximally different from existing keyframes
+    - **temporal_fan**: walk temporal neighbors around pinned anchor frames
     """
 
     def callback(
@@ -66,7 +67,16 @@ def create_more_views_callback(
                 keyframe_selector, existing_view_ids, max_additional_views
             )
         elif mode == "temporal_fan":
-            raise NotImplementedError("temporal_fan will land in S2 task")
+            new_view_ids = _temporal_fan_views(
+                keyframe_selector,
+                bundle=bundle,
+                anchor_frame_indices=frame_indices,
+                existing_view_ids=existing_view_ids,
+                max_views=max_additional_views,
+                max_overlap=float(request.get("max_overlap", 0.5)),
+                window_max=int(request.get("window_max", 8)),
+                frustum_method=str(request.get("frustum_method", "l1")),
+            )
         else:
             new_view_ids = _targeted_views(
                 keyframe_selector,
@@ -202,6 +212,93 @@ def _explore_views(
 
     scored.sort(reverse=True)
     return [vid for _, vid in scored[:max_views]]
+
+
+def _temporal_fan_views(
+    selector: Any,
+    bundle: Stage2EvidenceBundle,
+    anchor_frame_indices: list[int],
+    existing_view_ids: set[int],
+    max_views: int,
+    max_overlap: float = 0.5,
+    window_max: int = 8,
+    frustum_method: str = "l1",
+) -> list[int]:
+    """Collect temporally adjacent views that add non-redundant visual evidence."""
+    del bundle  # reserved for future richer temporal context
+
+    if not anchor_frame_indices:
+        raise ValueError("temporal_fan requires at least one anchor frame index")
+    if window_max <= 0:
+        raise ValueError("window_max must be positive")
+    if frustum_method not in {"l1", "l2"}:
+        raise ValueError(
+            f"frustum_method must be 'l1' or 'l2', got {frustum_method!r}"
+        )
+
+    from query_scene.frustum import frustum_overlap_l1, frustum_overlap_l2
+
+    k, img_wh = selector._get_intrinsic()
+    out: list[tuple[int, float, int]] = []
+
+    for anchor in anchor_frame_indices:
+        anchor_vid = int(anchor)
+        if anchor_vid < 0 or anchor_vid >= len(selector.camera_poses):
+            raise ValueError(f"anchor index {anchor_vid} out of range")
+
+        anchor_pose = selector.camera_poses[anchor_vid]
+        found_any = False
+        for delta in range(1, window_max + 1):
+            for neighbor in (anchor_vid - delta, anchor_vid + delta):
+                if neighbor < 0 or neighbor >= len(selector.camera_poses):
+                    continue
+                if neighbor in existing_view_ids:
+                    continue
+
+                neighbor_pose = selector.camera_poses[neighbor]
+                if frustum_method == "l1":
+                    overlap = frustum_overlap_l1(anchor_pose, neighbor_pose, k, img_wh)
+                else:
+                    depth = selector._load_depth_for_view(anchor_vid)
+                    overlap = frustum_overlap_l2(
+                        depth,
+                        anchor_pose,
+                        neighbor_pose,
+                        k,
+                        img_wh,
+                    )
+
+                if overlap <= max_overlap:
+                    out.append((neighbor, float(overlap), delta))
+                    found_any = True
+
+        if not found_any:
+            logger.info(
+                "[Stage1Callback] temporal_fan found no qualifying neighbors for anchor {} "
+                "within window={} overlap<={}",
+                anchor_vid,
+                window_max,
+                max_overlap,
+            )
+
+    if not out:
+        raise RuntimeError(
+            f"temporal_fan found no neighbors with overlap ≤ {max_overlap} "
+            f"within ±{window_max} frames of any anchor {anchor_frame_indices}. "
+            "Scene trajectory may be too slow; widen window_max or raise max_overlap."
+        )
+
+    out.sort(key=lambda item: (item[1], item[2]))
+    deduped: list[int] = []
+    seen: set[int] = set()
+    for view_id, _overlap, _delta in out:
+        if view_id in seen:
+            continue
+        seen.add(view_id)
+        deduped.append(view_id)
+        if len(deduped) >= max_views:
+            break
+    return deduped
 
 
 def _resolve_views_to_keyframes(
