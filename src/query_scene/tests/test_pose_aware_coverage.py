@@ -211,6 +211,24 @@ def test_pose_aware_fails_without_frustum_info(tmp_path: Path) -> None:
         )
 
 
+def test_resolve_raw_dir_supports_overlay_and_canonical_layouts(
+    tmp_path: Path,
+) -> None:
+    selector = KeyframeSelector.__new__(KeyframeSelector)
+
+    overlay_scene = tmp_path / "runtime_cache" / "scene0000_00"
+    overlay_raw = overlay_scene / "raw"
+    overlay_raw.mkdir(parents=True)
+    selector.scene_path = overlay_scene
+    assert selector._resolve_raw_dir() == overlay_raw
+
+    canonical_scene = tmp_path / "scene0001_00" / "conceptgraph"
+    canonical_raw = canonical_scene.parent / "raw"
+    canonical_raw.mkdir(parents=True)
+    selector.scene_path = canonical_scene
+    assert selector._resolve_raw_dir() == canonical_raw
+
+
 def test_frustum_method_l2_uses_depth(tmp_path: Path) -> None:
     selector = _make_selector(
         tmp_path,

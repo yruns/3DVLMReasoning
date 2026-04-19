@@ -727,10 +727,17 @@ class KeyframeSelector:
 
     def _resolve_raw_dir(self) -> Path:
         """Return the raw scene directory with intrinsic and per-frame images."""
-        raw_dir = self.scene_path.parent / "raw"
-        if not raw_dir.exists():
-            raise FileNotFoundError(f"raw dir not found next to scene: {raw_dir}")
-        return raw_dir
+        overlay_candidate = self.scene_path / "raw"
+        if overlay_candidate.exists():
+            return overlay_candidate
+
+        canonical = self.scene_path.parent / "raw"
+        if canonical.exists():
+            return canonical
+
+        raise FileNotFoundError(
+            f"raw dir not found at {overlay_candidate} or {canonical}"
+        )
 
     def _get_intrinsic(self) -> tuple[np.ndarray, tuple[int, int]]:
         if self._K is None or self._img_wh is None:
