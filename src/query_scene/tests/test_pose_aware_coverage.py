@@ -238,3 +238,84 @@ def test_frustum_method_l2_uses_depth(tmp_path: Path) -> None:
     )
 
     assert depth_calls
+
+
+def _make_init_selector(
+    tmp_path: Path,
+    *,
+    poses: list[np.ndarray],
+) -> KeyframeSelector:
+    selector = KeyframeSelector.__new__(KeyframeSelector)
+    selector.scene_path = tmp_path / "scene" / "conceptgraph"
+    selector.scene_path.mkdir(parents=True, exist_ok=True)
+    (selector.scene_path / "enriched_objects.json").write_text("{}", encoding="utf-8")
+    selector.objects = []
+    selector.object_features = None
+    selector.camera_poses = []
+    selector.image_paths = []
+    selector.depth_paths = []
+    selector.scene_categories = []
+    selector.object_to_views = {}
+    selector.view_to_objects = {}
+    selector._clip_model = None
+    selector._clip_tokenizer = None
+    selector._query_parser = None
+    selector._query_executor = None
+    selector._relation_checker = None
+    selector._K = None
+    selector._img_wh = None
+    selector._depth_cache = {}
+    selector.pose_velocities = np.array([], dtype=np.float64)
+    selector.pose_turn_rates = np.array([], dtype=np.float64)
+    selector.dwell_score = np.array([], dtype=np.float64)
+    selector.turn_score = np.array([], dtype=np.float64)
+
+    selector._load_enrichment = MethodType(
+        lambda self, enrichment_file: None,
+        selector,
+    )
+    selector._set_image_paths = MethodType(lambda self: None, selector)
+    selector._build_multilabel_categories = MethodType(lambda self: [], selector)
+
+    def _load_camera_poses(self: KeyframeSelector) -> None:
+        self.camera_poses = [pose.copy() for pose in poses]
+
+    selector._load_camera_poses = MethodType(_load_camera_poses, selector)
+    return selector
+
+
+def test_selector_init_tolerates_single_pose_scene(tmp_path: Path) -> None:
+    selector = _make_init_selector(
+        tmp_path,
+        poses=[_make_pose(0.0)],
+    )
+
+    selector._load_scene(None, None)
+
+    assert selector.pose_velocities.shape == (1,)
+    assert selector.pose_turn_rates.shape == (1,)
+    assert selector.dwell_score.shape == (1,)
+    assert selector.turn_score.shape == (1,)
+    assert np.all(selector.pose_velocities == 0.0)
+    assert np.all(selector.pose_turn_rates == 0.0)
+    assert np.all(selector.dwell_score == 0.0)
+    assert np.all(selector.turn_score == 0.0)
+
+
+def test_selector_init_tolerates_one_degenerate_pose_in_many(tmp_path: Path) -> None:
+    poses = [_make_pose(float(i)) for i in range(10)]
+    degenerate_pose = np.eye(4, dtype=np.float64)
+    degenerate_pose[:3, 2] = 0.0
+    poses.insert(5, degenerate_pose)
+    selector = _make_init_selector(tmp_path, poses=poses)
+
+    selector._load_scene(None, None)
+
+    assert selector.pose_velocities.shape == (11,)
+    assert selector.pose_turn_rates.shape == (11,)
+    assert selector.dwell_score.shape == (11,)
+    assert selector.turn_score.shape == (11,)
+    assert np.isfinite(selector.pose_velocities).all()
+    assert np.isfinite(selector.pose_turn_rates).all()
+    assert np.isfinite(selector.dwell_score).all()
+    assert np.isfinite(selector.turn_score).all()

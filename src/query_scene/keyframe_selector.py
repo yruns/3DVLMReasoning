@@ -366,7 +366,19 @@ class KeyframeSelector:
 
         # Load camera poses
         self._load_camera_poses()
-        self._compute_trajectory_stats()
+        if len(self.camera_poses) >= 2:
+            self._compute_trajectory_stats()
+        else:
+            num_poses = len(self.camera_poses)
+            self.pose_velocities = np.zeros(num_poses, dtype=np.float32)
+            self.pose_turn_rates = np.zeros(num_poses, dtype=np.float32)
+            self.dwell_score = np.zeros(num_poses, dtype=np.float32)
+            self.turn_score = np.zeros(num_poses, dtype=np.float32)
+            logger.warning(
+                "[KeyframeSelector] degenerate trajectory (len={} poses); "
+                "pose-aware features disabled for this scene",
+                num_poses,
+            )
 
         # Set image paths
         self._set_image_paths()
@@ -661,10 +673,20 @@ class KeyframeSelector:
         velocities[:-1] = translation_steps
         velocities[-1] = translation_steps[-1]
 
-        forward_vectors = np.asarray(
-            [self._normalize_vector(-pose[:3, 2]) for pose in self.camera_poses],
-            dtype=np.float64,
-        )
+        forward_vectors = []
+        for pose_index, pose in enumerate(self.camera_poses):
+            try:
+                forward_vectors.append(self._normalize_vector(-pose[:3, 2]))
+            except ValueError:
+                logger.warning(
+                    "[KeyframeSelector] degenerate forward vector at pose {}; "
+                    "treating as zero turn",
+                    pose_index,
+                )
+                forward_vectors.append(
+                    np.array([0.0, 0.0, -1.0], dtype=np.float64)
+                )
+        forward_vectors = np.asarray(forward_vectors, dtype=np.float64)
         cos_turn = np.sum(
             forward_vectors[:-1] * forward_vectors[1:],
             axis=1,
