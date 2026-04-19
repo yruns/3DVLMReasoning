@@ -117,30 +117,24 @@ class DeepAgentsStage2Runtime(BaseStage2Runtime):
             runtime.record("retrieve_object_context", request, response)
             return response
 
-        @tool
-        def request_more_views(
+        def _request_more_views_impl(
             request_text: str,
             frame_indices: list[int] | None = None,
             object_terms: list[str] | None = None,
             mode: str = "targeted",
         ) -> str:
-            """Request additional keyframes or neighboring views from Stage 1.
-
-            mode:
-              'targeted' — find views covering specified object_terms (default)
-              'explore' — find views maximally different from existing keyframes
-              'temporal_fan' — get temporal neighbors around pinned frame_indices
-
-            frame_indices:
-              Preferred pins for retrieval, capped at max_additional_views.
-              Excess pins are dropped rather than treated as an error.
-            """
             request = {
                 "request_text": request_text,
                 "frame_indices": frame_indices or [],
                 "object_terms": object_terms or [],
                 "mode": mode,
             }
+            if mode == "temporal_fan" and not self.config.enable_temporal_fan:
+                response_text = (
+                    "temporal_fan mode disabled in this run; use targeted or explore"
+                )
+                runtime.record("request_more_views", request, response_text)
+                return response_text
             if self.more_views_callback is None:
                 response_obj = self.coerce_callback_result(
                     "request_more_views callback is not configured."
@@ -154,6 +148,59 @@ class DeepAgentsStage2Runtime(BaseStage2Runtime):
                     runtime.mark_evidence_updated()
             runtime.record("request_more_views", request, response_obj.response_text)
             return response_obj.response_text
+
+        if self.config.enable_temporal_fan:
+
+            @tool
+            def request_more_views(
+                request_text: str,
+                frame_indices: list[int] | None = None,
+                object_terms: list[str] | None = None,
+                mode: str = "targeted",
+            ) -> str:
+                """Request additional keyframes or neighboring views from Stage 1.
+
+                mode:
+                  'targeted' — find views covering specified object_terms (default)
+                  'explore' — find views maximally different from existing keyframes
+                  'temporal_fan' — get temporal neighbors around pinned frame_indices
+
+                frame_indices:
+                  Preferred pins for retrieval, capped at max_additional_views.
+                  Excess pins are dropped rather than treated as an error.
+                """
+                return _request_more_views_impl(
+                    request_text=request_text,
+                    frame_indices=frame_indices,
+                    object_terms=object_terms,
+                    mode=mode,
+                )
+
+        else:
+
+            @tool
+            def request_more_views(
+                request_text: str,
+                frame_indices: list[int] | None = None,
+                object_terms: list[str] | None = None,
+                mode: str = "targeted",
+            ) -> str:
+                """Request additional keyframes from Stage 1.
+
+                mode:
+                  'targeted' — find views covering specified object_terms (default)
+                  'explore' — find views maximally different from existing keyframes
+
+                frame_indices:
+                  Preferred pins for retrieval, capped at max_additional_views.
+                  Excess pins are dropped rather than treated as an error.
+                """
+                return _request_more_views_impl(
+                    request_text=request_text,
+                    frame_indices=frame_indices,
+                    object_terms=object_terms,
+                    mode=mode,
+                )
 
         @tool
         def request_crops(

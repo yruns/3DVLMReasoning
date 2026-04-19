@@ -21,7 +21,11 @@ from agents.models import (
     Stage2StructuredResponse,
 )
 from agents.runtime import Stage2RuntimeState, ToolChoiceCompatibleAzureChatOpenAI
-from agents.stage1_callbacks import _targeted_views, _temporal_fan_views
+from agents.stage1_callbacks import (
+    _targeted_views,
+    _temporal_fan_views,
+    create_more_views_callback,
+)
 from query_scene.keyframe_selector import KeyframeResult, SceneObject
 
 
@@ -467,6 +471,96 @@ class TestStage2DeepAgent(unittest.TestCase):
         )
 
         self.assertEqual(captured_request["mode"], "explore")
+
+    def test_request_more_views_temporal_fan_disabled_returns_observation(self) -> None:
+        called = {"count": 0}
+
+        def more_views_callback(bundle, request):
+            called["count"] += 1
+            return bundle
+
+        agent = Stage2DeepResearchAgent(
+            config=Stage2DeepAgentConfig(enable_temporal_fan=False),
+            more_views_callback=more_views_callback,
+        )
+        runtime = Stage2RuntimeState(
+            bundle=Stage2EvidenceBundle(
+                scene_id="room0",
+                keyframes=[
+                    KeyframeEvidence(keyframe_idx=0, image_path="/tmp/frame0.jpg")
+                ],
+            )
+        )
+        tools = {tool.name: tool for tool in agent._build_runtime_tools(runtime)}
+
+        response = tools["request_more_views"].invoke(
+            {
+                "request_text": "Need temporal neighbors",
+                "frame_indices": [0],
+                "object_terms": [],
+                "mode": "temporal_fan",
+            }
+        )
+
+        self.assertEqual(called["count"], 0)
+        self.assertIn("temporal_fan mode disabled in this run", response)
+        self.assertNotIn("temporal_fan", tools["request_more_views"].description)
+
+    def test_more_views_callback_converts_temporal_fan_runtime_error_to_observation(
+        self,
+    ) -> None:
+        selector = type("Selector", (), {})()
+        callback = create_more_views_callback(selector, max_additional_views=2)
+        bundle = Stage2EvidenceBundle(
+            scene_id="room0",
+            keyframes=[KeyframeEvidence(keyframe_idx=0, image_path="/tmp/frame0.jpg")],
+        )
+
+        with patch(
+            "agents.stage1_callbacks._temporal_fan_views",
+            side_effect=RuntimeError(
+                "temporal_fan found no neighbors with overlap ≤ 0.5 within ±8 frames"
+            ),
+        ):
+            result = callback(
+                bundle,
+                {
+                    "request_text": "Need temporal neighbors",
+                    "frame_indices": [0],
+                    "mode": "temporal_fan",
+                },
+            )
+
+        self.assertIn("temporal_fan found no suitable neighbors", result.response_text)
+        self.assertIn("try mode='targeted' or mode='explore'", result.response_text)
+
+    def test_more_views_callback_converts_temporal_fan_empty_anchor_to_observation(
+        self,
+    ) -> None:
+        selector = type("Selector", (), {})()
+        callback = create_more_views_callback(selector, max_additional_views=2)
+        bundle = Stage2EvidenceBundle(
+            scene_id="room0",
+            keyframes=[KeyframeEvidence(keyframe_idx=0, image_path="/tmp/frame0.jpg")],
+        )
+
+        with patch(
+            "agents.stage1_callbacks._temporal_fan_views",
+            side_effect=ValueError(
+                "temporal_fan requires at least one anchor frame index"
+            ),
+        ):
+            result = callback(
+                bundle,
+                {
+                    "request_text": "Need temporal neighbors",
+                    "frame_indices": [],
+                    "mode": "temporal_fan",
+                },
+            )
+
+        self.assertIn("temporal_fan found no suitable neighbors", result.response_text)
+        self.assertIn("at least one anchor frame index", result.response_text)
 
     def test_targeted_views_prioritizes_pinned_frame_indices(self) -> None:
         selector = type("Selector", (), {})()

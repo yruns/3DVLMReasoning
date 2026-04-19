@@ -67,16 +67,23 @@ def create_more_views_callback(
                 keyframe_selector, existing_view_ids, max_additional_views
             )
         elif mode == "temporal_fan":
-            new_view_ids = _temporal_fan_views(
-                keyframe_selector,
-                bundle=bundle,
-                anchor_frame_indices=frame_indices,
-                existing_view_ids=existing_view_ids,
-                max_views=max_additional_views,
-                max_overlap=float(request.get("max_overlap", 0.5)),
-                window_max=int(request.get("window_max", 8)),
-                frustum_method=str(request.get("frustum_method", "l1")),
-            )
+            try:
+                new_view_ids = _temporal_fan_views(
+                    keyframe_selector,
+                    bundle=bundle,
+                    anchor_frame_indices=frame_indices,
+                    existing_view_ids=existing_view_ids,
+                    max_views=max_additional_views,
+                    max_overlap=float(request.get("max_overlap", 0.5)),
+                    window_max=int(request.get("window_max", 8)),
+                    frustum_method=str(request.get("frustum_method", "l1")),
+                )
+            except RuntimeError as exc:
+                return _temporal_fan_no_result(str(exc))
+            except ValueError as exc:
+                if _is_agent_temporal_fan_observation_error(exc):
+                    return _temporal_fan_no_result(str(exc))
+                raise
         else:
             new_view_ids = _targeted_views(
                 keyframe_selector,
@@ -118,6 +125,23 @@ def create_more_views_callback(
         )
 
     return callback
+
+
+def _is_agent_temporal_fan_observation_error(exc: ValueError) -> bool:
+    message = str(exc)
+    return (
+        "at least one anchor frame index" in message
+        or "anchor index" in message and "out of range" in message
+    )
+
+
+def _temporal_fan_no_result(message: str) -> Stage2ToolResult:
+    return Stage2ToolResult(
+        response_text=(
+            "temporal_fan found no suitable neighbors: "
+            f"{message}; try mode='targeted' or mode='explore'"
+        )
+    )
 
 
 def _targeted_views(
