@@ -18,6 +18,7 @@ from .models import (
     Stage2Status,
     Stage2StructuredResponse,
     Stage2TaskSpec,
+    Stage2TaskType,
 )
 from .runtime import (
     DeepAgentsStage2Runtime,
@@ -110,6 +111,13 @@ class Stage2DeepResearchAgent:
     def _build_evidence_update_message(self, runtime: Stage2RuntimeState):
         return self._runtime.build_evidence_update_message(runtime)
 
+    def _build_evidence_nudge(
+        self,
+        response: Stage2StructuredResponse,
+        runtime: Stage2RuntimeState,
+    ):
+        return self._runtime._build_evidence_nudge(response, runtime)
+
     def _normalize_final_response(
         self,
         task: Stage2TaskSpec,
@@ -130,10 +138,43 @@ class Stage2DeepResearchAgent:
     def build_agent(self, task: Stage2TaskSpec, bundle: Stage2EvidenceBundle):
         """Build the DeepAgents graph and runtime state.
 
-        Delegates to the runtime implementation which handles VG tool
-        registration, axis alignment, and other task-type-specific setup.
+        This compatibility wrapper intentionally uses the symbols imported in
+        this module so older tests can patch ``create_deep_agent`` and wrapper
+        methods such as ``_get_llm()`` / ``_build_runtime_tools()`` directly.
         """
-        return self._runtime.build_agent(task, bundle)
+        import numpy as np
+
+        runtime = Stage2RuntimeState(bundle=bundle.model_copy(deep=True))
+        runtime.task_type = task.task_type
+
+        # Keep the historical wrapper contract for VG setup while still using
+        # the runtime's shared helpers for prompt/tool construction.
+        if task.task_type == Stage2TaskType.VISUAL_GROUNDING:
+            extra = runtime.bundle.extra_metadata or {}
+            runtime.vg_scene_objects = extra.get("scene_objects")
+            mat = extra.get("axis_align_matrix")
+            if mat is not None:
+                runtime.vg_axis_align_matrix = np.array(mat, dtype=np.float64)
+            cleaned = {
+                k: v
+                for k, v in extra.items()
+                if k not in ("scene_objects", "axis_align_matrix")
+            }
+            runtime.bundle = runtime.bundle.model_copy(
+                update={"extra_metadata": cleaned}
+            )
+
+        graph = create_deep_agent(
+            model=self._get_llm(),
+            tools=self._build_runtime_tools(runtime),
+            system_prompt=self._build_system_prompt(
+                task, object_context=bundle.object_context
+            ),
+            subagents=self._build_subagents(task),
+            response_format=Stage2StructuredResponse,
+            name="query_scene_stage2_agent",
+        )
+        return graph, runtime
 
     def run(
         self,
@@ -142,10 +183,102 @@ class Stage2DeepResearchAgent:
     ) -> Stage2AgentResult:
         """Execute the Stage-2 DeepAgent with iterative evidence refinement.
 
-        Delegates to the runtime implementation which handles VG tool
-        state export and other task-type-specific logic.
+        Compatibility wrapper around the runtime loop.
+
+        This intentionally calls ``self.build_agent(...)`` so older tests can
+        patch the wrapper method and avoid live backend calls.
         """
-        return self._runtime.run(task, bundle)
+        graph, runtime = self.build_agent(task, bundle)
+        message = self._build_user_message(task, runtime)
+        logger.info(
+            "[Stage2DeepResearchAgent] task={} plan_mode={} keyframes={} max_turns={}",
+            task.task_type.value,
+            task.plan_mode.value,
+            len(runtime.bundle.keyframes),
+            task.max_reasoning_turns,
+        )
+
+        messages = [message]
+        raw_state: dict[str, Any] = {}
+        turns_used = 0
+
+        while turns_used < task.max_reasoning_turns:
+            turns_used += 1
+            raw_state = graph.invoke({"messages": messages})
+
+            structured = raw_state.get("structured_response")
+            if structured is not None:
+                response = Stage2StructuredResponse.model_validate(structured)
+                if response.status in (Stage2Status.COMPLETED, Stage2Status.FAILED):
+                    logger.info(
+                        "[Stage2DeepResearchAgent] completed at turn {} with status={}",
+                        turns_used,
+                        response.status.value,
+                    )
+                    break
+
+            if runtime.consume_evidence_update():
+                evidence_message = self._build_evidence_update_message(runtime)
+                if evidence_message is not None:
+                    if "messages" in raw_state:
+                        messages = raw_state["messages"]
+                    messages.append(evidence_message)
+                    logger.info(
+                        "[Stage2DeepResearchAgent] turn {}: injecting new evidence, continuing loop",
+                        turns_used,
+                    )
+                    continue
+
+            if structured is not None and turns_used < task.max_reasoning_turns:
+                response = Stage2StructuredResponse.model_validate(structured)
+                if response.status in (
+                    Stage2Status.INSUFFICIENT_EVIDENCE,
+                    Stage2Status.NEEDS_MORE_EVIDENCE,
+                ):
+                    nudge = self._build_evidence_nudge(response, runtime)
+                    if "messages" in raw_state:
+                        messages = raw_state["messages"]
+                    messages.append(nudge)
+                    logger.info(
+                        "[Stage2DeepResearchAgent] turn {}: agent reported {}, nudging to seek more evidence ({} turns remaining)",
+                        turns_used,
+                        response.status.value,
+                        task.max_reasoning_turns - turns_used,
+                    )
+                    continue
+
+            break
+
+        logger.info(
+            "[Stage2DeepResearchAgent] finished after {} turns, tool_calls={}",
+            turns_used,
+            len(runtime.tool_trace),
+        )
+
+        can_acquire_more_evidence = turns_used < task.max_reasoning_turns and (
+            self.more_views_callback is not None
+            or self.crop_callback is not None
+            or self.hypothesis_callback is not None
+        )
+
+        final_response = self._normalize_final_response(task, raw_state)
+        final_response = self._apply_uncertainty_stopping(
+            final_response, can_acquire_more_evidence
+        )
+
+        result_state = {k: v for k, v in raw_state.items() if k != "messages"}
+        if runtime.vg_selected_object_id is not None:
+            result_state["vg_selected_object_id"] = runtime.vg_selected_object_id
+            result_state["vg_selected_bbox_3d"] = runtime.vg_selected_bbox_3d
+            result_state["vg_selection_rationale"] = runtime.vg_selection_rationale
+
+        return Stage2AgentResult(
+            task=task,
+            result=final_response,
+            tool_trace=runtime.tool_trace,
+            final_bundle=runtime.bundle,
+            raw_state=result_state,
+        )
 
 
 __all__ = [

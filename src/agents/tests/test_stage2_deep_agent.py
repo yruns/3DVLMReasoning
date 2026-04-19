@@ -19,6 +19,7 @@ from agents.models import (
     Stage2StructuredResponse,
 )
 from agents.runtime import Stage2RuntimeState, ToolChoiceCompatibleAzureChatOpenAI
+from agents.stage1_callbacks import _targeted_views
 from query_scene.keyframe_selector import KeyframeResult, SceneObject
 
 
@@ -389,9 +390,10 @@ class TestStage2DeepAgent(unittest.TestCase):
         ):
             result = agent.run(task, bundle)
 
-        # Should stop at 1 invoke since no evidence_updated flag is set
-        # (the loop only continues when new evidence is injected)
-        self.assertEqual(call_count[0], 1)
+        # The runtime performs one extra turn with an evidence nudge when the
+        # agent reports NEEDS_MORE_EVIDENCE and budget remains, even if no new
+        # images were injected yet.
+        self.assertEqual(call_count[0], 2)
         self.assertEqual(result.result.status, Stage2Status.NEEDS_MORE_EVIDENCE)
 
     def test_runtime_marks_evidence_updated_when_callback_returns_bundle(self) -> None:
@@ -432,6 +434,53 @@ class TestStage2DeepAgent(unittest.TestCase):
         # After calling the tool
         self.assertTrue(runtime.evidence_updated)
         self.assertEqual(len(runtime.bundle.keyframes), 2)
+
+    def test_request_more_views_mode_param_round_trip(self) -> None:
+        captured_request: dict[str, object] = {}
+
+        def more_views_callback(bundle, request):
+            captured_request.update(request)
+            return bundle
+
+        agent = Stage2DeepResearchAgent(more_views_callback=more_views_callback)
+        runtime = Stage2RuntimeState(
+            bundle=Stage2EvidenceBundle(
+                scene_id="room0",
+                keyframes=[
+                    KeyframeEvidence(keyframe_idx=0, image_path="/tmp/frame0.jpg")
+                ],
+            )
+        )
+        tools = {tool.name: tool for tool in agent._build_runtime_tools(runtime)}
+
+        tools["request_more_views"].invoke(
+            {
+                "request_text": "Need different coverage",
+                "frame_indices": [0],
+                "object_terms": ["chair"],
+                "mode": "explore",
+            }
+        )
+
+        self.assertEqual(captured_request["mode"], "explore")
+
+    def test_targeted_views_prioritizes_pinned_frame_indices(self) -> None:
+        selector = type("Selector", (), {})()
+        selector.camera_poses = [object(), object(), object(), object()]
+        selector.objects = []
+        selector.find_objects = lambda term, top_k=5: []
+        selector.get_joint_coverage_views = lambda object_ids, max_views: [3, 0]
+
+        selected = _targeted_views(
+            selector=selector,
+            bundle=Stage2EvidenceBundle(scene_id="room0"),
+            object_terms=[],
+            existing_view_ids={1},
+            max_views=2,
+            frame_indices=[2, 1],
+        )
+
+        self.assertEqual(selected, [2])
 
 
 if __name__ == "__main__":

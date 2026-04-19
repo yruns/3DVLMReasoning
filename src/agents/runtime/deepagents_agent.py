@@ -120,12 +120,20 @@ class DeepAgentsStage2Runtime(BaseStage2Runtime):
             request_text: str,
             frame_indices: list[int] | None = None,
             object_terms: list[str] | None = None,
+            mode: str = "targeted",
         ) -> str:
-            """Request additional keyframes or neighboring views from Stage 1."""
+            """Request additional keyframes or neighboring views from Stage 1.
+
+            mode:
+              'targeted' — find views covering specified object_terms (default)
+              'explore' — find views maximally different from existing keyframes
+              'temporal_fan' — NOT YET WIRED (T4/S2 work)
+            """
             request = {
                 "request_text": request_text,
                 "frame_indices": frame_indices or [],
                 "object_terms": object_terms or [],
+                "mode": mode,
             }
             if self.more_views_callback is None:
                 response_obj = self.coerce_callback_result(

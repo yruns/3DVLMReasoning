@@ -45,7 +45,10 @@ def create_more_views_callback(
     ) -> Stage2ToolResult:
         request_text = request.get("request_text", "")
         object_terms = request.get("object_terms", [])
+        frame_indices = request.get("frame_indices", [])
         mode = request.get("mode", "targeted")
+        if mode not in {"targeted", "explore", "temporal_fan"}:
+            raise ValueError(f"invalid mode: {mode!r}")
 
         logger.info(
             "[Stage1Callback] request_more_views: mode={}, text='{}', objects={}",
@@ -62,6 +65,8 @@ def create_more_views_callback(
             new_view_ids = _explore_views(
                 keyframe_selector, existing_view_ids, max_additional_views
             )
+        elif mode == "temporal_fan":
+            raise NotImplementedError("temporal_fan will land in S2 task")
         else:
             new_view_ids = _targeted_views(
                 keyframe_selector,
@@ -69,6 +74,7 @@ def create_more_views_callback(
                 object_terms,
                 existing_view_ids,
                 max_additional_views,
+                frame_indices,
             )
 
         if not new_view_ids:
@@ -110,8 +116,15 @@ def _targeted_views(
     object_terms: list[str],
     existing_view_ids: set[int],
     max_views: int,
+    frame_indices: list[int],
 ) -> list[int]:
     """Find views covering specified objects (hypothesis + object_terms)."""
+    pinned = [
+        view_id
+        for view_id in (int(v) for v in frame_indices)
+        if 0 <= view_id < len(selector.camera_poses) and view_id not in existing_view_ids
+    ]
+
     candidate_object_ids: list[int] = []
 
     # From hypothesis target/anchor categories
@@ -137,14 +150,25 @@ def _targeted_views(
                 candidate_object_ids.append(obj.obj_id)
 
     if not candidate_object_ids:
-        return []
+        return pinned[:max_views]
 
     all_views = selector.get_joint_coverage_views(
         candidate_object_ids,
         max_views=len(existing_view_ids) + max_views,
     )
     new_views = [v for v in all_views if v not in existing_view_ids]
-    return new_views[:max_views]
+
+    out = pinned[:max_views]
+    if len(out) >= max_views:
+        return out[:max_views]
+
+    for view_id in new_views:
+        if view_id in out:
+            continue
+        out.append(view_id)
+        if len(out) >= max_views:
+            break
+    return out[:max_views]
 
 
 def _explore_views(
