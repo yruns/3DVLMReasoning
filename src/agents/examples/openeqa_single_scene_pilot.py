@@ -326,6 +326,7 @@ def run_stage2(
     scene_id: str,
     max_additional_views: int,
     enable_temporal_fan: bool = False,
+    session_id: str | None = None,
 ) -> Any:
     callbacks = None
     if enable_callbacks:
@@ -343,6 +344,7 @@ def run_stage2(
             max_images=6,
             max_tokens=4000,
             enable_temporal_fan=enable_temporal_fan,
+            session_id=session_id or "v15_eval_default",
         ),
         more_views_callback=callbacks.more_views if callbacks else None,
         crop_callback=callbacks.crops if callbacks else None,

@@ -3,7 +3,7 @@
 This module defines the agent configuration and enumeration types.
 """
 
-import time
+import os
 from enum import Enum
 from typing import Any
 
@@ -40,16 +40,20 @@ class Stage2Status(str, Enum):
 class Stage2DeepAgentConfig(BaseModel):
     """Runtime configuration for the DeepAgents-backed Stage-2 agent."""
 
-    base_url: str = "https://genai-sg-og.tiktok-row.org/gpt/openapi/online/v2/crawl"
+    base_url: str = "https://aidp-i18ntt-sg.tiktok-row.net"
     model_name: str = "gpt-5.4-2026-03-05"
-    api_key: str = "Eyt11Oeoj77MfGcMweDRODBsbYnPkWUp"
+    api_keys: list[str] = Field(
+        default_factory=lambda: _default_modelhub_api_keys(),
+        description="ModelHub AKs rotated on retryable quota/rate-limit errors.",
+    )
+    modelhub_path: str = "/api/modelhub/online/v2/crawl"
     api_version: str = "2024-03-01-preview"
     max_tokens: int = Field(default=10000, ge=1)
     temperature: float = 0.1
     timeout: int = Field(default=120, ge=1)
     max_retries: int = Field(default=2, ge=0)
     include_thoughts: bool = False
-    session_id: str = Field(default_factory=lambda: str(time.time()))
+    session_id: str = "v15_eval_default"
     extra_body: dict[str, Any] = Field(default_factory=dict)
     max_images: int = Field(default=6, ge=1, le=12)
     image_max_size: int = Field(default=900, ge=256, le=2048)
@@ -71,6 +75,22 @@ class Stage2DeepAgentConfig(BaseModel):
         default=False,
         description="When True, advertise mode='temporal_fan' in the Stage 2 prompt.",
     )
+
+    @property
+    def api_key(self) -> str:
+        """Backward-compatible single-key accessor."""
+        return self.api_keys[0] if self.api_keys else ""
+
+
+def _default_modelhub_api_keys() -> list[str]:
+    env_value = os.environ.get("MODELHUB_AKS") or os.environ.get("AZURE_API_KEYS")
+    if env_value:
+        return [key.strip() for key in env_value.split(",") if key.strip()]
+
+    return [
+        "hnJAK3LscxwLcy5OpZGQqQAzNyQmdx0a_GPT_AK",
+        "cjodAcZmk7eIwm8wtizk1MfqyEJ7V8lG_GPT_AK",
+    ]
 
 
 __all__ = [

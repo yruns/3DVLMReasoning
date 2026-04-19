@@ -12,6 +12,7 @@ the official ``open-eqa-v0.json`` file. It supports:
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import re
 import sys
@@ -260,7 +261,30 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help="Pin the exact official_selected_questions.json subset for apples-to-apples evals.",
     )
+    parser.add_argument(
+        "--session-id",
+        default=None,
+        help=(
+            "Stable Stage 2 prompt-cache session id. Defaults to a hash of "
+            "--output-root and the temporal_fan prompt variant."
+        ),
+    )
     return parser.parse_args()
+
+
+def derive_eval_session_id(
+    *,
+    output_root: Path,
+    enable_temporal_fan: bool,
+    explicit_session_id: str | None = None,
+) -> str:
+    if explicit_session_id:
+        return explicit_session_id
+
+    digest = hashlib.sha256(
+        f"{output_root.resolve()}|temporal_fan={enable_temporal_fan}".encode("utf-8")
+    ).hexdigest()[:16]
+    return f"v15_{digest}"
 
 
 def load_official_scannet_samples(
@@ -574,6 +598,7 @@ def run_one_sample(sample: dict[str, Any], args: argparse.Namespace) -> dict[str
         scene_id=clip_id,
         max_additional_views=args.max_additional_views,
         enable_temporal_fan=args.enable_temporal_fan,
+        session_id=args.session_id,
     )
     stage2_summary = serialize_stage2_result(
         "stage2",
@@ -608,6 +633,7 @@ def run_one_sample(sample: dict[str, Any], args: argparse.Namespace) -> dict[str
             scene_id=clip_id,
             max_additional_views=args.max_additional_views,
             enable_temporal_fan=args.enable_temporal_fan,
+            session_id=args.session_id,
         )
         e2e_summary = serialize_stage2_result(
             "e2e",
@@ -665,11 +691,17 @@ def build_prediction_file(
 
 def main() -> None:
     args = parse_args()
+    args.session_id = derive_eval_session_id(
+        output_root=args.output_root,
+        enable_temporal_fan=args.enable_temporal_fan,
+        explicit_session_id=args.session_id,
+    )
 
     logger.remove()
     logger.add(
         sys.stderr, level="INFO", format="{time:HH:mm:ss} | {level:7} | {message}"
     )
+    logger.info("Using Stage 2 session_id={}", args.session_id)
 
     samples = load_official_scannet_samples(args.json_path, args.data_root)
     logger.info(

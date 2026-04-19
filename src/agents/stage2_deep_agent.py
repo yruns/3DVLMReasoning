@@ -83,7 +83,9 @@ class Stage2DeepResearchAgent:
             self._runtime._llm = ToolChoiceCompatibleAzureChatOpenAI(
                 azure_deployment=self.config.model_name,
                 model=self.config.model_name,
-                api_key=self.config.api_key,
+                api_keys=self.config.api_keys,
+                modelhub_path=self.config.modelhub_path,
+                session_id=self.config.session_id,
                 azure_endpoint=self.config.base_url,
                 api_version=self.config.api_version,
                 temperature=self.config.temperature,

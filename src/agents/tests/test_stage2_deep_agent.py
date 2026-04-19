@@ -49,7 +49,7 @@ class TestStage2DeepAgent(unittest.TestCase):
 
         self.assertEqual(bind_tools_mock.call_args.kwargs["tool_choice"], "auto")
 
-    def test_get_llm_uses_single_key_azure_client_with_prompt_caching_payload(
+    def test_get_llm_uses_modelhub_client_with_prompt_caching_payload(
         self,
     ) -> None:
         agent = Stage2DeepResearchAgent(
@@ -70,7 +70,9 @@ class TestStage2DeepAgent(unittest.TestCase):
         self.assertIs(llm, fake_llm)
         kwargs = azure_mock.call_args.kwargs
         self.assertEqual(kwargs["azure_endpoint"], agent.config.base_url)
-        self.assertEqual(kwargs["api_key"], agent.config.api_key)
+        self.assertEqual(kwargs["api_keys"], agent.config.api_keys)
+        self.assertEqual(kwargs["modelhub_path"], agent.config.modelhub_path)
+        self.assertEqual(kwargs["session_id"], "stage2-session")
         self.assertEqual(kwargs["api_version"], agent.config.api_version)
         self.assertEqual(kwargs["max_tokens"], 10000)
         self.assertEqual(kwargs["temperature"], 0.1)
