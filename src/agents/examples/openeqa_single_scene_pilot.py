@@ -197,6 +197,7 @@ def ensure_runtime_scene(
         if child.name == "results":
             continue
         ensure_symlink(overlay_dir / child.name, child)
+    ensure_symlink(overlay_dir / "raw", raw_dir)
 
     results_dir = overlay_dir / "results"
     expected_rgb = len(list(raw_dir.glob("*-rgb.png")))
