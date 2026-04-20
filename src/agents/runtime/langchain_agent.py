@@ -95,7 +95,7 @@ def _rewrite_modelhub_request(
 
 def _is_retryable_modelhub_response(response: httpx.Response) -> bool:
     """Return True when ModelHub indicates a retryable quota or transient error."""
-    if response.status_code in {429, 503}:
+    if response.status_code in {403, 429, 503}:
         return True
 
     try:
@@ -127,6 +127,17 @@ def _is_retryable_modelhub_response(response: httpx.Response) -> bool:
             queue.extend(item)
 
     return False
+
+
+def _retryable_cooldown_seconds(
+    response: httpx.Response | None,
+    *,
+    base_delay: float,
+    attempt: int,
+) -> float:
+    if response is not None and response.status_code == 403:
+        return 60.0
+    return base_delay * (2**attempt)
 
 
 class ModelHubHttpClient(httpx.Client):
@@ -182,7 +193,11 @@ class ModelHubHttpClient(httpx.Client):
             except (httpx.TimeoutException, httpx.TransportError) as exc:
                 if attempt >= self._max_attempts - 1:
                     raise
-                cooldown = self._base_delay * (2**attempt)
+                cooldown = _retryable_cooldown_seconds(
+                    None,
+                    base_delay=self._base_delay,
+                    attempt=attempt,
+                )
                 if active_ak:
                     self._rotator.demote(active_ak, cooldown_s=cooldown)
                 delay = cooldown + random.uniform(0.0, 1.0)
@@ -203,7 +218,11 @@ class ModelHubHttpClient(httpx.Client):
             if attempt >= self._max_attempts - 1:
                 return response
 
-            cooldown = self._base_delay * (2**attempt)
+            cooldown = _retryable_cooldown_seconds(
+                response,
+                base_delay=self._base_delay,
+                attempt=attempt,
+            )
             if active_ak:
                 self._rotator.demote(active_ak, cooldown_s=cooldown)
             delay = cooldown + random.uniform(0.0, 1.0)

@@ -66,6 +66,7 @@ def test_rewrite_modelhub_request_updates_path_query_body_and_headers() -> None:
 @pytest.mark.parametrize(
     ("status_code", "body", "expected"),
     [
+        (403, {"error": {"message": "quota exhausted"}}, True),
         (429, {"error": {"message": "rate limit"}}, True),
         (503, {"error": {"message": "server busy"}}, True),
         (400, {"code": -1003, "message": "quota exceeded"}, True),
@@ -79,6 +80,50 @@ def test_is_retryable_modelhub_response(
 ) -> None:
     response = httpx.Response(status_code, json=body)
     assert _is_retryable_modelhub_response(response) is expected
+
+
+def test_modelhub_http_client_uses_longer_cooldown_for_403() -> None:
+    from unittest.mock import patch
+
+    from agents.runtime.langchain_agent import ModelHubHttpClient
+
+    rotator = ModelHubKeyRotator(["ak1", "ak2"], time_fn=lambda: 100.0)
+    client = ModelHubHttpClient(
+        rotator=rotator,
+        modelhub_path="/api/modelhub/online/v2/crawl",
+        model_name="gpt-5.4-2026-03-05",
+        session_id="v15_session",
+        timeout=30.0,
+        max_attempts=2,
+    )
+    request = httpx.Request(
+        "POST",
+        "https://aidp-i18ntt-sg.tiktok-row.net/openai/deployments/foo/chat/completions?api-version=2024-03-01-preview",
+        content=b'{"model": null, "messages": []}',
+        headers={"content-type": "application/json"},
+    )
+    calls = {"count": 0}
+
+    def fake_send(self, attempt_request, **kwargs):
+        calls["count"] += 1
+        if calls["count"] == 1:
+            return httpx.Response(
+                403,
+                request=attempt_request,
+                json={"error": {"message": "quota exhausted"}},
+            )
+        return httpx.Response(200, request=attempt_request, json={"ok": True})
+
+    with (
+        patch.object(rotator, "demote", wraps=rotator.demote) as demote_mock,
+        patch("httpx.Client.send", new=fake_send),
+        patch("time.sleep", return_value=None),
+    ):
+        response = client.send(request)
+
+    assert response.status_code == 200
+    demote_mock.assert_called_once()
+    assert demote_mock.call_args.kwargs["cooldown_s"] == 60.0
 
 
 def test_live_smoke_one_question() -> None:

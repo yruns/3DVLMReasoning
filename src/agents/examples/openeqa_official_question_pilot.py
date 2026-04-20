@@ -269,6 +269,11 @@ def parse_args() -> argparse.Namespace:
             "--output-root and the temporal_fan prompt variant."
         ),
     )
+    parser.add_argument(
+        "--resume",
+        action="store_true",
+        help="Resume from output_root/official_batch_summary.json and skip completed question_ids.",
+    )
     return parser.parse_args()
 
 
@@ -285,6 +290,57 @@ def derive_eval_session_id(
         f"{output_root.resolve()}|temporal_fan={enable_temporal_fan}".encode("utf-8")
     ).hexdigest()[:16]
     return f"v15_{digest}"
+
+
+def load_resume_state(
+    *,
+    work_items: list[dict[str, Any]],
+    summary_path: Path,
+    resume: bool,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
+    if not resume or not summary_path.exists():
+        return list(work_items), [], []
+
+    summary = json.loads(summary_path.read_text())
+    existing_results = [
+        item
+        for item in summary.get("results", [])
+        if isinstance(item, dict) and item.get("question_id") is not None
+    ]
+    existing_failed = [
+        item
+        for item in summary.get("failed_samples", [])
+        if isinstance(item, dict) and item.get("question_id") is not None
+    ]
+
+    completed_ids = {str(item["question_id"]) for item in existing_results}
+    pending = [
+        sample for sample in work_items if str(sample["question_id"]) not in completed_ids
+    ]
+    pending_ids = {str(sample["question_id"]) for sample in pending}
+    previous_failed = [
+        item for item in existing_failed if str(item["question_id"]) in pending_ids
+    ]
+    return pending, existing_results, previous_failed
+
+
+def is_retryable_sample_error(exc: Exception) -> bool:
+    err_str = str(exc).lower()
+    return any(
+        kw in err_str
+        for kw in [
+            "500",
+            "502",
+            "503",
+            "429",
+            "403",
+            "rate limit",
+            "server error",
+            "timeout",
+            "connection",
+            "resource exhausted",
+        ]
+    )
 
 
 def load_official_scannet_samples(
@@ -729,7 +785,21 @@ def main() -> None:
     else:
         target_results = args.max_samples
     work_items = candidate_pool[:target_results]
-    results: list[dict[str, Any]] = []
+    summary_path = args.output_root / "official_batch_summary.json"
+    work_items, existing_results, previous_failed = load_resume_state(
+        work_items=work_items,
+        summary_path=summary_path,
+        resume=args.resume,
+    )
+    results: list[dict[str, Any]] = list(existing_results)
+    if args.resume and summary_path.exists():
+        logger.info(
+            "[Resume] loaded {} completed and {} failed from {}; retrying {} remaining question_ids",
+            len(existing_results),
+            len(previous_failed),
+            summary_path,
+            len(work_items),
+        )
 
     max_sample_retries = getattr(args, "max_sample_retries", 5)
 
@@ -755,13 +825,7 @@ def main() -> None:
                 return row
             except Exception as exc:
                 last_exc = exc
-                err_str = str(exc).lower()
-                is_retryable = any(
-                    kw in err_str
-                    for kw in ["500", "502", "503", "429", "rate limit", "server error",
-                               "timeout", "connection", "resource exhausted"]
-                )
-                if not is_retryable or attempt >= max_sample_retries - 1:
+                if not is_retryable_sample_error(exc) or attempt >= max_sample_retries - 1:
                     raise
                 import time
                 wait = min(10 * 2**attempt, 120)
@@ -777,6 +841,7 @@ def main() -> None:
         raise last_exc
 
     num_workers = max(1, getattr(args, "workers", 1))
+    failed_samples: list[dict[str, Any]] = []
     if num_workers > 1:
         import concurrent.futures
 
@@ -789,7 +854,6 @@ def main() -> None:
             future_to_sample = {
                 executor.submit(_run_sample, sample): sample for sample in work_items
             }
-            failed_samples: list[dict] = []
             for future in concurrent.futures.as_completed(future_to_sample):
                 sample = future_to_sample[future]
                 try:
@@ -838,7 +902,6 @@ def main() -> None:
 
     # Save batch summary BEFORE scoring — scoring can crash (rate limit, network)
     # and we must not lose the inference results.
-    summary_path = args.output_root / "official_batch_summary.json"
     save_json(summary_path, summary)
     logger.info("Saved inference summary to {}", summary_path)
 
