@@ -74,8 +74,8 @@ def create_more_views_callback(
                     anchor_frame_indices=frame_indices,
                     existing_view_ids=existing_view_ids,
                     max_views=max_additional_views,
-                    max_overlap=float(request.get("max_overlap", 0.5)),
-                    window_max=int(request.get("window_max", 8)),
+                    max_overlap=float(request.get("max_overlap", 0.7)),
+                    window_max=int(request.get("window_max", 16)),
                     frustum_method=str(request.get("frustum_method", "l1")),
                 )
             except RuntimeError as exc:
@@ -265,8 +265,8 @@ def _temporal_fan_views(
     anchor_frame_indices: list[int],
     existing_view_ids: set[int],
     max_views: int,
-    max_overlap: float = 0.5,
-    window_max: int = 8,
+    max_overlap: float = 0.7,
+    window_max: int = 16,
     frustum_method: str = "l1",
 ) -> list[int]:
     """Collect temporally adjacent views that add non-redundant visual evidence."""
@@ -285,6 +285,7 @@ def _temporal_fan_views(
 
     k, img_wh = selector._get_intrinsic()
     out: list[tuple[int, float, int]] = []
+    fallback_candidates: list[tuple[int, float, int]] = []
 
     for anchor in anchor_frame_indices:
         anchor_vid = int(anchor)
@@ -293,6 +294,7 @@ def _temporal_fan_views(
 
         anchor_pose = selector.camera_poses[anchor_vid]
         found_any = False
+        best_anchor_candidate: tuple[int, float, int] | None = None
         for delta in range(1, window_max + 1):
             for neighbor in (anchor_vid - delta, anchor_vid + delta):
                 if neighbor < 0 or neighbor >= len(selector.camera_poses):
@@ -313,8 +315,19 @@ def _temporal_fan_views(
                         img_wh,
                     )
 
+                candidate = (neighbor, float(overlap), delta)
+                if best_anchor_candidate is None or (
+                    candidate[1],
+                    candidate[2],
+                    candidate[0],
+                ) < (
+                    best_anchor_candidate[1],
+                    best_anchor_candidate[2],
+                    best_anchor_candidate[0],
+                ):
+                    best_anchor_candidate = candidate
                 if overlap <= max_overlap:
-                    out.append((neighbor, float(overlap), delta))
+                    out.append(candidate)
                     found_any = True
 
         if not found_any:
@@ -325,8 +338,24 @@ def _temporal_fan_views(
                 window_max,
                 max_overlap,
             )
+            if best_anchor_candidate is not None:
+                fallback_candidates.append(best_anchor_candidate)
 
     if not out:
+        if fallback_candidates:
+            best_neighbor = min(
+                fallback_candidates,
+                key=lambda item: (item[1], item[2], item[0]),
+            )
+            logger.warning(
+                "[Stage1Callback] temporal_fan found no neighbors with overlap<={}; "
+                "returning best available neighbor {} with overlap {:.3f} within ±{}",
+                max_overlap,
+                best_neighbor[0],
+                best_neighbor[1],
+                window_max,
+            )
+            return [best_neighbor[0]]
         raise RuntimeError(
             f"temporal_fan found no neighbors with overlap ≤ {max_overlap} "
             f"within ±{window_max} frames of any anchor {anchor_frame_indices}. "

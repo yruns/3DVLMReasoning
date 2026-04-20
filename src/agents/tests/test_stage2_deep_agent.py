@@ -599,7 +599,7 @@ class TestStage2DeepAgent(unittest.TestCase):
     def test_temporal_fan_returns_neighbors_below_overlap_threshold(self) -> None:
         selector = type("Selector", (), {})()
         selector.camera_poses = []
-        for view_id in range(10):
+        for view_id in range(20):
             pose = np.eye(4, dtype=np.float64)
             pose[0, 3] = float(view_id)
             selector.camera_poses.append(pose)
@@ -618,9 +618,13 @@ class TestStage2DeepAgent(unittest.TestCase):
         def fake_overlap(pose_a, pose_b, k, img_wh):
             delta = int(abs(pose_a[0, 3] - pose_b[0, 3]))
             if delta == 1:
-                return 0.45
+                return 0.76
             if delta == 2:
-                return 0.40
+                return 0.72
+            if delta == 3:
+                return 0.69
+            if delta == 4:
+                return 0.66
             return 0.90
 
         with patch(
@@ -633,12 +637,14 @@ class TestStage2DeepAgent(unittest.TestCase):
                 anchor_frame_indices=[5],
                 existing_view_ids={5},
                 max_views=4,
-                max_overlap=0.5,
-                window_max=3,
+                max_overlap=0.7,
+                window_max=16,
                 frustum_method="l1",
             )
 
-        self.assertEqual(set(selected), {3, 4, 6, 7})
+        self.assertGreaterEqual(len(selected), 2)
+        self.assertIn(2, selected)
+        self.assertIn(8, selected)
 
     def test_temporal_fan_raises_on_empty_anchor(self) -> None:
         selector = type("Selector", (), {})()
@@ -667,7 +673,9 @@ class TestStage2DeepAgent(unittest.TestCase):
                 max_views=3,
             )
 
-    def test_temporal_fan_raises_on_all_redundant_neighborhood(self) -> None:
+    def test_temporal_fan_returns_best_available_neighbor_when_threshold_misses(
+        self,
+    ) -> None:
         selector = type("Selector", (), {})()
         selector.camera_poses = []
         for view_id in range(10):
@@ -690,20 +698,18 @@ class TestStage2DeepAgent(unittest.TestCase):
             "query_scene.frustum.frustum_overlap_l1",
             return_value=0.95,
         ):
-            with self.assertRaisesRegex(
-                RuntimeError,
-                r"temporal_fan found no neighbors with overlap ≤ 0.5",
-            ):
-                _temporal_fan_views(
-                    selector=selector,
-                    bundle=Stage2EvidenceBundle(scene_id="room0"),
-                    anchor_frame_indices=[5],
-                    existing_view_ids={5},
-                    max_views=3,
-                    max_overlap=0.5,
-                    window_max=3,
-                    frustum_method="l1",
-                )
+            selected = _temporal_fan_views(
+                selector=selector,
+                bundle=Stage2EvidenceBundle(scene_id="room0"),
+                anchor_frame_indices=[5],
+                existing_view_ids={5},
+                max_views=3,
+                max_overlap=0.7,
+                window_max=16,
+                frustum_method="l1",
+            )
+
+        self.assertEqual(selected, [4])
 
 
 if __name__ == "__main__":
