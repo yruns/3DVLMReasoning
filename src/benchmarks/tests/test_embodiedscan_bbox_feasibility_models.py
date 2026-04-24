@@ -57,6 +57,11 @@ def test_bbox_proposal_rejects_non_finite_score(score: float) -> None:
         BBox3DProposal(bbox_3d=[1, 2, 3, 4, 5, 6], score=score, source="unit")
 
 
+def test_bbox_proposal_accepts_uncalibrated_finite_score() -> None:
+    proposal = BBox3DProposal(bbox_3d=[1, 2, 3, 4, 5, 6], score=2.5, source="unit")
+    assert proposal.score == 2.5
+
+
 @pytest.mark.parametrize("best_iou", [-0.1, 1.1])
 def test_target_score_rejects_best_iou_outside_unit_interval(best_iou: float) -> None:
     with pytest.raises(ValueError):
@@ -67,6 +72,19 @@ def test_target_score_rejects_best_iou_outside_unit_interval(best_iou: float) ->
             method="unit",
             input_condition="unit",
             best_iou=best_iou,
+        )
+
+
+def test_target_score_rejects_negative_best_proposal_index() -> None:
+    with pytest.raises(ValueError):
+        TargetScore(
+            scan_id="scannet/scene0001_00",
+            scene_id="scene0001_00",
+            target_id=7,
+            method="unit",
+            input_condition="unit",
+            best_iou=0.5,
+            best_proposal_index=-1,
         )
 
 
@@ -97,6 +115,22 @@ def test_aggregate_metrics_rejects_negative_num_targets() -> None:
             acc_050=0.0,
             mean_proposals_per_record=0.0,
             non_degenerate_box_ratio=0.0,
+        )
+
+
+def test_aggregate_metrics_rejects_negative_failure_count() -> None:
+    with pytest.raises(ValueError):
+        AggregateMetrics(
+            method="unit",
+            input_condition="unit",
+            num_targets=1,
+            mean_best_iou=0.0,
+            median_best_iou=0.0,
+            acc_025=0.0,
+            acc_050=0.0,
+            mean_proposals_per_record=0.0,
+            non_degenerate_box_ratio=0.0,
+            failure_counts={"no_proposal": -1},
         )
 
 

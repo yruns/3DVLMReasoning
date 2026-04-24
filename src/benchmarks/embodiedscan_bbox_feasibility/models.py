@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from enum import Enum
 from math import isfinite
-from typing import Any
+from typing import Annotated, Any
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -40,7 +40,7 @@ class ObservationRecord(BaseModel):
 
 class BBox3DProposal(BaseModel):
     bbox_3d: list[float]
-    score: float | None = Field(default=None, ge=0.0, le=1.0, allow_inf_nan=False)
+    score: float | None = Field(default=None, allow_inf_nan=False)
     source: str
     metadata: dict[str, Any] = Field(default_factory=dict)
 
@@ -69,7 +69,7 @@ class TargetScore(BaseModel):
     method: str
     input_condition: str
     best_iou: float = Field(ge=0.0, le=1.0, allow_inf_nan=False)
-    best_proposal_index: int | None = None
+    best_proposal_index: int | None = Field(default=None, ge=0)
     failure_tag: FailureTag | None = None
 
 
@@ -83,7 +83,7 @@ class AggregateMetrics(BaseModel):
     acc_050: float = Field(ge=0.0, le=1.0, allow_inf_nan=False)
     mean_proposals_per_record: float = Field(ge=0.0, allow_inf_nan=False)
     non_degenerate_box_ratio: float = Field(ge=0.0, le=1.0, allow_inf_nan=False)
-    failure_counts: dict[str, int] = Field(default_factory=dict)
+    failure_counts: dict[str, Annotated[int, Field(ge=0)]] = Field(default_factory=dict)
 
 
 def _normalize_bbox_9dof(value: list[float], *, field_name: str) -> list[float]:
