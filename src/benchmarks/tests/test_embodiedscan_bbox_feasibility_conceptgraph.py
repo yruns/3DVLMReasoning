@@ -32,9 +32,9 @@ def test_generate_conceptgraph_proposals_reads_pkl_without_keyframe_selector(tmp
         pickle.dump(payload, f)
 
     record = generate_conceptgraph_proposals(
-        scene_path=scene,
-        scan_id="scannet/scene0001_00",
-        scene_id="scene0001_00",
+        scene,
+        "scannet/scene0001_00",
+        "scene0001_00",
     )
 
     assert record.method == "2d-cg"

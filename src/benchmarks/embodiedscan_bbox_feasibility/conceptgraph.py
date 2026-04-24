@@ -17,7 +17,6 @@ _UNKNOWN_NAMES = {"item", "object", "none"}
 
 
 def generate_conceptgraph_proposals(
-    *,
     scene_path: str | Path,
     scan_id: str,
     scene_id: str,
