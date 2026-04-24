@@ -1,11 +1,13 @@
 import pytest
 
 from benchmarks.embodiedscan_bbox_feasibility.models import (
+    AggregateMetrics,
     BBox3DProposal,
     EmbodiedScanTarget,
     FailureTag,
     ObservationRecord,
     ProposalRecord,
+    TargetScore,
 )
 
 
@@ -21,6 +23,81 @@ def test_bbox_proposal_normalizes_to_nine_floats() -> None:
 def test_bbox_proposal_rejects_short_box() -> None:
     with pytest.raises(ValueError, match="at least 6"):
         BBox3DProposal(bbox_3d=[1, 2, 3, 4, 5], score=1.0, source="unit")
+
+
+@pytest.mark.parametrize(
+    "bbox_3d",
+    [
+        [1, 2, 3, 4, 5, float("nan")],
+        [1, 2, 3, 4, 5, float("inf")],
+    ],
+)
+def test_bbox_proposal_rejects_non_finite_box_values(bbox_3d: list[float]) -> None:
+    with pytest.raises(ValueError, match="finite"):
+        BBox3DProposal(bbox_3d=bbox_3d, score=1.0, source="unit")
+
+
+def test_bbox_proposal_rejects_long_box() -> None:
+    with pytest.raises(ValueError, match="at most 9"):
+        BBox3DProposal(bbox_3d=list(range(10)), score=1.0, source="unit")
+
+
+def test_bbox_proposal_accepts_nine_value_box() -> None:
+    proposal = BBox3DProposal(
+        bbox_3d=[1, 2, 3, 4, 5, 6, 0.1, 0.2, 0.3],
+        score=1.0,
+        source="unit",
+    )
+    assert proposal.bbox_3d == [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 0.1, 0.2, 0.3]
+
+
+@pytest.mark.parametrize("score", [float("nan"), float("inf")])
+def test_bbox_proposal_rejects_non_finite_score(score: float) -> None:
+    with pytest.raises(ValueError):
+        BBox3DProposal(bbox_3d=[1, 2, 3, 4, 5, 6], score=score, source="unit")
+
+
+@pytest.mark.parametrize("best_iou", [-0.1, 1.1])
+def test_target_score_rejects_best_iou_outside_unit_interval(best_iou: float) -> None:
+    with pytest.raises(ValueError):
+        TargetScore(
+            scan_id="scannet/scene0001_00",
+            scene_id="scene0001_00",
+            target_id=7,
+            method="unit",
+            input_condition="unit",
+            best_iou=best_iou,
+        )
+
+
+def test_aggregate_metrics_rejects_accuracy_above_one() -> None:
+    with pytest.raises(ValueError):
+        AggregateMetrics(
+            method="unit",
+            input_condition="unit",
+            num_targets=1,
+            mean_best_iou=0.0,
+            median_best_iou=0.0,
+            acc_025=1.1,
+            acc_050=0.0,
+            mean_proposals_per_record=0.0,
+            non_degenerate_box_ratio=0.0,
+        )
+
+
+def test_aggregate_metrics_rejects_negative_num_targets() -> None:
+    with pytest.raises(ValueError):
+        AggregateMetrics(
+            method="unit",
+            input_condition="unit",
+            num_targets=-1,
+            mean_best_iou=0.0,
+            median_best_iou=0.0,
+            acc_025=0.0,
+            acc_050=0.0,
+            mean_proposals_per_record=0.0,
+            non_degenerate_box_ratio=0.0,
+        )
 
 
 def test_proposal_record_keeps_target_conditioned_observation() -> None:
