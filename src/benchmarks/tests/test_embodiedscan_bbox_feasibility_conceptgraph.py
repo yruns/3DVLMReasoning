@@ -33,9 +33,9 @@ def test_generate_conceptgraph_proposals_reads_pkl_without_keyframe_selector(tmp
         pickle.dump(payload, f)
 
     record = generate_conceptgraph_proposals(
-        scene,
-        "scannet/scene0001_00",
-        "scene0001_00",
+        scene_path=scene,
+        scan_id="scannet/scene0001_00",
+        scene_id="scene0001_00",
     )
 
     assert record.method == "2d-cg"
@@ -43,6 +43,18 @@ def test_generate_conceptgraph_proposals_reads_pkl_without_keyframe_selector(tmp
     assert len(record.proposals) == 1
     assert record.proposals[0].bbox_3d[:6] == [1.0, 2.0, 3.0, 2.0, 4.0, 6.0]
     assert record.proposals[0].metadata["category"] == "chair"
+
+
+def test_generate_conceptgraph_proposals_requires_keyword_arguments(tmp_path: Path) -> None:
+    scene = tmp_path / "scene0001_00" / "conceptgraph"
+
+    with pytest.raises(TypeError):
+        generate_conceptgraph_proposals(
+            scene,
+            "scannet/scene0001_00",
+            "scene0001_00",
+        )
+
 
 def test_generate_conceptgraph_proposals_reports_no_pcd_file(tmp_path: Path) -> None:
     scene = tmp_path / "scene0001_00" / "conceptgraph"
