@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 
 from benchmarks.embodiedscan_bbox_feasibility.geometry import (
     aabb_from_points,
@@ -15,6 +16,12 @@ def test_aabb_from_points_returns_embodiedscan_9dof() -> None:
     assert is_non_degenerate_bbox(bbox)
 
 
+def test_aabb_from_points_rejects_non_finite_points() -> None:
+    pts = np.array([[0.0, 0.0, 0.0], [np.inf, 1.0, 2.0]], dtype=np.float32)
+    with pytest.raises(ValueError, match="points must contain only finite values"):
+        aabb_from_points(pts)
+
+
 def test_backproject_depth_uses_intrinsics_and_mask() -> None:
     depth = np.array([[1.0, 2.0], [0.0, 4.0]], dtype=np.float32)
     mask = np.array([[True, False], [False, True]])
@@ -23,6 +30,46 @@ def test_backproject_depth_uses_intrinsics_and_mask() -> None:
     assert pts.shape == (2, 3)
     assert np.allclose(pts[0], [0.0, 0.0, 1.0])
     assert np.allclose(pts[1], [4.0, 4.0, 4.0])
+
+
+def test_backproject_depth_returns_empty_array_for_all_invalid_depth() -> None:
+    depth = np.array([[0.0, -1.0], [np.nan, 1e-8]], dtype=np.float32)
+    intrinsic = np.eye(3, dtype=np.float32)
+    pts = backproject_depth(depth, intrinsic)
+    assert pts.shape == (0, 3)
+    assert pts.dtype == np.float32
+
+
+def test_backproject_depth_filters_infinite_depth() -> None:
+    depth = np.array([[np.inf, 2.0]], dtype=np.float32)
+    intrinsic = np.eye(3, dtype=np.float32)
+    pts = backproject_depth(depth, intrinsic)
+    assert pts.shape == (1, 3)
+    assert np.allclose(pts[0], [2.0, 0.0, 2.0])
+
+
+@pytest.mark.parametrize(
+    "intrinsic",
+    [
+        np.ones((3,), dtype=np.float32),
+        np.ones((2, 3), dtype=np.float32),
+        np.array([[1.0, 0.0, np.nan], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]], dtype=np.float32),
+        np.array([[0.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]], dtype=np.float32),
+        np.array([[1.0, 0.0, 0.0], [0.0, np.inf, 0.0], [0.0, 0.0, 1.0]], dtype=np.float32),
+    ],
+)
+def test_backproject_depth_rejects_invalid_intrinsics(intrinsic: np.ndarray) -> None:
+    depth = np.array([[1.0]], dtype=np.float32)
+    with pytest.raises(ValueError):
+        backproject_depth(depth, intrinsic)
+
+
+def test_backproject_depth_rejects_mask_shape_mismatch() -> None:
+    depth = np.ones((2, 2), dtype=np.float32)
+    mask = np.ones((4,), dtype=bool)
+    intrinsic = np.eye(3, dtype=np.float32)
+    with pytest.raises(ValueError, match="mask must have the same shape as depth"):
+        backproject_depth(depth, intrinsic, mask=mask)
 
 
 def test_transform_points_applies_homogeneous_transform() -> None:

@@ -17,6 +17,8 @@ def aabb_from_points(points: np.ndarray) -> list[float]:
     if pts.ndim != 2 or pts.shape[1] < 3 or len(pts) == 0:
         raise ValueError("points must have shape (N, >=3) with N > 0")
     xyz = pts[:, :3]
+    if not np.isfinite(xyz).all():
+        raise ValueError("points must contain only finite values")
     lo = xyz.min(axis=0)
     hi = xyz.max(axis=0)
     center = (lo + hi) / 2.0
@@ -56,12 +58,23 @@ def backproject_depth(
 ) -> np.ndarray:
     depth_arr = np.asarray(depth, dtype=np.float64) / float(depth_scale)
     k = np.asarray(intrinsic, dtype=np.float64)
-    if k.shape[0] < 3 or k.shape[1] < 3:
+    if k.ndim != 2 or k.shape[0] < 3 or k.shape[1] < 3:
         raise ValueError("intrinsic must be at least 3x3")
-    valid = depth_arr > min_depth
+    if not np.isfinite(k).all():
+        raise ValueError("intrinsic must contain only finite values")
+    if not np.isfinite(k[0, 0]) or k[0, 0] == 0.0:
+        raise ValueError("intrinsic fx must be finite and non-zero")
+    if not np.isfinite(k[1, 1]) or k[1, 1] == 0.0:
+        raise ValueError("intrinsic fy must be finite and non-zero")
+    valid = np.isfinite(depth_arr) & (depth_arr > min_depth)
     if mask is not None:
-        valid &= np.asarray(mask, dtype=bool)
+        mask_arr = np.asarray(mask, dtype=bool)
+        if mask_arr.shape != depth_arr.shape:
+            raise ValueError("mask must have the same shape as depth")
+        valid &= mask_arr
     ys, xs = np.nonzero(valid)
+    if len(ys) == 0:
+        return np.empty((0, 3), dtype=np.float32)
     z = depth_arr[ys, xs]
     x = (xs.astype(np.float64) - k[0, 2]) * z / k[0, 0]
     y = (ys.astype(np.float64) - k[1, 2]) * z / k[1, 1]
