@@ -17,6 +17,7 @@ _UNKNOWN_NAMES = {"item", "object", "none"}
 
 
 def generate_conceptgraph_proposals(
+    *,
     scene_path: str | Path,
     scan_id: str,
     scene_id: str,
@@ -34,11 +35,11 @@ def generate_conceptgraph_proposals(
             metadata={"reason": "no_pcd_file", "scene_path": str(scene)},
         )
 
-    with gzip.open(pkl_path, "rb") as f:
-        payload = pickle.load(f)
+    payload = _load_pcd_payload(pkl_path)
+    objects = _payload_objects(payload, pkl_path)
 
     proposals: list[BBox3DProposal] = []
-    for obj_idx, obj in enumerate(payload.get("objects", [])):
+    for obj_idx, obj in enumerate(objects):
         if not isinstance(obj, dict):
             continue
 
@@ -93,6 +94,25 @@ def _find_pcd_file(scene_path: Path) -> Path | None:
         if matches:
             return matches[0]
     return None
+
+
+def _load_pcd_payload(pkl_path: Path) -> Any:
+    try:
+        with gzip.open(pkl_path, "rb") as f:
+            return pickle.load(f)
+    except (EOFError, OSError, pickle.PickleError, ValueError) as exc:
+        raise ValueError(f"Failed to load ConceptGraph PCD file {pkl_path}") from exc
+
+
+def _payload_objects(payload: Any, pkl_path: Path) -> list[Any]:
+    if not isinstance(payload, dict):
+        raise ValueError(f"Invalid ConceptGraph PCD payload in {pkl_path}: expected dict")
+    objects = payload.get("objects", [])
+    if not isinstance(objects, list):
+        raise ValueError(
+            f"Invalid ConceptGraph PCD payload in {pkl_path}: expected objects list"
+        )
+    return objects
 
 
 def _category(obj: dict[str, Any]) -> str:
