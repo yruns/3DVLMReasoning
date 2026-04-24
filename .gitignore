@@ -47,11 +47,20 @@ htmlcov/
 *.log
 logs/
 
-# Data
-data/
+# Data: ignore every immediate child of data/ so large datasets stay out of git.
+# Use `data/*` (not `data/`) so sub-paths can be selectively re-included below.
+data/*
 *.pkl
 *.pth
 *.pt
+
+# Exception: keep tracked metadata for the nav-plan dataset (README, human-QA verdicts).
+# Bulk synthetic JSONL + SG3D cache stay ignored via explicit subpatterns below.
+!data/navplan/
+data/navplan/synthetic/
+data/navplan/sg3d_cache/
+data/navplan/**/*.jsonl
+!data/navplan/human_qa/review_notes.jsonl
 
 # Runtime / experiment artifacts
 tmp/
