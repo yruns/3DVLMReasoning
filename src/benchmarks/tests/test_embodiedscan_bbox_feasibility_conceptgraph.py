@@ -125,7 +125,8 @@ def test_generate_conceptgraph_proposals_reads_plain_pkl_gz_fallback(tmp_path: P
 
     assert len(record.proposals) == 1
     assert record.proposals[0].metadata["category"] == "chair"
-    assert record.proposals[0].metadata["pkl_path"].endswith("object_map.pkl.gz")
+    pkl_path_metadata = record.proposals[0].metadata["pkl_path"]
+    assert pkl_path_metadata.endswith("object_map.pkl.gz")
 
 
 def test_generate_conceptgraph_proposals_reports_unreadable_pkl_path(tmp_path: Path) -> None:
