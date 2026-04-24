@@ -62,6 +62,40 @@ def test_bbox_proposal_accepts_uncalibrated_finite_score() -> None:
     assert proposal.score == 2.5
 
 
+def test_bbox_proposal_metadata_accepts_json_safe_nested_values() -> None:
+    proposal = BBox3DProposal(
+        bbox_3d=[1, 2, 3, 4, 5, 6],
+        source="unit",
+        metadata={"nested": {"ok": [1, "x", True, None]}},
+    )
+    assert proposal.model_dump_json()
+
+
+def test_observation_record_metadata_rejects_object_value() -> None:
+    with pytest.raises(ValueError):
+        ObservationRecord(policy="unit", metadata={"bad": object()})
+
+
+def test_proposal_record_metadata_rejects_non_finite_float() -> None:
+    with pytest.raises(ValueError):
+        ProposalRecord(
+            scene_id="scene0001_00",
+            scan_id="scannet/scene0001_00",
+            method="unit",
+            input_condition="unit",
+            metadata={"bad": float("nan")},
+        )
+
+
+def test_bbox_proposal_metadata_rejects_non_string_key() -> None:
+    with pytest.raises(ValueError):
+        BBox3DProposal(
+            bbox_3d=[1, 2, 3, 4, 5, 6],
+            source="unit",
+            metadata={1: "bad-key"},
+        )
+
+
 @pytest.mark.parametrize("best_iou", [-0.1, 1.1])
 def test_target_score_rejects_best_iou_outside_unit_interval(best_iou: float) -> None:
     with pytest.raises(ValueError):

@@ -37,6 +37,11 @@ class ObservationRecord(BaseModel):
     frame_ids: list[int] = Field(default_factory=list)
     metadata: dict[str, Any] = Field(default_factory=dict)
 
+    @field_validator("metadata", mode="before")
+    @classmethod
+    def _validate_metadata(cls, value: Any) -> dict[str, Any]:
+        return _validate_json_safe_metadata(value, field_name="metadata")
+
 
 class BBox3DProposal(BaseModel):
     bbox_3d: list[float]
@@ -49,6 +54,11 @@ class BBox3DProposal(BaseModel):
     def _validate_bbox(cls, value: list[float]) -> list[float]:
         return _normalize_bbox_9dof(value, field_name="bbox_3d")
 
+    @field_validator("metadata", mode="before")
+    @classmethod
+    def _validate_metadata(cls, value: Any) -> dict[str, Any]:
+        return _validate_json_safe_metadata(value, field_name="metadata")
+
 
 class ProposalRecord(BaseModel):
     scene_id: str
@@ -60,6 +70,11 @@ class ProposalRecord(BaseModel):
     proposals: list[BBox3DProposal] = Field(default_factory=list)
     failure_tag: FailureTag | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
+
+    @field_validator("metadata", mode="before")
+    @classmethod
+    def _validate_metadata(cls, value: Any) -> dict[str, Any]:
+        return _validate_json_safe_metadata(value, field_name="metadata")
 
 
 class TargetScore(BaseModel):
@@ -97,3 +112,30 @@ def _normalize_bbox_9dof(value: list[float], *, field_name: str) -> list[float]:
     while len(out) < 9:
         out.append(0.0)
     return out
+
+
+def _validate_json_safe_metadata(value: Any, *, field_name: str) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        raise ValueError(f"{field_name} must be a JSON object")
+    _validate_json_safe_value(value, field_name=field_name)
+    return value
+
+
+def _validate_json_safe_value(value: Any, *, field_name: str) -> None:
+    if value is None or isinstance(value, (str, bool, int)):
+        return
+    if isinstance(value, float):
+        if not isfinite(value):
+            raise ValueError(f"{field_name} must contain only finite floats")
+        return
+    if isinstance(value, list):
+        for item in value:
+            _validate_json_safe_value(item, field_name=field_name)
+        return
+    if isinstance(value, dict):
+        for key, item in value.items():
+            if not isinstance(key, str):
+                raise ValueError(f"{field_name} must contain only string keys")
+            _validate_json_safe_value(item, field_name=field_name)
+        return
+    raise ValueError(f"{field_name} must contain only JSON-safe values")
