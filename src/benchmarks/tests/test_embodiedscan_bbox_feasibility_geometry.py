@@ -48,6 +48,35 @@ def test_backproject_depth_filters_infinite_depth() -> None:
     assert np.allclose(pts[0], [2.0, 0.0, 2.0])
 
 
+@pytest.mark.parametrize("depth_scale", [0.0, -1.0, np.nan, np.inf])
+def test_backproject_depth_rejects_invalid_depth_scale(depth_scale: float) -> None:
+    depth = np.array([[1.0]], dtype=np.float32)
+    intrinsic = np.eye(3, dtype=np.float32)
+    with pytest.raises(ValueError, match="depth_scale must be finite and positive"):
+        backproject_depth(depth, intrinsic, depth_scale=depth_scale)
+
+
+@pytest.mark.parametrize("min_depth", [-1.0, np.nan, np.inf])
+def test_backproject_depth_rejects_invalid_min_depth(min_depth: float) -> None:
+    depth = np.array([[1.0]], dtype=np.float32)
+    intrinsic = np.eye(3, dtype=np.float32)
+    with pytest.raises(ValueError, match="min_depth must be finite and non-negative"):
+        backproject_depth(depth, intrinsic, min_depth=min_depth)
+
+
+@pytest.mark.parametrize(
+    "depth",
+    [
+        np.array([1.0, 2.0], dtype=np.float32),
+        np.ones((2, 2, 1), dtype=np.float32),
+    ],
+)
+def test_backproject_depth_rejects_non_2d_depth(depth: np.ndarray) -> None:
+    intrinsic = np.eye(3, dtype=np.float32)
+    with pytest.raises(ValueError, match="depth must have shape \\(H, W\\)"):
+        backproject_depth(depth, intrinsic)
+
+
 @pytest.mark.parametrize(
     "intrinsic",
     [

@@ -56,7 +56,17 @@ def backproject_depth(
     depth_scale: float = 1.0,
     min_depth: float = 1e-6,
 ) -> np.ndarray:
-    depth_arr = np.asarray(depth, dtype=np.float64) / float(depth_scale)
+    depth_scale_value = float(depth_scale)
+    if not np.isfinite(depth_scale_value) or depth_scale_value <= 0.0:
+        raise ValueError("depth_scale must be finite and positive")
+    min_depth_value = float(min_depth)
+    if not np.isfinite(min_depth_value) or min_depth_value < 0.0:
+        raise ValueError("min_depth must be finite and non-negative")
+
+    depth_arr = np.asarray(depth, dtype=np.float64)
+    if depth_arr.ndim != 2:
+        raise ValueError("depth must have shape (H, W)")
+    depth_arr = depth_arr / depth_scale_value
     k = np.asarray(intrinsic, dtype=np.float64)
     if k.ndim != 2 or k.shape[0] < 3 or k.shape[1] < 3:
         raise ValueError("intrinsic must be at least 3x3")
@@ -66,7 +76,7 @@ def backproject_depth(
         raise ValueError("intrinsic fx must be finite and non-zero")
     if not np.isfinite(k[1, 1]) or k[1, 1] == 0.0:
         raise ValueError("intrinsic fy must be finite and non-zero")
-    valid = np.isfinite(depth_arr) & (depth_arr > min_depth)
+    valid = np.isfinite(depth_arr) & (depth_arr > min_depth_value)
     if mask is not None:
         mask_arr = np.asarray(mask, dtype=bool)
         if mask_arr.shape != depth_arr.shape:
