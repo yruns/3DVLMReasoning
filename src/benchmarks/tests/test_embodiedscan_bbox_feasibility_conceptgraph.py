@@ -58,7 +58,9 @@ def test_generate_conceptgraph_proposals_requires_keyword_arguments(tmp_path: Pa
 
 def test_generate_conceptgraph_proposals_reports_no_pcd_file(tmp_path: Path) -> None:
     scene = tmp_path / "scene0001_00" / "conceptgraph"
-    (scene / "pcd_saves").mkdir(parents=True)
+    pcd_dir = scene / "pcd_saves"
+    pcd_dir.mkdir(parents=True)
+    (pcd_dir / "notes.txt").write_text("not a pkl", encoding="utf-8")
 
     record = generate_conceptgraph_proposals(
         scene_path=scene,
