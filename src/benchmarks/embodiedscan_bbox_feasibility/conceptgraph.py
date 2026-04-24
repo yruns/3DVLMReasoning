@@ -107,7 +107,11 @@ def _load_pcd_payload(pkl_path: Path) -> Any:
 def _payload_objects(payload: Any, pkl_path: Path) -> list[Any]:
     if not isinstance(payload, dict):
         raise ValueError(f"Invalid ConceptGraph PCD payload in {pkl_path}: expected dict")
-    objects = payload.get("objects", [])
+    if "objects" not in payload:
+        raise ValueError(
+            f"Invalid ConceptGraph PCD payload in {pkl_path}: missing objects list"
+        )
+    objects = payload["objects"]
     if not isinstance(objects, list):
         raise ValueError(
             f"Invalid ConceptGraph PCD payload in {pkl_path}: expected objects list"

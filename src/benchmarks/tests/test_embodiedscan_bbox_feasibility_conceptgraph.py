@@ -215,6 +215,7 @@ def test_generate_conceptgraph_proposals_reports_unreadable_pkl_path(tmp_path: P
     "payload",
     [
         ["not", "a", "dict"],
+        {},
         {"objects": {"not": "a list"}},
     ],
 )
