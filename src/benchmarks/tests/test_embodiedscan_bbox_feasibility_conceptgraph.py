@@ -33,9 +33,9 @@ def test_generate_conceptgraph_proposals_reads_pkl_without_keyframe_selector(tmp
         pickle.dump(payload, f)
 
     record = generate_conceptgraph_proposals(
-        scene,
-        "scannet/scene0001_00",
-        "scene0001_00",
+        scene_path=scene,
+        scan_id="scannet/scene0001_00",
+        scene_id="scene0001_00",
     )
 
     assert record.method == "2d-cg"
@@ -43,6 +43,18 @@ def test_generate_conceptgraph_proposals_reads_pkl_without_keyframe_selector(tmp
     assert len(record.proposals) == 1
     assert record.proposals[0].bbox_3d[:6] == [1.0, 2.0, 3.0, 2.0, 4.0, 6.0]
     assert record.proposals[0].metadata["category"] == "chair"
+
+
+def test_generate_conceptgraph_proposals_requires_keyword_arguments(tmp_path: Path) -> None:
+    scene = tmp_path / "scene0001_00" / "conceptgraph"
+
+    with pytest.raises(TypeError):
+        generate_conceptgraph_proposals(
+            scene,
+            "scannet/scene0001_00",
+            "scene0001_00",
+        )
+
 
 def test_generate_conceptgraph_proposals_reports_no_pcd_file(tmp_path: Path) -> None:
     scene = tmp_path / "scene0001_00" / "conceptgraph"
@@ -178,6 +190,40 @@ def test_generate_conceptgraph_proposals_reads_plain_pkl_gz_fallback(tmp_path: P
     assert record.proposals[0].metadata["category"] == "chair"
     pkl_path_metadata = record.proposals[0].metadata["pkl_path"]
     assert pkl_path_metadata.endswith("object_map.pkl.gz")
+
+
+def test_generate_conceptgraph_proposals_prefers_ram_post_pkl(tmp_path: Path) -> None:
+    scene = tmp_path / "scene0001_00" / "conceptgraph"
+    pcd_dir = scene / "pcd_saves"
+    pcd_dir.mkdir(parents=True)
+
+    files = [
+        ("generic_objects.pkl.gz", "generic"),
+        ("full_pcd_mock_post.pkl.gz", "post"),
+        ("full_pcd_ram_mock_post.pkl.gz", "ram_post"),
+    ]
+    for filename, category in files:
+        payload = {
+            "objects": [
+                {
+                    "pcd_np": np.array([[0, 0, 0], [1, 2, 3]], dtype=np.float32),
+                    "class_name": [category],
+                },
+            ]
+        }
+        with gzip.open(pcd_dir / filename, "wb") as f:
+            pickle.dump(payload, f)
+
+    record = generate_conceptgraph_proposals(
+        scene_path=scene,
+        scan_id="scannet/scene0001_00",
+        scene_id="scene0001_00",
+    )
+
+    assert len(record.proposals) == 1
+    assert record.proposals[0].metadata["category"] == "ram_post"
+    pkl_path_metadata = record.proposals[0].metadata["pkl_path"]
+    assert pkl_path_metadata.endswith("full_pcd_ram_mock_post.pkl.gz")
 
 
 def test_generate_conceptgraph_proposals_reports_unreadable_pkl_path(tmp_path: Path) -> None:
