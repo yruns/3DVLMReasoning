@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field, field_validator
 
 class FailureTag(str, Enum):
     NO_PROPOSAL = "no_proposal"
+    INPUT_BLOCKED = "input_blocked"
     COORD_MISMATCH = "coord_mismatch"
     DEGENERATE_BOX = "degenerate_box"
     VISIBILITY_LIMITED = "visibility_limited"
@@ -68,6 +69,22 @@ class ProposalRecord(BaseModel):
     input_condition: str
     observation: ObservationRecord | None = None
     proposals: list[BBox3DProposal] = Field(default_factory=list)
+    failure_tag: FailureTag | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+    @field_validator("metadata", mode="before")
+    @classmethod
+    def _validate_metadata(cls, value: Any) -> dict[str, Any]:
+        return _validate_json_safe_metadata(value, field_name="metadata")
+
+
+class DetectorInputRecord(BaseModel):
+    scan_id: str
+    scene_id: str
+    target_id: int | None = None
+    input_condition: str
+    pointcloud_path: str | None = None
+    frame_ids: list[int] = Field(default_factory=list)
     failure_tag: FailureTag | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
 
