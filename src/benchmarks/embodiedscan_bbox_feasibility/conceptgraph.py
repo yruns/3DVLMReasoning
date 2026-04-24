@@ -17,7 +17,6 @@ _UNKNOWN_NAMES = {"item", "object", "none"}
 
 
 def generate_conceptgraph_proposals(
-    *,
     scene_path: str | Path,
     scan_id: str,
     scene_id: str,
@@ -100,7 +99,7 @@ def _load_pcd_payload(pkl_path: Path) -> Any:
     try:
         with gzip.open(pkl_path, "rb") as f:
             return pickle.load(f)
-    except (EOFError, OSError, pickle.PickleError, ValueError) as exc:
+    except Exception as exc:
         raise ValueError(f"Failed to load ConceptGraph PCD file {pkl_path}") from exc
 
 

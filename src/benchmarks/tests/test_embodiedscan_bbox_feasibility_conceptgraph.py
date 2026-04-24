@@ -33,9 +33,9 @@ def test_generate_conceptgraph_proposals_reads_pkl_without_keyframe_selector(tmp
         pickle.dump(payload, f)
 
     record = generate_conceptgraph_proposals(
-        scene_path=scene,
-        scan_id="scannet/scene0001_00",
-        scene_id="scene0001_00",
+        scene,
+        "scannet/scene0001_00",
+        "scene0001_00",
     )
 
     assert record.method == "2d-cg"
@@ -43,18 +43,6 @@ def test_generate_conceptgraph_proposals_reads_pkl_without_keyframe_selector(tmp
     assert len(record.proposals) == 1
     assert record.proposals[0].bbox_3d[:6] == [1.0, 2.0, 3.0, 2.0, 4.0, 6.0]
     assert record.proposals[0].metadata["category"] == "chair"
-
-
-def test_generate_conceptgraph_proposals_requires_keyword_arguments(tmp_path: Path) -> None:
-    scene = tmp_path / "scene0001_00" / "conceptgraph"
-
-    with pytest.raises(TypeError):
-        generate_conceptgraph_proposals(
-            scene,
-            "scannet/scene0001_00",
-            "scene0001_00",
-        )
-
 
 def test_generate_conceptgraph_proposals_reports_no_pcd_file(tmp_path: Path) -> None:
     scene = tmp_path / "scene0001_00" / "conceptgraph"
@@ -275,7 +263,7 @@ def test_generate_conceptgraph_proposals_reports_unreadable_pkl_path(tmp_path: P
     assert str(pkl_path) in message
 
 
-def test_generate_conceptgraph_proposals_does_not_wrap_unexpected_load_errors(
+def test_generate_conceptgraph_proposals_wraps_incompatible_pickle_errors(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     scene = tmp_path / "scene0001_00" / "conceptgraph"
@@ -285,17 +273,22 @@ def test_generate_conceptgraph_proposals_does_not_wrap_unexpected_load_errors(
     with gzip.open(pkl_path, "wb") as f:
         pickle.dump({"objects": []}, f)
 
-    def raise_runtime_error(_file: object) -> object:
-        raise RuntimeError("unexpected loader bug")
+    def raise_module_error(_file: object) -> object:
+        raise ModuleNotFoundError("missing serialized dependency")
 
-    monkeypatch.setattr(pickle, "load", raise_runtime_error)
+    monkeypatch.setattr(pickle, "load", raise_module_error)
 
-    with pytest.raises(RuntimeError, match="unexpected loader bug"):
+    with pytest.raises(ValueError) as exc_info:
         generate_conceptgraph_proposals(
             scene_path=scene,
             scan_id="scannet/scene0001_00",
             scene_id="scene0001_00",
         )
+
+    message = str(exc_info.value)
+    assert "Failed to load ConceptGraph PCD file" in message
+    assert str(pkl_path) in message
+    assert isinstance(exc_info.value.__cause__, ModuleNotFoundError)
 
 
 @pytest.mark.parametrize(
