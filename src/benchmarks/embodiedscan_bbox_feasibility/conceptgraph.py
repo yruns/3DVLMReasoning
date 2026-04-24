@@ -17,7 +17,6 @@ _UNKNOWN_NAMES = {"item", "object", "none"}
 
 
 def generate_conceptgraph_proposals(
-    *,
     scene_path: str | Path,
     scan_id: str,
     scene_id: str,
@@ -44,7 +43,7 @@ def generate_conceptgraph_proposals(
             continue
 
         category = _category(obj)
-        if category.lower() in _BG:
+        if category.strip().lower() in _BG:
             continue
 
         pcd_np = obj.get("pcd_np")
@@ -100,7 +99,7 @@ def _load_pcd_payload(pkl_path: Path) -> Any:
     try:
         with gzip.open(pkl_path, "rb") as f:
             return pickle.load(f)
-    except (EOFError, OSError, pickle.PickleError, ValueError) as exc:
+    except Exception as exc:
         raise ValueError(f"Failed to load ConceptGraph PCD file {pkl_path}") from exc
 
 
@@ -120,8 +119,8 @@ def _payload_objects(payload: Any, pkl_path: Path) -> list[Any]:
 
 
 def _category(obj: dict[str, Any]) -> str:
-    names = [str(n) for n in _as_list(obj.get("class_name")) if n]
-    valid = [n for n in names if n.lower() not in _UNKNOWN_NAMES]
+    names = [str(n).strip() for n in _as_list(obj.get("class_name")) if n]
+    valid = [n for n in names if n and n.lower() not in _UNKNOWN_NAMES]
     if not valid:
         return "unknown"
     return Counter(valid).most_common(1)[0][0]
