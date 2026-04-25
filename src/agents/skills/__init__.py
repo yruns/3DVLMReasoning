@@ -7,6 +7,7 @@ from agents.skills.registry import (
     register_pack,
     skills_for,
 )
+from agents.skills.validate import validate_packs
 
 __all__ = [
     "FinalizerSpec",
@@ -15,4 +16,5 @@ __all__ = [
     "TaskPack",
     "register_pack",
     "skills_for",
+    "validate_packs",
 ]

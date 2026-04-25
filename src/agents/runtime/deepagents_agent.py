@@ -587,6 +587,9 @@ class DeepAgentsStage2Runtime(BaseStage2Runtime):
                 update={"extra_metadata": cleaned}
             )
 
+        from agents.skills.validate import validate_packs
+        validate_packs(task.task_type, bundle)
+
         tools = self.build_runtime_tools(runtime)
         graph = create_deep_agent(
             model=self.get_llm(),
