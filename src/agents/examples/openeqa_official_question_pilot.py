@@ -281,13 +281,20 @@ def derive_eval_session_id(
     *,
     output_root: Path,
     enable_temporal_fan: bool,
+    chassis_tools_version: int = 1,
+    vg_backend: str = "legacy",
     explicit_session_id: str | None = None,
 ) -> str:
     if explicit_session_id:
         return explicit_session_id
 
     digest = hashlib.sha256(
-        f"{output_root.resolve()}|temporal_fan={enable_temporal_fan}".encode("utf-8")
+        (
+            f"{output_root.resolve()}|"
+            f"temporal_fan={enable_temporal_fan}|"
+            f"chassis_tools_version={chassis_tools_version}|"
+            f"vg_backend={vg_backend}"
+        ).encode("utf-8")
     ).hexdigest()[:16]
     return f"v15_{digest}"
 
