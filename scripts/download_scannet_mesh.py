@@ -77,6 +77,23 @@ def get_openeqa_scene_ids(data_root: Path) -> list[str]:
     return scene_ids
 
 
+def read_scene_file(path: Path) -> list[str]:
+    """Read ScanNet scene ids from a text file.
+
+    Lines may be plain scene ids, scan ids like ``scannet/scene0415_00``, blank,
+    or comments starting with ``#``.
+    """
+    scene_ids: list[str] = []
+    for raw_line in path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#"):
+            continue
+        if "/" in line:
+            line = line.split("/")[-1]
+        scene_ids.append(line)
+    return scene_ids
+
+
 def download_file(url: str, dest: Path, dry_run: bool = False) -> bool:
     """Download a file with progress indication.
 
@@ -158,6 +175,12 @@ def main() -> None:
              "Default: auto-detect from OpenEQA data.",
     )
     parser.add_argument(
+        "--scene-file",
+        type=Path,
+        default=None,
+        help="Text file containing scene ids, one per line.",
+    )
+    parser.add_argument(
         "--types",
         nargs="+",
         default=None,
@@ -183,7 +206,9 @@ def main() -> None:
     args = parser.parse_args()
 
     # Determine scene list
-    if args.scenes:
+    if args.scene_file:
+        scene_ids = read_scene_file(args.scene_file)
+    elif args.scenes:
         scene_ids = args.scenes
     else:
         scene_ids = get_openeqa_scene_ids(args.data_root)
