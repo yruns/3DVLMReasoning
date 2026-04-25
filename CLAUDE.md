@@ -50,7 +50,7 @@ else
 fi
 ```
 
-Note: The `agents` optional dependency group requires ByteDance internal pypi for `deepagents>=0.4.0`.
+Note: The `agents` optional dependency group needs Python 3.11+ (`deepagents` is on public PyPI but only ships wheels for >=3.11). Since the Linux conda `conceptgraph` env is Python 3.10, agents work uses a separate venv: `uv venv .venv-agents --python 3.11 && uv pip install -e ".[dev,agents]"`. Activate `.venv-agents` for agents/Stage-2 tests; keep `conceptgraph` for feasibility / perception code.
 
 ## Development Commands
 
