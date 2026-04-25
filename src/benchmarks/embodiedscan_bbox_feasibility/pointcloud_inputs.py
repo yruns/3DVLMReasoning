@@ -59,6 +59,7 @@ def materialize_detector_input(
             selected_frame_ids = frame_ids or _select_recon_frame_ids(
                 scene_root=scene_root,
                 target_id=target.target_id,
+                visible_frame_ids=target.visible_frame_ids,
                 window_size=1 if condition == "single_frame_recon" else multi_frame_size,
             )
             points = reconstruct_frames_to_points(
@@ -81,6 +82,7 @@ def materialize_detector_input(
             selected_frame_ids = frame_ids or _select_recon_frame_ids(
                 scene_root=scene_root,
                 target_id=target.target_id,
+                visible_frame_ids=target.visible_frame_ids,
                 window_size=multi_frame_size,
             )
             mesh_points = load_scannet_mesh_points(
@@ -93,6 +95,9 @@ def materialize_detector_input(
                 padding=crop_padding,
             )
 
+        axis_align = _target_axis_align_matrix(target)
+        if axis_align is not None:
+            points = transform_points(points, axis_align)
         points = _downsample_points(points, max_points=max_points)
         pointcloud_path = _pointcloud_output_path(
             output_dir=output_dir,
@@ -111,6 +116,12 @@ def materialize_detector_input(
             metadata={
                 "num_points": int(len(points)),
                 "scene_root": str(scene_root),
+                "axis_align_applied": axis_align is not None,
+                "coordinate_frame": (
+                    "embodiedscan_aligned"
+                    if axis_align is not None
+                    else "source_scene"
+                ),
             },
         )
     except (FileNotFoundError, ImportError, ValueError) as exc:
@@ -125,6 +136,59 @@ def materialize_detector_input(
             metadata={
                 "reason": str(exc),
                 "scene_root": str(scene_root),
+            },
+        )
+
+
+def materialize_scene_full_detector_input(
+    *,
+    target: EmbodiedScanTarget,
+    output_dir: str | Path,
+    scannet_root: str | Path | None,
+    max_points: int | None = None,
+) -> DetectorInputRecord:
+    try:
+        if scannet_root is None:
+            raise FileNotFoundError("scannet_root is required for scannet_full")
+        points = load_scannet_mesh_points(
+            find_scannet_mesh_path(scannet_root, target.scene_id)
+        )
+        axis_align = _target_axis_align_matrix(target)
+        if axis_align is not None:
+            points = transform_points(points, axis_align)
+        points = _downsample_points(points, max_points=max_points)
+        pointcloud_path = Path(output_dir) / "scannet_full" / f"{target.scene_id}_scene.ply"
+        write_xyz_ply(pointcloud_path, points)
+        return DetectorInputRecord(
+            scan_id=target.scan_id,
+            scene_id=target.scene_id,
+            target_id=None,
+            input_condition="scannet_full",
+            pointcloud_path=str(pointcloud_path),
+            frame_ids=[],
+            metadata={
+                "num_points": int(len(points)),
+                "axis_align_applied": axis_align is not None,
+                "coordinate_frame": (
+                    "embodiedscan_aligned"
+                    if axis_align is not None
+                    else "source_scene"
+                ),
+                "scene_level": True,
+            },
+        )
+    except (FileNotFoundError, ImportError, ValueError) as exc:
+        return DetectorInputRecord(
+            scan_id=target.scan_id,
+            scene_id=target.scene_id,
+            target_id=None,
+            input_condition="scannet_full",
+            pointcloud_path=None,
+            frame_ids=[],
+            failure_tag=FailureTag.INPUT_BLOCKED,
+            metadata={
+                "reason": str(exc),
+                "scene_level": True,
             },
         )
 
@@ -298,10 +362,15 @@ def _select_recon_frame_ids(
     *,
     scene_root: Path,
     target_id: int,
+    visible_frame_ids: list[int],
     window_size: int,
 ) -> list[int]:
-    visible = _visibility_frame_ids(scene_root, target_id)
     available = _available_pose_frame_ids(scene_root)
+    visible = [frame_id for frame_id in visible_frame_ids if frame_id in set(available)]
+    if not visible and visible_frame_ids and not available:
+        visible = visible_frame_ids
+    if not visible:
+        visible = _visibility_frame_ids(scene_root, target_id)
     if visible:
         center = visible[0]
         return centered_frame_window(center, available or visible, window_size)
@@ -344,6 +413,17 @@ def _downsample_points(points: np.ndarray, *, max_points: int | None) -> np.ndar
         raise ValueError("max_points must be positive")
     indices = np.linspace(0, len(pts) - 1, num=max_points, dtype=np.int64)
     return pts[indices]
+
+
+def _target_axis_align_matrix(target: EmbodiedScanTarget) -> np.ndarray | None:
+    if target.axis_align_matrix is None:
+        return None
+    matrix = np.asarray(target.axis_align_matrix, dtype=np.float64)
+    if matrix.shape != (4, 4):
+        raise ValueError("target.axis_align_matrix must have shape (4, 4)")
+    if not np.isfinite(matrix).all():
+        raise ValueError("target.axis_align_matrix must contain only finite values")
+    return matrix
 
 
 def _pointcloud_output_path(

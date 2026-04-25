@@ -26,11 +26,26 @@ class EmbodiedScanTarget(BaseModel):
     target_id: int
     target_category: str = ""
     gt_bbox_3d: list[float]
+    axis_align_matrix: list[list[float]] | None = None
+    visible_frame_ids: list[int] = Field(default_factory=list)
 
     @field_validator("gt_bbox_3d")
     @classmethod
     def _validate_gt_bbox(cls, value: list[float]) -> list[float]:
         return _normalize_bbox_9dof(value, field_name="gt_bbox_3d")
+
+    @field_validator("axis_align_matrix", mode="before")
+    @classmethod
+    def _validate_axis_align_matrix(cls, value: Any) -> list[list[float]] | None:
+        return _normalize_matrix_4x4(value, field_name="axis_align_matrix")
+
+    @field_validator("visible_frame_ids")
+    @classmethod
+    def _validate_visible_frame_ids(cls, value: list[int]) -> list[int]:
+        frame_ids = [int(item) for item in value]
+        if any(item < 0 for item in frame_ids):
+            raise ValueError("visible_frame_ids must be non-negative")
+        return frame_ids
 
 
 class ObservationRecord(BaseModel):
@@ -129,6 +144,25 @@ def _normalize_bbox_9dof(value: list[float], *, field_name: str) -> list[float]:
     while len(out) < 9:
         out.append(0.0)
     return out
+
+
+def _normalize_matrix_4x4(
+    value: Any,
+    *,
+    field_name: str,
+) -> list[list[float]] | None:
+    if value is None:
+        return None
+    try:
+        rows = [[float(item) for item in row] for row in value]
+    except TypeError as exc:
+        raise ValueError(f"{field_name} must be a 4x4 matrix") from exc
+    if len(rows) != 4 or any(len(row) != 4 for row in rows):
+        raise ValueError(f"{field_name} must be a 4x4 matrix")
+    for row in rows:
+        if not all(isfinite(item) for item in row):
+            raise ValueError(f"{field_name} must contain only finite values")
+    return rows
 
 
 def _validate_json_safe_metadata(value: Any, *, field_name: str) -> dict[str, Any]:

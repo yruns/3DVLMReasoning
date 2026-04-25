@@ -9,7 +9,7 @@ from typing import Any
 
 import numpy as np
 
-from .geometry import aabb_from_points, is_non_degenerate_bbox
+from .geometry import aabb_from_points, is_non_degenerate_bbox, transform_points
 from .models import BBox3DProposal, FailureTag, ProposalRecord
 
 _BG = {"wall", "floor", "ceiling"}
@@ -20,8 +20,10 @@ def generate_conceptgraph_proposals(
     scene_path: str | Path,
     scan_id: str,
     scene_id: str,
+    axis_align_matrix: list[list[float]] | np.ndarray | None = None,
 ) -> ProposalRecord:
     scene = Path(scene_path)
+    axis_align = _axis_align_matrix(axis_align_matrix)
     pkl_path = _find_pcd_file(scene)
     if pkl_path is None:
         return ProposalRecord(
@@ -46,34 +48,39 @@ def generate_conceptgraph_proposals(
         if category.strip().lower() in _BG:
             continue
 
-        pcd_np = obj.get("pcd_np")
-        if pcd_np is None:
-            continue
-
-        try:
-            points = np.asarray(pcd_np, dtype=np.float32)
-            if len(points) == 0:
+        for variant, value in (
+            ("pcd_aabb", obj.get("pcd_np")),
+            ("bbox_np_aabb", obj.get("bbox_np")),
+        ):
+            if value is None:
                 continue
-            bbox = aabb_from_points(points)
-        except (TypeError, ValueError):
-            continue
+            try:
+                points = np.asarray(value, dtype=np.float32)
+                if len(points) == 0:
+                    continue
+                if axis_align is not None:
+                    points = transform_points(points, axis_align)
+                bbox = aabb_from_points(points)
+            except (TypeError, ValueError):
+                continue
 
-        if not is_non_degenerate_bbox(bbox):
-            continue
+            if not is_non_degenerate_bbox(bbox):
+                continue
 
-        proposals.append(
-            BBox3DProposal(
-                bbox_3d=bbox,
-                score=_score(obj),
-                source="conceptgraph",
-                metadata={
-                    "obj_idx": obj_idx,
-                    "category": category,
-                    "num_points": int(len(points)),
-                    "pkl_path": str(pkl_path),
-                },
+            proposals.append(
+                BBox3DProposal(
+                    bbox_3d=bbox,
+                    score=_score(obj),
+                    source="conceptgraph",
+                    metadata={
+                        "obj_idx": obj_idx,
+                        "category": category,
+                        "geometry_variant": variant,
+                        "num_points": int(len(points)),
+                        "pkl_path": str(pkl_path),
+                    },
+                )
             )
-        )
 
     return ProposalRecord(
         scene_id=scene_id,
@@ -83,6 +90,10 @@ def generate_conceptgraph_proposals(
         input_condition="conceptgraph_scene",
         proposals=proposals,
         failure_tag=None if proposals else FailureTag.NO_PROPOSAL,
+        metadata={
+            "axis_align_applied": axis_align is not None,
+            "pkl_path": str(pkl_path),
+        },
     )
 
 
@@ -159,3 +170,16 @@ def _as_list(value: Any) -> list[Any]:
         return list(value)
     except TypeError:
         return [value]
+
+
+def _axis_align_matrix(
+    value: list[list[float]] | np.ndarray | None,
+) -> np.ndarray | None:
+    if value is None:
+        return None
+    matrix = np.asarray(value, dtype=np.float64)
+    if matrix.shape != (4, 4):
+        raise ValueError("axis_align_matrix must have shape (4, 4)")
+    if not np.isfinite(matrix).all():
+        raise ValueError("axis_align_matrix must contain only finite values")
+    return matrix

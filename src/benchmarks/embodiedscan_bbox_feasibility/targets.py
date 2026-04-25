@@ -23,7 +23,18 @@ def load_targets(
         max_samples=max_samples,
         mini=mini,
     )
-    return deduplicate_targets(dataset)
+    targets = deduplicate_targets(dataset)
+    for target in targets:
+        scene_info = dataset.get_scene_info(target.scan_id)
+        matrix = scene_info.get("axis_align_matrix") if scene_info else None
+        if matrix is not None:
+            target.axis_align_matrix = [[float(value) for value in row] for row in matrix]
+        if scene_info:
+            target.visible_frame_ids = _visible_frame_ids_for_target(
+                scene_info,
+                target.target_id,
+            )
+    return targets
 
 
 def deduplicate_targets(
@@ -46,3 +57,15 @@ def deduplicate_targets(
         else:
             by_key[key].sample_ids.append(sample.sample_id)
     return list(by_key.values())
+
+
+def _visible_frame_ids_for_target(
+    scene_info: dict,
+    target_id: int,
+) -> list[int]:
+    frame_ids: list[int] = []
+    for frame_idx, image in enumerate(scene_info.get("images", [])):
+        visible_ids = image.get("visible_instance_ids", [])
+        if target_id in visible_ids:
+            frame_ids.append(frame_idx)
+    return frame_ids
