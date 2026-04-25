@@ -5,7 +5,7 @@ This module defines the agent configuration and enumeration types.
 
 import os
 from enum import Enum
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -74,6 +74,21 @@ class Stage2DeepAgentConfig(BaseModel):
     enable_temporal_fan: bool = Field(
         default=False,
         description="When True, advertise mode='temporal_fan' in the Stage 2 prompt.",
+    )
+    enable_chassis_tools: bool = Field(
+        default=False,
+        description="Register chassis trio (list_skills, load_skill, submit_final) "
+        "for tasks without a registered TaskPack. Default OFF preserves QA byte-stable.",
+    )
+    vg_backend: Literal["legacy", "pack_v1"] = Field(
+        default="legacy",
+        description="Which VG code path to run: legacy if/else branch or new TaskPack.",
+    )
+    chassis_tools_version: int = Field(
+        default=1,
+        ge=1,
+        description="Bump when chassis tool surface changes; folded into "
+        "derive_eval_session_id so prompt-cache invalidates correctly.",
     )
 
     @property
