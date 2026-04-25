@@ -757,6 +757,8 @@ def main() -> None:
     args.session_id = derive_eval_session_id(
         output_root=args.output_root,
         enable_temporal_fan=args.enable_temporal_fan,
+        chassis_tools_version=getattr(args, "chassis_tools_version", 1),
+        vg_backend=getattr(args, "vg_backend", "legacy"),
         explicit_session_id=args.session_id,
     )
 

@@ -9,6 +9,7 @@ import json
 from typing import Any
 
 from langchain_core.tools import BaseTool, tool
+from pydantic import ValidationError
 
 from agents.skills.registry import PACKS, skills_for
 
@@ -58,8 +59,11 @@ def build_chassis_tools(runtime: Any) -> tuple[BaseTool, BaseTool, BaseTool]:
         rationale: str,
         evidence_refs: list[dict] | None = None,
     ) -> str:
-        """Submit the final task answer. Payload must match this task's FinalizerSpec.schema.
-        The chassis validates payload + preconditions; on success, terminates the run."""
+        """Submit the final task answer. Payload must match this task's
+        FinalizerSpec.schema. The chassis validates payload + preconditions
+        and stashes the adapted result on the bundle for the run loop to
+        consume. (Run termination is wired by the active pack's runtime
+        integration; without that, this tool is a no-op.)"""
         pack = PACKS.get(runtime.task_type)
         if pack is None:
             err = f"ERROR: no pack registered for {runtime.task_type}; cannot submit_final"
@@ -68,7 +72,7 @@ def build_chassis_tools(runtime: Any) -> tuple[BaseTool, BaseTool, BaseTool]:
         try:
             validated = pack.finalizer.validator(payload, runtime)
             adapted = pack.finalizer.adapter(validated, runtime)
-        except Exception as exc:
+        except (ValueError, TypeError, KeyError, ValidationError) as exc:
             err = f"ERROR: submit_final validation failed: {exc}"
             runtime.record("submit_final", {"payload": payload}, err)
             return err

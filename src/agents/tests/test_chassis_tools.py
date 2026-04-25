@@ -105,3 +105,39 @@ def test_submit_final_calls_validator_and_adapter(tmp_path: Path) -> None:
     # The chassis stores resolved payload + signals termination
     assert "submitted" in response.lower()
     assert rs.skills_loaded.intersection({"vg-grounding-playbook"}) == set()  # no auto-load
+
+
+def test_submit_final_propagates_unrelated_exception(tmp_path: Path) -> None:
+    """FAIL-LOUD: only narrow validation errors should be caught and surfaced
+    as ERROR strings. Anything else (a bug in the validator, etc.) must
+    propagate so build_agent crashes loudly and tests catch it."""
+    body = tmp_path / "skill.md"
+    body.write_text("# stub", encoding="utf-8")
+    register_pack(
+        TaskPack(
+            task_type=Stage2TaskType.VISUAL_GROUNDING,
+            tool_builder=lambda r: [],
+            skills=[
+                SkillSpec(
+                    name="vg-grounding-playbook",
+                    description="x",
+                    body_path=body,
+                    task_types={Stage2TaskType.VISUAL_GROUNDING},
+                ),
+            ],
+            finalizer=FinalizerSpec(
+                payload_model=dict,
+                validator=lambda payload, runtime: 1 / 0,  # ZeroDivisionError
+                adapter=lambda payload, runtime: {},
+            ),
+            required_primary_skill="vg-grounding-playbook",
+            required_extra_metadata=[],
+            ctx_factory=lambda b: object(),
+        )
+    )
+    rs = _runtime(Stage2TaskType.VISUAL_GROUNDING)
+    _, _, submit_final = build_chassis_tools(rs)
+    with pytest.raises(ZeroDivisionError):
+        submit_final.invoke(
+            {"payload": {"value": 1}, "rationale": "ok", "evidence_refs": []}
+        )
