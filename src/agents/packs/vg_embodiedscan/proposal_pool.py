@@ -30,16 +30,29 @@ def build_vg_proposal_pool(
     """Read proposals + visibility and produce the `vg_proposal_pool`
     dict expected at `bundle.extra_metadata.vg_proposal_pool`."""
     raw = json.loads(proposals_jsonl.read_text(encoding="utf-8"))
-    proposals_in = raw.get("proposals") or []
+    if "proposals" not in raw:
+        raise ValueError(
+            f"feasibility proposal JSON must have a top-level 'proposals' key: {proposals_jsonl}"
+        )
+    proposals_in = raw["proposals"]
+    if not isinstance(proposals_in, list):
+        raise ValueError(
+            f"feasibility proposal JSON 'proposals' must be a list: {proposals_jsonl}"
+        )
 
     proposals_out = []
     for idx, p in enumerate(proposals_in):
+        for required_key in ("bbox_3d", "score", "label"):
+            if required_key not in p:
+                raise ValueError(
+                    f"proposal[{idx}].{required_key} is required in {proposals_jsonl}"
+                )
         proposals_out.append(
             {
                 "id": idx,
                 "bbox_3d_9dof": [float(x) for x in p["bbox_3d"]],
-                "category": str(p.get("label") or ""),
-                "score": float(p.get("score", 0.0)),
+                "category": str(p["label"]),
+                "score": float(p["score"]),
             }
         )
 

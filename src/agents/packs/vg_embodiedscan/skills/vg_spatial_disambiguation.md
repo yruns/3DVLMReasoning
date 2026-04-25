@@ -38,13 +38,17 @@ filter candidates before you have a candidate list.
 
 For a query "find the X relation Y":
 
-1. `find_proposals_by_category("X")` → `target_candidates`.
-2. `find_proposals_by_category("Y")` → `anchor_candidates`.
+1. `find_proposals_by_category("X")` returns
+   `{"category": "X", "proposal_ids": [...], "available_categories": [...]}`.
+   Read `["proposal_ids"]` as `target_candidates`.
+2. `find_proposals_by_category("Y")` returns the same shape; read
+   `["proposal_ids"]` as `anchor_candidates`.
 3. If `len(anchor_candidates) > 1`, the anchor itself is ambiguous
    (see "Ambiguous anchor" below). Otherwise pick the single anchor.
 4. `compare_proposals_spatial(candidate_ids=target_candidates,
    anchor_id=picked_anchor, relation="closest_to" | "farthest_from")`
-   → `ranked_ids`.
+   returns `{"anchor_id": int, "relation": str, "ranked_ids": [...],
+   "distances": [...]}`. Read `["ranked_ids"]`.
 5. The first id in `ranked_ids` is your best guess. Cross-check by
    `view_keyframe_marked(frame_id=...)` on a frame that contains both
    the target and the anchor (use `inspect_proposal` to find their
@@ -95,10 +99,14 @@ narrowing context exists, and budget allows multiple
 
 Query: "find the trash can closest to the door."
 
-1. `find_proposals_by_category("trash can")` → `[12, 18, 22]`.
-2. `find_proposals_by_category("door")` → `[7]` (single anchor).
+1. `find_proposals_by_category("trash can")` returns
+   `{"category": "trash can", "proposal_ids": [12, 18, 22], "available_categories": [...]}`.
+2. `find_proposals_by_category("door")` returns
+   `{"category": "door", "proposal_ids": [7], "available_categories": [...]}`
+   (single anchor).
 3. `compare_proposals_spatial([12, 18, 22], anchor_id=7,
-   relation="closest_to")` → `{"ranked_ids": [18, 12, 22], ...}`.
+   relation="closest_to")` returns
+   `{"anchor_id": 7, "relation": "closest_to", "ranked_ids": [18, 12, 22], "distances": [...]}`.
 4. `view_keyframe_marked(frame_id=...)` showing both the door and
    proposal 18 to confirm.
 5. `submit_final({"proposal_id": 18, "confidence": 0.9}, ...)`.
@@ -107,22 +115,27 @@ Query: "find the trash can closest to the door."
 
 Query: "find the chair farthest from the TV."
 
-1. `find_proposals_by_category("chair")` → `[2, 4, 11]`.
-2. `find_proposals_by_category("tv")` → `[6]`.
+1. `find_proposals_by_category("chair")` returns
+   `{"category": "chair", "proposal_ids": [2, 4, 11], "available_categories": [...]}`.
+2. `find_proposals_by_category("tv")` returns
+   `{"category": "tv", "proposal_ids": [6], "available_categories": [...]}`.
 3. `compare_proposals_spatial([2, 4, 11], anchor_id=6,
-   relation="farthest_from")` → `{"ranked_ids": [11, 4, 2]}`.
+   relation="farthest_from")` returns
+   `{"anchor_id": 6, "relation": "farthest_from", "ranked_ids": [11, 4, 2], "distances": [...]}`.
 4. `submit_final({"proposal_id": 11, "confidence": 0.85}, ...)`.
 
 ### Example 3: between (compound relation)
 
 Query: "find the lamp between the sofa and the bookshelf."
 
-1. `find_proposals_by_category("lamp")` → `[5, 9]`.
-2. `find_proposals_by_category("sofa")` → `[14]`; `("bookshelf")` → `[19]`.
+1. `find_proposals_by_category("lamp")` returns
+   `{"category": "lamp", "proposal_ids": [5, 9], "available_categories": [...]}`.
+2. `find_proposals_by_category("sofa")` returns `["proposal_ids": [14], ...]`;
+   `find_proposals_by_category("bookshelf")` returns `["proposal_ids": [19], ...]`.
 3. `compare_proposals_spatial([5, 9], anchor_id=14,
-   relation="closest_to")` → `[9, 5]`.
+   relation="closest_to")` returns `["ranked_ids": [9, 5], ...]`.
 4. `compare_proposals_spatial([5, 9], anchor_id=19,
-   relation="closest_to")` → `[9, 5]`.
+   relation="closest_to")` returns `["ranked_ids": [9, 5], ...]`.
 5. The lamp that is the closest-to-both is id 9 (top of both rankings)
    — likely "between" the two anchors.
 6. `view_keyframe_marked(frame_id=...)` showing all three to confirm
@@ -134,10 +147,11 @@ Query: "find the lamp between the sofa and the bookshelf."
 
 Query: "find the picture above the bed."
 
-1. `find_proposals_by_category("picture")` → `[3, 7, 12]`.
-2. `find_proposals_by_category("bed")` → `[1]`.
+1. `find_proposals_by_category("picture")` returns
+   `{"category": "picture", "proposal_ids": [3, 7, 12], "available_categories": [...]}`.
+2. `find_proposals_by_category("bed")` returns `["proposal_ids": [1], ...]`.
 3. `compare_proposals_spatial([3, 7, 12], anchor_id=1,
-   relation="closest_to")` → `[7, 3, 12]`.
+   relation="closest_to")` returns `["ranked_ids": [7, 3, 12], "distances": [...]]`.
 4. `inspect_proposal(proposal_id=7)` and `inspect_proposal(proposal_id=1)`
    to compare bbox centers' z values; pick the picture whose z > bed's z.
 5. If id 7's z is below the bed's z (e.g. picture on the side wall),
@@ -148,7 +162,8 @@ Query: "find the picture above the bed."
 ### Ambiguous anchor
 
 Query: "find the chair next to the desk" — but
-`find_proposals_by_category("desk")` returns `[5, 11]`.
+`find_proposals_by_category("desk")` returns
+`{"category": "desk", "proposal_ids": [5, 11], "available_categories": [...]}`.
 
 1. `inspect_proposal(proposal_id=5)` — score 0.95, in frames `[3, 8]`.
 2. `inspect_proposal(proposal_id=11)` — score 0.62, in frames `[15]`.

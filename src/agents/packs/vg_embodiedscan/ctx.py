@@ -40,22 +40,45 @@ def build_ctx_from_bundle(bundle: Stage2EvidenceBundle) -> VgEmbodiedScanCtx:
             f"proposal_pool_source must be 'vdetr' or 'conceptgraph', got {source!r}"
         )
 
-    raw_proposals = pool.get("proposals") or []
-    proposals = [
-        Proposal(
-            id=int(p["id"]),
-            bbox_3d_9dof=[float(x) for x in p["bbox_3d_9dof"]],
-            category=str(p.get("category", "")),
-            score=float(p.get("score", 0.0)),
+    if "proposals" not in pool:
+        raise ValueError("vg_proposal_pool.proposals key is required")
+    raw_proposals = pool["proposals"]
+    if not isinstance(raw_proposals, list):
+        raise ValueError(
+            "vg_proposal_pool.proposals must be a list; got "
+            f"{type(raw_proposals).__name__}"
         )
-        for p in raw_proposals
-    ]
 
+    proposals: list[Proposal] = []
+    for i, p in enumerate(raw_proposals):
+        for required_key in ("id", "bbox_3d_9dof", "category", "score"):
+            if required_key not in p:
+                raise ValueError(
+                    f"vg_proposal_pool.proposals[{i}].{required_key} is required"
+                )
+        bbox = p["bbox_3d_9dof"]
+        if not isinstance(bbox, list) or len(bbox) != 9:
+            raise ValueError(
+                f"vg_proposal_pool.proposals[{i}].bbox_3d_9dof must be a 9-element list"
+            )
+        proposals.append(
+            Proposal(
+                id=int(p["id"]),
+                bbox_3d_9dof=[float(x) for x in bbox],
+                category=str(p["category"]),
+                score=float(p["score"]),
+            )
+        )
+
+    if "frame_index" not in pool:
+        raise ValueError("vg_proposal_pool.frame_index key is required")
+    if "proposal_index" not in pool:
+        raise ValueError("vg_proposal_pool.proposal_index key is required")
     frame_index = {
-        int(k): [int(x) for x in v] for k, v in (pool.get("frame_index") or {}).items()
+        int(k): [int(x) for x in v] for k, v in pool["frame_index"].items()
     }
     proposal_index = {
-        int(k): [int(x) for x in v] for k, v in (pool.get("proposal_index") or {}).items()
+        int(k): [int(x) for x in v] for k, v in pool["proposal_index"].items()
     }
 
     annotated_dir = Path(pool.get("annotated_image_dir") or "")

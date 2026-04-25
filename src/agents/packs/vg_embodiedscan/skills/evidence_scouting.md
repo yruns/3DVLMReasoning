@@ -108,10 +108,10 @@ Before submitting any final answer:
 4. **category verification**: Does the proposal actually look like
    what its `category` field claims? If the category is generic
    ("object"), request a crop on the proposal to verify.
-5. **OOD candidate**: If you have run all of the above and still no
-   plausible target, the GT is likely not in the proposal pool.
-   Submit the failed-sample marker with a rationale citing what you
-   tried.
+5. **Exhausted budget**: If sufficiency cannot be reached after
+   exhausting reasonable evidence requests, follow the task pack's
+   failure-marker convention to record an explicit unsuccessful
+   outcome (do not silently submit a guess).
 
 ## Anti-patterns
 
@@ -136,25 +136,25 @@ Before submitting any final answer:
 
 ### Example 1: missing target
 
-After reviewing the initial 4 keyframes, none shows the small "remote
-control" the user asked for.
+After reviewing the initial 4 keyframes, none shows the small object
+referenced in the query (in this case, a "remote control").
 
 1. `request_more_views(request_text="need views that show small
    electronics on the coffee table", object_terms=["remote control",
    "remote", "coffee table"], mode="targeted")`.
 2. The chassis injects 2 new frames; one of them shows the remote.
-3. Continue with the task-specific workflow (e.g. VG: pick a
-   `view_keyframe_marked` and proceed).
+3. Continue with the task-specific workflow.
 
 ### Example 2: insufficient resolution
 
-You found the target proposal id 14 ("vase") but at 30 px tall in the
+You located the target object (e.g. a "vase") but at 30 px tall in the
 existing keyframe, and the user asked which colour it is.
 
-1. `request_crops(request_text="zoom in on proposal 14 to read its
+1. `request_crops(request_text="zoom in on the vase to read its
    colour", frame_indices=[8], object_terms=["vase"])`.
 2. The chassis injects a tight crop showing the vase clearly.
-3. Read the colour from the crop and submit the final answer.
+3. Read the colour from the crop and continue the task-specific
+   workflow toward the final answer.
 
 ### Example 3: viewpoint diversity (explore)
 

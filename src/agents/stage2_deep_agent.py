@@ -124,8 +124,9 @@ class Stage2DeepResearchAgent:
         self,
         task: Stage2TaskSpec,
         raw_state: dict[str, Any],
+        runtime: Stage2RuntimeState | None = None,
     ) -> Stage2StructuredResponse:
-        return self._runtime.normalize_final_response(task, raw_state)
+        return self._runtime.normalize_final_response(task, raw_state, runtime)
 
     def _apply_uncertainty_stopping(
         self,
@@ -153,21 +154,34 @@ class Stage2DeepResearchAgent:
         runtime.task_type = task.task_type
 
         # Keep the historical wrapper contract for VG setup while still using
-        # the runtime's shared helpers for prompt/tool construction.
+        # the runtime's shared helpers for prompt/tool construction. Mirror
+        # the runtime's pack_v1/legacy split so the wrapper supports both
+        # backends end-to-end (Plan A Section 2 / Task 19.5 review fix).
         if task.task_type == Stage2TaskType.VISUAL_GROUNDING:
-            extra = runtime.bundle.extra_metadata or {}
-            runtime.vg_scene_objects = extra.get("scene_objects")
-            mat = extra.get("axis_align_matrix")
-            if mat is not None:
-                runtime.vg_axis_align_matrix = np.array(mat, dtype=np.float64)
-            cleaned = {
-                k: v
-                for k, v in extra.items()
-                if k not in ("scene_objects", "axis_align_matrix")
-            }
-            runtime.bundle = runtime.bundle.model_copy(
-                update={"extra_metadata": cleaned}
-            )
+            if self.config.vg_backend == "pack_v1":
+                from agents.packs.vg_embodiedscan.ctx import build_ctx_from_bundle
+                runtime.task_ctx = build_ctx_from_bundle(runtime.bundle)
+            else:
+                extra = runtime.bundle.extra_metadata or {}
+                runtime.vg_scene_objects = extra.get("scene_objects")
+                mat = extra.get("axis_align_matrix")
+                if mat is not None:
+                    runtime.vg_axis_align_matrix = np.array(mat, dtype=np.float64)
+                cleaned = {
+                    k: v
+                    for k, v in extra.items()
+                    if k not in ("scene_objects", "axis_align_matrix")
+                }
+                runtime.bundle = runtime.bundle.model_copy(
+                    update={"extra_metadata": cleaned}
+                )
+
+        from agents.skills.validate import validate_packs
+        require_pack = (
+            task.task_type == Stage2TaskType.VISUAL_GROUNDING
+            and self.config.vg_backend == "pack_v1"
+        )
+        validate_packs(task.task_type, bundle, require_pack=require_pack)
 
         graph = create_deep_agent(
             model=self._get_llm(),
@@ -213,6 +227,14 @@ class Stage2DeepResearchAgent:
         while turns_used < task.max_reasoning_turns:
             turns_used += 1
             raw_state = graph.invoke({"messages": messages})
+
+            # Pack-v1 terminal: chassis submit_final populates runtime.final_submission.
+            if runtime.final_submission is not None:
+                logger.info(
+                    "[Stage2DeepResearchAgent] terminated at turn {} via chassis submit_final",
+                    turns_used,
+                )
+                break
 
             structured = raw_state.get("structured_response")
             if structured is not None:
@@ -269,7 +291,7 @@ class Stage2DeepResearchAgent:
             or self.hypothesis_callback is not None
         )
 
-        final_response = self._normalize_final_response(task, raw_state)
+        final_response = self._normalize_final_response(task, raw_state, runtime)
         final_response = self._apply_uncertainty_stopping(
             final_response, can_acquire_more_evidence
         )

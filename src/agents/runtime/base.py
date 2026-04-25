@@ -51,6 +51,8 @@ class Stage2RuntimeState:
     # Pack-v1 additive fields (kept alongside legacy vg_* until step 9)
     task_ctx: Any | None = None
     skills_loaded: set[str] = field(default_factory=set)
+    # Pack-v1 chassis terminal signal (set by submit_final on success).
+    final_submission: dict | None = None
 
     def record(
         self, tool_name: str, tool_input: dict[str, Any], response_text: str
@@ -269,9 +271,31 @@ class BaseStage2Runtime(ABC):
             lines.append(line)
         return "\n".join(lines) + "\n\n"
 
-    @staticmethod
-    def _format_vg_section(extra_schema: dict[str, Any]) -> str:
+    def _format_vg_section(self, extra_schema: dict[str, Any]) -> str:
         """Build the VG-specific system prompt section."""
+        if self.config.vg_backend == "pack_v1":
+            return (
+                "## Visual Grounding Protocol (pack v1)\n\n"
+                "You are localizing a target object described in natural language.\n"
+                "The VG pack provides a proposal pool, marked-keyframe renderings,\n"
+                "spatial-comparison helpers, and the chassis trio.\n\n"
+                "### How to start\n"
+                "1. Call `list_skills()` to see what skills are available for VG.\n"
+                "2. Load `vg-grounding-playbook` first via "
+                "`load_skill('vg-grounding-playbook')` — it explains every VG tool\n"
+                "   and the `submit_final` payload schema. The 5 VG tools refuse to\n"
+                "   run until that skill is loaded.\n"
+                "3. Follow the playbook's decision tree, then call\n"
+                "   `submit_final({\"proposal_id\": int, \"confidence\": float}, "
+                "rationale=...)` to terminate.\n\n"
+                "### MANDATORY rules\n"
+                "- Do NOT invent a `proposal_id` outside the pool — the chassis\n"
+                "  validator will reject it.\n"
+                "- If the referent genuinely is not in the pool, submit\n"
+                "  `proposal_id=-1, confidence=0.0` with a rationale (see playbook).\n\n"
+            )
+
+        # legacy backend (default) — wording byte-stable for snapshot tests.
         return (
             "## Visual Grounding Protocol\n\n"
             "You are localizing a target object described in natural language.\n\n"

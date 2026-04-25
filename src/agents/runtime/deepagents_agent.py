@@ -262,13 +262,29 @@ class DeepAgentsStage2Runtime(BaseStage2Runtime):
             switch_or_expand_hypothesis,
         ]
 
+        # Chassis trio (list_skills / load_skill / submit_final) attaches
+        # whenever the *active task's pack is in use* OR the operator has
+        # explicitly opted in via enable_chassis_tools. This keeps the
+        # chassis available for QA/Nav/Manip migrations (Plan B/C) before
+        # they have a TaskPack registered. Hoisted out of the VG-only
+        # branch so it applies to any task type.
+        #
+        # "In use" means the pack is registered AND the runtime hasn't
+        # opted out of it (today only VG has an opt-out: vg_backend='legacy').
+        from agents.skills import PACKS
+        from agents.skills.chassis_tools import build_chassis_tools
+
+        pack_in_use = PACKS.get(runtime.task_type) is not None and not (
+            runtime.task_type == Stage2TaskType.VISUAL_GROUNDING
+            and self.config.vg_backend != "pack_v1"
+        )
+        if pack_in_use or self.config.enable_chassis_tools:
+            tools.extend(build_chassis_tools(runtime))
+
         # VG-specific tools — dispatch on vg_backend
         if runtime.task_type == Stage2TaskType.VISUAL_GROUNDING:
             backend = self.config.vg_backend
             if backend == "pack_v1":
-                from agents.skills import PACKS
-                from agents.skills.chassis_tools import build_chassis_tools
-
                 pack = PACKS.get(Stage2TaskType.VISUAL_GROUNDING)
                 if pack is None:
                     raise RuntimeError(
@@ -276,7 +292,6 @@ class DeepAgentsStage2Runtime(BaseStage2Runtime):
                         "import agents.packs to trigger registration"
                     )
                 tools.extend(pack.tool_builder(runtime))
-                tools.extend(build_chassis_tools(runtime))
             elif runtime.vg_scene_objects is not None:
                 # legacy branch (vg_backend='legacy', kept until step 9)
                 from ..tools.select_object import handle_select_object
@@ -519,6 +534,22 @@ class DeepAgentsStage2Runtime(BaseStage2Runtime):
                 if keyframe.image_path not in runtime.seen_image_paths:
                     new_images.append(keyframe.image_path)
 
+        # Drain any pack-pushed pending images (e.g. VG pack's
+        # `view_keyframe_marked` queues annotated keyframes here).
+        extra = runtime.bundle.extra_metadata or {}
+        pending = extra.get("vg_pending_images", [])
+        for marked_path in pending:
+            if (
+                marked_path not in runtime.seen_image_paths
+                and Path(marked_path).exists()
+            ):
+                new_images.append(marked_path)
+        if pending:
+            # Pop the queue so we don't re-inject on the next turn.
+            runtime.bundle = runtime.bundle.model_copy(
+                update={"extra_metadata": {**extra, "vg_pending_images": []}}
+            )
+
         if (
             runtime.bundle.bev_image_path
             and Path(runtime.bundle.bev_image_path).exists()
@@ -626,16 +657,35 @@ class DeepAgentsStage2Runtime(BaseStage2Runtime):
         self,
         task: Stage2TaskSpec,
         raw_state: dict[str, Any],
+        runtime: Stage2RuntimeState | None = None,
     ) -> Stage2StructuredResponse:
         """Convert DeepAgents final state into the unified Stage-2 schema.
 
         Args:
             task: Task specification
             raw_state: Raw state from DeepAgents graph
+            runtime: Runtime state (optional). When provided and the
+                pack chassis populated `runtime.final_submission`, the
+                response is built from that adapted payload directly.
 
         Returns:
             Normalized structured response
         """
+        if runtime is not None and runtime.final_submission is not None:
+            sub = runtime.final_submission
+            status_str = str(sub.get("status", "completed")).lower()
+            try:
+                status = Stage2Status(status_str)
+            except ValueError:
+                status = Stage2Status.COMPLETED
+            return Stage2StructuredResponse(
+                task_type=task.task_type,
+                status=status,
+                summary="Submitted via chassis submit_final.",
+                confidence=float(sub.get("confidence", 0.0)),
+                payload=dict(sub),
+            )
+
         structured = raw_state.get("structured_response")
         if structured is not None:
             response = Stage2StructuredResponse.model_validate(structured)
@@ -687,6 +737,14 @@ class DeepAgentsStage2Runtime(BaseStage2Runtime):
         while turns_used < task.max_reasoning_turns:
             turns_used += 1
             raw_state = graph.invoke({"messages": messages})
+
+            # Pack-v1 terminal: chassis submit_final populates runtime.final_submission.
+            if runtime.final_submission is not None:
+                logger.info(
+                    "[DeepAgentsStage2Runtime] terminated at turn {} via chassis submit_final",
+                    turns_used,
+                )
+                break
 
             # Check if structured response indicates completion
             structured = raw_state.get("structured_response")
@@ -755,7 +813,7 @@ class DeepAgentsStage2Runtime(BaseStage2Runtime):
             or self.hypothesis_callback is not None
         )
 
-        final_response = self.normalize_final_response(task, raw_state)
+        final_response = self.normalize_final_response(task, raw_state, runtime)
         # Apply uncertainty-aware stopping rules
         final_response = self.apply_uncertainty_stopping(
             final_response, can_acquire_more_evidence

@@ -19,8 +19,10 @@ mark the sample as failed if no proposal in the pool plausibly matches.
 
 1. `list_keyframes_with_proposals()` — see which keyframes carry which
    proposal ids and how many proposals each frame shows.
-2. Pick 1-3 candidate keyframes (prefer frames where the proposal count
-   is small and the referent's category is in the candidate list).
+2. Pick 1-3 candidate keyframes. To narrow to a category, call
+   `find_proposals_by_category("<category>")` first and prefer frames
+   whose `visible_proposal_ids` overlap that result; otherwise prefer
+   frames with a small `n_proposals` count.
 3. `view_keyframe_marked(frame_id=N)` for each chosen frame — this
    queues the annotated image for the next user message and returns
    the visible proposal ids and categories.

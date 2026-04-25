@@ -82,3 +82,84 @@ def test_build_ctx_rejects_unreadable_annotated_dir(tmp_path: Path) -> None:
     )
     with pytest.raises(ValueError, match="annotated_image_dir"):
         build_ctx_from_bundle(bundle)
+
+
+def _pool_minus(tmp_path: Path, drop: str) -> dict:
+    """Build a minimal vg_proposal_pool dict and drop one required key."""
+    annotated = tmp_path / "ann"
+    annotated.mkdir(exist_ok=True)
+    pool = {
+        "source": "vdetr",
+        "proposals": [
+            {"id": 1, "bbox_3d_9dof": [0]*9, "category": "chair", "score": 0.5},
+        ],
+        "frame_index": {10: [1]},
+        "proposal_index": {1: [10]},
+        "annotated_image_dir": str(annotated),
+    }
+    pool.pop(drop)
+    return pool
+
+
+def test_build_ctx_raises_on_missing_proposals_key(tmp_path: Path) -> None:
+    bundle = Stage2EvidenceBundle(
+        extra_metadata={"vg_proposal_pool": _pool_minus(tmp_path, "proposals")}
+    )
+    with pytest.raises(ValueError, match="proposals key is required"):
+        build_ctx_from_bundle(bundle)
+
+
+def test_build_ctx_raises_on_missing_frame_index_key(tmp_path: Path) -> None:
+    bundle = Stage2EvidenceBundle(
+        extra_metadata={"vg_proposal_pool": _pool_minus(tmp_path, "frame_index")}
+    )
+    with pytest.raises(ValueError, match="frame_index key is required"):
+        build_ctx_from_bundle(bundle)
+
+
+def test_build_ctx_raises_on_missing_proposal_index_key(tmp_path: Path) -> None:
+    bundle = Stage2EvidenceBundle(
+        extra_metadata={"vg_proposal_pool": _pool_minus(tmp_path, "proposal_index")}
+    )
+    with pytest.raises(ValueError, match="proposal_index key is required"):
+        build_ctx_from_bundle(bundle)
+
+
+def test_build_ctx_raises_on_per_proposal_missing_id(tmp_path: Path) -> None:
+    annotated = tmp_path / "ann"
+    annotated.mkdir()
+    bundle = Stage2EvidenceBundle(
+        extra_metadata={
+            "vg_proposal_pool": {
+                "source": "vdetr",
+                "proposals": [
+                    {"bbox_3d_9dof": [0]*9, "category": "chair", "score": 0.5},
+                ],
+                "frame_index": {},
+                "proposal_index": {},
+                "annotated_image_dir": str(annotated),
+            }
+        }
+    )
+    with pytest.raises(ValueError, match=r"proposals\[0\]\.id is required"):
+        build_ctx_from_bundle(bundle)
+
+
+def test_build_ctx_raises_on_bbox_wrong_length(tmp_path: Path) -> None:
+    annotated = tmp_path / "ann"
+    annotated.mkdir()
+    bundle = Stage2EvidenceBundle(
+        extra_metadata={
+            "vg_proposal_pool": {
+                "source": "vdetr",
+                "proposals": [
+                    {"id": 1, "bbox_3d_9dof": [0]*5, "category": "chair", "score": 0.5},
+                ],
+                "frame_index": {},
+                "proposal_index": {},
+                "annotated_image_dir": str(annotated),
+            }
+        }
+    )
+    with pytest.raises(ValueError, match="bbox_3d_9dof must be a 9-element list"):
+        build_ctx_from_bundle(bundle)

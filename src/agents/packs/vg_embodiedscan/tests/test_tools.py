@@ -82,6 +82,49 @@ def test_view_keyframe_marked_unknown_frame_errors(tmp_path: Path) -> None:
     assert response.startswith("ERROR")
 
 
+def test_view_keyframe_marked_image_drained_into_evidence_update(tmp_path: Path) -> None:
+    """End-to-end: vg_pending_images queued by view_keyframe_marked must be
+    drained into the chassis's next-turn user message via
+    build_evidence_update_message."""
+    from agents.core.agent_config import Stage2DeepAgentConfig
+    from agents.runtime.deepagents_agent import DeepAgentsStage2Runtime
+    from langchain_core.messages.utils import convert_to_openai_messages
+
+    rs = _runtime(tmp_path)
+    rs.skills_loaded.add("vg-grounding-playbook")
+    # Pre-mark all bundle keyframe images as already-seen so the only
+    # NEW image picked up is the marked one queued by view_keyframe_marked.
+    for kf in rs.bundle.keyframes:
+        rs.seen_image_paths.add(kf.image_path)
+
+    # write a real PNG so chassis image_to_data_url can decode it
+    from PIL import Image
+
+    marked = rs.task_ctx.annotated_image_dir / "frame_10.png"
+    Image.new("RGB", (4, 4), color=(0, 0, 0)).save(marked, format="PNG")
+
+    tool = next(t for t in build_vg_tools(rs) if t.name == "view_keyframe_marked")
+    tool.invoke({"frame_id": 10})
+
+    # The queue must have been populated.
+    assert str(marked) in rs.bundle.extra_metadata["vg_pending_images"]
+
+    # Now drain via the chassis injector.
+    runtime = DeepAgentsStage2Runtime(config=Stage2DeepAgentConfig())
+    msg = runtime.build_evidence_update_message(rs)
+    assert msg is not None, "expected an evidence-update message but got None"
+    # The path should be present in either the rendered text or the
+    # multimodal image_url block; check both representations.
+    serialized = str(msg.content)
+    assert str(marked) in serialized or any(
+        isinstance(part, dict)
+        and part.get("type") == "image_url"
+        for part in (msg.content if isinstance(msg.content, list) else [])
+    )
+    # And the queue must be drained so we don't re-inject next turn.
+    assert rs.bundle.extra_metadata["vg_pending_images"] == []
+
+
 def test_inspect_proposal_returns_metadata_and_frames(tmp_path: Path) -> None:
     rs = _runtime(tmp_path)
     rs.skills_loaded.add("vg-grounding-playbook")

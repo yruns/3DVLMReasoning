@@ -1174,6 +1174,41 @@ def test_qa_tool_list_snapshot() -> None:
     ]), f"QA tool list drifted: {tool_names}"
 
 
+def test_qa_with_enable_chassis_tools_true_gets_chassis_trio() -> None:
+    """When `enable_chassis_tools=True` is set on the config and there is
+    no pack registered for the task type, the chassis trio should still
+    attach so an operator can opt into the chassis workflow during a
+    pack migration (Plan B QA)."""
+    from agents.runtime.deepagents_agent import DeepAgentsStage2Runtime
+    from agents.core.agent_config import Stage2DeepAgentConfig
+    from agents.core.task_types import (
+        Stage2EvidenceBundle, Stage2TaskType,
+    )
+    from agents.runtime.base import Stage2RuntimeState
+    from agents.skills import PACKS
+
+    PACKS.clear()  # ensure no pack is registered for QA in this test
+    runtime = DeepAgentsStage2Runtime(
+        config=Stage2DeepAgentConfig(enable_chassis_tools=True)
+    )
+    bundle = Stage2EvidenceBundle()
+    state = Stage2RuntimeState(bundle=bundle)
+    state.task_type = Stage2TaskType.QA
+
+    tool_names = sorted(t.name for t in runtime.build_runtime_tools(state))
+    assert tool_names == sorted([
+        "inspect_stage1_metadata",
+        "retrieve_object_context",
+        "request_more_views",
+        "request_crops",
+        "switch_or_expand_hypothesis",
+        # chassis trio
+        "list_skills",
+        "load_skill",
+        "submit_final",
+    ]), f"QA + enable_chassis_tools tool list drifted: {tool_names}"
+
+
 def test_legacy_vg_tool_list_snapshot() -> None:
     """Lock VG tool name list under vg_backend='legacy'."""
     from agents.runtime.deepagents_agent import DeepAgentsStage2Runtime
@@ -1199,6 +1234,69 @@ def test_legacy_vg_tool_list_snapshot() -> None:
         "select_object",
         "spatial_compare",
     ]), f"Legacy VG tool list drifted: {tool_names}"
+
+
+def test_wrapper_build_agent_supports_pack_v1(tmp_path) -> None:
+    """The Stage2DeepResearchAgent wrapper has its own build_agent that
+    must mirror the runtime's pack_v1 wiring, otherwise pilots that go
+    through the wrapper would silently fall back to legacy paths."""
+    import importlib
+    import agents.packs.vg_embodiedscan
+    from agents.core.agent_config import Stage2DeepAgentConfig, Stage2TaskType
+    from agents.core.task_types import (
+        KeyframeEvidence, Stage2EvidenceBundle, Stage2TaskSpec,
+    )
+    from agents.packs.vg_embodiedscan.ctx import VgEmbodiedScanCtx
+    from agents.skills import PACKS
+
+    if Stage2TaskType.VISUAL_GROUNDING not in PACKS:
+        importlib.reload(agents.packs.vg_embodiedscan)
+
+    annotated = tmp_path / "ann"
+    annotated.mkdir()
+
+    bundle = Stage2EvidenceBundle(
+        keyframes=[KeyframeEvidence(keyframe_idx=0, image_path="a.png", frame_id=10)],
+        extra_metadata={"vg_proposal_pool": {
+            "source": "vdetr",
+            "proposals": [
+                {"id": 0, "bbox_3d_9dof": [0]*9, "category": "chair", "score": 0.5},
+            ],
+            "frame_index": {10: [0]},
+            "proposal_index": {0: [10]},
+            "annotated_image_dir": str(annotated),
+        }},
+    )
+    task = Stage2TaskSpec(task_type=Stage2TaskType.VISUAL_GROUNDING, user_query="?")
+
+    agent = Stage2DeepResearchAgent(
+        config=Stage2DeepAgentConfig(vg_backend="pack_v1")
+    )
+    # Patch create_deep_agent so we don't need a live LLM client; only the
+    # tools-list assembly path matters here.
+    with patch("agents.stage2_deep_agent.create_deep_agent") as mock_create:
+        mock_create.return_value = object()  # any sentinel
+        graph, runtime = agent.build_agent(task, bundle)
+        assert mock_create.called
+        # Inspect the tools list we passed into create_deep_agent.
+        kwargs = mock_create.call_args.kwargs
+        tool_names = sorted(t.name for t in kwargs["tools"])
+
+    # Same expected tool list as the runtime-level pack_v1 snapshot:
+    # 5 shared + 5 pack + 3 chassis = 13.
+    assert tool_names == sorted([
+        "inspect_stage1_metadata", "retrieve_object_context",
+        "request_more_views", "request_crops",
+        "switch_or_expand_hypothesis",
+        "list_keyframes_with_proposals", "view_keyframe_marked",
+        "inspect_proposal", "find_proposals_by_category",
+        "compare_proposals_spatial",
+        "list_skills", "load_skill", "submit_final",
+    ]), f"wrapper pack_v1 tool list drifted: {tool_names}"
+
+    # Wrapper must have populated task_ctx for pack_v1.
+    assert isinstance(runtime.task_ctx, VgEmbodiedScanCtx)
+    assert runtime.task_ctx.proposal_pool_source == "vdetr"
 
 
 def test_pack_v1_vg_tool_list_snapshot(tmp_path) -> None:

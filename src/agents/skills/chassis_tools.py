@@ -69,8 +69,24 @@ def build_chassis_tools(runtime: Any) -> tuple[BaseTool, BaseTool, BaseTool]:
             err = f"ERROR: no pack registered for {runtime.task_type}; cannot submit_final"
             runtime.record("submit_final", {"payload": payload}, err)
             return err
+
+        # Coerce raw dict payload into the pack's typed payload_model
+        # (e.g. Pydantic BaseModel) before handing it to the validator.
+        # Stub finalizers that use payload_model=dict (or other types
+        # without `model_validate`) pass through unchanged.
+        payload_model = pack.finalizer.payload_model
+        if hasattr(payload_model, "model_validate"):
+            try:
+                typed_payload = payload_model.model_validate(payload)
+            except (ValueError, TypeError) as exc:
+                err = f"ERROR: submit_final payload schema mismatch: {exc}"
+                runtime.record("submit_final", {"payload": payload}, err)
+                return err
+        else:
+            typed_payload = payload
+
         try:
-            validated = pack.finalizer.validator(payload, runtime)
+            validated = pack.finalizer.validator(typed_payload, runtime)
             adapted = pack.finalizer.adapter(validated, runtime)
         except (ValueError, TypeError, KeyError, ValidationError) as exc:
             err = f"ERROR: submit_final validation failed: {exc}"
@@ -83,6 +99,9 @@ def build_chassis_tools(runtime: Any) -> tuple[BaseTool, BaseTool, BaseTool]:
             update={"extra_metadata": {**(runtime.bundle.extra_metadata or {}),
                                        "stage2_submission": adapted}}
         )
+        # Terminal signal: the run loop polls this and exits as soon
+        # as it's set, so submit_final actually ends the agent run.
+        runtime.final_submission = adapted
         msg = (
             f"submitted; rationale={rationale!r}; "
             f"evidence_refs={len(evidence_refs or [])}"
