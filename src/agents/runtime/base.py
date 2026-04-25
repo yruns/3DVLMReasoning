@@ -48,6 +48,10 @@ class Stage2RuntimeState:
     vg_selected_bbox_3d: list[float] | None = None
     vg_selection_rationale: str = ""
 
+    # Pack-v1 additive fields (kept alongside legacy vg_* until step 9)
+    task_ctx: Any | None = None
+    skills_loaded: set[str] = field(default_factory=set)
+
     def record(
         self, tool_name: str, tool_input: dict[str, Any], response_text: str
     ) -> None:
