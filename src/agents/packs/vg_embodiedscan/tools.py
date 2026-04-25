@@ -75,7 +75,34 @@ def build_vg_tools(runtime: Any) -> list[BaseTool]:
         runtime.record("view_keyframe_marked", {"frame_id": frame_id}, body)
         return body
 
-    return [list_keyframes_with_proposals, view_keyframe_marked]
+    @tool
+    def inspect_proposal(proposal_id: int) -> str:
+        """VG tool. Detailed usage in skill 'vg-grounding-playbook'."""
+        gate = _gate(runtime)
+        if gate is not None:
+            runtime.record("inspect_proposal", {"proposal_id": proposal_id}, gate)
+            return gate
+        proposal = next((p for p in ctx.proposals if p.id == proposal_id), None)
+        if proposal is None:
+            err = (
+                f"ERROR: proposal_id={proposal_id} not in pool; "
+                f"available count={len(ctx.proposals)}"
+            )
+            runtime.record("inspect_proposal", {"proposal_id": proposal_id}, err)
+            return err
+        payload = {
+            "proposal_id": proposal.id,
+            "category": proposal.category,
+            "score": proposal.score,
+            "bbox_3d_9dof": list(proposal.bbox_3d_9dof),
+            "frames_appeared": ctx.proposal_index.get(proposal_id, []),
+            "source": ctx.proposal_pool_source,
+        }
+        text = json.dumps(payload, ensure_ascii=False)
+        runtime.record("inspect_proposal", {"proposal_id": proposal_id}, text)
+        return text
+
+    return [list_keyframes_with_proposals, view_keyframe_marked, inspect_proposal]
 
 
 __all__ = ["build_vg_tools", "PRIMARY_SKILL"]

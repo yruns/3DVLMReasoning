@@ -80,3 +80,23 @@ def test_view_keyframe_marked_unknown_frame_errors(tmp_path: Path) -> None:
     tool = next(t for t in build_vg_tools(rs) if t.name == "view_keyframe_marked")
     response = tool.invoke({"frame_id": 999})
     assert response.startswith("ERROR")
+
+
+def test_inspect_proposal_returns_metadata_and_frames(tmp_path: Path) -> None:
+    rs = _runtime(tmp_path)
+    rs.skills_loaded.add("vg-grounding-playbook")
+    tool = next(t for t in build_vg_tools(rs) if t.name == "inspect_proposal")
+    payload = json.loads(tool.invoke({"proposal_id": 1}))
+    assert payload["proposal_id"] == 1
+    assert payload["category"] == "desk"
+    assert payload["score"] == 0.8
+    assert payload["frames_appeared"] == [10, 11]
+    assert payload["bbox_3d_9dof"] == [1]*9
+
+
+def test_inspect_proposal_unknown_id_errors(tmp_path: Path) -> None:
+    rs = _runtime(tmp_path)
+    rs.skills_loaded.add("vg-grounding-playbook")
+    tool = next(t for t in build_vg_tools(rs) if t.name == "inspect_proposal")
+    response = tool.invoke({"proposal_id": 99})
+    assert response.startswith("ERROR")
