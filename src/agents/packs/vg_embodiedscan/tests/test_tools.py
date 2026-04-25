@@ -58,3 +58,25 @@ def test_list_keyframes_with_proposals_returns_structured(tmp_path: Path) -> Non
     assert payload[0]["frame_id"] == 10
     assert payload[0]["visible_proposal_ids"] == [0, 1]
     assert payload[0]["annotated_image"].endswith("/ann/frame_10.png")
+
+
+def test_view_keyframe_marked_returns_image_content(tmp_path: Path) -> None:
+    rs = _runtime(tmp_path)
+    rs.skills_loaded.add("vg-grounding-playbook")
+    # create a fake marked image
+    marked = rs.task_ctx.annotated_image_dir / "frame_10.png"
+    marked.write_bytes(b"\x89PNG\r\n\x1a\n")  # minimal PNG header
+
+    tool = next(t for t in build_vg_tools(rs) if t.name == "view_keyframe_marked")
+    response = tool.invoke({"frame_id": 10})
+    assert "frame_10.png" in response
+    assert "visible_proposals" in response
+    assert "[0, 1]" in response or "0, 1" in response
+
+
+def test_view_keyframe_marked_unknown_frame_errors(tmp_path: Path) -> None:
+    rs = _runtime(tmp_path)
+    rs.skills_loaded.add("vg-grounding-playbook")
+    tool = next(t for t in build_vg_tools(rs) if t.name == "view_keyframe_marked")
+    response = tool.invoke({"frame_id": 999})
+    assert response.startswith("ERROR")

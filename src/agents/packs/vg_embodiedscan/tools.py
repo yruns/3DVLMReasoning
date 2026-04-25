@@ -43,7 +43,39 @@ def build_vg_tools(runtime: Any) -> list[BaseTool]:
         runtime.record("list_keyframes_with_proposals", {}, text)
         return text
 
-    return [list_keyframes_with_proposals]
+    @tool
+    def view_keyframe_marked(frame_id: int) -> str:
+        """VG tool. Detailed usage in skill 'vg-grounding-playbook'."""
+        gate = _gate(runtime)
+        if gate is not None:
+            runtime.record("view_keyframe_marked", {"frame_id": frame_id}, gate)
+            return gate
+        if frame_id not in ctx.frame_index:
+            err = (
+                f"ERROR: frame_id={frame_id} not in proposal index; "
+                f"available: {sorted(ctx.frame_index.keys())[:20]}"
+            )
+            runtime.record("view_keyframe_marked", {"frame_id": frame_id}, err)
+            return err
+        marked_path = ctx.annotated_image_dir / f"frame_{frame_id}.png"
+        if not marked_path.exists():
+            err = f"ERROR: annotated image not found: {marked_path}"
+            runtime.record("view_keyframe_marked", {"frame_id": frame_id}, err)
+            return err
+        visible = ctx.frame_index[frame_id]
+        # Mark the path as a fresh image to inject into the next user message
+        runtime.bundle.extra_metadata = dict(runtime.bundle.extra_metadata or {})
+        runtime.bundle.extra_metadata.setdefault("vg_pending_images", []).append(str(marked_path))
+        runtime.mark_evidence_updated()
+        body = (
+            f"frame_id={frame_id} marked image at {marked_path}; "
+            f"visible_proposals={visible}; "
+            f"categories={[next((p.category for p in ctx.proposals if p.id == pid), '?') for pid in visible]}"
+        )
+        runtime.record("view_keyframe_marked", {"frame_id": frame_id}, body)
+        return body
+
+    return [list_keyframes_with_proposals, view_keyframe_marked]
 
 
 __all__ = ["build_vg_tools", "PRIMARY_SKILL"]
