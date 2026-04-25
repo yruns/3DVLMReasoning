@@ -1,0 +1,444 @@
+{
+  "headline_metrics": {
+    "conceptgraph_full_local": {
+      "method": "2d-cg",
+      "input_condition": "conceptgraph_scene",
+      "num_targets": 2096,
+      "mean_best_iou": 0.3428655822933324,
+      "median_best_iou": 0.34207257189444523,
+      "acc_025": 0.6226145038167938,
+      "acc_050": 0.2738549618320611,
+      "mean_proposals_per_record": 155.10591603053436,
+      "non_degenerate_box_ratio": 1.0,
+      "failure_counts": {}
+    },
+    "vdetr_batch30": [
+      {
+        "method": "3d-vdetr",
+        "input_condition": "single_frame_recon",
+        "num_targets": 30,
+        "mean_best_iou": 0.12436468678470446,
+        "median_best_iou": 0.0,
+        "acc_025": 0.26666666666666666,
+        "acc_050": 0.06666666666666667,
+        "mean_proposals_per_record": 226.53333333333333,
+        "non_degenerate_box_ratio": 1.0,
+        "failure_counts": {}
+      },
+      {
+        "method": "3d-vdetr",
+        "input_condition": "multi_frame_recon",
+        "num_targets": 30,
+        "mean_best_iou": 0.13120389974066385,
+        "median_best_iou": 0.0008229130923942572,
+        "acc_025": 0.23333333333333334,
+        "acc_050": 0.13333333333333333,
+        "mean_proposals_per_record": 236.93333333333334,
+        "non_degenerate_box_ratio": 1.0,
+        "failure_counts": {}
+      },
+      {
+        "method": "3d-vdetr",
+        "input_condition": "scannet_pose_crop",
+        "num_targets": 30,
+        "mean_best_iou": 0.17970442280435062,
+        "median_best_iou": 0.0,
+        "acc_025": 0.26666666666666666,
+        "acc_050": 0.2,
+        "mean_proposals_per_record": 239.06666666666666,
+        "non_degenerate_box_ratio": 1.0,
+        "failure_counts": {}
+      },
+      {
+        "method": "3d-vdetr",
+        "input_condition": "scannet_full",
+        "num_targets": 30,
+        "mean_best_iou": 0.5575995673661917,
+        "median_best_iou": 0.5841049848576599,
+        "acc_025": 0.9333333333333333,
+        "acc_050": 0.6666666666666666,
+        "mean_proposals_per_record": 256.0,
+        "non_degenerate_box_ratio": 1.0,
+        "failure_counts": {}
+      }
+    ],
+    "vdetr_pilot3_after_coordinate_fix": [
+      {
+        "method": "3d-vdetr",
+        "input_condition": "single_frame_recon",
+        "num_targets": 3,
+        "mean_best_iou": 0.38638581753404844,
+        "median_best_iou": 0.5455123650033027,
+        "acc_025": 0.6666666666666666,
+        "acc_050": 0.6666666666666666,
+        "mean_proposals_per_record": 254.66666666666666,
+        "non_degenerate_box_ratio": 1.0,
+        "failure_counts": {}
+      },
+      {
+        "method": "3d-vdetr",
+        "input_condition": "multi_frame_recon",
+        "num_targets": 3,
+        "mean_best_iou": 0.6422666372274058,
+        "median_best_iou": 0.633152773255665,
+        "acc_025": 1.0,
+        "acc_050": 0.6666666666666666,
+        "mean_proposals_per_record": 256.0,
+        "non_degenerate_box_ratio": 1.0,
+        "failure_counts": {}
+      },
+      {
+        "method": "3d-vdetr",
+        "input_condition": "scannet_pose_crop",
+        "num_targets": 3,
+        "mean_best_iou": 0.10682908724190703,
+        "median_best_iou": 0.10082973396698001,
+        "acc_025": 0.0,
+        "acc_050": 0.0,
+        "mean_proposals_per_record": 256.0,
+        "non_degenerate_box_ratio": 1.0,
+        "failure_counts": {}
+      },
+      {
+        "method": "3d-vdetr",
+        "input_condition": "scannet_full",
+        "num_targets": 3,
+        "mean_best_iou": 0.8613263654778698,
+        "median_best_iou": 0.8604001096227267,
+        "acc_025": 1.0,
+        "acc_050": 1.0,
+        "mean_proposals_per_record": 256.0,
+        "non_degenerate_box_ratio": 1.0,
+        "failure_counts": {}
+      }
+    ]
+  },
+  "class_breakdown": [
+    {
+      "input_condition": "single_frame_recon",
+      "category": "cabinet",
+      "n": 4,
+      "mean_iou": 0.0,
+      "median_iou": 0.0,
+      "acc_025": 0.0,
+      "acc_050": 0.0
+    },
+    {
+      "input_condition": "single_frame_recon",
+      "category": "chair",
+      "n": 3,
+      "mean_iou": 0.28522026337545464,
+      "median_iou": 0.32923811632168865,
+      "acc_025": 0.6666666666666666,
+      "acc_050": 0.3333333333333333
+    },
+    {
+      "input_condition": "single_frame_recon",
+      "category": "curtain",
+      "n": 6,
+      "mean_iou": 0.12401908358113027,
+      "median_iou": 0.01460078359537962,
+      "acc_025": 0.3333333333333333,
+      "acc_050": 0.0
+    },
+    {
+      "input_condition": "single_frame_recon",
+      "category": "desk",
+      "n": 6,
+      "mean_iou": 0.22769510636161694,
+      "median_iou": 0.07378741073560462,
+      "acc_025": 0.3333333333333333,
+      "acc_050": 0.16666666666666666
+    },
+    {
+      "input_condition": "single_frame_recon",
+      "category": "door",
+      "n": 2,
+      "mean_iou": 0.0,
+      "median_iou": 0.0,
+      "acc_025": 0.0,
+      "acc_050": 0.0
+    },
+    {
+      "input_condition": "single_frame_recon",
+      "category": "picture",
+      "n": 1,
+      "mean_iou": 0.0,
+      "median_iou": 0.0,
+      "acc_025": 0.0,
+      "acc_050": 0.0
+    },
+    {
+      "input_condition": "single_frame_recon",
+      "category": "sink",
+      "n": 2,
+      "mean_iou": 0.030873870039124722,
+      "median_iou": 0.030873870039124722,
+      "acc_025": 0.0,
+      "acc_050": 0.0
+    },
+    {
+      "input_condition": "single_frame_recon",
+      "category": "table",
+      "n": 2,
+      "mean_iou": 0.0,
+      "median_iou": 0.0,
+      "acc_025": 0.0,
+      "acc_050": 0.0
+    },
+    {
+      "input_condition": "single_frame_recon",
+      "category": "window",
+      "n": 4,
+      "mean_iou": 0.17581173342000928,
+      "median_iou": 0.127272493606256,
+      "acc_025": 0.5,
+      "acc_050": 0.0
+    },
+    {
+      "input_condition": "multi_frame_recon",
+      "category": "cabinet",
+      "n": 4,
+      "mean_iou": 0.0,
+      "median_iou": 0.0,
+      "acc_025": 0.0,
+      "acc_050": 0.0
+    },
+    {
+      "input_condition": "multi_frame_recon",
+      "category": "chair",
+      "n": 3,
+      "mean_iou": 0.3453869718407856,
+      "median_iou": 0.41564099447734343,
+      "acc_025": 0.6666666666666666,
+      "acc_050": 0.3333333333333333
+    },
+    {
+      "input_condition": "multi_frame_recon",
+      "category": "curtain",
+      "n": 6,
+      "mean_iou": 0.07943023208886704,
+      "median_iou": 0.05646378880529791,
+      "acc_025": 0.16666666666666666,
+      "acc_050": 0.0
+    },
+    {
+      "input_condition": "multi_frame_recon",
+      "category": "desk",
+      "n": 6,
+      "mean_iou": 0.29058978179895467,
+      "median_iou": 0.16812316764568577,
+      "acc_025": 0.5,
+      "acc_050": 0.3333333333333333
+    },
+    {
+      "input_condition": "multi_frame_recon",
+      "category": "door",
+      "n": 2,
+      "mean_iou": 0.0008229130923942572,
+      "median_iou": 0.0008229130923942572,
+      "acc_025": 0.0,
+      "acc_050": 0.0
+    },
+    {
+      "input_condition": "multi_frame_recon",
+      "category": "picture",
+      "n": 1,
+      "mean_iou": 0.0,
+      "median_iou": 0.0,
+      "acc_025": 0.0,
+      "acc_050": 0.0
+    },
+    {
+      "input_condition": "multi_frame_recon",
+      "category": "sink",
+      "n": 2,
+      "mean_iou": 0.05186153930297207,
+      "median_iou": 0.05186153930297207,
+      "acc_025": 0.0,
+      "acc_050": 0.0
+    },
+    {
+      "input_condition": "multi_frame_recon",
+      "category": "table",
+      "n": 2,
+      "mean_iou": 0.0,
+      "median_iou": 0.0,
+      "acc_025": 0.0,
+      "acc_050": 0.0
+    },
+    {
+      "input_condition": "multi_frame_recon",
+      "category": "window",
+      "n": 4,
+      "mean_iou": 0.14361677214497398,
+      "median_iou": 0.02332481931518518,
+      "acc_025": 0.25,
+      "acc_050": 0.25
+    },
+    {
+      "input_condition": "scannet_pose_crop",
+      "category": "cabinet",
+      "n": 4,
+      "mean_iou": 0.40126302547571624,
+      "median_iou": 0.36988149329907777,
+      "acc_025": 0.5,
+      "acc_050": 0.5
+    },
+    {
+      "input_condition": "scannet_pose_crop",
+      "category": "chair",
+      "n": 3,
+      "mean_iou": 0.22598750227301734,
+      "median_iou": 0.0,
+      "acc_025": 0.3333333333333333,
+      "acc_050": 0.3333333333333333
+    },
+    {
+      "input_condition": "scannet_pose_crop",
+      "category": "curtain",
+      "n": 6,
+      "mean_iou": 0.061143898975399284,
+      "median_iou": 0.0,
+      "acc_025": 0.16666666666666666,
+      "acc_050": 0.0
+    },
+    {
+      "input_condition": "scannet_pose_crop",
+      "category": "desk",
+      "n": 6,
+      "mean_iou": 0.32506869250626963,
+      "median_iou": 0.2588557552691293,
+      "acc_025": 0.5,
+      "acc_050": 0.3333333333333333
+    },
+    {
+      "input_condition": "scannet_pose_crop",
+      "category": "door",
+      "n": 2,
+      "mean_iou": 0.006142939130557823,
+      "median_iou": 0.006142939130557823,
+      "acc_025": 0.0,
+      "acc_050": 0.0
+    },
+    {
+      "input_condition": "scannet_pose_crop",
+      "category": "picture",
+      "n": 1,
+      "mean_iou": 0.0,
+      "median_iou": 0.0,
+      "acc_025": 0.0,
+      "acc_050": 0.0
+    },
+    {
+      "input_condition": "scannet_pose_crop",
+      "category": "sink",
+      "n": 2,
+      "mean_iou": 0.37197729059508944,
+      "median_iou": 0.37197729059508944,
+      "acc_025": 0.5,
+      "acc_050": 0.5
+    },
+    {
+      "input_condition": "scannet_pose_crop",
+      "category": "table",
+      "n": 2,
+      "mean_iou": 0.01730103353364696,
+      "median_iou": 0.01730103353364696,
+      "acc_025": 0.0,
+      "acc_050": 0.0
+    },
+    {
+      "input_condition": "scannet_pose_crop",
+      "category": "window",
+      "n": 4,
+      "mean_iou": 0.0,
+      "median_iou": 0.0,
+      "acc_025": 0.0,
+      "acc_050": 0.0
+    },
+    {
+      "input_condition": "scannet_full",
+      "category": "cabinet",
+      "n": 4,
+      "mean_iou": 0.440051083112877,
+      "median_iou": 0.38377991359931785,
+      "acc_025": 0.75,
+      "acc_050": 0.25
+    },
+    {
+      "input_condition": "scannet_full",
+      "category": "chair",
+      "n": 3,
+      "mean_iou": 0.685327671234055,
+      "median_iou": 0.6966862045324705,
+      "acc_025": 1.0,
+      "acc_050": 1.0
+    },
+    {
+      "input_condition": "scannet_full",
+      "category": "curtain",
+      "n": 6,
+      "mean_iou": 0.42378713186865397,
+      "median_iou": 0.46026652075183183,
+      "acc_025": 1.0,
+      "acc_050": 0.16666666666666666
+    },
+    {
+      "input_condition": "scannet_full",
+      "category": "desk",
+      "n": 6,
+      "mean_iou": 0.7533263056995212,
+      "median_iou": 0.7887306325288417,
+      "acc_025": 1.0,
+      "acc_050": 1.0
+    },
+    {
+      "input_condition": "scannet_full",
+      "category": "door",
+      "n": 2,
+      "mean_iou": 0.5640052498940953,
+      "median_iou": 0.5640052498940953,
+      "acc_025": 1.0,
+      "acc_050": 1.0
+    },
+    {
+      "input_condition": "scannet_full",
+      "category": "picture",
+      "n": 1,
+      "mean_iou": 0.04483218032423922,
+      "median_iou": 0.04483218032423922,
+      "acc_025": 0.0,
+      "acc_050": 0.0
+    },
+    {
+      "input_condition": "scannet_full",
+      "category": "sink",
+      "n": 2,
+      "mean_iou": 0.5717699885386167,
+      "median_iou": 0.5717699885386167,
+      "acc_025": 1.0,
+      "acc_050": 1.0
+    },
+    {
+      "input_condition": "scannet_full",
+      "category": "table",
+      "n": 2,
+      "mean_iou": 0.6307208769577939,
+      "median_iou": 0.6307208769577939,
+      "acc_025": 1.0,
+      "acc_050": 1.0
+    },
+    {
+      "input_condition": "scannet_full",
+      "category": "window",
+      "n": 4,
+      "mean_iou": 0.5678236595794439,
+      "median_iou": 0.5832732361348822,
+      "acc_025": 1.0,
+      "acc_050": 0.75
+    }
+  ],
+  "target_count": 30,
+  "scene_count": 10
+}

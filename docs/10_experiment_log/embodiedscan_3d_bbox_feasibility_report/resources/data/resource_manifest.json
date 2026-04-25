@@ -1,0 +1,39 @@
+{
+  "generated_from": {
+    "summary_metrics": "outputs/embodiedscan_bbox_feasibility/summary_metrics.json",
+    "batch30_metrics": "outputs/embodiedscan_bbox_feasibility/vdetr_batch30_visible_topscenes_fixed/eval/metrics.jsonl",
+    "batch30_scores": "outputs/embodiedscan_bbox_feasibility/vdetr_batch30_visible_topscenes_fixed/eval/scores.jsonl",
+    "batch30_targets": "outputs/embodiedscan_bbox_feasibility/vdetr_batch30_visible_topscenes_fixed/targets.tsv",
+    "batch30_detector_records": "outputs/embodiedscan_bbox_feasibility/vdetr_batch30_visible_topscenes_fixed/detector_outputs/detector_records.jsonl",
+    "batch30_detector_inputs": "outputs/embodiedscan_bbox_feasibility/vdetr_batch30_visible_topscenes_fixed/inputs/detector_inputs.jsonl",
+    "embodiedscan_annotations": "data/embodiedscan/embodiedscan_infos_val.pkl + data/embodiedscan/embodiedscan_val_vg.json",
+    "prepared_scene_assets": "data/embodiedscan/scannet/<scene_id>/{raw,conceptgraph}"
+  },
+  "artifacts": {
+    "01_overall_metrics_comparison.png": "docs/10_experiment_log/embodiedscan_3d_bbox_feasibility_report/resources/figures/01_overall_metrics_comparison.png",
+    "02_vdetr_condition_curves.png": "docs/10_experiment_log/embodiedscan_3d_bbox_feasibility_report/resources/figures/02_vdetr_condition_curves.png",
+    "03_class_breakdown_heatmap.png": "docs/10_experiment_log/embodiedscan_3d_bbox_feasibility_report/resources/figures/03_class_breakdown_heatmap.png",
+    "04_target_level_iou_heatmap.png": "docs/10_experiment_log/embodiedscan_3d_bbox_feasibility_report/resources/figures/04_target_level_iou_heatmap.png",
+    "05_success_distribution.png": "docs/10_experiment_log/embodiedscan_3d_bbox_feasibility_report/resources/figures/05_success_distribution.png",
+    "06_visible_frames_vs_iou.png": "docs/10_experiment_log/embodiedscan_3d_bbox_feasibility_report/resources/figures/06_visible_frames_vs_iou.png",
+    "07_recommended_pipeline.png": "docs/10_experiment_log/embodiedscan_3d_bbox_feasibility_report/resources/figures/07_recommended_pipeline.png",
+    "08_route_decision_tree.png": "docs/10_experiment_log/embodiedscan_3d_bbox_feasibility_report/resources/figures/08_route_decision_tree.png",
+    "09_failure_taxonomy.png": "docs/10_experiment_log/embodiedscan_3d_bbox_feasibility_report/resources/figures/09_failure_taxonomy.png",
+    "10_pointcloud_condition_example.png": "docs/10_experiment_log/embodiedscan_3d_bbox_feasibility_report/resources/figures/10_pointcloud_condition_example.png",
+    "11_vdetr_coordinate_fix.png": "docs/10_experiment_log/embodiedscan_3d_bbox_feasibility_report/resources/figures/11_vdetr_coordinate_fix.png",
+    "metrics_overall.csv": "docs/10_experiment_log/embodiedscan_3d_bbox_feasibility_report/resources/data/metrics_overall.csv",
+    "batch30_scores.csv": "docs/10_experiment_log/embodiedscan_3d_bbox_feasibility_report/resources/data/batch30_scores.csv",
+    "batch30_scores_wide.csv": "docs/10_experiment_log/embodiedscan_3d_bbox_feasibility_report/resources/data/batch30_scores_wide.csv",
+    "batch30_class_breakdown.csv": "docs/10_experiment_log/embodiedscan_3d_bbox_feasibility_report/resources/data/batch30_class_breakdown.csv",
+    "report_summary.json": "docs/10_experiment_log/embodiedscan_3d_bbox_feasibility_report/resources/data/report_summary.json",
+    "dashboard.html": "docs/10_experiment_log/embodiedscan_3d_bbox_feasibility_report/dashboard.html",
+    "QUALITATIVE_GALLERY.md": "docs/10_experiment_log/embodiedscan_3d_bbox_feasibility_report/QUALITATIVE_GALLERY.md",
+    "qualitative_gallery.html": "docs/10_experiment_log/embodiedscan_3d_bbox_feasibility_report/qualitative_gallery.html",
+    "qualitative_lark_append.xml": "docs/10_experiment_log/embodiedscan_3d_bbox_feasibility_report/qualitative_lark_append.xml",
+    "qualitative_contact_sheet.png": "docs/10_experiment_log/embodiedscan_3d_bbox_feasibility_report/resources/qualitative/qualitative_contact_sheet.png",
+    "qualitative_case_pngs": "docs/10_experiment_log/embodiedscan_3d_bbox_feasibility_report/resources/qualitative/case_*.png",
+    "qualitative_cases.csv": "docs/10_experiment_log/embodiedscan_3d_bbox_feasibility_report/resources/data/qualitative_cases.csv",
+    "qualitative_case_manifest.json": "docs/10_experiment_log/embodiedscan_3d_bbox_feasibility_report/resources/data/qualitative_case_manifest.json",
+    "generate_qualitative_gallery.py": "docs/10_experiment_log/embodiedscan_3d_bbox_feasibility_report/scripts/generate_qualitative_gallery.py"
+  }
+}

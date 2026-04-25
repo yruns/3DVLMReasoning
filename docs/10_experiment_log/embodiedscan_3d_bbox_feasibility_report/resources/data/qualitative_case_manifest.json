@@ -1,0 +1,516 @@
+{
+  "contact_sheet": "resources/qualitative/qualitative_contact_sheet.png",
+  "num_cases": 30,
+  "cases": [
+    {
+      "case_id": "Q01",
+      "scene_id": "scene0451_00",
+      "target_id": 72,
+      "category": "picture",
+      "visible_frames": 29,
+      "rgb_frame_id": 12,
+      "rgb_path": "/home/ysh/codecase/3DVLMReasoning/data/embodiedscan/scannet/scene0451_00/raw/000012-rgb.jpg",
+      "figure": "resources/qualitative/case_01_picture_scene0451_00_target72.png",
+      "ious": {
+        "2d_cg": 0.7415292691260196,
+        "single_frame_recon": 0.0,
+        "multi_frame_recon": 0.0,
+        "scannet_pose_crop": 0.0,
+        "scannet_full": 0.04483218032423922
+      }
+    },
+    {
+      "case_id": "Q02",
+      "scene_id": "scene0451_00",
+      "target_id": 32,
+      "category": "curtain",
+      "visible_frames": 104,
+      "rgb_frame_id": 153,
+      "rgb_path": "/home/ysh/codecase/3DVLMReasoning/data/embodiedscan/scannet/scene0451_00/raw/000153-rgb.jpg",
+      "figure": "resources/qualitative/case_02_curtain_scene0451_00_target32.png",
+      "ious": {
+        "2d_cg": 0.6598871403482981,
+        "single_frame_recon": 0.028383860600658006,
+        "multi_frame_recon": 0.08683784044341349,
+        "scannet_pose_crop": 0.0,
+        "scannet_full": 0.49025822658460794
+      }
+    },
+    {
+      "case_id": "Q03",
+      "scene_id": "scene0451_00",
+      "target_id": 26,
+      "category": "curtain",
+      "visible_frames": 78,
+      "rgb_frame_id": 198,
+      "rgb_path": "/home/ysh/codecase/3DVLMReasoning/data/embodiedscan/scannet/scene0451_00/raw/000198-rgb.jpg",
+      "figure": "resources/qualitative/case_03_curtain_scene0451_00_target26.png",
+      "ious": {
+        "2d_cg": 0.19948148327020876,
+        "single_frame_recon": 0.32268645375930094,
+        "multi_frame_recon": 0.2662949220684035,
+        "scannet_pose_crop": 0.0,
+        "scannet_full": 0.5997310341592473
+      }
+    },
+    {
+      "case_id": "Q04",
+      "scene_id": "scene0451_02",
+      "target_id": 23,
+      "category": "curtain",
+      "visible_frames": 69,
+      "rgb_frame_id": 29,
+      "rgb_path": "/home/ysh/codecase/3DVLMReasoning/data/embodiedscan/scannet/scene0451_02/raw/000029-rgb.jpg",
+      "figure": "resources/qualitative/case_04_curtain_scene0451_02_target23.png",
+      "ious": {
+        "2d_cg": 0.05405870971973101,
+        "single_frame_recon": 0.0,
+        "multi_frame_recon": 0.0,
+        "scannet_pose_crop": 0.0,
+        "scannet_full": 0.2626760805612708
+      }
+    },
+    {
+      "case_id": "Q05",
+      "scene_id": "scene0451_02",
+      "target_id": 17,
+      "category": "table",
+      "visible_frames": 90,
+      "rgb_frame_id": 215,
+      "rgb_path": "/home/ysh/codecase/3DVLMReasoning/data/embodiedscan/scannet/scene0451_02/raw/000215-rgb.jpg",
+      "figure": "resources/qualitative/case_05_table_scene0451_02_target17.png",
+      "ious": {
+        "2d_cg": 0.36970736563116957,
+        "single_frame_recon": 0.0,
+        "multi_frame_recon": 0.0,
+        "scannet_pose_crop": 0.03460206706729392,
+        "scannet_full": 0.5132146230134363
+      }
+    },
+    {
+      "case_id": "Q06",
+      "scene_id": "scene0451_02",
+      "target_id": 4,
+      "category": "curtain",
+      "visible_frames": 43,
+      "rgb_frame_id": 46,
+      "rgb_path": "/home/ysh/codecase/3DVLMReasoning/data/embodiedscan/scannet/scene0451_02/raw/000046-rgb.jpg",
+      "figure": "resources/qualitative/case_06_curtain_scene0451_02_target4.png",
+      "ious": {
+        "2d_cg": 0.5191355483352639,
+        "single_frame_recon": 0.0,
+        "multi_frame_recon": 0.0,
+        "scannet_pose_crop": 0.3668633938523957,
+        "scannet_full": 0.4840979448165889
+      }
+    },
+    {
+      "case_id": "Q07",
+      "scene_id": "scene0451_04",
+      "target_id": 14,
+      "category": "curtain",
+      "visible_frames": 41,
+      "rgb_frame_id": 13,
+      "rgb_path": "/home/ysh/codecase/3DVLMReasoning/data/embodiedscan/scannet/scene0451_04/raw/000013-rgb.jpg",
+      "figure": "resources/qualitative/case_07_curtain_scene0451_04_target14.png",
+      "ious": {
+        "2d_cg": 0.5187738878643637,
+        "single_frame_recon": 0.3922264805367214,
+        "multi_frame_recon": 0.09735889285420296,
+        "scannet_pose_crop": 0.0,
+        "scannet_full": 0.26952440840313446
+      }
+    },
+    {
+      "case_id": "Q08",
+      "scene_id": "scene0451_04",
+      "target_id": 22,
+      "category": "curtain",
+      "visible_frames": 90,
+      "rgb_frame_id": 115,
+      "rgb_path": "/home/ysh/codecase/3DVLMReasoning/data/embodiedscan/scannet/scene0451_04/raw/000115-rgb.jpg",
+      "figure": "resources/qualitative/case_08_curtain_scene0451_04_target22.png",
+      "ious": {
+        "2d_cg": 0.2943477449449312,
+        "single_frame_recon": 0.0008177065901012323,
+        "multi_frame_recon": 0.026089737167182332,
+        "scannet_pose_crop": 0.0,
+        "scannet_full": 0.4364350966870748
+      }
+    },
+    {
+      "case_id": "Q09",
+      "scene_id": "scene0451_04",
+      "target_id": 88,
+      "category": "cabinet",
+      "visible_frames": 17,
+      "rgb_frame_id": 95,
+      "rgb_path": "/home/ysh/codecase/3DVLMReasoning/data/embodiedscan/scannet/scene0451_04/raw/000095-rgb.jpg",
+      "figure": "resources/qualitative/case_09_cabinet_scene0451_04_target88.png",
+      "ious": {
+        "2d_cg": 0.4588625642261151,
+        "single_frame_recon": 0.0,
+        "multi_frame_recon": 0.0,
+        "scannet_pose_crop": 0.0,
+        "scannet_full": 0.49557265430708347
+      }
+    },
+    {
+      "case_id": "Q10",
+      "scene_id": "scene0392_01",
+      "target_id": 33,
+      "category": "window",
+      "visible_frames": 22,
+      "rgb_frame_id": 23,
+      "rgb_path": "/home/ysh/codecase/3DVLMReasoning/data/embodiedscan/scannet/scene0392_01/raw/000023-rgb.jpg",
+      "figure": "resources/qualitative/case_10_window_scene0392_01_target33.png",
+      "ious": {
+        "2d_cg": 0.3039779743720203,
+        "single_frame_recon": 0.4487019464675251,
+        "multi_frame_recon": 0.014023331884152567,
+        "scannet_pose_crop": 0.0,
+        "scannet_full": 0.6654890320051006
+      }
+    },
+    {
+      "case_id": "Q11",
+      "scene_id": "scene0392_01",
+      "target_id": 42,
+      "category": "sink",
+      "visible_frames": 73,
+      "rgb_frame_id": 237,
+      "rgb_path": "/home/ysh/codecase/3DVLMReasoning/data/embodiedscan/scannet/scene0392_01/raw/000237-rgb.jpg",
+      "figure": "resources/qualitative/case_11_sink_scene0392_01_target42.png",
+      "ious": {
+        "2d_cg": 0.43270863812491317,
+        "single_frame_recon": 0.061747740078249444,
+        "multi_frame_recon": 0.10372307860594414,
+        "scannet_pose_crop": 0.0,
+        "scannet_full": 0.5661050956885927
+      }
+    },
+    {
+      "case_id": "Q12",
+      "scene_id": "scene0392_01",
+      "target_id": 20,
+      "category": "sink",
+      "visible_frames": 71,
+      "rgb_frame_id": 162,
+      "rgb_path": "/home/ysh/codecase/3DVLMReasoning/data/embodiedscan/scannet/scene0392_01/raw/000162-rgb.jpg",
+      "figure": "resources/qualitative/case_12_sink_scene0392_01_target20.png",
+      "ious": {
+        "2d_cg": 0.6217748705585003,
+        "single_frame_recon": 0.0,
+        "multi_frame_recon": 0.0,
+        "scannet_pose_crop": 0.7439545811901789,
+        "scannet_full": 0.5774348813886409
+      }
+    },
+    {
+      "case_id": "Q13",
+      "scene_id": "scene0114_00",
+      "target_id": 6,
+      "category": "chair",
+      "visible_frames": 94,
+      "rgb_frame_id": 52,
+      "rgb_path": "/home/ysh/codecase/3DVLMReasoning/data/embodiedscan/scannet/scene0114_00/raw/000052-rgb.jpg",
+      "figure": "resources/qualitative/case_13_chair_scene0114_00_target6.png",
+      "ious": {
+        "2d_cg": 0.3387401753017579,
+        "single_frame_recon": 0.0,
+        "multi_frame_recon": 0.105811602936311,
+        "scannet_pose_crop": 0.677962506819052,
+        "scannet_full": 0.590775088326679
+      }
+    },
+    {
+      "case_id": "Q14",
+      "scene_id": "scene0114_00",
+      "target_id": 5,
+      "category": "chair",
+      "visible_frames": 75,
+      "rgb_frame_id": 1,
+      "rgb_path": "/home/ysh/codecase/3DVLMReasoning/data/embodiedscan/scannet/scene0114_00/raw/000001-rgb.jpg",
+      "figure": "resources/qualitative/case_14_chair_scene0114_00_target5.png",
+      "ious": {
+        "2d_cg": 0.43310311425306863,
+        "single_frame_recon": 0.5264226738046752,
+        "multi_frame_recon": 0.5147083181087024,
+        "scannet_pose_crop": 0.0,
+        "scannet_full": 0.6966862045324705
+      }
+    },
+    {
+      "case_id": "Q15",
+      "scene_id": "scene0114_00",
+      "target_id": 9,
+      "category": "cabinet",
+      "visible_frames": 45,
+      "rgb_frame_id": 73,
+      "rgb_path": "/home/ysh/codecase/3DVLMReasoning/data/embodiedscan/scannet/scene0114_00/raw/000073-rgb.jpg",
+      "figure": "resources/qualitative/case_15_cabinet_scene0114_00_target9.png",
+      "ious": {
+        "2d_cg": 0.5914056660351509,
+        "single_frame_recon": 0.0,
+        "multi_frame_recon": 0.0,
+        "scannet_pose_crop": 0.7397629865981555,
+        "scannet_full": 0.8537855739095493
+      }
+    },
+    {
+      "case_id": "Q16",
+      "scene_id": "scene0114_02",
+      "target_id": 1,
+      "category": "window",
+      "visible_frames": 59,
+      "rgb_frame_id": 135,
+      "rgb_path": "/home/ysh/codecase/3DVLMReasoning/data/embodiedscan/scannet/scene0114_02/raw/000135-rgb.jpg",
+      "figure": "resources/qualitative/case_16_window_scene0114_02_target1.png",
+      "ious": {
+        "2d_cg": 0.1778891783015074,
+        "single_frame_recon": 0.0,
+        "multi_frame_recon": 0.0,
+        "scannet_pose_crop": 0.0,
+        "scannet_full": 0.3505495345025584
+      }
+    },
+    {
+      "case_id": "Q17",
+      "scene_id": "scene0114_02",
+      "target_id": 11,
+      "category": "window",
+      "visible_frames": 72,
+      "rgb_frame_id": 99,
+      "rgb_path": "/home/ysh/codecase/3DVLMReasoning/data/embodiedscan/scannet/scene0114_02/raw/000099-rgb.jpg",
+      "figure": "resources/qualitative/case_17_window_scene0114_02_target11.png",
+      "ious": {
+        "2d_cg": 0.004229350162453155,
+        "single_frame_recon": 0.0,
+        "multi_frame_recon": 0.03262630674621779,
+        "scannet_pose_crop": 0.0,
+        "scannet_full": 0.5010574402646639
+      }
+    },
+    {
+      "case_id": "Q18",
+      "scene_id": "scene0114_02",
+      "target_id": 19,
+      "category": "desk",
+      "visible_frames": 52,
+      "rgb_frame_id": 6,
+      "rgb_path": "/home/ysh/codecase/3DVLMReasoning/data/embodiedscan/scannet/scene0114_02/raw/000006-rgb.jpg",
+      "figure": "resources/qualitative/case_18_desk_scene0114_02_target19.png",
+      "ious": {
+        "2d_cg": 0.32574049430456364,
+        "single_frame_recon": 0.7234895348769266,
+        "multi_frame_recon": 0.6887304902279141,
+        "scannet_pose_crop": 0.3225001155072847,
+        "scannet_full": 0.7799267431249802
+      }
+    },
+    {
+      "case_id": "Q19",
+      "scene_id": "scene0614_00",
+      "target_id": 33,
+      "category": "window",
+      "visible_frames": 12,
+      "rgb_frame_id": 4,
+      "rgb_path": "/home/ysh/codecase/3DVLMReasoning/data/embodiedscan/scannet/scene0614_00/raw/000004-rgb.jpg",
+      "figure": "resources/qualitative/case_19_window_scene0614_00_target33.png",
+      "ious": {
+        "2d_cg": 0.07132882849510529,
+        "single_frame_recon": 0.254544987212512,
+        "multi_frame_recon": 0.5278174499495255,
+        "scannet_pose_crop": 0.0,
+        "scannet_full": 0.754198631545453
+      }
+    },
+    {
+      "case_id": "Q20",
+      "scene_id": "scene0614_00",
+      "target_id": 13,
+      "category": "desk",
+      "visible_frames": 26,
+      "rgb_frame_id": 28,
+      "rgb_path": "/home/ysh/codecase/3DVLMReasoning/data/embodiedscan/scannet/scene0614_00/raw/000028-rgb.jpg",
+      "figure": "resources/qualitative/case_20_desk_scene0614_00_target13.png",
+      "ious": {
+        "2d_cg": 0.46137146156501396,
+        "single_frame_recon": 0.0,
+        "multi_frame_recon": 0.0,
+        "scannet_pose_crop": 0.0,
+        "scannet_full": 0.8955514104860127
+      }
+    },
+    {
+      "case_id": "Q21",
+      "scene_id": "scene0614_00",
+      "target_id": 12,
+      "category": "cabinet",
+      "visible_frames": 31,
+      "rgb_frame_id": 73,
+      "rgb_path": "/home/ysh/codecase/3DVLMReasoning/data/embodiedscan/scannet/scene0614_00/raw/000073-rgb.jpg",
+      "figure": "resources/qualitative/case_21_cabinet_scene0614_00_target12.png",
+      "ious": {
+        "2d_cg": 0.36207189514554666,
+        "single_frame_recon": 0.0,
+        "multi_frame_recon": 0.0,
+        "scannet_pose_crop": 0.8652891153047094,
+        "scannet_full": 0.2719871728915522
+      }
+    },
+    {
+      "case_id": "Q22",
+      "scene_id": "scene0247_00",
+      "target_id": 15,
+      "category": "door",
+      "visible_frames": 178,
+      "rgb_frame_id": 416,
+      "rgb_path": "/home/ysh/codecase/3DVLMReasoning/data/embodiedscan/scannet/scene0247_00/raw/000416-rgb.jpg",
+      "figure": "resources/qualitative/case_22_door_scene0247_00_target15.png",
+      "ious": {
+        "2d_cg": 0.36817196656637413,
+        "single_frame_recon": 0.0,
+        "multi_frame_recon": 0.0,
+        "scannet_pose_crop": 0.0,
+        "scannet_full": 0.5325672925764138
+      }
+    },
+    {
+      "case_id": "Q23",
+      "scene_id": "scene0247_00",
+      "target_id": 40,
+      "category": "door",
+      "visible_frames": 23,
+      "rgb_frame_id": 193,
+      "rgb_path": "/home/ysh/codecase/3DVLMReasoning/data/embodiedscan/scannet/scene0247_00/raw/000193-rgb.jpg",
+      "figure": "resources/qualitative/case_23_door_scene0247_00_target40.png",
+      "ious": {
+        "2d_cg": 0.5125691124895749,
+        "single_frame_recon": 0.0,
+        "multi_frame_recon": 0.0016458261847885143,
+        "scannet_pose_crop": 0.012285878261115647,
+        "scannet_full": 0.5954432072117768
+      }
+    },
+    {
+      "case_id": "Q24",
+      "scene_id": "scene0247_00",
+      "target_id": 54,
+      "category": "table",
+      "visible_frames": 70,
+      "rgb_frame_id": 233,
+      "rgb_path": "/home/ysh/codecase/3DVLMReasoning/data/embodiedscan/scannet/scene0247_00/raw/000233-rgb.jpg",
+      "figure": "resources/qualitative/case_24_table_scene0247_00_target54.png",
+      "ious": {
+        "2d_cg": 0.4007470291837244,
+        "single_frame_recon": 0.0,
+        "multi_frame_recon": 0.0,
+        "scannet_pose_crop": 0.0,
+        "scannet_full": 0.7482271309021514
+      }
+    },
+    {
+      "case_id": "Q25",
+      "scene_id": "scene0040_00",
+      "target_id": 8,
+      "category": "desk",
+      "visible_frames": 100,
+      "rgb_frame_id": 30,
+      "rgb_path": "/home/ysh/codecase/3DVLMReasoning/data/embodiedscan/scannet/scene0040_00/raw/000030-rgb.jpg",
+      "figure": "resources/qualitative/case_25_desk_scene0040_00_target8.png",
+      "ious": {
+        "2d_cg": 0.4851856795500212,
+        "single_frame_recon": 0.14757482147120923,
+        "multi_frame_recon": 0.33624633529137155,
+        "scannet_pose_crop": 0.1952113950309739,
+        "scannet_full": 0.5981157234436101
+      }
+    },
+    {
+      "case_id": "Q26",
+      "scene_id": "scene0040_00",
+      "target_id": 9,
+      "category": "desk",
+      "visible_frames": 85,
+      "rgb_frame_id": 46,
+      "rgb_path": "/home/ysh/codecase/3DVLMReasoning/data/embodiedscan/scannet/scene0040_00/raw/000046-rgb.jpg",
+      "figure": "resources/qualitative/case_26_desk_scene0040_00_target9.png",
+      "ious": {
+        "2d_cg": 0.5201830463712711,
+        "single_frame_recon": 0.0,
+        "multi_frame_recon": 0.0,
+        "scannet_pose_crop": 0.5685964017014948,
+        "scannet_full": 0.6253270758011195
+      }
+    },
+    {
+      "case_id": "Q27",
+      "scene_id": "scene0040_00",
+      "target_id": 45,
+      "category": "chair",
+      "visible_frames": 79,
+      "rgb_frame_id": 174,
+      "rgb_path": "/home/ysh/codecase/3DVLMReasoning/data/embodiedscan/scannet/scene0040_00/raw/000174-rgb.jpg",
+      "figure": "resources/qualitative/case_27_chair_scene0040_00_target45.png",
+      "ious": {
+        "2d_cg": 0.29394344984857423,
+        "single_frame_recon": 0.32923811632168865,
+        "multi_frame_recon": 0.41564099447734343,
+        "scannet_pose_crop": 0.0,
+        "scannet_full": 0.7685217208430157
+      }
+    },
+    {
+      "case_id": "Q28",
+      "scene_id": "scene0040_01",
+      "target_id": 14,
+      "category": "desk",
+      "visible_frames": 47,
+      "rgb_frame_id": 186,
+      "rgb_path": "/home/ysh/codecase/3DVLMReasoning/data/embodiedscan/scannet/scene0040_01/raw/000186-rgb.jpg",
+      "figure": "resources/qualitative/case_28_desk_scene0040_01_target14.png",
+      "ious": {
+        "2d_cg": 0.5334051092578299,
+        "single_frame_recon": 0.49510628182156585,
+        "multi_frame_recon": 0.7185618652744424,
+        "scannet_pose_crop": 0.0,
+        "scannet_full": 0.8235023594087011
+      }
+    },
+    {
+      "case_id": "Q29",
+      "scene_id": "scene0040_01",
+      "target_id": 12,
+      "category": "desk",
+      "visible_frames": 156,
+      "rgb_frame_id": 55,
+      "rgb_path": "/home/ysh/codecase/3DVLMReasoning/data/embodiedscan/scannet/scene0040_01/raw/000055-rgb.jpg",
+      "figure": "resources/qualitative/case_29_desk_scene0040_01_target12.png",
+      "ious": {
+        "2d_cg": 0.8275821294870678,
+        "single_frame_recon": 0.0,
+        "multi_frame_recon": 0.0,
+        "scannet_pose_crop": 0.8641042427978642,
+        "scannet_full": 0.7975345219327031
+      }
+    },
+    {
+      "case_id": "Q30",
+      "scene_id": "scene0040_01",
+      "target_id": 40,
+      "category": "cabinet",
+      "visible_frames": 41,
+      "rgb_frame_id": 81,
+      "rgb_path": "/home/ysh/codecase/3DVLMReasoning/data/embodiedscan/scannet/scene0040_01/raw/000081-rgb.jpg",
+      "figure": "resources/qualitative/case_30_cabinet_scene0040_01_target40.png",
+      "ious": {
+        "2d_cg": 0.36471020911546637,
+        "single_frame_recon": 0.0,
+        "multi_frame_recon": 0.0,
+        "scannet_pose_crop": 0.0,
+        "scannet_full": 0.13885893134332308
+      }
+    }
+  ]
+}

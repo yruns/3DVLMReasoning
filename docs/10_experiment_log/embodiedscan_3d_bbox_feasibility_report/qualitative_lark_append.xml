@@ -1,0 +1,65 @@
+<h1>11. 定性可视化样例：RGB / 点云 / GT / Best Prediction</h1>
+<p>下面新增 batch30 全量定性样例。每个 case 图中，绿色框是 GT，红色框是该输入条件下 V-DETR 的 best proposal，蓝色框是同一场景中 2D-CG 的 best proposal。</p>
+<table><thead><tr><th background-color="light-gray">Case</th><th background-color="light-gray">Scene</th><th background-color="light-gray">Target</th><th background-color="light-gray">Category</th><th background-color="light-gray">2D-CG</th><th background-color="light-gray">Single</th><th background-color="light-gray">Multi</th><th background-color="light-gray">Pose crop</th><th background-color="light-gray">Full scene</th></tr></thead><tbody>
+<tr><td>Q01</td><td>scene0451_00</td><td>72</td><td>picture</td><td>0.742</td><td>0.000</td><td>0.000</td><td>0.000</td><td>0.045</td></tr>
+<tr><td>Q02</td><td>scene0451_00</td><td>32</td><td>curtain</td><td>0.660</td><td>0.028</td><td>0.087</td><td>0.000</td><td>0.490</td></tr>
+<tr><td>Q03</td><td>scene0451_00</td><td>26</td><td>curtain</td><td>0.199</td><td>0.323</td><td>0.266</td><td>0.000</td><td>0.600</td></tr>
+<tr><td>Q04</td><td>scene0451_02</td><td>23</td><td>curtain</td><td>0.054</td><td>0.000</td><td>0.000</td><td>0.000</td><td>0.263</td></tr>
+<tr><td>Q05</td><td>scene0451_02</td><td>17</td><td>table</td><td>0.370</td><td>0.000</td><td>0.000</td><td>0.035</td><td>0.513</td></tr>
+<tr><td>Q06</td><td>scene0451_02</td><td>4</td><td>curtain</td><td>0.519</td><td>0.000</td><td>0.000</td><td>0.367</td><td>0.484</td></tr>
+<tr><td>Q07</td><td>scene0451_04</td><td>14</td><td>curtain</td><td>0.519</td><td>0.392</td><td>0.097</td><td>0.000</td><td>0.270</td></tr>
+<tr><td>Q08</td><td>scene0451_04</td><td>22</td><td>curtain</td><td>0.294</td><td>0.001</td><td>0.026</td><td>0.000</td><td>0.436</td></tr>
+<tr><td>Q09</td><td>scene0451_04</td><td>88</td><td>cabinet</td><td>0.459</td><td>0.000</td><td>0.000</td><td>0.000</td><td>0.496</td></tr>
+<tr><td>Q10</td><td>scene0392_01</td><td>33</td><td>window</td><td>0.304</td><td>0.449</td><td>0.014</td><td>0.000</td><td>0.665</td></tr>
+<tr><td>Q11</td><td>scene0392_01</td><td>42</td><td>sink</td><td>0.433</td><td>0.062</td><td>0.104</td><td>0.000</td><td>0.566</td></tr>
+<tr><td>Q12</td><td>scene0392_01</td><td>20</td><td>sink</td><td>0.622</td><td>0.000</td><td>0.000</td><td>0.744</td><td>0.577</td></tr>
+<tr><td>Q13</td><td>scene0114_00</td><td>6</td><td>chair</td><td>0.339</td><td>0.000</td><td>0.106</td><td>0.678</td><td>0.591</td></tr>
+<tr><td>Q14</td><td>scene0114_00</td><td>5</td><td>chair</td><td>0.433</td><td>0.526</td><td>0.515</td><td>0.000</td><td>0.697</td></tr>
+<tr><td>Q15</td><td>scene0114_00</td><td>9</td><td>cabinet</td><td>0.591</td><td>0.000</td><td>0.000</td><td>0.740</td><td>0.854</td></tr>
+<tr><td>Q16</td><td>scene0114_02</td><td>1</td><td>window</td><td>0.178</td><td>0.000</td><td>0.000</td><td>0.000</td><td>0.351</td></tr>
+<tr><td>Q17</td><td>scene0114_02</td><td>11</td><td>window</td><td>0.004</td><td>0.000</td><td>0.033</td><td>0.000</td><td>0.501</td></tr>
+<tr><td>Q18</td><td>scene0114_02</td><td>19</td><td>desk</td><td>0.326</td><td>0.723</td><td>0.689</td><td>0.323</td><td>0.780</td></tr>
+<tr><td>Q19</td><td>scene0614_00</td><td>33</td><td>window</td><td>0.071</td><td>0.255</td><td>0.528</td><td>0.000</td><td>0.754</td></tr>
+<tr><td>Q20</td><td>scene0614_00</td><td>13</td><td>desk</td><td>0.461</td><td>0.000</td><td>0.000</td><td>0.000</td><td>0.896</td></tr>
+<tr><td>Q21</td><td>scene0614_00</td><td>12</td><td>cabinet</td><td>0.362</td><td>0.000</td><td>0.000</td><td>0.865</td><td>0.272</td></tr>
+<tr><td>Q22</td><td>scene0247_00</td><td>15</td><td>door</td><td>0.368</td><td>0.000</td><td>0.000</td><td>0.000</td><td>0.533</td></tr>
+<tr><td>Q23</td><td>scene0247_00</td><td>40</td><td>door</td><td>0.513</td><td>0.000</td><td>0.002</td><td>0.012</td><td>0.595</td></tr>
+<tr><td>Q24</td><td>scene0247_00</td><td>54</td><td>table</td><td>0.401</td><td>0.000</td><td>0.000</td><td>0.000</td><td>0.748</td></tr>
+<tr><td>Q25</td><td>scene0040_00</td><td>8</td><td>desk</td><td>0.485</td><td>0.148</td><td>0.336</td><td>0.195</td><td>0.598</td></tr>
+<tr><td>Q26</td><td>scene0040_00</td><td>9</td><td>desk</td><td>0.520</td><td>0.000</td><td>0.000</td><td>0.569</td><td>0.625</td></tr>
+<tr><td>Q27</td><td>scene0040_00</td><td>45</td><td>chair</td><td>0.294</td><td>0.329</td><td>0.416</td><td>0.000</td><td>0.769</td></tr>
+<tr><td>Q28</td><td>scene0040_01</td><td>14</td><td>desk</td><td>0.533</td><td>0.495</td><td>0.719</td><td>0.000</td><td>0.824</td></tr>
+<tr><td>Q29</td><td>scene0040_01</td><td>12</td><td>desk</td><td>0.828</td><td>0.000</td><td>0.000</td><td>0.864</td><td>0.798</td></tr>
+<tr><td>Q30</td><td>scene0040_01</td><td>40</td><td>cabinet</td><td>0.365</td><td>0.000</td><td>0.000</td><td>0.000</td><td>0.139</td></tr>
+</tbody></table>
+<p><b>图 Q0：Qualitative contact sheet</b>（本地文件：resources/qualitative/qualitative_contact_sheet.png）</p>
+<p><b>图 Q01</b>：scene0451_00 target 72 (picture)。2D-CG=0.742，single=0.000，multi=0.000，pose crop=0.000，full scene=0.045。</p>
+<p><b>图 Q02</b>：scene0451_00 target 32 (curtain)。2D-CG=0.660，single=0.028，multi=0.087，pose crop=0.000，full scene=0.490。</p>
+<p><b>图 Q03</b>：scene0451_00 target 26 (curtain)。2D-CG=0.199，single=0.323，multi=0.266，pose crop=0.000，full scene=0.600。</p>
+<p><b>图 Q04</b>：scene0451_02 target 23 (curtain)。2D-CG=0.054，single=0.000，multi=0.000，pose crop=0.000，full scene=0.263。</p>
+<p><b>图 Q05</b>：scene0451_02 target 17 (table)。2D-CG=0.370，single=0.000，multi=0.000，pose crop=0.035，full scene=0.513。</p>
+<p><b>图 Q06</b>：scene0451_02 target 4 (curtain)。2D-CG=0.519，single=0.000，multi=0.000，pose crop=0.367，full scene=0.484。</p>
+<p><b>图 Q07</b>：scene0451_04 target 14 (curtain)。2D-CG=0.519，single=0.392，multi=0.097，pose crop=0.000，full scene=0.270。</p>
+<p><b>图 Q08</b>：scene0451_04 target 22 (curtain)。2D-CG=0.294，single=0.001，multi=0.026，pose crop=0.000，full scene=0.436。</p>
+<p><b>图 Q09</b>：scene0451_04 target 88 (cabinet)。2D-CG=0.459，single=0.000，multi=0.000，pose crop=0.000，full scene=0.496。</p>
+<p><b>图 Q10</b>：scene0392_01 target 33 (window)。2D-CG=0.304，single=0.449，multi=0.014，pose crop=0.000，full scene=0.665。</p>
+<p><b>图 Q11</b>：scene0392_01 target 42 (sink)。2D-CG=0.433，single=0.062，multi=0.104，pose crop=0.000，full scene=0.566。</p>
+<p><b>图 Q12</b>：scene0392_01 target 20 (sink)。2D-CG=0.622，single=0.000，multi=0.000，pose crop=0.744，full scene=0.577。</p>
+<p><b>图 Q13</b>：scene0114_00 target 6 (chair)。2D-CG=0.339，single=0.000，multi=0.106，pose crop=0.678，full scene=0.591。</p>
+<p><b>图 Q14</b>：scene0114_00 target 5 (chair)。2D-CG=0.433，single=0.526，multi=0.515，pose crop=0.000，full scene=0.697。</p>
+<p><b>图 Q15</b>：scene0114_00 target 9 (cabinet)。2D-CG=0.591，single=0.000，multi=0.000，pose crop=0.740，full scene=0.854。</p>
+<p><b>图 Q16</b>：scene0114_02 target 1 (window)。2D-CG=0.178，single=0.000，multi=0.000，pose crop=0.000，full scene=0.351。</p>
+<p><b>图 Q17</b>：scene0114_02 target 11 (window)。2D-CG=0.004，single=0.000，multi=0.033，pose crop=0.000，full scene=0.501。</p>
+<p><b>图 Q18</b>：scene0114_02 target 19 (desk)。2D-CG=0.326，single=0.723，multi=0.689，pose crop=0.323，full scene=0.780。</p>
+<p><b>图 Q19</b>：scene0614_00 target 33 (window)。2D-CG=0.071，single=0.255，multi=0.528，pose crop=0.000，full scene=0.754。</p>
+<p><b>图 Q20</b>：scene0614_00 target 13 (desk)。2D-CG=0.461，single=0.000，multi=0.000，pose crop=0.000，full scene=0.896。</p>
+<p><b>图 Q21</b>：scene0614_00 target 12 (cabinet)。2D-CG=0.362，single=0.000，multi=0.000，pose crop=0.865，full scene=0.272。</p>
+<p><b>图 Q22</b>：scene0247_00 target 15 (door)。2D-CG=0.368，single=0.000，multi=0.000，pose crop=0.000，full scene=0.533。</p>
+<p><b>图 Q23</b>：scene0247_00 target 40 (door)。2D-CG=0.513，single=0.000，multi=0.002，pose crop=0.012，full scene=0.595。</p>
+<p><b>图 Q24</b>：scene0247_00 target 54 (table)。2D-CG=0.401，single=0.000，multi=0.000，pose crop=0.000，full scene=0.748。</p>
+<p><b>图 Q25</b>：scene0040_00 target 8 (desk)。2D-CG=0.485，single=0.148，multi=0.336，pose crop=0.195，full scene=0.598。</p>
+<p><b>图 Q26</b>：scene0040_00 target 9 (desk)。2D-CG=0.520，single=0.000，multi=0.000，pose crop=0.569，full scene=0.625。</p>
+<p><b>图 Q27</b>：scene0040_00 target 45 (chair)。2D-CG=0.294，single=0.329，multi=0.416，pose crop=0.000，full scene=0.769。</p>
+<p><b>图 Q28</b>：scene0040_01 target 14 (desk)。2D-CG=0.533，single=0.495，multi=0.719，pose crop=0.000，full scene=0.824。</p>
+<p><b>图 Q29</b>：scene0040_01 target 12 (desk)。2D-CG=0.828，single=0.000，multi=0.000，pose crop=0.864，full scene=0.798。</p>
+<p><b>图 Q30</b>：scene0040_01 target 40 (cabinet)。2D-CG=0.365，single=0.000，multi=0.000，pose crop=0.000，full scene=0.139。</p>

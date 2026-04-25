@@ -211,3 +211,84 @@ The implementation plan should start with a smoke pipeline before any large run:
 6. Only after the smoke checks pass, launch pilot/full jobs in tmux.
 
 This design intentionally ends before implementation details such as script names, CLI flags, detector environment setup, and exact output directory layout. Those belong in the follow-up implementation plan.
+
+## Implementation Status (2026-04-25)
+
+This section records what has actually been built and run on `feat/explore_3dbbox`, where the implementation diverged from the design above, and where it remains incomplete. The authoritative results document is `docs/10_experiment_log/embodiedscan_3d_bbox_feasibility_report/REPORT.md`. The mirrored Lark write-up lives at `https://my.feishu.cn/docx/TzDDd7HYNoEgsgxkE8vclm7dnqb`.
+
+### Code state
+
+The feasibility module is `src/benchmarks/embodiedscan_bbox_feasibility/`. Approximately 39 commits landed on 2026-04-24, plus uncommitted 2026-04-25 changes that wire the V-DETR detector path and the scene-level full-scan materialization.
+
+Modules:
+
+- `models.py` — Pydantic schemas for targets, observations, detector inputs, proposals, evaluation records. Now carries `axis_align_matrix` and `visible_frame_ids` on `EmbodiedScanTarget`.
+- `targets.py` — unique `(scan_id, target_id)` index. Pulls `axis_align_matrix` and per-target `visible_frame_ids` from `scene_info`.
+- `geometry.py` — AABB fitting, degenerate-box guard, point cloud transform, depth backprojection helpers.
+- `observations.py` — target-conditioned frame-window selection.
+- `backproject.py` — RGB-D-to-points lifting.
+- `conceptgraph.py` — `2D-CG` proposals from prepared `pcd_saves/*.pkl`. Now emits two geometry variants per object (`pcd_aabb` from `pcd_np`, `bbox_np_aabb` from `bbox_np`) and applies `axis_align_matrix` when supplied.
+- `pointcloud_inputs.py` — materializes detector inputs for `single_frame_recon`, `multi_frame_recon`, `scannet_pose_crop`, `scannet_full`. Applies axis-alignment so detector PLY files live in `embodiedscan_aligned` frame.
+- `detector_runner.py` / `detector_adapter.py` — generic subprocess runner and proposal JSON adapter.
+- `vdetr.py` — V-DETR command template, `camera_corners_to_depth_corners`, ScanNet 18-class label table, proposal JSON writer.
+- `evaluator.py` — class-agnostic best-IoU + Acc@0.25/0.50 over EmbodiedScan oriented IoU.
+- `cli.py` — subcommands: `smoke`, `prepare-inputs`, `run-detector`, `evaluate-records`, plus batch-selection flags (`--target-categories`, `--require-visible-frames`, `--max-scenes`, `--max-targets-per-scene`, `--scene-level-full`).
+
+External integration:
+
+- `scripts/vdetr_export_predictions.py` runs V-DETR from `external/V-DETR` against one prepared PLY and writes proposals JSON in EmbodiedScan 9-DOF.
+- Detector checkpoint: `external/V-DETR/checkpoints/scannet_540ep.pth`. Defaults: 40000 points, conf 0.05, top-k 256.
+
+### Coverage vs. the design's experimental matrix
+
+| Designed arm | Implementation | Status |
+|---|---|---|
+| `2D-SF` (single-frame mask backprojection + fit) | none | not implemented |
+| `2D-MV` (multi-frame fused 2D mask + fit) | none | not implemented |
+| `2D-CG` (ConceptGraph object map) | `conceptgraph.py` + `2D-CG full-local` | run on 2096 deduplicated targets |
+| `3D-SF-Recon` | `single_frame_recon` | run on batch30 (30 targets) |
+| `3D-MV-Recon` | `multi_frame_recon` | run on batch30 with **5 frames**, not the design's 10-frame main setting |
+| `3D-ScanNet-Crop` | `scannet_pose_crop` | run on batch30, but uses **pose-bounds + padding**, not the designed image-frustum crop |
+| `3D-ScanNet-Full` | `scannet_full` (scene-level cache) | run on batch30 (10 scenes) |
+
+### Detector substitution
+
+The design's primary target is DEST-VDETR. In practice the V-DETR base detector is what was actually run, which corresponds to the design's documented fallback. DEST-VDETR was not pursued; the design's `model_blocked` tag would apply if it were tried but is not currently surfaced in any record.
+
+### Implementation findings the design did not anticipate
+
+These are load-bearing for any follow-up plan and should override the design where they conflict:
+
+- **V-DETR coordinate frame conversion**: `outputs.box_corners` from V-DETR are in camera frame; EmbodiedScan oriented IoU expects depth/aligned frame. The required permutation is `camera [x, y, z] -> depth [x, z, -y]`, implemented as `camera_corners_to_depth_corners`. Before this fix, V-DETR mean IoU was near zero despite visually plausible boxes; after the fix, the 3-target full-scene pilot reached mean IoU `0.8613`.
+- **Axis alignment as part of input prep**: detector inputs and `2D-CG` proposals must be transformed by `scene_info.axis_align_matrix` before scoring. Records persist `axis_align_applied` and `coordinate_frame` flags in `metadata` so downstream evaluation can verify this was honored.
+- **Scene-level reuse for `scannet_full`**: `scannet_full` is materialized once per scene (`<scene_id>_scene.ply`) rather than once per target. Proposals are reused across all targets in the same scene.
+- **Bottleneck is detector training distribution, not point-cloud cleanliness**: `scannet_pose_crop` uses clean ScanNet mesh points but still scores `mean IoU 0.18 / Acc@0.5 0.20`, far below `scannet_full` at `0.56 / 0.67`. Higher-quality local points are not sufficient; the detector relies on whole-room context.
+- **New failure-mode tags observed**: `category_ood` (e.g. `picture` fails even at full-scene) and `thin_flat_geometry` (e.g. `curtain` reaches Acc@0.25 1.00 but Acc@0.5 0.17). Add these to the failure taxonomy alongside the originally listed tags.
+
+### Headline results (batch30, V-DETR; 2D-CG run on full-local 2096 targets)
+
+| Route / condition | Targets | Mean IoU | Acc@0.25 | Acc@0.50 |
+|---|---:|---:|---:|---:|
+| `2D-CG` full-local | 2096 | 0.343 | 0.623 | 0.274 |
+| V-DETR `single_frame_recon` | 30 | 0.124 | 0.267 | 0.067 |
+| V-DETR `multi_frame_recon` (5 frames) | 30 | 0.131 | 0.233 | 0.133 |
+| V-DETR `scannet_pose_crop` | 30 | 0.180 | 0.267 | 0.200 |
+| V-DETR `scannet_full` | 30 | 0.558 | 0.933 | 0.667 |
+
+### Gaps relative to the design
+
+- The image-frustum variant of `3D-ScanNet-Crop` is not implemented; only pose-bounds crop with padding is.
+- Multi-frame main result is 5 frames, not 10. The 5/10/20-frame sensitivity sweep is open.
+- 2D mask-driven routes (`2D-SF`, `2D-MV`) are not implemented; the only 2D route is `2D-CG`.
+- DEST-VDETR is not run. V-DETR base only.
+- No `model_blocked` records were written; substitution to V-DETR happened upstream of record generation.
+
+### Recommended follow-ups
+
+These come from REPORT.md and the Lark write-up, and supersede the design's "next experiments" list where they overlap:
+
+1. Larger full-scene V-DETR sweep at 50–100 scenes to stabilize the batch30 conclusion.
+2. Exact image-frustum crop variant of `3D-ScanNet-Crop` (full image, 2D-bbox, 2D-mask) with V-DETR and with direct geometric fitting.
+3. Mask-guided geometric fitting as a single-image fallback that bypasses V-DETR.
+4. RGB-D fusion ablation across 1 / 5 / 10 / 20 / all visible frames, optionally with TSDF or voxel fusion, to separate "not enough frames" from "detector unsuited to partial reconstructions."
+5. Move proposal selection into Stage 2 (2D evidence + visibility + language) over the cached scene-level V-DETR proposals — this is the recommended system pipeline; it is out of scope for this proposal-only study.

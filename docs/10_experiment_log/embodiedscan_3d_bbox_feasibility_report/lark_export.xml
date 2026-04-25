@@ -1,0 +1,53 @@
+<title>EmbodiedScan RGB-D 到 3D BBox 可行性研究报告</title>
+<callout emoji="✅" background-color="light-green" border-color="green"><p>核心结论：最可靠的 3D detector 路线是 camera pose 找到 ScanNet 原始场景，然后在 full raw scene mesh 上运行 V-DETR，并用 2D evidence / language 去选择目标 proposal。单张 RGB-D 反投影点云再做 3D detection 效果弱，不建议作为主线。</p></callout>
+<grid><column width-ratio="0.33"><p>2D-CG full-local：2096 targets，Acc@0.25=0.6226，Acc@0.50=0.2739。</p></column><column width-ratio="0.33"><p>V-DETR single-frame：batch30 Acc@0.25=0.2667，Acc@0.50=0.0667。</p></column><column width-ratio="0.34"><p>V-DETR full-scene：batch30 Acc@0.25=0.9333，Acc@0.50=0.6667。</p></column></grid>
+<p><b>图 1：总体路线指标对比</b></p>
+<p><b>图 2：V-DETR 不同输入条件曲线</b></p>
+<hr/>
+<h1>1. 研究问题与边界</h1>
+<p>目标是评估 EmbodiedScan RGB-D observation 是否可以可靠地产生 3D bbox proposals。这里暂不评价下游 VLM reasoning、答案生成或语言 disambiguation，只评价 proposal 的几何可行性。</p>
+<ul><li>输入：一张或多张 RGB-D 图像、相机内参/外参、目标语言描述。</li><li>输出：目标对象的 3D bounding box 或可供下游选择的 3D proposals。</li><li>评价：mean best IoU、median best IoU、Acc@0.25、Acc@0.50、类别拆分和失败模式。</li></ul>
+<hr/>
+<h1>2. 候选路线</h1>
+<table><thead><tr><th background-color="light-gray">路线</th><th background-color="light-gray">输入</th><th background-color="light-gray">核心假设</th><th background-color="light-gray">当前结论</th></tr></thead><tbody><tr><td>A. 2D-CG / 2D mask 反投影</td><td>2D detection / segmentation + depth / ConceptGraph</td><td>2D evidence 可以提供开放类目标的高召回 3D proposals</td><td>可作为强 baseline 和 fallback</td></tr><tr><td>B. 单张 RGB-D 反投影 + V-DETR</td><td>一张 RGB-D 点云</td><td>单帧 partial point cloud 足够让 3D detector 推断 bbox</td><td>效果弱，不建议主线</td></tr><tr><td>C. 多帧 RGB-D 重建 + V-DETR</td><td>5 帧 RGB-D 点云</td><td>更多局部点能弥补单帧 partial geometry</td><td>仍弱，应做 fusion ablation</td></tr><tr><td>D. 单图 pose 裁剪原始 ScanNet mesh + V-DETR</td><td>相机位姿附近的 raw mesh crop</td><td>原始点云质量更高，检测会明显改善</td><td>比单帧略好，但远弱于 full scene</td></tr><tr><td>E. full ScanNet scene + V-DETR</td><td>完整 raw ScanNet scene mesh</td><td>与 V-DETR ScanNet 训练分布一致</td><td>当前最强主路线</td></tr></tbody></table>
+<p><b>图 8：路线选择决策树</b></p>
+<hr/>
+<h1>3. 实验设置</h1>
+<p>数据来自 EmbodiedScan val split 中的 ScanNet-source 样本。本地 full-local 2D-CG 评估覆盖 2096 个 deduplicated targets；V-DETR batch30 选择 10 个 scene、30 个与 ScanNet/V-DETR 类别重叠且有 visible frame 的 targets。</p>
+<table><thead><tr><th background-color="light-gray">评估对象</th><th background-color="light-gray">规模</th><th background-color="light-gray">说明</th></tr></thead><tbody><tr><td>2D-CG full-local</td><td>2096 targets</td><td>使用本地 prepared ConceptGraph scene assets</td></tr><tr><td>V-DETR pilot</td><td>1 scene / 3 targets</td><td>用于定位坐标系问题和验证 detector 可行性</td></tr><tr><td>V-DETR batch30</td><td>10 scenes / 30 targets</td><td>每个 scene 最多 3 个目标，类别与 V-DETR ScanNet classes 重叠</td></tr></tbody></table>
+<callout emoji="⚠️" background-color="light-yellow" border-color="yellow"><p>关键实现修正：V-DETR 输出的 box_corners 处在 camera frame，评估前必须转换为 EmbodiedScan/depth frame，即 camera [x,y,z] -&gt; depth [x,z,-y]。修正后 pilot full-scene mean IoU 从接近 0 提升到 0.8613。</p></callout>
+<p><b>图 11：V-DETR 坐标系修正示意</b></p>
+<hr/>
+<h1>4. 核心结果</h1>
+<table><thead><tr><th background-color="light-gray">Route / condition</th><th background-color="light-gray">Targets</th><th background-color="light-gray">Mean IoU</th><th background-color="light-gray">Median IoU</th><th background-color="light-gray">Acc@0.25</th><th background-color="light-gray">Acc@0.50</th></tr></thead><tbody><tr><td>2D-CG full-local</td><td>2096</td><td>0.3429</td><td>0.3421</td><td>0.6226</td><td>0.2739</td></tr><tr><td>V-DETR single RGB-D backprojection</td><td>30</td><td>0.1244</td><td>0.0000</td><td>0.2667</td><td>0.0667</td></tr><tr><td>V-DETR 5-frame RGB-D reconstruction</td><td>30</td><td>0.1312</td><td>0.0008</td><td>0.2333</td><td>0.1333</td></tr><tr><td>V-DETR raw mesh pose crop</td><td>30</td><td>0.1797</td><td>0.0000</td><td>0.2667</td><td>0.2000</td></tr><tr><td>V-DETR full raw ScanNet scene</td><td>30</td><td>0.5576</td><td>0.5841</td><td>0.9333</td><td>0.6667</td></tr></tbody></table>
+<p>full scene V-DETR 的结果分布与 partial point-cloud routes 完全不同：大多数 target 至少达到 IoU 0.25，三分之二达到 IoU 0.50。single-frame 和 multi-frame 大部分 target 仍低于 IoU 0.25。</p>
+<p><b>图 5：Batch30 成功/失败分布</b></p>
+<p><b>图 4：Target-level IoU 热力图</b></p>
+<hr/>
+<h1>5. 单张图像反投影点云 + 3D 检测</h1>
+<callout emoji="❌" background-color="light-red" border-color="red"><p>结论：单张 RGB-D 图像反投影成点云再喂 V-DETR，当前不稳定，不适合作为主路线。batch30 mean IoU=0.1244，Acc@0.25=0.2667，Acc@0.50=0.0667。</p></callout>
+<ul><li>单帧点云只包含 visible surface，缺少背面和完整 object extent。</li><li>V-DETR 训练分布是 ScanNet-like scene-level point cloud，单帧 partial cloud 是明显分布外输入。</li><li>chair / desk 个别样例可以检测，但 cabinet / table / door / picture 等容易出现 0 IoU。</li></ul>
+<p><b>图 10：同一目标在四种点云输入条件下的可视化</b></p>
+<hr/>
+<h1>6. 单图相机位姿裁剪原始场景局部点云 + 3D 检测</h1>
+<p>这是用户特别关心的问题：如果根据一张图像的相机信息，从原始 ScanNet 场景中取出对应部分，点云质量会比 RGB-D 重建高很多，那么再进行 3D detection 是否有效？</p>
+<table><thead><tr><th background-color="light-gray">Condition</th><th background-color="light-gray">Mean IoU</th><th background-color="light-gray">Acc@0.25</th><th background-color="light-gray">Acc@0.50</th><th background-color="light-gray">解释</th></tr></thead><tbody><tr><td>single_frame_recon</td><td>0.1244</td><td>0.2667</td><td>0.0667</td><td>单张 RGB-D 反投影，点云 partial 且噪声/缺失明显</td></tr><tr><td>scannet_pose_crop</td><td>0.1797</td><td>0.2667</td><td>0.2000</td><td>原始 mesh 局部 crop，点质量更高，但上下文和完整 extent 仍不足</td></tr><tr><td>scannet_full</td><td>0.5576</td><td>0.9333</td><td>0.6667</td><td>完整 scene，与 V-DETR 训练分布最接近</td></tr></tbody></table>
+<callout emoji="ℹ️" background-color="light-blue" border-color="blue"><p>解释：原始场景局部点云确实比单帧反投影略好，尤其 Acc@0.50 从 0.0667 提升到 0.2000。但它仍远弱于 full scene，说明瓶颈不只是点云质量，而是 local crop 与 scene-level detector 训练分布不一致。</p></callout>
+<hr/>
+<h1>7. 类别级分析</h1>
+<p>full-scene V-DETR 对 desk、chair、table、window、sink、door 表现好；picture 失败，curtain 和 cabinet 存在混合情况。</p>
+<table><thead><tr><th background-color="light-gray">Category</th><th background-color="light-gray">Count</th><th background-color="light-gray">Full-scene Mean IoU</th><th background-color="light-gray">Full-scene Acc@0.25</th><th background-color="light-gray">Full-scene Acc@0.50</th></tr></thead><tbody><tr><td>cabinet</td><td>4</td><td>0.440</td><td>0.75</td><td>0.25</td></tr><tr><td>chair</td><td>3</td><td>0.685</td><td>1.00</td><td>1.00</td></tr><tr><td>curtain</td><td>6</td><td>0.424</td><td>1.00</td><td>0.17</td></tr><tr><td>desk</td><td>6</td><td>0.753</td><td>1.00</td><td>1.00</td></tr><tr><td>door</td><td>2</td><td>0.564</td><td>1.00</td><td>1.00</td></tr><tr><td>picture</td><td>1</td><td>0.045</td><td>0.00</td><td>0.00</td></tr><tr><td>sink</td><td>2</td><td>0.572</td><td>1.00</td><td>1.00</td></tr><tr><td>table</td><td>2</td><td>0.631</td><td>1.00</td><td>1.00</td></tr><tr><td>window</td><td>4</td><td>0.568</td><td>1.00</td><td>0.75</td></tr></tbody></table>
+<p><b>图 3：类别级 mean IoU 热力图</b></p>
+<p><b>图 6：Visible frame 数量与 IoU 关系</b></p>
+<hr/>
+<h1>8. 推荐系统方案</h1>
+<callout emoji="✅" background-color="light-green" border-color="green"><p>推荐主线：full-scene V-DETR proposals cache + 2D evidence / language-conditioned proposal selection。不要把单图或少帧 partial point cloud 直接作为 3D detector 主输入。</p></callout>
+<ol><li seq="auto">根据 pose / metadata 找到 ScanNet scene。</li><li seq="auto">在 full raw ScanNet scene mesh 上运行 V-DETR，一次 per scene。</li><li seq="auto">缓存 scene-level 3D proposals。</li><li seq="auto">对每个 RGB-D visual grounding query，用 2D evidence、visibility、projection 和 language 去选择 proposal。</li><li seq="auto">如果 target 是 detector-OOD 或没有好 proposal，则走 2D mask + depth/raw mesh points + geometric bbox fitting。</li></ol>
+<p><b>图 7：推荐 pipeline</b></p>
+<p><b>图 9：失败原因 taxonomy</b></p>
+<hr/>
+<h1>9. 下一步实验</h1>
+<table><thead><tr><th background-color="light-gray">实验</th><th background-color="light-gray">目的</th><th background-color="light-gray">设计</th><th background-color="light-gray">预期价值</th></tr></thead><tbody><tr><td>更大 full-scene V-DETR sweep</td><td>验证 full-scene 结论稳定性</td><td>50-100 scenes，只跑 scene-level V-DETR，再评估所有 supported visible targets</td><td>把 batch30 证据扩大成统计稳定结论</td></tr><tr><td>精确 single-image frustum crop</td><td>直接回答单图 pose raw-scene crop 问题</td><td>用 intrinsic+pose 投影 raw mesh，保留图像 frustum 内点</td><td>判断当前 pose-bounds crop 是否低估了 local raw mesh route</td></tr><tr><td>2D mask guided geometric fitting</td><td>测试单图是否应绕过 V-DETR</td><td>mask -&gt; depth/raw mesh points -&gt; outlier removal -&gt; bbox fitting</td><td>可能成为单图设置最佳路线</td></tr><tr><td>RGB-D fusion ablation</td><td>判断重建路线是否还有潜力</td><td>1/5/10/20/all visible frames + optional TSDF/voxel fusion</td><td>区分 frame 不足和 detector 不适配</td></tr></tbody></table>
+<hr/>
+<h1>10. 资源与复现入口</h1>
+<ul><li>本地 Markdown 报告：docs/10_experiment_log/embodiedscan_3d_bbox_feasibility_report/REPORT.md</li><li>本地 dashboard：docs/10_experiment_log/embodiedscan_3d_bbox_feasibility_report/dashboard.html</li><li>图表目录：docs/10_experiment_log/embodiedscan_3d_bbox_feasibility_report/resources/figures</li><li>数据快照：docs/10_experiment_log/embodiedscan_3d_bbox_feasibility_report/resources/data</li></ul>

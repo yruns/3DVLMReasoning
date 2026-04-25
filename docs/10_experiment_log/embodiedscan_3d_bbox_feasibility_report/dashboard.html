@@ -1,0 +1,39 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>EmbodiedScan 3D BBox Feasibility Dashboard</title>
+<style>
+body{font-family:Inter,Arial,sans-serif;margin:32px;background:#f7f7f5;color:#202020}
+h1{margin-bottom:4px}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(520px,1fr));gap:22px}
+.card{background:#fff;border:1px solid #ddd;border-radius:8px;padding:16px;box-shadow:0 1px 2px #0001}
+.card.wide{grid-column:1/-1}.card img{width:100%;height:auto}
+.metric{display:inline-block;background:#eef4ea;border:1px solid #cdddc9;border-radius:6px;padding:8px 12px;margin:6px 8px 12px 0}
+code{background:#eee;padding:2px 4px;border-radius:4px}
+a{color:#1557a6;text-decoration:none}a:hover{text-decoration:underline}
+</style>
+</head>
+<body>
+<h1>EmbodiedScan 3D BBox Feasibility Dashboard</h1>
+<p>Static companion for <code>REPORT.md</code>. All figures are generated from local experiment outputs.</p>
+<div>
+<span class="metric">2D-CG full-local Acc@0.25: 0.623</span>
+<span class="metric">V-DETR full-scene Acc@0.25: 0.933</span>
+<span class="metric">V-DETR single-frame Acc@0.25: 0.267</span>
+</div>
+<div class="grid">
+<section class="card wide"><h2>Qualitative gallery: RGB, point clouds, GT, best predictions</h2><p><a href="qualitative_gallery.html">Open full 30-case qualitative gallery</a></p><img src="resources/qualitative/qualitative_contact_sheet.png" alt="Qualitative contact sheet"></section>
+<section class="card"><h2>Overall route metrics</h2><img src="resources/figures/01_overall_metrics_comparison.png" alt="Overall route metrics"></section>
+<section class="card"><h2>V-DETR condition comparison</h2><img src="resources/figures/02_vdetr_condition_curves.png" alt="V-DETR condition comparison"></section>
+<section class="card"><h2>Class-wise mean IoU</h2><img src="resources/figures/03_class_breakdown_heatmap.png" alt="Class-wise mean IoU"></section>
+<section class="card"><h2>Target-level IoU matrix</h2><img src="resources/figures/04_target_level_iou_heatmap.png" alt="Target-level IoU matrix"></section>
+<section class="card"><h2>Success/failure distribution</h2><img src="resources/figures/05_success_distribution.png" alt="Success/failure distribution"></section>
+<section class="card"><h2>Visible frames vs IoU</h2><img src="resources/figures/06_visible_frames_vs_iou.png" alt="Visible frames vs IoU"></section>
+<section class="card"><h2>Recommended pipeline</h2><img src="resources/figures/07_recommended_pipeline.png" alt="Recommended pipeline"></section>
+<section class="card"><h2>Route decision tree</h2><img src="resources/figures/08_route_decision_tree.png" alt="Route decision tree"></section>
+<section class="card"><h2>Failure taxonomy</h2><img src="resources/figures/09_failure_taxonomy.png" alt="Failure taxonomy"></section>
+<section class="card"><h2>Point-cloud input example</h2><img src="resources/figures/10_pointcloud_condition_example.png" alt="Point-cloud input example"></section>
+<section class="card"><h2>V-DETR coordinate correction</h2><img src="resources/figures/11_vdetr_coordinate_fix.png" alt="V-DETR coordinate correction"></section>
+</div>
+</body>
+</html>
