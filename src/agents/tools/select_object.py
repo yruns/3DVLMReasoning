@@ -32,28 +32,30 @@ def compute_bbox_3d(
     Transforms all points to the aligned frame, then computes
     centroid and axis-aligned extent.
 
-    Falls back to centroid + default extent if no point cloud.
+    FAIL-LOUD: raises ValueError if the object has no point cloud.
+    Per the project's strict no-fallback rule, we do not substitute a
+    default extent when geometry is missing.
 
     Returns:
         [cx, cy, cz, dx, dy, dz, 0, 0, 0]
+
+    Raises:
+        ValueError: if obj.pcd_np is None or empty.
     """
     pcd = getattr(obj, "pcd_np", None)
+    if pcd is None or len(pcd) == 0:
+        obj_id = getattr(obj, "obj_id", "?")
+        raise ValueError(
+            f"object {obj_id} has no pcd; cannot compute 9-DOF bbox"
+        )
 
-    if pcd is not None and len(pcd) > 0:
-        pts = np.array(pcd, dtype=np.float64)
-        if axis_align_matrix is not None:
-            ones = np.ones((len(pts), 1), dtype=np.float64)
-            pts_h = np.hstack([pts, ones])
-            pts = (axis_align_matrix @ pts_h.T).T[:, :3]
-        centroid = pts.mean(axis=0)
-        extent = pts.max(axis=0) - pts.min(axis=0)
-    else:
-        # Fallback: use centroid with default extent
-        centroid = np.array(getattr(obj, "centroid", [0, 0, 0]), dtype=np.float64)
-        if axis_align_matrix is not None:
-            ctr_h = np.append(centroid, 1.0)
-            centroid = (axis_align_matrix @ ctr_h)[:3]
-        extent = np.array([0.3, 0.3, 0.3])
+    pts = np.array(pcd, dtype=np.float64)
+    if axis_align_matrix is not None:
+        ones = np.ones((len(pts), 1), dtype=np.float64)
+        pts_h = np.hstack([pts, ones])
+        pts = (axis_align_matrix @ pts_h.T).T[:, :3]
+    centroid = pts.mean(axis=0)
+    extent = pts.max(axis=0) - pts.min(axis=0)
 
     return [
         float(centroid[0]), float(centroid[1]), float(centroid[2]),
@@ -88,7 +90,10 @@ def handle_select_object(
             f"Available objects:\n" + "\n".join(available[:20])
         )
 
-    bbox_3d = compute_bbox_3d(obj, runtime_state.vg_axis_align_matrix)
+    try:
+        bbox_3d = compute_bbox_3d(obj, runtime_state.vg_axis_align_matrix)
+    except ValueError as exc:
+        return f"ERROR: {exc}"
     category = getattr(obj, "category", "unknown")
 
     # Store in runtime state

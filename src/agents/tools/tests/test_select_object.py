@@ -59,12 +59,6 @@ class TestComputeBbox3d:
         assert bbox[5] == pytest.approx(6.0)  # dz
         assert bbox[6:] == [0.0, 0.0, 0.0]
 
-    def test_from_centroid_fallback(self):
-        obj = FakeSceneObject(0, "lamp", centroid=[1.0, 2.0, 3.0])
-        bbox = compute_bbox_3d(obj)
-        assert bbox[:3] == pytest.approx([1.0, 2.0, 3.0])
-        assert bbox[3:6] == pytest.approx([0.3, 0.3, 0.3])
-
     def test_with_axis_align_identity(self):
         pts = np.array([[1, 2, 3], [3, 4, 5]], dtype=np.float64)
         obj = FakeSceneObject(0, "box", pcd_np=pts)
@@ -84,24 +78,23 @@ class TestComputeBbox3d:
         # Extents unchanged by translation
         assert bbox[3] == pytest.approx(2.0)
 
-    def test_centroid_fallback_with_axis_align(self):
-        obj = FakeSceneObject(0, "lamp", centroid=[1.0, 2.0, 3.0])
-        mat = np.eye(4)
-        mat[:3, 3] = [10, 20, 30]
-        bbox = compute_bbox_3d(obj, axis_align_matrix=mat)
-        assert bbox[:3] == pytest.approx([11.0, 22.0, 33.0])
-
 
 class TestHandleSelectObject:
-    def test_success(self):
-        objs = [FakeSceneObject(5, "chair", centroid=[1, 2, 3])]
-        state = FakeRuntimeState(vg_scene_objects=objs)
-        result = handle_select_object(state, 5, "it is the only chair")
-        assert "Object selected" in result
-        assert "[ID=5]" in result
-        assert state.vg_selected_object_id == 5
-        assert state.vg_selected_bbox_3d is not None
-        assert len(state.vg_selected_bbox_3d) == 9
+    def test_success(self) -> None:
+        obj = FakeSceneObject(
+            obj_id=5,
+            category="chair",
+            centroid=[1, 2, 3],
+            pcd_np=np.array([[0.5, 1.5, 2.5], [1.5, 2.5, 3.5]]),
+        )
+        runtime = FakeRuntimeState(vg_scene_objects=[obj])
+        response = handle_select_object(runtime, object_id=5, rationale="test rationale")
+        assert "Object selected" in response
+        assert "chair" in response
+        # bbox center should equal mean of the 2 pcd points = [1.0, 2.0, 3.0]
+        assert runtime.vg_selected_object_id == 5
+        assert runtime.vg_selected_bbox_3d[:3] == [1.0, 2.0, 3.0]
+        assert runtime.vg_selection_rationale == "test rationale"
 
     def test_not_found(self):
         objs = [FakeSceneObject(5, "chair")]
@@ -114,3 +107,31 @@ class TestHandleSelectObject:
         state = FakeRuntimeState()
         result = handle_select_object(state, 0, "")
         assert "ERROR" in result
+
+
+def test_compute_bbox_3d_raises_when_no_pcd() -> None:
+    """No-fallback rule: object without point cloud must raise, not default."""
+    from agents.tools.select_object import compute_bbox_3d
+
+    obj = FakeSceneObject(obj_id=42, category="lamp", pcd_np=None)
+    with pytest.raises(ValueError, match="object 42 has no pcd"):
+        compute_bbox_3d(obj)
+
+
+def test_compute_bbox_3d_raises_on_empty_pcd() -> None:
+    from agents.tools.select_object import compute_bbox_3d
+
+    obj = FakeSceneObject(obj_id=7, category="cup", pcd_np=np.zeros((0, 3)))
+    with pytest.raises(ValueError, match="object 7 has no pcd"):
+        compute_bbox_3d(obj)
+
+
+def test_handle_select_object_surfaces_no_pcd_error() -> None:
+    """Error must propagate to the agent as a tool ERROR string."""
+    from agents.tools.select_object import handle_select_object
+
+    obj = FakeSceneObject(obj_id=3, category="picture", pcd_np=None)
+    runtime = FakeRuntimeState(vg_scene_objects=[obj])
+    response = handle_select_object(runtime, object_id=3, rationale="test")
+    assert response.startswith("ERROR:")
+    assert "no pcd" in response
