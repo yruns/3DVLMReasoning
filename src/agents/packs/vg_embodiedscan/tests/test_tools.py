@@ -100,3 +100,20 @@ def test_inspect_proposal_unknown_id_errors(tmp_path: Path) -> None:
     tool = next(t for t in build_vg_tools(rs) if t.name == "inspect_proposal")
     response = tool.invoke({"proposal_id": 99})
     assert response.startswith("ERROR")
+
+
+def test_find_proposals_by_category_lists_ids(tmp_path: Path) -> None:
+    rs = _runtime(tmp_path)
+    rs.skills_loaded.add("vg-grounding-playbook")
+    tool = next(t for t in build_vg_tools(rs) if t.name == "find_proposals_by_category")
+    payload = json.loads(tool.invoke({"category": "chair"}))
+    assert payload["proposal_ids"] == [0, 2]
+
+
+def test_find_proposals_by_category_unknown_returns_empty(tmp_path: Path) -> None:
+    rs = _runtime(tmp_path)
+    rs.skills_loaded.add("vg-grounding-playbook")
+    tool = next(t for t in build_vg_tools(rs) if t.name == "find_proposals_by_category")
+    payload = json.loads(tool.invoke({"category": "spaceship"}))
+    assert payload["proposal_ids"] == []
+    assert "available_categories" in payload

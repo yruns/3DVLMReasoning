@@ -102,7 +102,29 @@ def build_vg_tools(runtime: Any) -> list[BaseTool]:
         runtime.record("inspect_proposal", {"proposal_id": proposal_id}, text)
         return text
 
-    return [list_keyframes_with_proposals, view_keyframe_marked, inspect_proposal]
+    @tool
+    def find_proposals_by_category(category: str) -> str:
+        """VG tool. Detailed usage in skill 'vg-grounding-playbook'."""
+        gate = _gate(runtime)
+        if gate is not None:
+            runtime.record("find_proposals_by_category", {"category": category}, gate)
+            return gate
+        ids = [p.id for p in ctx.proposals if p.category.strip().lower() == category.strip().lower()]
+        payload = {
+            "category": category,
+            "proposal_ids": ids,
+            "available_categories": sorted({p.category for p in ctx.proposals if p.category}),
+        }
+        text = json.dumps(payload, ensure_ascii=False)
+        runtime.record("find_proposals_by_category", {"category": category}, text)
+        return text
+
+    return [
+        list_keyframes_with_proposals,
+        view_keyframe_marked,
+        inspect_proposal,
+        find_proposals_by_category,
+    ]
 
 
 __all__ = ["build_vg_tools", "PRIMARY_SKILL"]
