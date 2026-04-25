@@ -1144,3 +1144,58 @@ class TestApplyUncertaintyStopping(unittest.TestCase):
         self.assertEqual(result.status, Stage2Status.INSUFFICIENT_EVIDENCE)
         self.assertEqual(result.payload["answer"], "test answer")
         self.assertEqual(result.cited_frame_indices, [0, 1])
+
+
+def test_qa_tool_list_snapshot() -> None:
+    """Lock QA tool name list to catch silent chassis additions on QA."""
+    from agents.runtime.deepagents_agent import DeepAgentsStage2Runtime
+    from agents.core.task_types import (
+        Stage2EvidenceBundle, Stage2TaskSpec, Stage2TaskType,
+    )
+
+    runtime = DeepAgentsStage2Runtime()
+    bundle = Stage2EvidenceBundle()
+    task = Stage2TaskSpec(task_type=Stage2TaskType.QA, user_query="?")
+
+    state = runtime._make_runtime_state(task, bundle) if hasattr(runtime, "_make_runtime_state") else None
+    if state is None:
+        # Fallback for current API: build_runtime_tools takes a runtime obj
+        from agents.runtime.base import Stage2RuntimeState
+        state = Stage2RuntimeState(bundle=bundle)
+        state.task_type = Stage2TaskType.QA
+
+    tool_names = sorted(t.name for t in runtime.build_runtime_tools(state))
+    assert tool_names == sorted([
+        "inspect_stage1_metadata",
+        "retrieve_object_context",
+        "request_more_views",
+        "request_crops",
+        "switch_or_expand_hypothesis",
+    ]), f"QA tool list drifted: {tool_names}"
+
+
+def test_legacy_vg_tool_list_snapshot() -> None:
+    """Lock VG tool name list under vg_backend='legacy'."""
+    from agents.runtime.deepagents_agent import DeepAgentsStage2Runtime
+    from agents.core.agent_config import Stage2DeepAgentConfig
+    from agents.core.task_types import (
+        Stage2EvidenceBundle, Stage2TaskType,
+    )
+    from agents.runtime.base import Stage2RuntimeState
+
+    runtime = DeepAgentsStage2Runtime(config=Stage2DeepAgentConfig(vg_backend="legacy"))
+    bundle = Stage2EvidenceBundle()
+    state = Stage2RuntimeState(bundle=bundle)
+    state.task_type = Stage2TaskType.VISUAL_GROUNDING
+    state.vg_scene_objects = []   # non-None to enable VG branch
+
+    tool_names = sorted(t.name for t in runtime.build_runtime_tools(state))
+    assert tool_names == sorted([
+        "inspect_stage1_metadata",
+        "retrieve_object_context",
+        "request_more_views",
+        "request_crops",
+        "switch_or_expand_hypothesis",
+        "select_object",
+        "spatial_compare",
+    ]), f"Legacy VG tool list drifted: {tool_names}"
