@@ -119,11 +119,59 @@ def build_vg_tools(runtime: Any) -> list[BaseTool]:
         runtime.record("find_proposals_by_category", {"category": category}, text)
         return text
 
+    @tool
+    def compare_proposals_spatial(
+        candidate_ids: list[int],
+        anchor_id: int,
+        relation: str,
+    ) -> str:
+        """VG tool. Detailed usage in skill 'vg-grounding-playbook'."""
+        gate = _gate(runtime)
+        request = {"candidate_ids": candidate_ids, "anchor_id": anchor_id, "relation": relation}
+        if gate is not None:
+            runtime.record("compare_proposals_spatial", request, gate)
+            return gate
+        if relation not in ("closest_to", "farthest_from"):
+            err = f"ERROR: unsupported relation {relation!r}; allowed: closest_to | farthest_from"
+            runtime.record("compare_proposals_spatial", request, err)
+            return err
+
+        import numpy as np
+        anchor = next((p for p in ctx.proposals if p.id == anchor_id), None)
+        if anchor is None:
+            err = f"ERROR: anchor_id={anchor_id} not in pool"
+            runtime.record("compare_proposals_spatial", request, err)
+            return err
+        candidates = [p for p in ctx.proposals if p.id in set(candidate_ids)]
+        missing = sorted(set(candidate_ids) - {p.id for p in candidates})
+        if missing:
+            err = f"ERROR: candidate ids not in pool: {missing}"
+            runtime.record("compare_proposals_spatial", request, err)
+            return err
+
+        anchor_center = np.array(anchor.bbox_3d_9dof[:3])
+        scored = [
+            (p.id, float(np.linalg.norm(np.array(p.bbox_3d_9dof[:3]) - anchor_center)))
+            for p in candidates
+        ]
+        reverse = (relation == "farthest_from")
+        scored.sort(key=lambda x: x[1], reverse=reverse)
+        payload = {
+            "anchor_id": anchor_id,
+            "relation": relation,
+            "ranked_ids": [pid for pid, _ in scored],
+            "distances": [d for _, d in scored],
+        }
+        text = json.dumps(payload, ensure_ascii=False)
+        runtime.record("compare_proposals_spatial", request, text)
+        return text
+
     return [
         list_keyframes_with_proposals,
         view_keyframe_marked,
         inspect_proposal,
         find_proposals_by_category,
+        compare_proposals_spatial,
     ]
 
 

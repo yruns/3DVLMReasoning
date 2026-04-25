@@ -117,3 +117,50 @@ def test_find_proposals_by_category_unknown_returns_empty(tmp_path: Path) -> Non
     payload = json.loads(tool.invoke({"category": "spaceship"}))
     assert payload["proposal_ids"] == []
     assert "available_categories" in payload
+
+
+def test_compare_proposals_spatial_closest_to(tmp_path: Path) -> None:
+    rs = _runtime(tmp_path)
+    rs.skills_loaded.add("vg-grounding-playbook")
+    # set proposal centers far apart so order is deterministic
+    rs.task_ctx.proposals = [
+        Proposal(id=0, bbox_3d_9dof=[0,0,0,1,1,1,0,0,0], category="chair", score=0.9),
+        Proposal(id=1, bbox_3d_9dof=[5,5,5,1,1,1,0,0,0], category="chair", score=0.7),
+        Proposal(id=2, bbox_3d_9dof=[10,10,10,1,1,1,0,0,0], category="desk", score=0.8),
+    ]
+    tool = next(t for t in build_vg_tools(rs) if t.name == "compare_proposals_spatial")
+    payload = json.loads(tool.invoke({
+        "candidate_ids": [0, 1],
+        "anchor_id": 2,
+        "relation": "closest_to",
+    }))
+    assert payload["ranked_ids"] == [1, 0]
+
+
+def test_compare_proposals_spatial_farthest_from(tmp_path: Path) -> None:
+    rs = _runtime(tmp_path)
+    rs.skills_loaded.add("vg-grounding-playbook")
+    rs.task_ctx.proposals = [
+        Proposal(id=0, bbox_3d_9dof=[0,0,0,1,1,1,0,0,0], category="chair", score=0.9),
+        Proposal(id=1, bbox_3d_9dof=[5,5,5,1,1,1,0,0,0], category="chair", score=0.7),
+        Proposal(id=2, bbox_3d_9dof=[10,10,10,1,1,1,0,0,0], category="desk", score=0.8),
+    ]
+    tool = next(t for t in build_vg_tools(rs) if t.name == "compare_proposals_spatial")
+    payload = json.loads(tool.invoke({
+        "candidate_ids": [0, 1],
+        "anchor_id": 2,
+        "relation": "farthest_from",
+    }))
+    assert payload["ranked_ids"] == [0, 1]
+
+
+def test_compare_proposals_spatial_unknown_relation_errors(tmp_path: Path) -> None:
+    rs = _runtime(tmp_path)
+    rs.skills_loaded.add("vg-grounding-playbook")
+    tool = next(t for t in build_vg_tools(rs) if t.name == "compare_proposals_spatial")
+    response = tool.invoke({
+        "candidate_ids": [0, 1],
+        "anchor_id": 2,
+        "relation": "left_of",
+    })
+    assert response.startswith("ERROR")
