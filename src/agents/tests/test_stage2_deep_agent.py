@@ -1199,3 +1199,63 @@ def test_legacy_vg_tool_list_snapshot() -> None:
         "select_object",
         "spatial_compare",
     ]), f"Legacy VG tool list drifted: {tool_names}"
+
+
+def test_pack_v1_vg_tool_list_snapshot(tmp_path) -> None:
+    """Lock VG tool name list under vg_backend='pack_v1'."""
+    import importlib
+    import agents.packs.vg_embodiedscan
+    from agents.runtime.deepagents_agent import DeepAgentsStage2Runtime
+    from agents.core.agent_config import Stage2DeepAgentConfig, Stage2TaskType
+    from agents.core.task_types import (
+        KeyframeEvidence, Stage2EvidenceBundle,
+    )
+    from agents.runtime.base import Stage2RuntimeState
+    from agents.packs.vg_embodiedscan.ctx import (
+        VgEmbodiedScanCtx,
+    )
+    from agents.skills import PACKS
+
+    # Defensive: another test's autouse `_reset_registry` fixture may have
+    # cleared PACKS during the same pytest session, and `import agents.packs`
+    # is a no-op once cached. Force re-registration via importlib.reload
+    # (matches the pattern in test_registration.py).
+    if Stage2TaskType.VISUAL_GROUNDING not in PACKS:
+        importlib.reload(agents.packs.vg_embodiedscan)
+
+    annotated = tmp_path / "ann"
+    annotated.mkdir()
+    runtime = DeepAgentsStage2Runtime(config=Stage2DeepAgentConfig(vg_backend="pack_v1"))
+    bundle = Stage2EvidenceBundle(
+        keyframes=[KeyframeEvidence(keyframe_idx=0, image_path="a.png", frame_id=10)],
+        extra_metadata={"vg_proposal_pool": {
+            "source": "vdetr",
+            "proposals": [],
+            "frame_index": {},
+            "proposal_index": {},
+            "annotated_image_dir": str(annotated),
+        }},
+    )
+    state = Stage2RuntimeState(bundle=bundle)
+    state.task_type = Stage2TaskType.VISUAL_GROUNDING
+    state.task_ctx = VgEmbodiedScanCtx(
+        proposal_pool_source="vdetr",
+        proposals=[],
+        frame_index={},
+        proposal_index={},
+        annotated_image_dir=annotated,
+    )
+
+    tool_names = sorted(t.name for t in runtime.build_runtime_tools(state))
+    assert tool_names == sorted([
+        # shared
+        "inspect_stage1_metadata", "retrieve_object_context",
+        "request_more_views", "request_crops",
+        "switch_or_expand_hypothesis",
+        # VG-pack new
+        "list_keyframes_with_proposals", "view_keyframe_marked",
+        "inspect_proposal", "find_proposals_by_category",
+        "compare_proposals_spatial",
+        # chassis
+        "list_skills", "load_skill", "submit_final",
+    ]), f"pack-v1 VG tool list drifted: {tool_names}"

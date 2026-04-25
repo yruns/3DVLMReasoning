@@ -296,6 +296,18 @@ class BaseStage2Runtime(ABC):
             "- NEVER guess — use spatial_compare for disambiguation\n\n"
         )
 
+    def _format_skill_catalog(self, task_type: Stage2TaskType) -> str:
+        """Render the skill catalog block for the system prompt."""
+        from agents.skills.registry import skills_for
+
+        skills = skills_for(task_type)
+        if not skills:
+            return ""
+        lines = ["Available skills (use list_skills() / load_skill(name) for details):"]
+        for s in skills:
+            lines.append(f"- {s.name}: {s.description}")
+        return "\n".join(lines) + "\n\n"
+
     @staticmethod
     def _format_scene_inventory(object_context: dict[str, str] | None) -> str:
         """Format object context as a scene inventory for the system prompt."""
@@ -409,6 +421,7 @@ class BaseStage2Runtime(ABC):
             "including small items on surfaces, items on the floor, and partially occluded objects.\n\n"
             f"{uncertainty_instructions}"
             f"{vg_section}"
+            f"{self._format_skill_catalog(task.task_type)}"
             f"{self._format_scene_inventory(object_context)}"
             "Framework constraints:\n"
             "- This runtime is built with LangChain v1 and DeepAgents.\n"
