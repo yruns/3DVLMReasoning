@@ -74,3 +74,6 @@ conceptgraph/configs/slam_pipeline/*.yaml
 !conceptgraph/configs/slam_pipeline/base.yaml
 
 # Bash scripts / scratch (tracked)
+
+# Per-feature git worktrees (created via using-git-worktrees skill)
+.worktrees/
