@@ -80,20 +80,53 @@ def select_keyframes_for_sample(
     *,
     k: int = 5,
 ) -> list[dict[str, Any]]:
-    from query_scene.keyframe_selector import KeyframeSelector
+    """Pick up to k frames where the target is visible, sampled uniformly
+    across the visible-frame set of the EmbodiedScan annotation.
 
-    scene_path = adapter.get_scene_path(sample) / "conceptgraph"
-    selector = KeyframeSelector.from_scene_path(
-        str(scene_path),
-        llm_model="gemini-2.5-pro",
-        stride=1,
-    )
-    result = selector.select_keyframes_v2(
-        sample.query,
-        k=k,
-        use_visual_context=False,
-    )
-    return normalize_keyframes(result)
+    This bypasses the full Stage 1 KeyframeSelector (which requires
+    `enriched_objects.json` not present for batch30 scenes per CLAUDE.md)
+    and uses GT visibility directly. For Plan A's feasibility demo this
+    is the documented fallback: the agent gets a small set of frames
+    where the target IS visible, and the pack-v1 pipeline injects the
+    set-of-marks annotated versions of those frames.
+    """
+    scene_info = adapter.dataset.get_scene_info(sample.scan_id)
+    if not scene_info:
+        raise ValueError(f"scene_info missing for scan_id={sample.scan_id}")
+    images = scene_info.get("images") or []
+    if not isinstance(images, list) or not images:
+        raise ValueError(f"scene_info.images missing or empty for {sample.scan_id}")
+
+    visible: list[tuple[int, dict]] = []
+    for default_id, image in enumerate(images):
+        if not isinstance(image, dict):
+            continue
+        if sample.target_id in (image.get("visible_instance_ids") or []):
+            frame_id = int(image.get("frame_id", image.get("frame_idx", default_id)))
+            visible.append((frame_id, image))
+    if not visible:
+        raise ValueError(
+            f"no visible frames for target_id={sample.target_id} in {sample.scan_id}"
+        )
+
+    # Uniform sample up to k.
+    if len(visible) <= k:
+        chosen = visible
+    else:
+        step = len(visible) / k
+        chosen = [visible[min(int(i * step), len(visible) - 1)] for i in range(k)]
+
+    keyframes: list[dict[str, Any]] = []
+    for keyframe_idx, (frame_id, image) in enumerate(chosen):
+        rgb_path = resolve_rgb_path(image, embodiedscan_data_root)
+        keyframes.append(
+            {
+                "keyframe_idx": keyframe_idx,
+                "image_path": str(rgb_path),
+                "frame_id": frame_id,
+            }
+        )
+    return keyframes
 
 
 def normalize_keyframes(stage1_result: Any) -> list[dict[str, Any]]:
@@ -344,15 +377,20 @@ def load_scene_info(adapter: EmbodiedScanVGAdapter, sample: EmbodiedScanVGSample
 
 
 def scene_intrinsic(scene_info: dict) -> np.ndarray:
-    raw = (
-        scene_info.get("cam2img")
-        or scene_info.get("intrinsic")
-        or scene_info.get("depth_cam2img")
-    )
+    raw = None
+    for key in ("cam2img", "intrinsic", "depth_cam2img"):
+        v = scene_info.get(key)
+        if v is not None:
+            raw = v
+            break
     if raw is None:
         images = scene_info.get("images") or []
         if images:
-            raw = images[0].get("cam2img") or images[0].get("intrinsic")
+            for key in ("cam2img", "intrinsic"):
+                v = images[0].get(key)
+                if v is not None:
+                    raw = v
+                    break
     if raw is None:
         raise ValueError("scene_info missing camera intrinsic matrix")
     mat = np.asarray(raw, dtype=float)
@@ -381,12 +419,12 @@ def scene_frames(scene_info: dict, data_root: Path) -> list[SceneFrame]:
 
 
 def resolve_rgb_path(image: dict, data_root: Path) -> Path:
-    raw = (
-        image.get("img_path")
-        or image.get("image_path")
-        or image.get("rgb_path")
-        or image.get("path")
-    )
+    raw = None
+    for key in ("img_path", "image_path", "rgb_path", "path"):
+        v = image.get(key)
+        if v is not None:
+            raw = v
+            break
     if raw is None:
         raise ValueError(f"scene frame missing RGB path: {image!r}")
     path = Path(str(raw))
