@@ -366,6 +366,148 @@ opt-in flag 下启用新 VG 路径。step 7–9 完成 QA 迁移并删除死代�
 (而不是文字 subgoal),chassis 不需要变化:只有 Nav ToolPack 与
 `FinalizerSpec` 扩展。如果 chassis 必须改,本设计就失败了。
 
+## Plan A Implementation Status (2026-04-26)
+
+Plan A landed across **25 commits** on branch `feat/stage2-pack-v1`
+(`a3b416a..7779179`). The chassis primitives, the EmbodiedScan VG
+pack v1, and the offline pipeline + side-by-side runner are all in
+place; agents test suite ends at **248 passed, 6 skipped**. The
+30-sample acceptance run is the one remaining gate before Plan B.
+
+### Section 1 — Foundation (chassis + config + fail-loud) — 9 commits
+
+| sha | task | summary |
+|---|---|---|
+| `a3b416a` | 1 | introduce TaskPack/SkillSpec/FinalizerSpec registry |
+| `6809603` | 2 | add task_ctx + skills_loaded to Stage2RuntimeState (additive) |
+| `766becb` | 3 | add enable_chassis_tools, vg_backend, chassis_tools_version |
+| `0bfaa4d` | 4 | fold chassis_tools_version + vg_backend into derive_eval_session_id |
+| `b9b4b0a` | 5 | snapshot QA + legacy VG tool name lists to guard chassis migration |
+| `6b8124c` | 6 | raise on missing pcd instead of [0.3,0.3,0.3] fallback |
+| `450de22` | 7 | chassis tools list_skills/load_skill/submit_final with FAIL-LOUD |
+| `89b8296` | 8 | validate_packs at build_agent (FAIL-LOUD on contract violation) |
+| `8f1ae50` | 8.5 | tighten chassis FAIL-LOUD per Section 1 review (1 P0 + 4 P1) |
+
+End of Section 1: **209 passed, 6 skipped**.
+
+### Section 2 — VG Pack v1 (ctx + finalizer + 5 tools + 3 skills + registration + dispatch) — 12 commits
+
+| sha | task | summary |
+|---|---|---|
+| `a618e39` | 9 | VgEmbodiedScanCtx + build_ctx_from_bundle |
+| `f47a9f3` | 10 | build_vg_proposal_pool adapter |
+| `610d9be` | 11 | VG FinalizerSpec with -1 failed-sample marker |
+| `e5e177a` | 12 | list_keyframes_with_proposals + FAIL-LOUD gate |
+| `a5b8c7f` | 13 | view_keyframe_marked tool |
+| `a3a0a3a` | 14 | inspect_proposal tool |
+| `d23e450` | 15 | find_proposals_by_category tool |
+| `5e3df6b` | 16 | compare_proposals_spatial tool |
+| `629055f` | 17 | add 3 skill bodies (playbook + spatial + scouting) |
+| `217ed5c` | 18 | register VG_PACK on import via packs/__init__.py |
+| `2979aeb` | 19 | wire vg_backend='pack_v1' through build_runtime_tools + skill catalog |
+| `5781673` | 19.5 | address Section 2 review (6 P0 + 5 P1) |
+
+End of Section 2: **247 passed, 6 skipped**.
+
+### Section 3 — Pilot + offline tools + side-by-side validation — 4 commits
+
+| sha | task | summary |
+|---|---|---|
+| `f347df5` | 20 | EmbodiedScan VG pack-v1 pilot script |
+| `d707825` | 21 | per-frame visibility index for 3D bbox proposals |
+| `57c7838` | 22 | set-of-marks keyframe renderer for VG pack-v1 |
+| `7779179` | 23 | side-by-side EmbodiedScan VG legacy vs pack_v1 with acceptance gate |
+
+End of Section 3: **248 passed, 6 skipped** (agents); benchmarks +
+evaluation gain new tests but a pre-existing
+`src/evaluation/__init__.py` import bug blocks bare `pytest src/evaluation/...`
+(workaround: `python -m pytest`).
+
+### Review cycles
+
+**Section 1 review** (claude `runtime-critic` + codex
+`alt-design-critic`) flagged 1 P0 + 4 P1 against the chassis
+primitives: a broad `except Exception` in `submit_final`, a misleading
+"terminates the run" docstring, a body-readable check that didn't
+actually open the file, missing tool-name uniqueness in
+`validate_packs`, and the OpenEQA pilot caller passing the chassis
+flags implicitly. Task 8.5 fixed all five in one commit
+(`8f1ae50`). Agents suite: 206 → 209.
+
+**Section 2 review** (claude + codex again) flagged 6 P0 + 5 P1: the
+agent never seeing the `view_keyframe_marked`-queued images,
+`submit_final`'s dict-payload AttributeError before reaching the
+typed validator, a missing chassis termination signal, the
+`Stage2DeepResearchAgent` wrapper still running legacy under
+pack_v1, silent defaults in `build_ctx_from_bundle` and
+`build_vg_proposal_pool`, plus the legacy `select_object` wording in
+the pack-v1 system prompt and several skill-body inaccuracies. Task
+19.5 fixed all eleven in one commit (`5781673`). Agents suite:
+232 → 247.
+
+### Pending: 30-sample side-by-side acceptance run
+
+The runner produces metrics but does not enforce the gate. The
+orchestrator (human) will run on the same 30-sample subset as the
+feasibility study's `batch30`
+(`docs/10_experiment_log/embodiedscan_3d_bbox_feasibility_report/resources/data/batch30_class_breakdown.csv`).
+**Acceptance gate:** `pack_v1.Acc@0.25 >= legacy.Acc@0.25 - 0.01`.
+
+- If pass: Plan B (QA migration + subagents) is unblocked.
+- If fail: blocker investigation per Plan A's "触发 Plan B 的条件"
+  section before any further migration.
+
+### Out-of-scope issues discovered during execution
+
+These are tracked for future PRs, intentionally not fixed in Plan A:
+
+- `src/evaluation/__init__.py:125` imports
+  `from .trace_integration import (...)` and `trace_integration.py:27`
+  uses `from src.agents.trace_server import TraceDB, TraceRecord`.
+  The `src.` prefix breaks bare `pytest src/evaluation/...`
+  collection because the project is installed as packages
+  `agents/evaluation/...` without the `src.` prefix. Workaround:
+  invoke via `python -m pytest` (cwd added to `sys.path`). Surfaced
+  by Task 8.5 and Task 23.
+- `Stage2DeepResearchAgent` (`stage2_deep_agent.py:140-180`) duplicates
+  `DeepAgentsStage2Runtime.build_agent` per the file's own
+  "WARNING: must stay in sync" comment. Task 19.5 P0-4 mirrored the
+  pack_v1 + validate_packs additions across both copies, but
+  consolidating to a single implementation is deferred.
+
+### Deviations from plan-literal source
+
+These are dispatch-spec amendments that were applied during execution
+(each documented in the corresponding finding):
+
+- **Task 6**: 2 obsolete `select_object` tests deleted +
+  `test_success` rewritten to use real `pcd_np` (orchestrator-approved
+  Option A modified) — the original tests asserted the silent
+  `[0.3, 0.3, 0.3]` fallback that Task 6 removes.
+- **Task 8**: `validate_packs(...)` inserted AFTER VG metadata cleanup
+  rather than immediately after `Stage2RuntimeState(...)` — the plan
+  allowed any position in that band; chosen for the
+  "validate-the-contract-right-before-consuming-it" pattern.
+- **Task 18**: `importlib.reload` used in the registration smoke test
+  to defeat Python's `sys.modules` cache after `PACKS.clear()`.
+  Without it, the literal `import agents.packs` after a clear is a
+  no-op and the test fails by design.
+- **Task 19**: same `importlib.reload` pattern in the pack_v1 tool-
+  list snapshot test for the same reason.
+- **Task 19.5 P1-1**: chassis-trio attachment gate is stricter than
+  the orchestrator's literal `should_attach_chassis = pack_registered
+  or enable_chassis_tools` snippet. The implemented gate excludes
+  `vg_backend != "pack_v1"` to prevent legacy-VG users from
+  unexpectedly seeing chassis tools attached just because VG_PACK
+  auto-registers — keeps `test_legacy_vg_tool_list_snapshot` honest.
+- **Task 19.5 P0-3**: `normalize_final_response` gained an additive
+  `runtime: Stage2RuntimeState | None = None` parameter so existing
+  callers (none in tests, but possible third-party) keep working;
+  when provided and `final_submission` is set, the response is built
+  from the chassis submission directly.
+- **Task 20**: `importlib.reload` in the pilot smoke test for the
+  same reason as Task 18 / Task 19.
+
 ## 不在本 spec 范围内
 
 - Nav Plan pack 的实现(仅留附录)。
