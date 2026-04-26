@@ -50,40 +50,45 @@ def run_one_sample(
     else:
         raise ValueError(f"Unknown backend={backend!r}")
 
-    status = prediction.get("status") or "completed"
-    proposal_id = prediction.get("proposal_id")
+    status = prediction.get("status")
+    if status is None:
+        raise ValueError(
+            f"{sample_id}: {backend} prediction missing status; payload={prediction!r}"
+        )
     selected_id = prediction.get("selected_object_id")
-    if proposal_id is None and selected_id is not None:
-        proposal_id = selected_id
+    pred_bbox_raw = prediction.get("bbox_3d")
 
-    if _is_failed_marker(proposal_id, status, prediction.get("bbox_3d")):
+    if _is_failed_marker(selected_id, status):
         return {
             "sample_id": sample_id,
             "backend": backend,
             "status": "failed",
             "iou": 0.0,
-            "predicted_bbox_3d": None,
-            "gt_bbox_3d": gt_bbox,
+            "predicted_bbox_3d_9dof": None,
+            "gt_bbox_3d_9dof": gt_bbox,
             "selected_object_id": selected_id,
             "confidence": prediction.get("confidence"),
             "query": sample.get("query"),
         }
 
-    pred_bbox = coerce_optional_bbox_9dof(
-        prediction.get("bbox_3d"),
+    if pred_bbox_raw is None:
+        raise ValueError(
+            f"{sample_id}: {backend} payload missing bbox_3d but is not the "
+            f"failed-sample marker; payload={prediction!r}"
+        )
+    pred_bbox = coerce_bbox_9dof(
+        pred_bbox_raw,
         field_name=f"{sample_id}.{backend}.bbox_3d",
     )
-    iou = compute_oriented_iou_3d(pred_bbox, gt_bbox) if pred_bbox else 0.0
-    if pred_bbox is None and status == "completed":
-        status = "failed"
+    iou = compute_oriented_iou_3d(pred_bbox, gt_bbox)
 
     return {
         "sample_id": sample_id,
         "backend": backend,
         "status": status,
         "iou": iou,
-        "predicted_bbox_3d": pred_bbox,
-        "gt_bbox_3d": gt_bbox,
+        "predicted_bbox_3d_9dof": pred_bbox,
+        "gt_bbox_3d_9dof": gt_bbox,
         "selected_object_id": selected_id,
         "confidence": prediction.get("confidence"),
         "query": sample.get("query"),
@@ -157,6 +162,11 @@ def load_sample_artifact(pack_v1_inputs_dir: Path, sample_id: str) -> dict[str, 
 
 
 def parse_scene_target_id(sample_id: str) -> tuple[str, int]:
+    if not isinstance(sample_id, str):
+        raise TypeError(
+            f"Expected sample_id in '<scene_id>::<target_id>' string format, "
+            f"got {type(sample_id).__name__}: {sample_id!r}"
+        )
     if "::" not in sample_id:
         raise ValueError(
             f"Expected sample_id in '<scene_id>::<target_id>' format, got {sample_id!r}"
@@ -267,9 +277,11 @@ def run_legacy_pilot_sample(
 
 def extract_pack_v1_prediction(result: Any) -> dict[str, Any]:
     payload = extract_result_payload(result)
+    status = payload.get("status")
+    if status is None:
+        raise ValueError(f"pack_v1 payload missing 'status' field: {payload!r}")
     return {
-        "status": payload.get("status", "completed"),
-        "proposal_id": payload.get("proposal_id"),
+        "status": status,
         "selected_object_id": payload.get("selected_object_id"),
         "bbox_3d": payload.get("bbox_3d"),
         "confidence": payload.get("confidence", extract_result_confidence(result)),
@@ -286,8 +298,11 @@ def extract_legacy_prediction(result: dict[str, Any]) -> dict[str, Any]:
     selected_id = raw_state.get("vg_selected_object_id")
     if selected_id is None:
         selected_id = prediction.get("selected_object_id")
+    status = prediction.get("status")
+    if status is None and bbox_3d is not None:
+        status = "completed"
     return {
-        "status": "failed" if bbox_3d is None else "completed",
+        "status": status,
         "selected_object_id": selected_id,
         "bbox_3d": bbox_3d,
         "confidence": prediction.get(
@@ -297,35 +312,33 @@ def extract_legacy_prediction(result: dict[str, Any]) -> dict[str, Any]:
 
 
 def extract_result_payload(result: Any) -> dict[str, Any]:
-    if result is None:
-        return {}
-    if isinstance(result, dict):
-        if isinstance(result.get("payload"), dict):
-            return result["payload"]
-        structured = result.get("structured_response")
-        if isinstance(structured, dict) and isinstance(structured.get("payload"), dict):
-            return structured["payload"]
-        if isinstance(result.get("result"), dict):
-            nested_result = result["result"]
-            if isinstance(nested_result.get("payload"), dict):
-                return nested_result["payload"]
-
     result_obj = getattr(result, "result", None)
     if result_obj is not None:
         payload = getattr(result_obj, "payload", None)
         if isinstance(payload, dict):
             return payload
-        if isinstance(result_obj, dict) and isinstance(result_obj.get("payload"), dict):
-            return result_obj["payload"]
+    raise ValueError(
+        "pack_v1 result must expose result.payload as a dict; "
+        f"actual shape={describe_result_shape(result)}"
+    )
 
-    final_bundle = getattr(result, "final_bundle", None)
-    extra_metadata = getattr(final_bundle, "extra_metadata", None)
-    if isinstance(extra_metadata, dict):
-        submission = extra_metadata.get("stage2_submission")
-        if isinstance(submission, dict):
-            return submission
 
-    return {}
+def describe_result_shape(result: Any) -> str:
+    if result is None:
+        return "None"
+    if isinstance(result, dict):
+        return f"dict(keys={sorted(result.keys())!r})"
+    result_obj = getattr(result, "result", None)
+    result_shape = "missing"
+    if result_obj is not None:
+        if isinstance(result_obj, dict):
+            result_shape = f"dict(keys={sorted(result_obj.keys())!r})"
+        else:
+            result_shape = (
+                f"{type(result_obj).__name__}"
+                f"(has_payload={hasattr(result_obj, 'payload')})"
+            )
+    return f"{type(result).__name__}(result={result_shape})"
 
 
 def extract_raw_state(result: Any) -> dict[str, Any]:
@@ -351,47 +364,48 @@ def extract_result_confidence(result: Any) -> float | None:
     return float(value) if value is not None else None
 
 
-def coerce_optional_bbox_9dof(raw: Any, *, field_name: str) -> list[float] | None:
-    if raw is None:
-        return None
-    return coerce_bbox_9dof(raw, field_name=field_name)
-
-
 def coerce_bbox_9dof(raw: Any, *, field_name: str) -> list[float]:
-    if isinstance(raw, str):
-        raw = raw.strip()
-        if not raw:
-            raise ValueError(f"{field_name} is empty")
-        raw = json.loads(raw)
-
-    if (
-        isinstance(raw, (list, tuple))
-        and len(raw) == 1
-        and isinstance(raw[0], (list, tuple))
-    ):
-        raw = raw[0]
-
     if not isinstance(raw, (list, tuple)):
-        raise ValueError(f"{field_name} must be a list, got {type(raw).__name__}")
-    if len(raw) < 6:
-        raise ValueError(f"{field_name} must contain at least 6 values, got {len(raw)}")
-
-    values = [float(v) for v in raw[:9]]
-    while len(values) < 9:
-        values.append(0.0)
+        raise TypeError(
+            f"{field_name} must be a list/tuple, got {type(raw).__name__}"
+        )
+    values = [float(v) for v in raw]
+    if len(values) != 9:
+        raise ValueError(
+            f"{field_name} must contain exactly 9 floats, got {len(values)}"
+        )
     if not all(math.isfinite(v) for v in values):
-        raise ValueError(f"{field_name} contains non-finite values")
+        raise ValueError(f"{field_name} contains non-finite values: {values}")
     return values
 
 
-def _is_failed_marker(proposal_id: Any, status: Any, bbox_3d: Any) -> bool:
-    if proposal_id is not None:
-        try:
-            if int(proposal_id) == -1:
-                return True
-        except (TypeError, ValueError):
-            pass
-    return str(status).lower() == "failed" and bbox_3d is None
+def _is_failed_marker(selected_object_id: Any, status: Any) -> bool:
+    return selected_object_id is None and str(status).lower() == "failed"
+
+
+def load_sample_ids(path: Path) -> list[str]:
+    items = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(items, list):
+        raise ValueError(
+            f"sample_ids JSON must be a list, got {type(items).__name__}: {items!r}"
+        )
+    if all(isinstance(item, str) and item for item in items):
+        return list(items)
+    if all(isinstance(item, dict) for item in items):
+        sample_ids: list[str] = []
+        for index, item in enumerate(items):
+            sample_id = item.get("sample_id")
+            if not isinstance(sample_id, str) or not sample_id:
+                raise ValueError(
+                    f"sample_ids[{index}] must include non-empty string "
+                    f"'sample_id'; item={item!r}"
+                )
+            sample_ids.append(sample_id)
+        return sample_ids
+    raise ValueError(
+        "sample_ids JSON must be either a list of strings or a list of dicts "
+        f"with sample_id; got {items!r}"
+    )
 
 
 def parse_args() -> argparse.Namespace:
@@ -407,7 +421,7 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
-    sample_ids = json.loads(args.sample_ids.read_text())
+    sample_ids = load_sample_ids(args.sample_ids)
     compare_backends(
         sample_ids=sample_ids,
         output_dir=args.output_dir,

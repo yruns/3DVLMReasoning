@@ -152,7 +152,7 @@ def test_side_by_side_e2e_smoke_with_mocked_agents(tmp_path, monkeypatch) -> Non
                 result=SimpleNamespace(
                     payload={
                         "status": "completed",
-                        "proposal_id": int(proposal["id"]),
+                        "selected_object_id": int(proposal["id"]),
                         "bbox_3d": list(proposal["bbox_3d_9dof"]),
                         "confidence": 0.99,
                     },
