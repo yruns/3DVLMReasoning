@@ -24,7 +24,7 @@ from typing import Any
 
 from loguru import logger
 
-from src.agents.trace_server import TraceDB, TraceRecord
+from agents.trace_server import TraceDB, TraceRecord
 
 
 @dataclass
