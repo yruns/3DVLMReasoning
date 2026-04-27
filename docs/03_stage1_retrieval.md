@@ -150,7 +150,7 @@ def select_keyframes_v2(query, k=3, strategy="joint_coverage", ...):
 `_pad_keyframes_to_minimum(selected, all_object_ids, min_count)`:
 - If `len(selected) >= min_count`: no-op.
 - Else: rank all views in `view_to_objects` by visibility-weighted score over `all_object_ids`; append until `min_count` is reached, skipping already-selected views.
-- Rationale: v10 had 18/36 low-score cases caused by a single selected keyframe that did not happen to show the target. Padding with the next-best candidate reduced this specific failure mode to near zero (`10_experiment_log/v11_callbacks_20260330.md`).
+- Rationale: v10 had 18/36 low-score cases caused by a single selected keyframe that did not happen to show the target. Padding with the next-best candidate reduced this specific failure mode to near zero (`benchmark/openeqa/v11_callbacks_20260330.md`).
 
 ## 3.7 LLM query rewrite integration (v9)
 

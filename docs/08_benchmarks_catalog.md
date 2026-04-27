@@ -19,7 +19,7 @@ Scope actually exercised:
 - Split: ScanNet-only (89 clips covered locally; HM3D not prepared — see `07_data_layout.md`).
 - Subset: full 1050-question ScanNet split for v13 and v14; 100Q (20 scenes × 5 questions) for v9 – v12 iteration. The 100Q sub-sampling is implemented as `--num-scenes 20 --questions-per-scene 5` in the pilot CLI.
 - Metric: MNAS via `evaluate_predictions_with_official_llm_match` → `final_score`. Per-category MNAS is computed ad-hoc from the raw `{qid: int}` metrics file (see `05_evaluation.md §5.7`).
-- Evidence corpus: `docs/10_experiment_log/` — read for anything fold-sensitive or category-sensitive.
+- Evidence corpus: `docs/benchmark/openeqa/` — read for anything fold-sensitive or category-sensitive.
 
 Not exercised:
 - Active exploration (AE-EQA) — not wired.

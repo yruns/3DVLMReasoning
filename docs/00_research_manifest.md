@@ -2,14 +2,14 @@
 
 Load-bearing academic claims of this project, each stated as a falsifiable sentence with a full evidence trail. An agent mining this repo for publications should treat this file as the **compressed list of defensible contributions**; everything else in `docs/` exists to support or contextualise them.
 
-All HEAD spot-checks below are against commit `a8e651e` on `feat/embodiedscan-grounding`. Full per-version primary evidence lives in `10_experiment_log/`. The six paper-angle framings live in `11_academic_angles_catalog.md`.
+All HEAD spot-checks below are against commit `a8e651e` on `feat/embodiedscan-grounding`. Full per-version primary evidence lives in `benchmark/openeqa/`. The six paper-angle framings live in `11_academic_angles_catalog.md`.
 
 ## Claim Schema
 
 Every claim below follows the same template. The supervisor-mandated fields are:
 
 - **Status**: `load-bearing` (paper cannot exist without it), `supporting` (strengthens but not central), `speculative` (plausible but not yet tested).
-- **Evidence trail**: commit hashes (with date + message), code anchors (file:line), quantitative numbers (fold-annotated), pointers into `10_experiment_log/`.
+- **Evidence trail**: commit hashes (with date + message), code anchors (file:line), quantitative numbers (fold-annotated), pointers into `benchmark/openeqa/`.
 - **Generalization frontier**: the broader claim this specialisation sits under.
 - **Prior work position**: at least two named works with a concrete delta line.
 - **Novelty / Risk** — integer ratings 1–5.
@@ -29,9 +29,9 @@ Every claim below follows the same template. The supervisor-mandated fields are:
   - `src/agents/stage1_adapters.py:54` — `build_stage2_evidence_bundle()` packages Stage 1 as a `Stage1HypothesisSummary` explicitly labelled as prior, not answer.
   - `src/agents/runtime/deepagents_agent.py:570` — the iterative evidence-refinement `run()` loop is the mechanism by which the prior is verified.
 - Quantitative:
-  - End-to-end trajectory: MNAS `46.5 (100Q, v9) → 55.4 (100Q, v10) → 62.6 (100Q, v11) → 65.0 (100Q, v12) → 71.4 (1050Q, v13) → 73.1 (1050Q, v14)`. +26.6 MNAS (+57 % relative) on comparable tail (v9 → v14). See `10_experiment_log/README.md`.
-  - Against published baselines on OpenEQA ScanNet: +21.8 MNAS over GPT-4V 500Q subset (51.3), +35.3 over GPT-4 + ConceptGraphs (37.8); see `10_experiment_log/leaderboard.md`. Judge caveat: ours = Gemini 2.5 Pro vs. others' GPT-4 → not directly comparable.
-- Failure evidence: `10_experiment_log/v14_inventory_20260404.md` shows the 1050Q per-category breakdown; even the best category (Object State 84.7) is well below human 87.7 → verification step matters.
+  - End-to-end trajectory: MNAS `46.5 (100Q, v9) → 55.4 (100Q, v10) → 62.6 (100Q, v11) → 65.0 (100Q, v12) → 71.4 (1050Q, v13) → 73.1 (1050Q, v14)`. +26.6 MNAS (+57 % relative) on comparable tail (v9 → v14). See `benchmark/openeqa/README.md`.
+  - Against published baselines on OpenEQA ScanNet: +21.8 MNAS over GPT-4V 500Q subset (51.3), +35.3 over GPT-4 + ConceptGraphs (37.8); see `benchmark/openeqa/leaderboard.md`. Judge caveat: ours = Gemini 2.5 Pro vs. others' GPT-4 → not directly comparable.
+- Failure evidence: `benchmark/openeqa/v14_inventory_20260404.md` shows the 1050Q per-category breakdown; even the best category (Object State 84.7) is well below human 87.7 → verification step matters.
 
 **Generalization frontier**
 Any pipeline that combines a symbolic/structured scene representation with a neural vision-language model should, at the current capability tier, treat the symbolic layer as a **soft prior to verify**, not an authoritative knowledge base. This extends to navigation-plan and manipulation tasks once we instrument a comparable verify-loop.
@@ -51,7 +51,7 @@ Our headline 73.1 MNAS uses `gpt-5.4-2026-03-05` as backbone; a hostile reviewer
 - `C-a` Same-backbone single-shot baseline (`gpt-5.4` called once on OpenEQA episodic-memory frames with no Stage 1 and no tools).
 - `C-b` Stage-1-only ablation (Stage 1 retrieves *k* frames, `gpt-5.4` one-shot without tools or E2E nudge).
 - `C-e` Per-category MNAS gap between `C-a` / `C-b` / full v14 — shows the gap is not concentrated in one skill.
-- Matched-judge re-evaluation with GPT-4 (OpenEQA's judge) on the 1050Q split; `10_experiment_log/leaderboard.md §ToDo` already flags this.
+- Matched-judge re-evaluation with GPT-4 (OpenEQA's judge) on the 1050Q split; `benchmark/openeqa/leaderboard.md §ToDo` already flags this.
 
 ---
 
@@ -70,7 +70,7 @@ Our headline 73.1 MNAS uses `gpt-5.4-2026-03-05` as backbone; a hostile reviewer
   - `src/agents/runtime/deepagents_agent.py:110–116` — the `retrieve_object_context` tool whose under-use this fix diagnoses.
   - `src/query_scene/keyframe_selector.py:352–358` — the `enriched_objects.json` load site (fails hard if missing; no silent fallback).
 - Quantitative:
-  - v14 vs. v13 on the 1050Q split (same backbone, same judge, same retrieval): **MNAS 71.4 → 73.1 (+1.8)**, `Score=5` count 573 → 600 (+27), `Score=1` 195 → 178 (−17), mean tool-calls/Q 1.36 → 1.33 (−0.03) — see `10_experiment_log/v14_inventory_20260404.md`.
+  - v14 vs. v13 on the 1050Q split (same backbone, same judge, same retrieval): **MNAS 71.4 → 73.1 (+1.8)**, `Score=5` count 573 → 600 (+27), `Score=1` 195 → 178 (−17), mean tool-calls/Q 1.36 → 1.33 (−0.03) — see `benchmark/openeqa/v14_inventory_20260404.md`.
   - Per-category MNAS delta: Attribute +3.4, Functional +2.6, Spatial +2.6, Object State +1.9, World Knowledge +1.9, Object Recognition +1.8, Localization −1.6. (Single-category regression flagged.)
   - Diagnostic pre-condition: 51 % of low-score v13 failures had the ground-truth object already present in `enriched_objects.json` (cited from `1887e03`).
 
@@ -113,7 +113,7 @@ As VLM tool-use quality improves, the gap between "context-as-tool" and "context
   - `src/agents/core/agent_config.py:58` — runtime-level `confidence_threshold = 0.4`.
 - Quantitative:
   - v9 introduction of `--confidence-guard 0.6`: +10.5 MNAS on the 5-scene pilot (per `b6a8aa6` commit message), separable from `--llm-rewrite` which separately lifted `direct_grounded` rate 26 % → 33 %.
-  - v12 → v13 delta on 100Q (`65.0 → 71.4` on the 1050Q fold-change boundary): `10_experiment_log/v13_calibration_20260330.md`; the v13 change set is prompt-only and includes the confidence cap alongside mandatory-crops.
+  - v12 → v13 delta on 100Q (`65.0 → 71.4` on the 1050Q fold-change boundary): `benchmark/openeqa/v13_calibration_20260330.md`; the v13 change set is prompt-only and includes the confidence cap alongside mandatory-crops.
   - 1050Q v13 → v14: the nudge + cap + E2E-guard triad remained unchanged; the +1.8 MNAS lift is attributed to Claim 2, not this one — useful as a factoring argument.
 
 **Generalization frontier**
@@ -153,7 +153,7 @@ The scalar is VLM self-reported and we already know it is miscalibrated — that
   - `src/agents/runtime/base.py:51–64` — `Stage2RuntimeState.record()` is the single choke point; every tool call is logged with its input/output and available for post-hoc analysis.
 - Quantitative:
   - From v13 failure analysis: of 96 low-score cases, 51 % had GT object already in `enriched_objects.json` but `retrieve_object_context` was never called (Claim 2 also cites this).
-  - Under-use rate is per-tool: for `request_more_views`, v10 invoked it 0 times across the 100Q fold; v11's callbacks-enabled fix lifted that to 61 invocations (`10_experiment_log/v11_callbacks_20260330.md`).
+  - Under-use rate is per-tool: for `request_more_views`, v10 invoked it 0 times across the 100Q fold; v11's callbacks-enabled fix lifted that to 61 invocations (`benchmark/openeqa/v11_callbacks_20260330.md`).
 
 **Generalization frontier**
 If every agent benchmark reported a per-tool-invocation breakdown for its failure set, we could define **tool-recall** (per-tool, per-failure-category) as a first-class metric alongside task accuracy. This project is one instance showing that such a metric is computable post-hoc without instrumenting new experiments.
@@ -190,7 +190,7 @@ If every agent benchmark reported a per-tool-invocation breakdown for its failur
   - `src/agents/runtime/deepagents_agent.py:94–108` — `inspect_stage1_metadata` tool exposes `hypothesis_kind` / `hypothesis_rank` to the VLM agent; the agent's system prompt at `base.py:355–362` instructs it to use this as a prior signal.
 - Quantitative:
   - `--llm-rewrite` (v9) raised `direct_grounded` rate from 26 % → 33 % on the 30-scene fold (`b6a8aa6` commit message).
-  - v11 open-ended mode (`02ea2f3`) raised recall-when-target-UNKNOW without collapsing the typed distinction (`10_experiment_log/v11_callbacks_20260330.md`).
+  - v11 open-ended mode (`02ea2f3`) raised recall-when-target-UNKNOW without collapsing the typed distinction (`benchmark/openeqa/v11_callbacks_20260330.md`).
   - **No paper-quality ablation exists yet** of Stage 2 performance conditioned on Stage 1 hypothesis kind — see REQUIRES.
 
 **Generalization frontier**

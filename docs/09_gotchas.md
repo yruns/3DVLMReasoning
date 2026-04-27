@@ -106,7 +106,7 @@ If you edit `CLAUDE.md`, keep this table in sync or add a new row.
 ## 9.11 Eval judge non-comparability
 
 **Claim**: our 73.1 MNAS uses Gemini 2.5 Pro as judge; published OpenEQA baselines use GPT-4.
-**Source**: `05_evaluation.md §5.2` + `10_experiment_log/leaderboard.md §Important Notes`.
+**Source**: `05_evaluation.md §5.2` + `benchmark/openeqa/leaderboard.md §Important Notes`.
 **What NOT to do**: Put 73.1 in a paper without the matched-judge re-score — reviewers will (rightly) ask for it. It is a REQUIRES on Claim 1 in `00_research_manifest.md`.
 
 ## 9.12 Tool-trace writes happen early, MNAS scoring happens late
@@ -116,7 +116,7 @@ If you edit `CLAUDE.md`, keep this table in sync or add a new row.
 
 ## 9.13 Don't confuse the two `docs/` conventions
 
-- `docs/10_experiment_log/*.md` — primary evidence, treat as **immutable**. If you find an error, open an issue or patch with a commit message that cross-references the discrepancy; do not silently edit.
-- `docs/0X_*.md`, `docs/1X_*.md` (this series) — derived documentation. Edit freely with commit attribution; keep cross-refs to `10_experiment_log/` up to date.
+- `docs/benchmark/openeqa/*.md` — primary evidence, treat as **immutable**. If you find an error, open an issue or patch with a commit message that cross-references the discrepancy; do not silently edit.
+- `docs/0X_*.md`, `docs/1X_*.md` (this series) — derived documentation. Edit freely with commit attribution; keep cross-refs to `benchmark/openeqa/` up to date.
 
 Cross-ref: `05_evaluation.md §5.10` lists the three formal open evaluation-debt items; `07_data_layout.md §7.6` lists the layout pitfalls; this file is the full foot-gun superset.

@@ -29,15 +29,15 @@ OpenEQA provides the benchmark, the frame-level episodic-memory format, and four
 | Tool use | None (baselines) | `inspect_stage1_metadata`, `retrieve_object_context`, `request_more_views`, `request_crops`, `switch_or_expand_hypothesis`, + `select_object` / `spatial_compare` for VG. Gating on task type at `src/agents/runtime/deepagents_agent.py:204-247` |
 | Calibration policy | None | Scalar-confidence gate at three control points: runtime downgrade (`runtime/base.py:415`), nudge injection (`deepagents_agent.py:635`), E2E rerun (`pilot:519-555`) |
 | Evaluation | LLM-match with GPT-4 → integer 1–5 → MNAS 0–100 | Same upstream scorer, judge swapped to Gemini 2.5 Pro for key-pool / concurrency reasons; pool-rotated retry + progressive resume. See `docs/05_evaluation.md` |
-| Reported SOTA on OpenEQA ScanNet (their judge) | GPT-4 + ConceptGraphs 37.8; GPT-4V 500Q 51.3 | **MNAS 73.1 (1050Q, v14, commit `fbd642e`)**; judge is Gemini 2.5 Pro — not directly comparable, flagged at `docs/10_experiment_log/leaderboard.md` |
+| Reported SOTA on OpenEQA ScanNet (their judge) | GPT-4 + ConceptGraphs 37.8; GPT-4V 500Q 51.3 | **MNAS 73.1 (1050Q, v14, commit `fbd642e`)**; judge is Gemini 2.5 Pro — not directly comparable, flagged at `docs/benchmark/openeqa/leaderboard.md` |
 
 ## Key numbers to remember
 
 | Fact | Number | Fold | Anchor |
 |---|---|---|---|
-| HEAD MNAS | **73.1** | 1050Q full OpenEQA ScanNet EM-EQA | `10_experiment_log/v14_inventory_20260404.md`, commit `fbd642e` |
-| v9 baseline | 46.5 | 100Q (20×5) | `10_experiment_log/v9_baseline_20260329.md` |
-| Total lift v9 → v14 | **+26.6 MNAS** | trajectory (fold change v12→v13) | `10_experiment_log/README.md` |
+| HEAD MNAS | **73.1** | 1050Q full OpenEQA ScanNet EM-EQA | `benchmark/openeqa/v14_inventory_20260404.md`, commit `fbd642e` |
+| v9 baseline | 46.5 | 100Q (20×5) | `benchmark/openeqa/v9_baseline_20260329.md` |
+| Total lift v9 → v14 | **+26.6 MNAS** | trajectory (fold change v12→v13) | `benchmark/openeqa/README.md` |
 | Local prepared scenes | 89 clips, ≈37 GB | under `data/OpenEQA/scannet/` | `CLAUDE.md` §Current Local Checkout |
 | Stage 2 backbone | `gpt-5.4-2026-03-05` | since v12, commit `2abb404` | `src/agents/core/agent_config.py:44` |
 | Judge | Gemini 2.5 Pro | since module introduction | `src/benchmarks/openeqa_official_eval.py:122` |
@@ -46,7 +46,7 @@ OpenEQA provides the benchmark, the frame-level episodic-memory format, and four
 
 ## What this overview is NOT
 
-- Not a tutorial. For running a job, see `10_experiment_log/README.md §Evaluation Commands`.
+- Not a tutorial. For running a job, see `benchmark/openeqa/README.md §Evaluation Commands`.
 - Not a list of files. For module tree, see `02_architecture.md`.
 - Not the paper. For the claim structure, see `00_research_manifest.md`.
 

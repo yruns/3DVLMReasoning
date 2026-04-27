@@ -1,6 +1,6 @@
 # 11 — Academic Angles Catalog (6 candidates + literature positioning)
 
-This file is the working catalog of paper framings derived from the OpenEQA pipeline. It is the companion to `00_research_manifest.md`: the manifest lists claims; this file lists stories built from combinations of claims. Every angle carries an explicit literature positioning grounded in the published baselines from `10_experiment_log/leaderboard.md` plus adjacent contemporaneous work.
+This file is the working catalog of paper framings derived from the OpenEQA pipeline. It is the companion to `00_research_manifest.md`: the manifest lists claims; this file lists stories built from combinations of claims. Every angle carries an explicit literature positioning grounded in the published baselines from `benchmark/openeqa/leaderboard.md` plus adjacent contemporaneous work.
 
 Axes: **METHOD** (single-technique), **SYSTEM** (architecture), **EMPIRICAL** (diagnostic / ablation). Two candidates per axis.
 
@@ -12,7 +12,7 @@ Axes: **METHOD** (single-technique), **SYSTEM** (architecture), **EMPIRICAL** (d
 |---|---|---|---|:---:|:---:|---|---|
 | A1 | METHOD | Ranked hypothesis retrieval | For 3D task-conditioned retrieval, parsing the query into a typed hypothesis tree (DIRECT > PROXY > CONTEXT) with rank-ordered fallback beats single-pass CLIP. | 3 | 3 | NeurIPS / ICLR | `02ea2f3` (v11) open-ended + callbacks +17.5 % E2E over v9; `b6a8aa6` LLM rewrite 26 % → 33 % direct-grounded |
 | A2 | METHOD | Uncertainty-gated tool use | One scalar confidence + explicit `insufficient_evidence` status is sufficient to gate invocation, continuation, and rerun control points. | 4 | 3 | NeurIPS / ICLR | `44b9600` (v13) cap 0.7 + `80ebf21` nudge + `b6a8aa6` `--confidence-guard 0.6` (+10.5 on 5-scene pilot) |
-| B1 | SYSTEM | Two-stage evidence-seeking | Treat a 3D scene graph as a **high-recall untrustworthy prior** and let a VLM agent verify/repair/reject with pixels. | 3 | 4 | CVPR / ICCV | MNAS 46.5 → 73.1 (100Q / 1050Q, v9 → v14); `10_experiment_log/leaderboard.md` |
+| B1 | SYSTEM | Two-stage evidence-seeking | Treat a 3D scene graph as a **high-recall untrustworthy prior** and let a VLM agent verify/repair/reject with pixels. | 3 | 4 | CVPR / ICCV | MNAS 46.5 → 73.1 (100Q / 1050Q, v9 → v14); `benchmark/openeqa/leaderboard.md` |
 | B2 | SYSTEM | Unified multi-task policy (QA + VG) | One agent infrastructure with task-conditional tool gating handles OpenEQA QA and EmbodiedScan VG from shared scene assets. | 3 | 3 | CoRL / CVPR | MNAS 73.1 (QA) + VG smoke Acc@0.25 66.7 % (`9988be9`, 3 samples) |
 | C1 | EMPIRICAL | Anatomy of a +26.6-point MNAS lift | A longitudinal diagnostic decomposing v9 → v14 into six discrete capability additions reveals which matters when and under which failure mode. | 2 (standalone) / 4 (as insights) | 3 | NeurIPS D&B / TMLR | Full v9 → v14 numeric trail + 96-case failure taxonomy (`1887e03`) |
 | C2 | EMPIRICAL | Symbolic-inventory-in-prompt | Tool-gated privileged context is systematically under-used; pre-injecting it strictly dominates, +1.8 MNAS on 1050Q, Attribute +3.4. | 3 | 4 | EMNLP / ACL Findings | `b4197a1` (v14) / `1887e03` (51 % GT-in-inventory-but-untapped) |
@@ -40,7 +40,7 @@ Each sheet follows the same order: *title → claim → delta → v9–v14 evide
 | REQUIRES | (1) Per-hypothesis-kind MNAS decomposition on 1050Q; (2) Stage-2 ablation where `inspect_stage1_metadata` is denied; (3) information-theoretic MI between `hypothesis_kind` and final correctness. |
 
 **Literature positioning (A1)**
-- **OpenEQA (CVPR 2024, arXiv:2312.15857)** — baseline uses frame-uniform sampling (50f) or scene-memory KB; no structured hypothesis tree. Numerical reference point: GPT-4V 500Q subset scores 51.3 MNAS on ScanNet (see `10_experiment_log/leaderboard.md`). Our Stage 1 exposes the typed tree to the consumer rather than returning only frames.
+- **OpenEQA (CVPR 2024, arXiv:2312.15857)** — baseline uses frame-uniform sampling (50f) or scene-memory KB; no structured hypothesis tree. Numerical reference point: GPT-4V 500Q subset scores 51.3 MNAS on ScanNet (see `benchmark/openeqa/leaderboard.md`). Our Stage 1 exposes the typed tree to the consumer rather than returning only frames.
 - **ConceptGraphs (in OpenEQA Table 2; Gu et al. arXiv:2309.16650)** — scene graph without a typed query interface; consumed as KB. Code-level: our `KeyframeSelector._load_objects_from_pcd` (`src/query_scene/keyframe_selector.py:374–459`) reuses ConceptGraphs' object format but wraps it in the ranked executor.
 - **Chain-of-View / CoV (arXiv:2601.05172)** — multi-query verification over views; the queries are free-form, not typed. Our delta: typed rank labels survive into Stage 2 at `runtime/base.py:98–108`.
 - **3D-Mem (CVPR 2025, arXiv:2411.17735)** — memory bank of scene snippets retrieved by similarity; no fallback typing. Reported ALL score 57.2; does not report ScanNet-only.
@@ -67,7 +67,7 @@ Each sheet follows the same order: *title → claim → delta → v9–v14 evide
 - **Reflexion (Shinn et al., arXiv:2303.11366)** — self-verbalised reflection triggers retries; expensive and language-based. Our gate is scalar, cheaper to compose, and has a public ablation footprint.
 - **Chain-of-Verification / CoV (Dhuliawala et al., arXiv:2309.11495; the 3D variant at arXiv:2601.05172)** — unconditional verification passes. Our delta: condition on the scalar, downgrade status when appropriate, and differ from CoV by explicitly declaring when evidence is *insufficient* rather than always producing an answer.
 - **OpenEQA Episodic-Memory baselines (CVPR 2024)** — no confidence gating, one-shot generation. Numerical baseline: GPT-4V 500Q subset 51.3 vs. our v14 73.1 on 1050Q (different judge caveat).
-- **AgentBench (Liu et al., arXiv:2308.03688) / MINT (Wang et al., arXiv:2309.10691)** — report task-level accuracy, do not decompose by confidence regime; our per-category MNAS × confidence breakdown in `10_experiment_log/v13_calibration_20260330.md` addresses a gap they leave.
+- **AgentBench (Liu et al., arXiv:2308.03688) / MINT (Wang et al., arXiv:2309.10691)** — report task-level accuracy, do not decompose by confidence regime; our per-category MNAS × confidence breakdown in `benchmark/openeqa/v13_calibration_20260330.md` addresses a gap they leave.
 - **Calibration literature (ECE, temperature scaling)** — addresses classifier calibration but not agent tool-use gating; our contribution would sit at the intersection.
 
 ### Angle B1 — Two-Stage Evidence-Seeking Agent
@@ -77,12 +77,12 @@ Each sheet follows the same order: *title → claim → delta → v9–v14 evide
 | Candidate title | *"Evidence, Not Oracle: A Two-Stage Agent that Verifies 3D Scene Graphs with Pixels"* |
 | Core claim | On 3D scene QA, treating a detection-based scene graph as a **high-recall soft prior to verify** rather than an authoritative KB — and letting a VLM agent actively acquire pixel evidence — yields **MNAS 73.1 (1050Q, v14)** on OpenEQA ScanNet EM-EQA, #1 among methods reporting ScanNet-only scores (excluding AlanaVLM). |
 | Delta (high level) | OpenEQA scene-memory baselines consume the graph as KB; we demote it to a prior and add an evidence-seeking loop. |
-| v9-v14 evidence | (i) MNAS trajectory 46.5 (100Q, v9) → 73.1 (1050Q, v14). (ii) System-prompt line `src/agents/runtime/base.py:355–362` *"Stage 1 is a high-recall evidence retriever, not ground truth. Stage 2 must verify, repair, or reject."*. (iii) `build_stage2_evidence_bundle` at `src/agents/stage1_adapters.py:54` packages Stage 1 as prior. (iv) `runtime.run()` loop at `src/agents/runtime/deepagents_agent.py:570` is the verification mechanism. (v) 1050Q leaderboard at `10_experiment_log/leaderboard.md`. |
+| v9-v14 evidence | (i) MNAS trajectory 46.5 (100Q, v9) → 73.1 (1050Q, v14). (ii) System-prompt line `src/agents/runtime/base.py:355–362` *"Stage 1 is a high-recall evidence retriever, not ground truth. Stage 2 must verify, repair, or reject."*. (iii) `build_stage2_evidence_bundle` at `src/agents/stage1_adapters.py:54` packages Stage 1 as prior. (iv) `runtime.run()` loop at `src/agents/runtime/deepagents_agent.py:570` is the verification mechanism. (v) 1050Q leaderboard at `benchmark/openeqa/leaderboard.md`. |
 | Target venue | **CVPR** (SOTA + 3D visual reasoning), 2nd **ICCV**, alt **NeurIPS** with method emphasis. |
 | Novelty | 3/5 — architecture in the zeitgeist; committing to *Stage-1-is-not-truth* and validating at 1050Q is meaningful. |
 | Risk | 4/5 — highest among the six: scooping, SOTA treadmill, backbone attribution. |
 | Honest critique | Our headline 73.1 uses `gpt-5.4-2026-03-05`; a reviewer will attribute most of the +26.6 MNAS lift to model progress unless we run an apples-to-apples same-backbone baseline. |
-| REQUIRES | C-a same-backbone single-shot; C-b Stage-1-only baseline; C-e per-category gap decomposition; matched-judge re-evaluation with GPT-4 (see `10_experiment_log/leaderboard.md §ToDo`). |
+| REQUIRES | C-a same-backbone single-shot; C-b Stage-1-only baseline; C-e per-category gap decomposition; matched-judge re-evaluation with GPT-4 (see `benchmark/openeqa/leaderboard.md §ToDo`). |
 | Intro re-framing sentence (from ADDENDUM, M1) | *"Rather than a system engineering report, this paper isolates the decision policy that lets a VLM agent treat a symbolic scene graph as a high-recall but untrustworthy prior, and provides the first quantitative answer to when such a prior should be verified, overridden, or silently consumed — measured against a controlled series of policy ablations on a 1050-question benchmark."* |
 
 **Literature positioning (B1)**
@@ -123,7 +123,7 @@ Each sheet follows the same order: *title → claim → delta → v9–v14 evide
 | Candidate title | *"Twenty-Seven Points in Five Months: A Diagnostic Dissection of a 3D Question-Answering Agent"* (title rounding reflects 46.5 → 73.1 = +26.6; "twenty-seven" is a permissible rounding for the title) |
 | Core claim | The v9 → v14 OpenEQA engineering trajectory — six commits spanning enrichment, callbacks, prompt calibration, model upgrade, and inventory injection — provides a **controlled natural experiment** whose per-commit deltas reveal which capability matters in which recall regime of Stage 1 and on which question category. |
 | Delta (high level) | Most 3D-QA SOTA papers present a single model number; we present a longitudinal commit-grounded ablation plus failure-case linkage. |
-| v9-v14 evidence | The dataset *is* the experiment: v9 100Q 46.5 → v10 100Q 55.4 → v11 100Q 62.6 → v12 100Q 65.0 → v13 1050Q 71.4 → v14 1050Q 73.1. Per-category deltas in `10_experiment_log/v14_inventory_20260404.md`. 96-case failure taxonomy in the commit message of `1887e03`. |
+| v9-v14 evidence | The dataset *is* the experiment: v9 100Q 46.5 → v10 100Q 55.4 → v11 100Q 62.6 → v12 100Q 65.0 → v13 1050Q 71.4 → v14 1050Q 73.1. Per-category deltas in `benchmark/openeqa/v14_inventory_20260404.md`. 96-case failure taxonomy in the commit message of `1887e03`. |
 | Target venue | **NeurIPS Datasets & Benchmarks**, 2nd **TMLR**, 3rd **ACL Findings**. |
 | Novelty | 2/5 standalone (ablations aren't novel); **4/5 as an insights paper** with a methodological contribution: *how to design an ablation using version history as the control*. |
 | Risk | 3/5 — reviewer risk "engineering post-mortem". Mitigation: anchor around a *question* with a falsifiable answer. |
@@ -143,7 +143,7 @@ Each sheet follows the same order: *title → claim → delta → v9–v14 evide
 | Candidate title | *"The Tool the Agent Never Called: Why Pre-Injecting Scene Inventory Beats Retrieve-on-Demand"* |
 | Core claim | Making privileged symbolic context available behind a tool call systematically under-uses that context — 51 % of failures in a 1050-question 3D-QA benchmark had the ground-truth object already in the enrichment JSON yet the retrieval tool was never called; direct injection into the system prompt recovers most of that gap for +1.8 MNAS on 1050Q and category-wise gains up to +3.4. |
 | Delta (high level) | Recent agent-design literature emphasises *tool selection*; we study **tool under-use** as a first-class failure mode with a quantitative remedy. |
-| v9-v14 evidence | (i) `b4197a1` v14 inventory injection: +1.8 MNAS (1050Q), Score=1 195 → 178, Score=5 573 → 600, per-category deltas (Attribute +3.4, Spatial +2.6) in `10_experiment_log/v14_inventory_20260404.md`. (ii) v13 analysis (`1887e03`): 51 % of low-score failures had GT in enrichment. (iii) Injection site `src/agents/runtime/base.py:395`; formatter `:296–310`. |
+| v9-v14 evidence | (i) `b4197a1` v14 inventory injection: +1.8 MNAS (1050Q), Score=1 195 → 178, Score=5 573 → 600, per-category deltas (Attribute +3.4, Spatial +2.6) in `benchmark/openeqa/v14_inventory_20260404.md`. (ii) v13 analysis (`1887e03`): 51 % of low-score failures had GT in enrichment. (iii) Injection site `src/agents/runtime/base.py:395`; formatter `:296–310`. |
 | Target venue | **EMNLP**, 2nd **ACL Findings**, alt **CoLM** (Conference on Language Models). |
 | Novelty | 3/5 — prompt-engineering study; novelty carried by the *under-use* diagnostic, not the fix itself. |
 | Risk | 4/5 — highest scooping risk; "put context in prompt" is an obvious direction. Mitigation: lead with the *under-use diagnostic*, give the fix as a corollary. |

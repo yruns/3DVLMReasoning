@@ -8,7 +8,7 @@ Target reader: an AI agent tasked with mining academic value from the 3DVLMReaso
 - `00_` / `11_` — ⭐ load-bearing, read first.
 - `01_…05_` — architecture deep-dive.
 - `06_…09_` — evolution, data, catalogs, gotchas.
-- `10_experiment_log/` — raw per-version results (verbatim copy of an external folder; treat as immutable evidence).
+- `benchmark/<name>/` — per-benchmark process archive (raw per-version results, leaderboards, dashboards). Treat as immutable evidence. The OpenEQA archive lives at [`benchmark/openeqa/`](benchmark/openeqa/); see [`benchmark/README.md`](benchmark/README.md) for the layout pattern. OpenEQA was moved here from the legacy `10_experiment_log/` location on 2026-04-27.
 
 ## Task → File
 
@@ -21,14 +21,15 @@ Target reader: an AI agent tasked with mining academic value from the 3DVLMReaso
 | Stage 1 internals (KeyframeSelector, hypothesis types, joint-coverage view selection) | `03_stage1_retrieval.md` |
 | Stage 2 internals (DeepAgents runtime, 7 tools, nudge loop, system-prompt evolution) | `04_stage2_agent.md` |
 | MNAS definition, Gemini 2.5 Pro judge rationale, scoring protocol | `05_evaluation.md` |
-| Per-version engineering deltas v9 → v14 (cross-linked to `10_experiment_log/`) | `06_evolution_v9_to_v14.md` |
+| Per-version engineering deltas v9 → v14 (cross-linked to `benchmark/openeqa/`) | `06_evolution_v9_to_v14.md` |
 | Local `data/` layout vs. vanilla `OpenEQADataset` expectations | `07_data_layout.md` |
 | OpenEQA, EmbodiedScan VG, SQA3D, ScanRefer — scope and readiness matrix | `08_benchmarks_catalog.md` |
 | Known foot-guns (stale CLAUDE.md, broken GPU 1, conda vs `.venv`, deleted docs) | `09_gotchas.md` |
-| Raw per-version results (v9 46.5 MNAS 100Q → v14 73.1 MNAS 1050Q) | `10_experiment_log/README.md` |
-| Full leaderboard with paper references (OpenEQA / CoV / 3D-Mem / GraphPad / R-EQA) | `10_experiment_log/leaderboard.md` |
-| Specific version summary (e.g., why v14 moved enrichment into the prompt) | `10_experiment_log/vN_*.md` |
-| Interactive dashboard / pipeline diagram / case studies | `10_experiment_log/*.html` |
+| Per-benchmark archive layout pattern | `benchmark/README.md` |
+| Raw per-version results (v9 46.5 MNAS 100Q → v15 74.33 MNAS 1050Q stage2) | `benchmark/openeqa/README.md` |
+| Full leaderboard with paper references (OpenEQA / CoV / 3D-Mem / GraphPad / R-EQA) | `benchmark/openeqa/leaderboard.md` |
+| Specific version summary (e.g., why v14 moved enrichment into the prompt, or v15's trajectory-aware Stage 1) | `benchmark/openeqa/vN_*.md` |
+| Interactive dashboard / pipeline diagram / case studies | `benchmark/openeqa/*.html` |
 
 ## Conventions
 
@@ -42,7 +43,7 @@ Target reader: an AI agent tasked with mining academic value from the 3DVLMReaso
 - No per-`.py` file docs — module level only.
 - No tutorials — assume the reader has full repo + pipeline-level handoff already in context.
 - No speculation without `REQUIRES:` annotation.
-- HTML viz in `10_experiment_log/` is kept verbatim; do not transcribe.
+- HTML viz in `benchmark/openeqa/` is kept verbatim; do not transcribe.
 
 ## Sibling reference
 

@@ -246,6 +246,66 @@ Default VLM backend is `gpt-5.2-2025-12-11` via Azure-compatible endpoint. Confi
 Output schemas are in `schema/` directory:
 - `hypothesis_output_v1.json` - Schema for Stage 1 query parsing output
 
+## Benchmark Process Documentation (MANDATORY)
+
+**Every benchmark evaluation MUST leave a permanent process record under `docs/benchmark/<name>/`. Process docs in `tmp/`, commit messages, ad-hoc handoff files, or `outputs/` directories are not durable — they get garbage-collected, lost in branch deletions, or buried in commit history.**
+
+### Layout
+
+```
+docs/benchmark/
+├── README.md                    ← index across benchmarks (already exists)
+└── <benchmark>/
+    ├── README.md                ← per-benchmark version timeline + summary leaderboard
+    ├── leaderboard.md           ← extended public leaderboard with paper references
+    ├── <vN>_<short_tag>_<YYYYMMDD>.md  ← one file per evaluated version of OUR pipeline
+    └── *.html                   ← optional dashboards / case studies (kept verbatim)
+```
+
+The `<vN>` is the internal version of *our* pipeline, not the benchmark version. The `<short_tag>` is one or two words capturing the change (e.g. `trajectory_aware`, `enrichment`, `callbacks`). The `<YYYYMMDD>` is the date the run was harvested.
+
+### When to write a benchmark doc
+
+Write a new `<vN>_<tag>_<YYYYMMDD>.md` whenever:
+
+- A new evaluation run completes against any benchmark — even ablations, partial folds, and negative results.
+- A reproduction or rerun of an earlier version produces materially different numbers.
+- A judge / model / fold / prompt change retro-affects an existing version's numbers.
+
+Update the per-benchmark `README.md` and `leaderboard.md` at the same time so the index never lags behind the evidence.
+
+### Required content per version doc
+
+- **Branch + tip commit** at run time.
+- **Exact CLI invocation** or path to the launcher script (e.g. `scripts/run_v15_eval_matrix.sh`).
+- **Raw artifact directory** under `tmp/...` so numbers can be re-derived from JSON.
+- **Judge model name** for LLM-as-judge benchmarks (e.g. `gemini-2.5-pro`).
+- **Fold size and selection mechanism** (e.g. `--force-selection /path/to/frozen.json` plus the frozen file's existence in `tmp/<benchmark>_artifacts/`).
+- **What changed** vs the previous version (code-level deltas with commit hashes when possible).
+- **Headline metric** (e.g. MNAS) plus per-category breakdown when applicable.
+- **Cross-version comparison** on the matched column / fold (e.g. v14 vs v15 stage2 MNAS on the same frozen 1050Q set).
+- **Caveats** — partial judging, fold mismatches, judge differences, anything that makes the number not directly comparable to a prior baseline or a published number.
+
+### When adding a new benchmark
+
+Mirror the OpenEQA layout exactly. Create:
+
+1. `docs/benchmark/<new_benchmark>/README.md` — version timeline.
+2. `docs/benchmark/<new_benchmark>/leaderboard.md` — extended public leaderboard if a public leaderboard exists.
+3. `docs/benchmark/<new_benchmark>/<v1>_<tag>_<date>.md` — first evaluation doc.
+
+Then add a row to `docs/benchmark/README.md §Active Benchmarks`.
+
+### Anti-patterns
+
+- Putting evaluation results only in commit messages.
+- Putting per-run summaries under `tmp/` or `outputs/` and assuming they will survive.
+- Writing a single growing log file instead of dated per-version files.
+- Updating numbers in an old version doc instead of writing a new one.
+- Leaving the per-benchmark README's leaderboard / version-timeline stale after a new run completes.
+
+The point is to make process documentation immutable, dated, and tracked, so any future agent or paper-writer can audit exactly what was run, on what code, on what fold, and what the judge said — without re-running anything.
+
 ## Long-Running Tasks: tmux (MANDATORY)
 
 **All long-running commands (training, evaluation, batch processing, large test suites, data preparation) MUST be executed inside tmux sessions.** This prevents task loss from SSH disconnection, terminal closure, or Bash tool timeout (120s default, 600s max).

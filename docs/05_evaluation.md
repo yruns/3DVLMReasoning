@@ -19,7 +19,7 @@ Two live implementation sites:
 
 The per-question score comes from the upstream LLM-match pipeline at `external/open-eqa/openeqa/evaluation/llm_match.py:29` (`get_llm_match_score`). We reuse that prompt and JSON-parsing logic verbatim and only swap the LLM call.
 
-The literal string `"MNAS"` does **not** appear in the eval module code itself; the project uses the name in results documents (`10_experiment_log/*.md`) and in the related-work catalogue (`src/evaluation/related_work.py:86`).
+The literal string `"MNAS"` does **not** appear in the eval module code itself; the project uses the name in results documents (`benchmark/openeqa/*.md`) and in the related-work catalogue (`src/evaluation/related_work.py:86`).
 
 ## 5.2 The judge — why Gemini 2.5 Pro, not GPT-4?
 
@@ -34,9 +34,9 @@ Default set since the module was first introduced (commit `eb3c6b8`, "codex end"
 3. **Cost / throughput** — scoring 1050 × (2 predictions per question) = 2100 LLM calls per full eval; sequential GPT-4 scoring would be prohibitive in the 5–10 min window the iteration cadence wants.
 
 **Methodological caveat (flagged everywhere)**:
-- `10_experiment_log/README.md` line 7: *"**Judge:** Gemini 2.5 Pro (paper uses GPT-4)"*.
-- `10_experiment_log/leaderboard.md` line 9: *"Our judge is Gemini 2.5 Pro; all other entries use GPT-4 as judge (per OpenEQA paper). Scores not directly comparable."*
-- `10_experiment_log/leaderboard.md §ToDo` item 1: *"Re-evaluate with GPT-4 as judge (same protocol as all baselines)"*.
+- `benchmark/openeqa/README.md` line 7: *"**Judge:** Gemini 2.5 Pro (paper uses GPT-4)"*.
+- `benchmark/openeqa/leaderboard.md` line 9: *"Our judge is Gemini 2.5 Pro; all other entries use GPT-4 as judge (per OpenEQA paper). Scores not directly comparable."*
+- `benchmark/openeqa/leaderboard.md §ToDo` item 1: *"Re-evaluate with GPT-4 as judge (same protocol as all baselines)"*.
 
 This caveat is a **REQUIRES** entry on Claim 1 in `00_research_manifest.md`; any paper shipping the 73.1 number must include a matched-judge re-score before camera-ready.
 
@@ -106,11 +106,11 @@ In the pilot's `--evaluate` path (`openeqa_official_question_pilot.py:734-779`):
 
 ## 5.7 Category-level MNAS
 
-OpenEQA defines seven categories. Per-category MNAS is computed downstream of the JSON metrics map by joining on `dataset_items[i]["category"]`; see `docs/10_experiment_log/v14_inventory_20260404.md` for the v13 / v14 breakdown (Object State, Localization, Attribute, Functional, World Knowledge, Object Recognition, Spatial). The per-category computation is not in `openeqa_official_eval.py`; the per-version results docs compute it ad hoc from the raw JSON.
+OpenEQA defines seven categories. Per-category MNAS is computed downstream of the JSON metrics map by joining on `dataset_items[i]["category"]`; see `docs/benchmark/openeqa/v14_inventory_20260404.md` for the v13 / v14 breakdown (Object State, Localization, Attribute, Functional, World Knowledge, Object Recognition, Spatial). The per-category computation is not in `openeqa_official_eval.py`; the per-version results docs compute it ad hoc from the raw JSON.
 
 ## 5.8 Leaderboard context
 
-`docs/10_experiment_log/leaderboard.md` is kept as ground truth; reproduce here only the ScanNet-only top-of-table for quick reference:
+`docs/benchmark/openeqa/leaderboard.md` is kept as ground truth; reproduce here only the ScanNet-only top-of-table for quick reference:
 
 | # | Method | ScanNet MNAS | Paper | Judge |
 |---|---|:-:|---|---|
@@ -123,11 +123,11 @@ OpenEQA defines seven categories. Per-category MNAS is computed downstream of th
 
 Our position paragraph (`leaderboard.md §Our Position`): **+21.8 MNAS over GPT-4V, +35.3 over GPT-4 + ConceptGraphs**, judge caveat in force. Methods reporting only ALL (ScanNet+HM3D) — CoV, 3D-Mem, GraphPad — are not comparable to our ScanNet-only score.
 
-**Exclusion**: AlanaVLM (Gemini 1.5 Flash 74.0 / Gemini 1.5 Pro 66.9 / GPT-4V 50f 57.4) is kept out of the leaderboard per `10_experiment_log/leaderboard.md §Exclusions` due to disputed paper authenticity. If/when that is resolved, v14 (73.1) drops to #2 behind Gemini 1.5 Flash (74.0) on the same benchmark — important for the CVPR framing of Claim 1.
+**Exclusion**: AlanaVLM (Gemini 1.5 Flash 74.0 / Gemini 1.5 Pro 66.9 / GPT-4V 50f 57.4) is kept out of the leaderboard per `benchmark/openeqa/leaderboard.md §Exclusions` due to disputed paper authenticity. If/when that is resolved, v14 (73.1) drops to #2 behind Gemini 1.5 Flash (74.0) on the same benchmark — important for the CVPR framing of Claim 1.
 
 ## 5.9 Running an eval (recipes)
 
-All recipes are reproduced from `10_experiment_log/README.md §Evaluation Commands`; do not diverge from the canonical invocation unless debugging.
+All recipes are reproduced from `benchmark/openeqa/README.md §Evaluation Commands`; do not diverge from the canonical invocation unless debugging.
 
 Full 1050Q run:
 ```bash
@@ -157,7 +157,7 @@ Replace `eval_model="gemini-2.5-pro"` with `"gpt-4"` (when a GPT-4 deployment is
 
 ## 5.10 Evaluation debt — matched-judge re-score, ALL split, per-category fair comparison
 
-Three open items that every paper shipping MNAS 73.1 must address, cross-referenced from `10_experiment_log/leaderboard.md §ToDo`:
+Three open items that every paper shipping MNAS 73.1 must address, cross-referenced from `benchmark/openeqa/leaderboard.md §ToDo`:
 
 1. Re-score predictions with GPT-4 as judge on the same 1050Q split. Minimum sample: enough to produce a stable per-category estimate (~300 samples) for a calibration constant, then apply to the full 1050.
 2. Run on HM3D scenes to produce an ALL split score — needed for apples-to-apples comparison with CoV, 3D-Mem, GraphPad.

@@ -1,6 +1,6 @@
 # 06 — Evolution v9 → v14
 
-Per-version deltas, cross-linked to the immutable `10_experiment_log/vN_*.md` files. The numbers in this doc are summaries only; primary evidence lives under `10_experiment_log/`. Line numbers against HEAD = `a8e651e`.
+Per-version deltas, cross-linked to the immutable `benchmark/openeqa/vN_*.md` files. The numbers in this doc are summaries only; primary evidence lives under `benchmark/openeqa/`. Line numbers against HEAD = `a8e651e`.
 
 ## 6.1 Fold change at v13
 
@@ -10,18 +10,18 @@ Before reading per-version rows, note the fold change: **v9 / v10 / v11 / v12 ar
 
 | Ver | Date | Fold | MNAS | Δ (within fold) | Headline | Primary commit | Cross-ref |
 |---|---|:-:|:-:|:-:|---|---|---|
-| v9 | 2026-03-29 | 100Q | 46.5 | baseline | Parallel eval harness + `--confidence-guard` + `--llm-rewrite` | `b6a8aa6` | [v9_baseline_20260329.md](10_experiment_log/v9_baseline_20260329.md) |
-| v10 | 2026-03-30 | 100Q | 55.4 | +8.9 | LLM object enrichment injected into Stage 1 | `f122b07` | [v10_enrichment_20260330.md](10_experiment_log/v10_enrichment_20260330.md) |
-| v11 | 2026-03-30 | 100Q | 62.6 | +7.2 | Enable Stage-2 callbacks; pad-to-min-3; open-ended queries | `02ea2f3` | [v11_callbacks_20260330.md](10_experiment_log/v11_callbacks_20260330.md) |
-| v12 | 2026-03-30 | 100Q | 65.0 | +2.4 | Mandatory tool-use prompt + BETWEEN midpoint + **GPT-5.2 → GPT-5.4** | `2abb404` | [v12_toolprompt_20260330.md](10_experiment_log/v12_toolprompt_20260330.md) |
-| v13 | 2026-04-02 | 1050Q | 71.4 | (fold change) | Mandatory crops for color/attr; confidence cap 0.7 with zero tools; self-check + bias warnings | `44b9600` | [v13_calibration_20260330.md](10_experiment_log/v13_calibration_20260330.md) |
-| v14 | 2026-04-04 | 1050Q | **73.1** | +1.8 | Inject enrichment inventory directly into Stage 2 system prompt | `b4197a1` | [v14_inventory_20260404.md](10_experiment_log/v14_inventory_20260404.md) |
+| v9 | 2026-03-29 | 100Q | 46.5 | baseline | Parallel eval harness + `--confidence-guard` + `--llm-rewrite` | `b6a8aa6` | [v9_baseline_20260329.md](benchmark/openeqa/v9_baseline_20260329.md) |
+| v10 | 2026-03-30 | 100Q | 55.4 | +8.9 | LLM object enrichment injected into Stage 1 | `f122b07` | [v10_enrichment_20260330.md](benchmark/openeqa/v10_enrichment_20260330.md) |
+| v11 | 2026-03-30 | 100Q | 62.6 | +7.2 | Enable Stage-2 callbacks; pad-to-min-3; open-ended queries | `02ea2f3` | [v11_callbacks_20260330.md](benchmark/openeqa/v11_callbacks_20260330.md) |
+| v12 | 2026-03-30 | 100Q | 65.0 | +2.4 | Mandatory tool-use prompt + BETWEEN midpoint + **GPT-5.2 → GPT-5.4** | `2abb404` | [v12_toolprompt_20260330.md](benchmark/openeqa/v12_toolprompt_20260330.md) |
+| v13 | 2026-04-02 | 1050Q | 71.4 | (fold change) | Mandatory crops for color/attr; confidence cap 0.7 with zero tools; self-check + bias warnings | `44b9600` | [v13_calibration_20260330.md](benchmark/openeqa/v13_calibration_20260330.md) |
+| v14 | 2026-04-04 | 1050Q | **73.1** | +1.8 | Inject enrichment inventory directly into Stage 2 system prompt | `b4197a1` | [v14_inventory_20260404.md](benchmark/openeqa/v14_inventory_20260404.md) |
 
-Aggregate trajectory on comparable tail (v9 → v14 cross-fold): **+26.6 MNAS**, Score=1 44 % → 17 %, Score ≥ 4 42 % → 72 % — see [v14_inventory_20260404.md](10_experiment_log/v14_inventory_20260404.md) §Cumulative Progress.
+Aggregate trajectory on comparable tail (v9 → v14 cross-fold): **+26.6 MNAS**, Score=1 44 % → 17 %, Score ≥ 4 42 % → 72 % — see [v14_inventory_20260404.md](benchmark/openeqa/v14_inventory_20260404.md) §Cumulative Progress.
 
 ## 6.3 Per-version delta detail (code + motivation + what broke)
 
-Each subsection names the motivation (the *why*), the code locus on HEAD (the *what*), and the observed per-fold number. Failure-case analyses live in `10_experiment_log/` and are not duplicated here.
+Each subsection names the motivation (the *why*), the code locus on HEAD (the *what*), and the observed per-fold number. Failure-case analyses live in `benchmark/openeqa/` and are not duplicated here.
 
 ### v9 — baseline parallel harness (`b6a8aa6`)
 

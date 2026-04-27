@@ -19,16 +19,17 @@ Only methods reporting ScanNet-specific scores:
 | # | Method | ScanNet MNAS | Paper | Venue | Judge |
 |---|--------|:-----------:|-------|-------|:-----:|
 | - | Human | 87.7 | OpenEQA | CVPR 2024 | - |
-| **1** | **Ours (v14)** | **73.1** | **This work** | **-** | **Gemini 2.5 Pro** |
-| 2 | GPT-4V (500Q subset) | 51.3 | OpenEQA | CVPR 2024 | GPT-4 |
-| 3 | GPT-4 + LLaVA-1.5 | 45.4 | OpenEQA | CVPR 2024 | GPT-4 |
-| 4 | GPT-4 + Sparse Voxel Maps | 40.9 | OpenEQA | CVPR 2024 | GPT-4 |
-| 5 | LLaMA-2 + LLaVA-1.5 | 39.6 | OpenEQA | CVPR 2024 | GPT-4 |
-| 6 | GPT-4 + ConceptGraphs | 37.8 | OpenEQA | CVPR 2024 | GPT-4 |
-| 7 | LLaMA-2 + Sparse Voxel Maps | 36.0 | OpenEQA | CVPR 2024 | GPT-4 |
-| 8 | GPT-4 (blind) | 32.5 | OpenEQA | CVPR 2024 | GPT-4 |
-| 9 | LLaMA-2 + ConceptGraphs | 31.0 | OpenEQA | CVPR 2024 | GPT-4 |
-| 10 | LLaMA-2 (blind) | 27.9 | OpenEQA | CVPR 2024 | GPT-4 |
+| **1** | **Ours (v15, `s1_l1` stage2)** | **74.33** | **This work** | **-** | **Gemini 2.5 Pro** |
+| 2 | Ours (v14, e2e) | 73.1 | This work | - | Gemini 2.5 Pro |
+| 3 | GPT-4V (500Q subset) | 51.3 | OpenEQA | CVPR 2024 | GPT-4 |
+| 4 | GPT-4 + LLaVA-1.5 | 45.4 | OpenEQA | CVPR 2024 | GPT-4 |
+| 5 | GPT-4 + Sparse Voxel Maps | 40.9 | OpenEQA | CVPR 2024 | GPT-4 |
+| 6 | LLaMA-2 + LLaVA-1.5 | 39.6 | OpenEQA | CVPR 2024 | GPT-4 |
+| 7 | GPT-4 + ConceptGraphs | 37.8 | OpenEQA | CVPR 2024 | GPT-4 |
+| 8 | LLaMA-2 + Sparse Voxel Maps | 36.0 | OpenEQA | CVPR 2024 | GPT-4 |
+| 9 | GPT-4 (blind) | 32.5 | OpenEQA | CVPR 2024 | GPT-4 |
+| 10 | LLaMA-2 + ConceptGraphs | 31.0 | OpenEQA | CVPR 2024 | GPT-4 |
+| 11 | LLaMA-2 (blind) | 27.9 | OpenEQA | CVPR 2024 | GPT-4 |
 
 ---
 
@@ -71,8 +72,9 @@ Methods reporting combined scores (not directly comparable to ScanNet-only):
 
 ## Our Position
 
-- **ScanNet-only**: 73.1 MNAS — **#1 among methods reporting ScanNet scores** (excluding AlanaVLM)
-- **vs OpenEQA paper baselines**: +21.8 over GPT-4V (51.3), +35.3 over GPT-4+ConceptGraphs (37.8)
+- **ScanNet-only**: 74.33 MNAS (v15 `s1_l1` stage2) — **#1 among methods reporting ScanNet scores** (excluding AlanaVLM)
+- **v14→v15 internal lift**: +2.04 to +2.73 stage2 MNAS on the same frozen 1050Q set, same judge (`v15_trajectory_aware_20260420.md`).
+- **vs OpenEQA paper baselines**: +23.0 over GPT-4V (51.3), +36.5 over GPT-4+ConceptGraphs (37.8)
 - **Not comparable to CoV/3D-Mem/GraphPad**: They report ALL, we report ScanNet-only
 - **Judge caveat**: Our Gemini 2.5 Pro judge vs others' GPT-4 judge
 
