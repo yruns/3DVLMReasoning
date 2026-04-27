@@ -40,10 +40,15 @@ except ImportError:
     HAS_OMEGACONF = False
 
 
+def _replica_room0_ready() -> bool:
+    scene_path = Path(os.environ.get("REPLICA_ROOT", "/Users/bytedance/Replica")) / "room0"
+    return scene_path.exists() and (scene_path / "enriched_objects.json").exists()
+
+
 @pytest.mark.skipif(not HAS_OMEGACONF, reason="omegaconf required for scene loading")
 @pytest.mark.skipif(
-    not Path(os.environ.get("REPLICA_ROOT", "/Users/bytedance/Replica")).exists(),
-    reason="REPLICA_ROOT not set or Replica dataset not available",
+    not _replica_room0_ready(),
+    reason="Replica room0 fixture with enriched_objects.json not available",
 )
 def test_more_views_callback():
     """Test that the more_views callback retrieves additional keyframes."""
@@ -153,8 +158,8 @@ def test_more_views_callback():
 
 @pytest.mark.skipif(not HAS_OMEGACONF, reason="omegaconf required for scene loading")
 @pytest.mark.skipif(
-    not Path(os.environ.get("REPLICA_ROOT", "/Users/bytedance/Replica")).exists(),
-    reason="REPLICA_ROOT not set or Replica dataset not available",
+    not _replica_room0_ready(),
+    reason="Replica room0 fixture with enriched_objects.json not available",
 )
 def test_more_views_no_duplicates():
     """Test that request_more_views doesn't return duplicate keyframes."""

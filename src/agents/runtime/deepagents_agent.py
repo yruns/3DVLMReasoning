@@ -15,7 +15,6 @@ from ..models import (
     Stage2AgentResult,
     Stage2DeepAgentConfig,
     Stage2EvidenceBundle,
-    Stage2PlanMode,
     Stage2Status,
     Stage2StructuredResponse,
     Stage2TaskSpec,
@@ -71,6 +70,8 @@ class DeepAgentsStage2Runtime(BaseStage2Runtime):
                 azure_deployment=self.config.model_name,
                 model=self.config.model_name,
                 api_keys=self.config.api_keys,
+                api_key_weights=self.config.api_key_weights,
+                api_key_initial_offset=self.config.api_key_initial_offset,
                 modelhub_path=self.config.modelhub_path,
                 session_id=self.config.session_id,
                 azure_endpoint=self.config.base_url,
@@ -113,7 +114,7 @@ class DeepAgentsStage2Runtime(BaseStage2Runtime):
         def retrieve_object_context(object_terms: list[str] | None = None) -> str:
             """Retrieve scene-level or object-specific context summaries."""
             request = {"object_terms": object_terms or []}
-            response = self.select_object_context(runtime.bundle, object_terms)
+            response = self.retrieve_object_context_text(runtime.bundle, object_terms)
             runtime.record("retrieve_object_context", request, response)
             return response
 
@@ -262,111 +263,38 @@ class DeepAgentsStage2Runtime(BaseStage2Runtime):
             switch_or_expand_hypothesis,
         ]
 
-        # Chassis trio (list_skills / load_skill / submit_final) attaches
-        # whenever the *active task's pack is in use* OR the operator has
-        # explicitly opted in via enable_chassis_tools. This keeps the
-        # chassis available for QA/Nav/Manip migrations (Plan B/C) before
-        # they have a TaskPack registered. Hoisted out of the VG-only
-        # branch so it applies to any task type.
-        #
-        # "In use" means the pack is registered AND the runtime hasn't
-        # opted out of it (today only VG has an opt-out: vg_backend='legacy').
+        # Chassis trio attaches whenever the active task has a pack registered
+        # or the operator explicitly opts in via enable_chassis_tools.
         from agents.skills import PACKS
         from agents.skills.chassis_tools import build_chassis_tools
 
-        pack_in_use = PACKS.get(runtime.task_type) is not None and not (
-            runtime.task_type == Stage2TaskType.VISUAL_GROUNDING
-            and self.config.vg_backend != "pack_v1"
-        )
+        pack_in_use = PACKS.get(runtime.task_type) is not None
         if pack_in_use or self.config.enable_chassis_tools:
             tools.extend(build_chassis_tools(runtime))
 
-        # VG-specific tools — dispatch on vg_backend
+        # VG-specific tools are pack-v1 only after Plan C.
         if runtime.task_type == Stage2TaskType.VISUAL_GROUNDING:
-            backend = self.config.vg_backend
-            if backend == "pack_v1":
-                pack = PACKS.get(Stage2TaskType.VISUAL_GROUNDING)
-                if pack is None:
-                    raise RuntimeError(
-                        "vg_backend='pack_v1' but VG pack not registered; "
-                        "import agents.packs to trigger registration"
-                    )
-                tools.extend(pack.tool_builder(runtime))
-            elif runtime.vg_scene_objects is not None:
-                # legacy branch (vg_backend='legacy', kept until step 9)
-                from ..tools.select_object import handle_select_object
-                from ..tools.spatial_compare import handle_spatial_compare
-
-                @tool
-                def select_object(object_id: int, rationale: str) -> str:
-                    """Select an object from the scene inventory by its ID to finalize
-                    your visual grounding answer. This looks up the precise 3D bounding
-                    box from the scene graph. You MUST call this tool exactly once to
-                    complete any visual grounding task."""
-                    response = handle_select_object(runtime, object_id, rationale)
-                    runtime.record(
-                        "select_object",
-                        {"object_id": object_id, "rationale": rationale},
-                        response,
-                    )
-                    return response
-
-                @tool
-                def spatial_compare(
-                    target_category: str, relation: str, anchor_category: str
-                ) -> str:
-                    """Compare spatial relationships between object categories.
-                    Returns objects of target_category ranked by distance to
-                    anchor_category. relation must be 'closest_to' or 'farthest_from'."""
-                    response = handle_spatial_compare(
-                        runtime, target_category, relation, anchor_category
-                    )
-                    runtime.record(
-                        "spatial_compare",
-                        {
-                            "target_category": target_category,
-                            "relation": relation,
-                            "anchor_category": anchor_category,
-                        },
-                        response,
-                    )
-                    return response
-
-                tools.extend([select_object, spatial_compare])
+            if self.config.vg_backend != "pack_v1":
+                raise ValueError(
+                    f"vg_backend={self.config.vg_backend!r} no longer supported; "
+                    "legacy branch removed in Plan C. Set vg_backend='pack_v1'."
+                )
+            pack = PACKS.get(Stage2TaskType.VISUAL_GROUNDING)
+            if pack is None:
+                raise RuntimeError(
+                    "VG pack not registered; import agents.packs to trigger registration"
+                )
+            tools.extend(pack.tool_builder(runtime))
 
         return tools
 
     def build_subagents(self, task: Stage2TaskSpec) -> list[dict[str, Any]]:
-        """Build optional DeepAgents subagents for richer decomposition.
+        """Return DeepAgents subagents.
 
-        Args:
-            task: Task specification
-
-        Returns:
-            List of subagent configurations for DeepAgents
+        Plan B demotes the old evidence_scout/task_head subagents into skill
+        bodies, so the runtime no longer passes DeepAgents subagents.
         """
-        if not self.config.enable_subagents or task.plan_mode != Stage2PlanMode.FULL:
-            return []
-
-        return [
-            {
-                "name": "evidence_scout",
-                "description": "Diagnose evidence gaps and decide which view/crop/hypothesis tool to call next.",
-                "system_prompt": (
-                    "You are the evidence scout. Focus only on whether current keyframes are "
-                    "sufficient, which missing views or crops are needed, and what uncertainty "
-                    "remains. Do not produce the final user-facing answer."
-                ),
-            },
-            {
-                "name": "task_head",
-                "description": "Synthesize the final task-specific payload from collected evidence.",
-                "system_prompt": (
-                    "You are the task head. Use the collected evidence to assemble the final "
-                    "task-specific payload. Stay faithful to cited frames and explicit uncertainty."
-                ),
-            },
-        ]
+        return []
 
     def build_user_message(
         self,
@@ -608,39 +536,30 @@ class DeepAgentsStage2Runtime(BaseStage2Runtime):
         Returns:
             Tuple of (graph, runtime_state)
         """
-        import numpy as np
+        from agents.packs import ensure_default_packs_registered
+
+        ensure_default_packs_registered()
 
         runtime = Stage2RuntimeState(bundle=bundle.model_copy(deep=True))
         runtime.task_type = task.task_type
 
-        # Populate VG runtime state from bundle extra_metadata
+        # Populate VG runtime state from bundle extra_metadata.
         if task.task_type == Stage2TaskType.VISUAL_GROUNDING:
-            if self.config.vg_backend == "pack_v1":
-                from agents.packs.vg_embodiedscan.ctx import build_ctx_from_bundle
-                runtime.task_ctx = build_ctx_from_bundle(runtime.bundle)
-            else:
-                # legacy
-                extra = runtime.bundle.extra_metadata or {}
-                runtime.vg_scene_objects = extra.get("scene_objects")
-                mat = extra.get("axis_align_matrix")
-                if mat is not None:
-                    runtime.vg_axis_align_matrix = np.array(mat, dtype=np.float64)
-                # Remove non-serializable objects from bundle copy
-                # (inspect_stage1_metadata JSON-serializes extra_metadata)
-                cleaned = {
-                    k: v for k, v in extra.items()
-                    if k not in ("scene_objects", "axis_align_matrix")
-                }
-                runtime.bundle = runtime.bundle.model_copy(
-                    update={"extra_metadata": cleaned}
+            if self.config.vg_backend != "pack_v1":
+                raise ValueError(
+                    f"vg_backend={self.config.vg_backend!r} no longer supported; "
+                    "legacy branch removed in Plan C. Set vg_backend='pack_v1'."
                 )
+            from agents.packs.vg_embodiedscan.ctx import build_ctx_from_bundle
+
+            runtime.task_ctx = build_ctx_from_bundle(runtime.bundle)
 
         from agents.skills.validate import validate_packs
-        require_pack = (
-            task.task_type == Stage2TaskType.VISUAL_GROUNDING
-            and self.config.vg_backend == "pack_v1"
+        validate_packs(
+            task.task_type,
+            bundle,
+            require_pack=task.task_type == Stage2TaskType.VISUAL_GROUNDING,
         )
-        validate_packs(task.task_type, bundle, require_pack=require_pack)
 
         tools = self.build_runtime_tools(runtime)
         graph = create_deep_agent(
@@ -819,12 +738,7 @@ class DeepAgentsStage2Runtime(BaseStage2Runtime):
             final_response, can_acquire_more_evidence
         )
 
-        # Export VG tool results into raw_state for extract_prediction
         result_state = {k: v for k, v in raw_state.items() if k != "messages"}
-        if runtime.vg_selected_object_id is not None:
-            result_state["vg_selected_object_id"] = runtime.vg_selected_object_id
-            result_state["vg_selected_bbox_3d"] = runtime.vg_selected_bbox_3d
-            result_state["vg_selection_rationale"] = runtime.vg_selection_rationale
 
         return Stage2AgentResult(
             task=task,

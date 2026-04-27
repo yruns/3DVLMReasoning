@@ -18,6 +18,37 @@ Plan A 落地。本 plan 收敛掉读取旧字段的 5 个调用点。
 **触发条件:** Plan B step 8 OpenEQA 5-sample smoke 通过 + Plan A
 side-by-side 在更大规模(≥ 100 sample)的复测里 pack-v1 仍 ≥ legacy。
 
+**触发状态(2026-04-27):** 已形式通过,但为 weak pass。
+OpenEQA post-Plan-B smoke: 5 results / 0 failed.
+100-sample EmbodiedScan side-by-side:
+`outputs/side_by_side_100/side_by_side.json`.
+legacy Acc@0.25=0.1400; pack_v1 Acc@0.25=0.1400,满足
+`pack_v1.Acc@0.25 >= legacy.Acc@0.25 - 0.01`。风险: pack_v1
+completed=94/100, failed=6/100。
+
+**执行状态(2026-04-27):** Completed on local branch `feat/explore_3dbbox`.
+Plan C cleanup has been applied:
+
+- `Stage2RuntimeState` no longer has the five legacy `vg_*` fields.
+- VG runtime/wrapper paths now require `vg_backend='pack_v1'`; explicit
+  `vg_backend='legacy'` raises `ValueError`.
+- `Stage2DeepAgentConfig.vg_backend` now defaults to `'pack_v1'`.
+- Legacy `select_object.py`, `spatial_compare.py`, their tests, and
+  `embodiedscan_vg_pilot.py` are deleted.
+- The old side-by-side runner is retained as a pack-v1 metrics runner;
+  the legacy backend path is no longer runnable after cleanup.
+
+Verification:
+
+| check | result |
+| --- | --- |
+| `rg "vg_scene_objects|vg_axis_align_matrix|vg_selected_object_id|vg_selected_bbox_3d|vg_selection_rationale" src/` | 0 matches |
+| `rg "select_object|spatial_compare" src/` | 0 matches |
+| `ruff check` on changed Python files | passed |
+| `pytest src/ -q` | 1551 passed, 7 skipped, 12 warnings |
+| OpenEQA post-Plan-C smoke (`--max-samples 5 --workers 5`) | 5 results, 0 failed |
+| EmbodiedScan VG pack-v1 post-Plan-C smoke (`scene0040_00__9`) | completed; selected proposal 154 (`desk`), confidence 0.58 |
+
 **Source spec:** `docs/superpowers/specs/2026-04-25-stage2-multi-task-agent-design.md`
 
 **粒度说明:** 中粒度。删除性 PR 风险点是"是否真的没人在读了"。每个
@@ -204,12 +235,12 @@ commit: `test: full suite green after legacy cleanup (Plan C complete)`
 
 ## Self-Review checklist (Plan C)
 
-- [ ] `grep -rn "vg_scene_objects\|vg_axis_align_matrix\|vg_selected_object_id\|vg_selected_bbox_3d\|vg_selection_rationale" src/` 返回 0 行
-- [ ] `grep -rn "select_object\|spatial_compare" src/` 返回 0 行(除 history-only 文档)
-- [ ] `Stage2DeepAgentConfig.vg_backend` 默认 `'pack_v1'`
-- [ ] `tests/test_stage2_deep_agent.py` 不再含 `test_legacy_vg_tool_list_snapshot`
-- [ ] `embodiedscan_vg_pilot.py` 不存在
-- [ ] full pytest 套件全绿
+- [x] `grep -rn "vg_scene_objects\|vg_axis_align_matrix\|vg_selected_object_id\|vg_selected_bbox_3d\|vg_selection_rationale" src/` 返回 0 行
+- [x] `grep -rn "select_object\|spatial_compare" src/` 返回 0 行(除 history-only 文档)
+- [x] `Stage2DeepAgentConfig.vg_backend` 默认 `'pack_v1'`
+- [x] `tests/test_stage2_deep_agent.py` 不再含 `test_legacy_vg_tool_list_snapshot`
+- [x] `embodiedscan_vg_pilot.py` 不存在
+- [x] full pytest 套件全绿
 
 ---
 

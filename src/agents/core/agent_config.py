@@ -46,6 +46,15 @@ class Stage2DeepAgentConfig(BaseModel):
         default_factory=lambda: _default_modelhub_api_keys(),
         description="ModelHub AKs rotated on retryable quota/rate-limit errors.",
     )
+    api_key_weights: list[float] = Field(
+        default_factory=lambda: _default_modelhub_api_key_weights(),
+        description="Relative QPS weights for api_keys; same order as api_keys.",
+    )
+    api_key_initial_offset: int = Field(
+        default_factory=lambda: _default_modelhub_api_key_initial_offset(),
+        ge=0,
+        description="Number of weighted AK selections to skip when initializing the rotator.",
+    )
     modelhub_path: str = "/api/modelhub/online/v2/crawl"
     api_version: str = "2024-03-01-preview"
     max_tokens: int = Field(default=10000, ge=1)
@@ -81,11 +90,11 @@ class Stage2DeepAgentConfig(BaseModel):
         "for tasks without a registered TaskPack. Default OFF preserves QA byte-stable.",
     )
     vg_backend: Literal["legacy", "pack_v1"] = Field(
-        default="legacy",
-        description="Which VG code path to run: legacy if/else branch or new TaskPack.",
+        default="pack_v1",
+        description="VG backend. Only 'pack_v1' is supported after Plan C.",
     )
     chassis_tools_version: int = Field(
-        default=1,
+        default=3,
         ge=1,
         description="Bump when chassis tool surface changes; folded into "
         "derive_eval_session_id so prompt-cache invalidates correctly.",
@@ -103,9 +112,30 @@ def _default_modelhub_api_keys() -> list[str]:
         return [key.strip() for key in env_value.split(",") if key.strip()]
 
     return [
-        "hnJAK3LscxwLcy5OpZGQqQAzNyQmdx0a_GPT_AK",
         "cjodAcZmk7eIwm8wtizk1MfqyEJ7V8lG_GPT_AK",
+        "hnJAK3LscxwLcy5OpZGQqQAzNyQmdx0a_GPT_AK",
+        "K1Hn1GahMi3dpvLesYH67sS0S2Z1yFYE_GPT_AK",
     ]
+
+
+def _default_modelhub_api_key_weights() -> list[float]:
+    env_weights = os.environ.get("MODELHUB_AK_WEIGHTS")
+    if env_weights:
+        return [float(weight.strip()) for weight in env_weights.split(",") if weight.strip()]
+
+    env_keys = os.environ.get("MODELHUB_AKS") or os.environ.get("AZURE_API_KEYS")
+    if env_keys:
+        key_count = len([key.strip() for key in env_keys.split(",") if key.strip()])
+        return [1.0] * key_count
+
+    return [5.0, 1.0, 2.5]
+
+
+def _default_modelhub_api_key_initial_offset() -> int:
+    env_offset = os.environ.get("MODELHUB_AK_INITIAL_OFFSET")
+    if not env_offset:
+        return 0
+    return int(env_offset)
 
 
 __all__ = [

@@ -10,6 +10,7 @@ from agents.runtime.langchain_agent import (
     ModelHubKeyRotator,
     ToolChoiceCompatibleAzureChatOpenAI,
     _is_retryable_modelhub_response,
+    _retryable_cooldown_seconds,
     _rewrite_modelhub_request,
 )
 
@@ -22,6 +23,29 @@ def test_key_rotator_cycles_keys() -> None:
     assert set(seen) == {"ak1", "ak2", "ak3"}
 
 
+def test_key_rotator_honors_fractional_weights() -> None:
+    rotator = ModelHubKeyRotator(
+        ["heavy", "light", "medium"],
+        api_key_weights=[5, 1, 2.5],
+    )
+
+    seen = [rotator.acquire() for _ in range(17)]
+
+    assert seen.count("heavy") == 10
+    assert seen.count("light") == 2
+    assert seen.count("medium") == 5
+
+
+def test_key_rotator_initial_offset_staggers_first_selection() -> None:
+    rotator = ModelHubKeyRotator(
+        ["heavy", "light", "medium"],
+        api_key_weights=[5, 1, 2.5],
+        initial_offset=1,
+    )
+
+    assert rotator.acquire() == "medium"
+
+
 def test_key_rotator_demotes_and_skips() -> None:
     rotator = ModelHubKeyRotator(["ak1", "ak2"], time_fn=lambda: 100.0)
     rotator.demote("ak1", cooldown_s=60.0)
@@ -29,6 +53,26 @@ def test_key_rotator_demotes_and_skips() -> None:
     out = [rotator.acquire() for _ in range(4)]
 
     assert out == ["ak2", "ak2", "ak2", "ak2"]
+
+
+def test_key_rotator_waits_when_all_keys_are_cooling_down() -> None:
+    now = {"value": 100.0}
+    slept: list[float] = []
+
+    def sleep_fn(delay: float) -> None:
+        slept.append(delay)
+        now["value"] += delay
+
+    rotator = ModelHubKeyRotator(
+        ["ak1"],
+        time_fn=lambda: now["value"],
+        sleep_fn=sleep_fn,
+    )
+    rotator.demote("ak1", cooldown_s=30.0)
+
+    assert rotator.acquire() == "ak1"
+    assert slept == [30.0]
+    assert now["value"] == 130.0
 
 
 def test_rewrite_modelhub_request_updates_path_query_body_and_headers() -> None:
@@ -70,6 +114,8 @@ def test_rewrite_modelhub_request_updates_path_query_body_and_headers() -> None:
         (429, {"error": {"message": "rate limit"}}, True),
         (503, {"error": {"message": "server busy"}}, True),
         (400, {"code": -1003, "message": "quota exceeded"}, True),
+        (400, {"error": {"code": "-4201", "message": "connection reset by peer"}}, True),
+        (400, {"error": {"message": "read tcp 1.2.3.4: reset by peer"}}, True),
         (401, {"error": {"message": "ak not exist"}}, False),
     ],
 )
@@ -124,6 +170,13 @@ def test_modelhub_http_client_uses_longer_cooldown_for_403() -> None:
     assert response.status_code == 200
     demote_mock.assert_called_once()
     assert demote_mock.call_args.kwargs["cooldown_s"] == 60.0
+
+
+def test_retryable_cooldown_uses_longer_backoff_for_429() -> None:
+    response = httpx.Response(429, json={"error": {"message": "rate limit"}})
+
+    assert _retryable_cooldown_seconds(response, base_delay=2.0, attempt=0) == 20.0
+    assert _retryable_cooldown_seconds(response, base_delay=2.0, attempt=5) == 64.0
 
 
 def test_live_smoke_one_question() -> None:

@@ -149,15 +149,13 @@ class EmbodiedScanVGAdapter(BenchmarkAdapter):
     def get_scene_path(self, sample: BenchmarkSample) -> Path:
         """Map sample to local ConceptGraph scene directory.
 
-        Extracts scene name from scan_id (e.g., "scannet/scene0415_00"
-        → "scene0415_00") and returns the scene root containing
-        raw/ and conceptgraph/ subdirectories.
+        Preserves the dataset source from scan_id (e.g.,
+        "scannet/scene0415_00" -> "scannet/scene0415_00") and returns the
+        scene root containing raw/ and conceptgraph/ subdirectories.
         """
         if isinstance(sample, EmbodiedScanVGSample) and sample.scan_id:
-            scene_name = sample.scan_id.split("/")[-1]
-        else:
-            scene_name = sample.scene_id
-        return self.scene_data_root / scene_name
+            return self.scene_data_root / sample.scan_id
+        return self.scene_data_root / sample.scene_id
 
     def get_axis_align_matrix(self, scan_id: str) -> np.ndarray | None:
         """Get the axis alignment matrix for a scene from EmbodiedScan metadata.
@@ -239,21 +237,12 @@ class EmbodiedScanVGAdapter(BenchmarkAdapter):
     ) -> dict[str, Any]:
         """Extract 3D bbox prediction from agent output.
 
-        Prefers tool-filled data (from select_object tool stored in
-        raw_state) over VLM text output. Falls back to payload parsing.
+        Reads the structured VG payload emitted by the active finalizer.
         """
-        raw = result.raw_state or {}
         payload = result.result.payload
 
-        # Prefer tool-filled bbox from select_object
-        bbox_3d = raw.get("vg_selected_bbox_3d")
-        if bbox_3d is None:
-            bbox_3d = _parse_bbox_3d(payload.get("bbox_3d"))
-
-        selected_id = (
-            raw.get("vg_selected_object_id")
-            or payload.get("selected_object_id")
-        )
+        bbox_3d = _parse_bbox_3d(payload.get("bbox_3d"))
+        selected_id = payload.get("selected_object_id")
 
         return {
             "sample_id": sample.sample_id,

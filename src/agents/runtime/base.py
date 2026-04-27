@@ -40,15 +40,9 @@ class Stage2RuntimeState:
         default_factory=set
     )  # Track already-injected images
 
-    # VG tool state — populated for VISUAL_GROUNDING tasks only
     task_type: Stage2TaskType | None = None
-    vg_scene_objects: list[Any] | None = None
-    vg_axis_align_matrix: Any | None = None  # np.ndarray stored as Any
-    vg_selected_object_id: int | None = None
-    vg_selected_bbox_3d: list[float] | None = None
-    vg_selection_rationale: str = ""
 
-    # Pack-v1 additive fields (kept alongside legacy vg_* until step 9)
+    # Task-pack state populated for pack-backed tasks.
     task_ctx: Any | None = None
     skills_loaded: set[str] = field(default_factory=set)
     # Pack-v1 chassis terminal signal (set by submit_final on success).
@@ -84,8 +78,7 @@ def default_output_instruction(task_type: Stage2TaskType) -> str:
     if task_type == Stage2TaskType.VISUAL_GROUNDING:
         return (
             "Identify and localize the described object in the 3D scene. "
-            "Select the best matching object from the scene inventory. "
-            "Return its object ID and 3D bounding box. "
+            "Select the best matching proposal from the task proposal pool. "
             "If multiple candidates exist, explain why you chose one over others."
         )
     if task_type == Stage2TaskType.NAV_PLAN:
@@ -103,11 +96,8 @@ def default_payload_schema(task_type: Stage2TaskType) -> dict[str, Any]:
         return {"answer": "str", "supporting_claims": ["str"]}
     if task_type == Stage2TaskType.VISUAL_GROUNDING:
         return {
-            "selected_object_id": "int (auto-filled by select_object tool)",
-            "bbox_3d": "auto-filled by select_object tool — do NOT set manually",
-            "target_description": "str",
-            "grounding_rationale": "str (auto-filled by select_object tool)",
-            "alternative_candidates": ["str"],
+            "proposal_id": "int from proposal pool; use -1 when target is not in pool",
+            "confidence": "float in [0, 1]",
         }
     if task_type == Stage2TaskType.NAV_PLAN:
         return {
@@ -225,7 +215,7 @@ class BaseStage2Runtime(ABC):
             )
         return Stage2ToolResult(response_text=str(result))
 
-    def select_object_context(
+    def retrieve_object_context_text(
         self,
         bundle: Stage2EvidenceBundle,
         object_terms: Sequence[str] | None,
@@ -273,51 +263,30 @@ class BaseStage2Runtime(ABC):
 
     def _format_vg_section(self, extra_schema: dict[str, Any]) -> str:
         """Build the VG-specific system prompt section."""
-        if self.config.vg_backend == "pack_v1":
-            return (
-                "## Visual Grounding Protocol (pack v1)\n\n"
-                "You are localizing a target object described in natural language.\n"
-                "The VG pack provides a proposal pool, marked-keyframe renderings,\n"
-                "spatial-comparison helpers, and the chassis trio.\n\n"
-                "### How to start\n"
-                "1. Call `list_skills()` to see what skills are available for VG.\n"
-                "2. Load `vg-grounding-playbook` first via "
-                "`load_skill('vg-grounding-playbook')` — it explains every VG tool\n"
-                "   and the `submit_final` payload schema. The 5 VG tools refuse to\n"
-                "   run until that skill is loaded.\n"
-                "3. Follow the playbook's decision tree, then call\n"
-                "   `submit_final({\"proposal_id\": int, \"confidence\": float}, "
-                "rationale=...)` to terminate.\n\n"
-                "### MANDATORY rules\n"
-                "- Do NOT invent a `proposal_id` outside the pool — the chassis\n"
-                "  validator will reject it.\n"
-                "- If the referent genuinely is not in the pool, submit\n"
-                "  `proposal_id=-1, confidence=0.0` with a rationale (see playbook).\n\n"
+        if self.config.vg_backend != "pack_v1":
+            raise ValueError(
+                f"vg_backend={self.config.vg_backend!r} no longer supported; "
+                "legacy branch removed in Plan C. Set vg_backend='pack_v1'."
             )
-
-        # legacy backend (default) — wording byte-stable for snapshot tests.
         return (
-            "## Visual Grounding Protocol\n\n"
+            "## Visual Grounding Protocol (pack v1)\n\n"
             "You are localizing a target object described in natural language.\n\n"
-            "### Available VG Tools\n"
-            "- select_object(object_id, rationale): Finalize your answer by selecting\n"
-            "  an object from the candidate list. This tool looks up the precise 3D\n"
-            "  bounding box from the scene graph. You MUST call this exactly once.\n"
-            "- spatial_compare(target_category, relation, anchor_category): Compare\n"
-            "  spatial relationships. Use when the description mentions 'closest to',\n"
-            "  'farthest from', 'near', 'far from'. Returns ranked list with distances.\n\n"
-            "### Grounding Strategy (in order):\n"
-            "1. Parse the description for target category + spatial constraints\n"
-            "2. If spatial relation mentioned, call spatial_compare FIRST\n"
-            "3. Use request_crops to verify visual attributes if needed\n"
-            "4. Use request_more_views if target is not visible in keyframes\n"
-            "5. Call select_object(object_id, rationale) to finalize your answer\n\n"
-            "### MANDATORY Rules:\n"
-            "- You MUST call select_object exactly once to complete the task\n"
-            "- select_object auto-fills bbox_3d — do NOT output bbox_3d yourself\n"
-            "- If description mentions spatial relation ('near', 'far', 'closest',\n"
-            "  'farthest', 'between'), call spatial_compare before select_object\n"
-            "- NEVER guess — use spatial_compare for disambiguation\n\n"
+            "The VG pack provides a proposal pool, marked-keyframe renderings, "
+            "proposal inspection, spatial-comparison helpers, and the chassis trio.\n\n"
+            "### How to start\n"
+            "1. Call `list_skills()` to see what skills are available for VG.\n"
+            "2. Load `vg-grounding-playbook` first via "
+            "`load_skill('vg-grounding-playbook')`; it explains every VG tool "
+            "and the `submit_final` payload schema. The 5 VG tools refuse to run "
+            "until that skill is loaded.\n"
+            "3. Follow the playbook's decision tree, then call "
+            "`submit_final({\"proposal_id\": int, \"confidence\": float}, "
+            "rationale=...)` to terminate.\n\n"
+            "### MANDATORY rules\n"
+            "- Do NOT invent a `proposal_id` outside the pool; the chassis "
+            "validator will reject it.\n"
+            "- If the referent genuinely is not in the pool, submit "
+            "`proposal_id=-1, confidence=0.0` with a rationale (see playbook).\n\n"
         )
 
     def _format_skill_catalog(self, task_type: Stage2TaskType) -> str:
@@ -450,7 +419,8 @@ class BaseStage2Runtime(ABC):
             "Framework constraints:\n"
             "- This runtime is built with LangChain v1 and DeepAgents.\n"
             "- Use the built-in todo planning capability according to the selected plan mode.\n"
-            "- Subagents may be used in FULL mode when decomposition is useful.\n"
+            "- Skill-based decomposition replaces DeepAgents subagents; use the skill catalog "
+            "and load evidence/output skills when decomposition is useful.\n"
             f"- Maximum reasoning budget: {task.max_reasoning_turns} turns.\n\n"
             f"{plan_instructions[task.plan_mode]}\n\n"
             "Unified output contract:\n"

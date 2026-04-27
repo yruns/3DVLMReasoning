@@ -5,6 +5,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import numpy as np
+import pytest
 
 from agents import (
     Stage2DeepAgentConfig,
@@ -75,6 +76,11 @@ class TestStage2DeepAgent(unittest.TestCase):
         kwargs = azure_mock.call_args.kwargs
         self.assertEqual(kwargs["azure_endpoint"], agent.config.base_url)
         self.assertEqual(kwargs["api_keys"], agent.config.api_keys)
+        self.assertEqual(kwargs["api_key_weights"], agent.config.api_key_weights)
+        self.assertEqual(
+            kwargs["api_key_initial_offset"],
+            agent.config.api_key_initial_offset,
+        )
         self.assertEqual(kwargs["modelhub_path"], agent.config.modelhub_path)
         self.assertEqual(kwargs["session_id"], "stage2-session")
         self.assertEqual(kwargs["api_version"], agent.config.api_version)
@@ -239,8 +245,8 @@ class TestStage2DeepAgent(unittest.TestCase):
             config=Stage2DeepAgentConfig(enable_subagents=True)
         )
         task = Stage2TaskSpec(
-            task_type=Stage2TaskType.NAV_PLAN,
-            user_query="Navigate to the sofa.",
+            task_type=Stage2TaskType.QA,
+            user_query="What is on the sofa?",
             plan_mode=Stage2PlanMode.FULL,
         )
         bundle = build_stage2_evidence_bundle(
@@ -264,7 +270,10 @@ class TestStage2DeepAgent(unittest.TestCase):
 
         kwargs = create_agent_mock.call_args.kwargs
         self.assertEqual(kwargs["response_format"].__name__, "Stage2StructuredResponse")
-        self.assertEqual(len(kwargs["subagents"]), 2)
+        self.assertEqual(kwargs["subagents"], [])
+        self.assertIn("qa-answering-playbook", kwargs["system_prompt"])
+        self.assertIn("evidence-scouting", kwargs["system_prompt"])
+        self.assertIn("Skill-based decomposition replaces DeepAgents subagents", kwargs["system_prompt"])
         self.assertIn("LangChain v1 and DeepAgents", kwargs["system_prompt"])
 
     def test_run_returns_structured_stage2_result(self) -> None:
@@ -1147,11 +1156,20 @@ class TestApplyUncertaintyStopping(unittest.TestCase):
 
 
 def test_qa_tool_list_snapshot() -> None:
-    """Lock QA tool name list to catch silent chassis additions on QA."""
-    from agents.runtime.deepagents_agent import DeepAgentsStage2Runtime
+    """Lock QA tool name list after QA default pack migration."""
+    import importlib
+
+    import agents.packs.qa_default
     from agents.core.task_types import (
-        Stage2EvidenceBundle, Stage2TaskSpec, Stage2TaskType,
+        Stage2EvidenceBundle,
+        Stage2TaskSpec,
+        Stage2TaskType,
     )
+    from agents.runtime.deepagents_agent import DeepAgentsStage2Runtime
+    from agents.skills import PACKS
+
+    if Stage2TaskType.QA not in PACKS:
+        importlib.reload(agents.packs.qa_default)
 
     runtime = DeepAgentsStage2Runtime()
     bundle = Stage2EvidenceBundle()
@@ -1171,6 +1189,9 @@ def test_qa_tool_list_snapshot() -> None:
         "request_more_views",
         "request_crops",
         "switch_or_expand_hypothesis",
+        "list_skills",
+        "load_skill",
+        "submit_final",
     ]), f"QA tool list drifted: {tool_names}"
 
 
@@ -1179,12 +1200,13 @@ def test_qa_with_enable_chassis_tools_true_gets_chassis_trio() -> None:
     no pack registered for the task type, the chassis trio should still
     attach so an operator can opt into the chassis workflow during a
     pack migration (Plan B QA)."""
-    from agents.runtime.deepagents_agent import DeepAgentsStage2Runtime
     from agents.core.agent_config import Stage2DeepAgentConfig
     from agents.core.task_types import (
-        Stage2EvidenceBundle, Stage2TaskType,
+        Stage2EvidenceBundle,
+        Stage2TaskType,
     )
     from agents.runtime.base import Stage2RuntimeState
+    from agents.runtime.deepagents_agent import DeepAgentsStage2Runtime
     from agents.skills import PACKS
 
     PACKS.clear()  # ensure no pack is registered for QA in this test
@@ -1209,31 +1231,37 @@ def test_qa_with_enable_chassis_tools_true_gets_chassis_trio() -> None:
     ]), f"QA + enable_chassis_tools tool list drifted: {tool_names}"
 
 
-def test_legacy_vg_tool_list_snapshot() -> None:
-    """Lock VG tool name list under vg_backend='legacy'."""
-    from agents.runtime.deepagents_agent import DeepAgentsStage2Runtime
-    from agents.core.agent_config import Stage2DeepAgentConfig
-    from agents.core.task_types import (
-        Stage2EvidenceBundle, Stage2TaskType,
-    )
-    from agents.runtime.base import Stage2RuntimeState
+def test_wrapper_build_agent_qa_auto_registers_default_pack() -> None:
+    """QA default pack is part of the default runtime surface; callers should
+    not need to import agents.packs manually before building a QA agent."""
+    from agents.core.agent_config import Stage2DeepAgentConfig, Stage2TaskType
+    from agents.core.task_types import Stage2EvidenceBundle, Stage2TaskSpec
+    from agents.skills import PACKS
 
-    runtime = DeepAgentsStage2Runtime(config=Stage2DeepAgentConfig(vg_backend="legacy"))
+    PACKS.clear()
     bundle = Stage2EvidenceBundle()
-    state = Stage2RuntimeState(bundle=bundle)
-    state.task_type = Stage2TaskType.VISUAL_GROUNDING
-    state.vg_scene_objects = []   # non-None to enable VG branch
+    task = Stage2TaskSpec(task_type=Stage2TaskType.QA, user_query="?")
+    agent = Stage2DeepResearchAgent(config=Stage2DeepAgentConfig())
 
-    tool_names = sorted(t.name for t in runtime.build_runtime_tools(state))
+    with (
+        patch.object(agent, "_get_llm", return_value=object()),
+        patch("agents.stage2_deep_agent.create_deep_agent") as mock_create,
+    ):
+        mock_create.return_value = object()
+        agent.build_agent(task, bundle)
+        tool_names = sorted(t.name for t in mock_create.call_args.kwargs["tools"])
+
+    assert Stage2TaskType.QA in PACKS
     assert tool_names == sorted([
         "inspect_stage1_metadata",
         "retrieve_object_context",
         "request_more_views",
         "request_crops",
         "switch_or_expand_hypothesis",
-        "select_object",
-        "spatial_compare",
-    ]), f"Legacy VG tool list drifted: {tool_names}"
+        "list_skills",
+        "load_skill",
+        "submit_final",
+    ])
 
 
 def test_wrapper_build_agent_supports_pack_v1(tmp_path) -> None:
@@ -1241,10 +1269,13 @@ def test_wrapper_build_agent_supports_pack_v1(tmp_path) -> None:
     must mirror the runtime's pack_v1 wiring, otherwise pilots that go
     through the wrapper would silently fall back to legacy paths."""
     import importlib
+
     import agents.packs.vg_embodiedscan
     from agents.core.agent_config import Stage2DeepAgentConfig, Stage2TaskType
     from agents.core.task_types import (
-        KeyframeEvidence, Stage2EvidenceBundle, Stage2TaskSpec,
+        KeyframeEvidence,
+        Stage2EvidenceBundle,
+        Stage2TaskSpec,
     )
     from agents.packs.vg_embodiedscan.ctx import VgEmbodiedScanCtx
     from agents.skills import PACKS
@@ -1269,9 +1300,7 @@ def test_wrapper_build_agent_supports_pack_v1(tmp_path) -> None:
     )
     task = Stage2TaskSpec(task_type=Stage2TaskType.VISUAL_GROUNDING, user_query="?")
 
-    agent = Stage2DeepResearchAgent(
-        config=Stage2DeepAgentConfig(vg_backend="pack_v1")
-    )
+    agent = Stage2DeepResearchAgent(config=Stage2DeepAgentConfig())
     # Patch create_deep_agent so we don't need a live LLM client; only the
     # tools-list assembly path matters here.
     with patch("agents.stage2_deep_agent.create_deep_agent") as mock_create:
@@ -1299,19 +1328,48 @@ def test_wrapper_build_agent_supports_pack_v1(tmp_path) -> None:
     assert runtime.task_ctx.proposal_pool_source == "vdetr"
 
 
+def test_wrapper_build_agent_rejects_removed_vg_backend() -> None:
+    from agents.core.agent_config import Stage2DeepAgentConfig, Stage2TaskType
+    from agents.core.task_types import Stage2EvidenceBundle, Stage2TaskSpec
+
+    bundle = Stage2EvidenceBundle()
+    task = Stage2TaskSpec(task_type=Stage2TaskType.VISUAL_GROUNDING, user_query="?")
+    agent = Stage2DeepResearchAgent(config=Stage2DeepAgentConfig(vg_backend="legacy"))
+
+    with pytest.raises(ValueError, match="no longer supported"):
+        agent.build_agent(task, bundle)
+
+
+def test_runtime_build_agent_rejects_removed_vg_backend() -> None:
+    from agents.core.agent_config import Stage2DeepAgentConfig, Stage2TaskType
+    from agents.core.task_types import Stage2EvidenceBundle, Stage2TaskSpec
+    from agents.runtime.deepagents_agent import DeepAgentsStage2Runtime
+
+    bundle = Stage2EvidenceBundle()
+    task = Stage2TaskSpec(task_type=Stage2TaskType.VISUAL_GROUNDING, user_query="?")
+    runtime_agent = DeepAgentsStage2Runtime(
+        config=Stage2DeepAgentConfig(vg_backend="legacy")
+    )
+
+    with pytest.raises(ValueError, match="no longer supported"):
+        runtime_agent.build_agent(task, bundle)
+
+
 def test_pack_v1_vg_tool_list_snapshot(tmp_path) -> None:
     """Lock VG tool name list under vg_backend='pack_v1'."""
     import importlib
+
     import agents.packs.vg_embodiedscan
-    from agents.runtime.deepagents_agent import DeepAgentsStage2Runtime
     from agents.core.agent_config import Stage2DeepAgentConfig, Stage2TaskType
     from agents.core.task_types import (
-        KeyframeEvidence, Stage2EvidenceBundle,
+        KeyframeEvidence,
+        Stage2EvidenceBundle,
     )
-    from agents.runtime.base import Stage2RuntimeState
     from agents.packs.vg_embodiedscan.ctx import (
         VgEmbodiedScanCtx,
     )
+    from agents.runtime.base import Stage2RuntimeState
+    from agents.runtime.deepagents_agent import DeepAgentsStage2Runtime
     from agents.skills import PACKS
 
     # Defensive: another test's autouse `_reset_registry` fixture may have
@@ -1323,7 +1381,7 @@ def test_pack_v1_vg_tool_list_snapshot(tmp_path) -> None:
 
     annotated = tmp_path / "ann"
     annotated.mkdir()
-    runtime = DeepAgentsStage2Runtime(config=Stage2DeepAgentConfig(vg_backend="pack_v1"))
+    runtime = DeepAgentsStage2Runtime(config=Stage2DeepAgentConfig())
     bundle = Stage2EvidenceBundle(
         keyframes=[KeyframeEvidence(keyframe_idx=0, image_path="a.png", frame_id=10)],
         extra_metadata={"vg_proposal_pool": {

@@ -76,10 +76,19 @@ def build_chassis_tools(runtime: Any) -> tuple[BaseTool, BaseTool, BaseTool]:
         # without `model_validate`) pass through unchanged.
         payload_model = pack.finalizer.payload_model
         if hasattr(payload_model, "model_validate"):
-            try:
-                typed_payload = payload_model.model_validate(payload)
-            except (ValueError, TypeError) as exc:
-                err = f"ERROR: submit_final payload schema mismatch: {exc}"
+            candidates = [payload]
+            nested_payload = payload.get("payload") if isinstance(payload, dict) else None
+            if isinstance(nested_payload, dict):
+                candidates.append(nested_payload)
+            last_exc: ValueError | TypeError | None = None
+            for candidate in candidates:
+                try:
+                    typed_payload = payload_model.model_validate(candidate)
+                    break
+                except (ValueError, TypeError) as exc:
+                    last_exc = exc
+            else:
+                err = f"ERROR: submit_final payload schema mismatch: {last_exc}"
                 runtime.record("submit_final", {"payload": payload}, err)
                 return err
         else:

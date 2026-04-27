@@ -1,11 +1,13 @@
-"""Run EmbodiedScan VG legacy + pack-v1 backends side-by-side and report."""
+"""Run EmbodiedScan VG pack-v1 backend and report metrics."""
 
 from __future__ import annotations
 
 import argparse
+import ast
 import json
 import math
 import statistics
+import time
 from collections.abc import Sequence
 from pathlib import Path
 from typing import Any, Literal
@@ -18,7 +20,7 @@ from agents.examples.embodiedscan_vg_pack_v1_pilot import build_pack_v1_bundle
 from agents.stage2_deep_agent import Stage2DeepResearchAgent
 from benchmarks.embodiedscan_eval import compute_oriented_iou_3d
 
-BackendName = Literal["legacy", "pack_v1"]
+BackendName = Literal["pack_v1"]
 
 
 def run_one_sample(
@@ -28,8 +30,50 @@ def run_one_sample(
     pack_v1_inputs_dir: Path,
     embodiedscan_data_root: Path,
     config: Stage2DeepAgentConfig | None = None,
+    sample_retries: int = 0,
 ) -> dict:
     """Run one sample through a backend and score predicted bbox against GT."""
+    if sample_retries < 0:
+        raise ValueError("sample_retries must be non-negative")
+    last_error: Exception | None = None
+    for attempt in range(sample_retries + 1):
+        try:
+            return _run_one_sample_once(
+                sample_id,
+                backend,
+                pack_v1_inputs_dir=pack_v1_inputs_dir,
+                embodiedscan_data_root=embodiedscan_data_root,
+                config=config,
+            )
+        except Exception as exc:
+            last_error = exc
+            if attempt >= sample_retries or not is_retryable_sample_error(exc):
+                raise
+            wait_s = 2.0 * (attempt + 1)
+            logger.warning(
+                "{} {} failed with retryable error on attempt {}/{}: {}. retry in {:.1f}s",
+                sample_id,
+                backend,
+                attempt + 1,
+                sample_retries + 1,
+                exc,
+                wait_s,
+            )
+            time.sleep(wait_s)
+    if last_error is not None:
+        raise last_error
+    raise RuntimeError("run_one_sample retry loop exited unexpectedly")
+
+
+def _run_one_sample_once(
+    sample_id: str,
+    backend: BackendName,
+    *,
+    pack_v1_inputs_dir: Path,
+    embodiedscan_data_root: Path,
+    config: Stage2DeepAgentConfig | None = None,
+) -> dict:
+    """Run one sample once through a backend and score predicted bbox against GT."""
     sample = load_sample_artifact(pack_v1_inputs_dir, sample_id)
     gt_bbox = coerce_bbox_9dof(
         sample.get("gt_bbox_3d_9dof"),
@@ -37,18 +81,13 @@ def run_one_sample(
     )
     cfg = config_for_backend(backend, config)
 
-    if backend == "pack_v1":
-        raw_result = run_pack_v1_sample(sample, pack_v1_inputs_dir, cfg)
-        prediction = extract_pack_v1_prediction(raw_result)
-    elif backend == "legacy":
-        raw_result = run_legacy_pilot_sample(
-            sample_id,
-            embodiedscan_data_root=embodiedscan_data_root,
-            config=cfg,
+    if backend != "pack_v1":
+        raise ValueError(
+            f"backend={backend!r} no longer supported after Plan C; "
+            "run the pack_v1 backend."
         )
-        prediction = extract_legacy_prediction(raw_result)
-    else:
-        raise ValueError(f"Unknown backend={backend!r}")
+    raw_result = run_pack_v1_sample(sample, pack_v1_inputs_dir, cfg)
+    prediction = extract_pack_v1_prediction(raw_result)
 
     status = prediction.get("status")
     if status is None:
@@ -102,10 +141,11 @@ def compare_backends(
     pack_v1_inputs_dir: Path,
     embodiedscan_data_root: Path,
     config: Stage2DeepAgentConfig | None = None,
+    sample_retries: int = 0,
 ) -> dict:
     output_dir.mkdir(parents=True, exist_ok=True)
     results: dict[str, dict] = {}
-    for backend in ("legacy", "pack_v1"):
+    for backend in ("pack_v1",):
         per_sample = [
             run_one_sample(
                 s,
@@ -113,6 +153,7 @@ def compare_backends(
                 pack_v1_inputs_dir=pack_v1_inputs_dir,
                 embodiedscan_data_root=embodiedscan_data_root,
                 config=config,
+                sample_retries=sample_retries,
             )
             for s in sample_ids
         ]
@@ -130,11 +171,7 @@ def compare_backends(
         json.dumps(results, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
-    logger.info(
-        "legacy: Acc@0.25={:.3f}  pack_v1: Acc@0.25={:.3f}",
-        results["legacy"]["Acc@0.25"],
-        results["pack_v1"]["Acc@0.25"],
-    )
+    logger.info("pack_v1: Acc@0.25={:.3f}", results["pack_v1"]["Acc@0.25"])
     return results
 
 
@@ -142,9 +179,35 @@ def config_for_backend(
     backend: BackendName,
     config: Stage2DeepAgentConfig | None,
 ) -> Stage2DeepAgentConfig:
+    if backend != "pack_v1":
+        raise ValueError(
+            f"backend={backend!r} no longer supported after Plan C; "
+            "run the pack_v1 backend."
+        )
     if config is None:
         return Stage2DeepAgentConfig(vg_backend=backend)
     return config.model_copy(update={"vg_backend": backend})
+
+
+def is_retryable_sample_error(exc: Exception) -> bool:
+    message = str(exc).lower()
+    return any(
+        token in message
+        for token in (
+            "prediction missing status",
+            "429",
+            "500",
+            "503",
+            "timeout",
+            "timed out",
+            "connection reset",
+            "read tcp",
+            "internal error",
+            "service hit an internal error",
+            "-4399",
+            "-4201",
+        )
+    )
 
 
 def load_sample_artifact(pack_v1_inputs_dir: Path, sample_id: str) -> dict[str, Any]:
@@ -241,73 +304,18 @@ def resolve_scene_artifacts_dir(
     return pack_v1_inputs_dir / "scenes" / str(sample["scene_id"])
 
 
-def run_legacy_pilot_sample(
-    sample_id: str,
-    *,
-    embodiedscan_data_root: Path,
-    config: Stage2DeepAgentConfig,
-) -> dict[str, Any]:
-    """Run the existing legacy EmbodiedScan pilot for a scene::target sample."""
-    from agents.adapters.embodiedscan_adapter import EmbodiedScanVGAdapter
-    from agents.examples.embodiedscan_vg_pilot import (
-        run_one_sample as run_legacy_one_sample,
-    )
-
-    scene_id, target_id = parse_scene_target_id(sample_id)
-    adapter = EmbodiedScanVGAdapter(
-        data_root=embodiedscan_data_root,
-        scene_data_root=embodiedscan_data_root,
-    )
-    samples = adapter.load_samples(split="val", source_filter=None)
-    sample = next(
-        (
-            s
-            for s in samples
-            if getattr(s, "scene_id", None) == scene_id
-            and int(getattr(s, "target_id", -1)) == target_id
-        ),
-        None,
-    )
-    if sample is None:
-        raise ValueError(
-            f"Sample {sample_id!r} not found under {embodiedscan_data_root}"
-        )
-    return run_legacy_one_sample(sample, adapter, config)
-
-
 def extract_pack_v1_prediction(result: Any) -> dict[str, Any]:
     payload = extract_result_payload(result)
+    bbox_3d = payload.get("bbox_3d")
+    selected_id = payload.get("selected_object_id")
     status = payload.get("status")
-    if status is None:
-        raise ValueError(f"pack_v1 payload missing 'status' field: {payload!r}")
-    return {
-        "status": status,
-        "selected_object_id": payload.get("selected_object_id"),
-        "bbox_3d": payload.get("bbox_3d"),
-        "confidence": payload.get("confidence", extract_result_confidence(result)),
-    }
-
-
-def extract_legacy_prediction(result: dict[str, Any]) -> dict[str, Any]:
-    agent_result = result.get("result") if isinstance(result, dict) else None
-    raw_state = extract_raw_state(agent_result)
-    prediction = result.get("prediction", {}) if isinstance(result, dict) else {}
-    bbox_3d = raw_state.get("vg_selected_bbox_3d")
-    if bbox_3d is None:
-        bbox_3d = prediction.get("bbox_3d")
-    selected_id = raw_state.get("vg_selected_object_id")
-    if selected_id is None:
-        selected_id = prediction.get("selected_object_id")
-    status = prediction.get("status")
     if status is None and bbox_3d is not None:
         status = "completed"
     return {
         "status": status,
         "selected_object_id": selected_id,
         "bbox_3d": bbox_3d,
-        "confidence": prediction.get(
-            "confidence", extract_result_confidence(agent_result)
-        ),
+        "confidence": payload.get("confidence", extract_result_confidence(result)),
     }
 
 
@@ -341,16 +349,6 @@ def describe_result_shape(result: Any) -> str:
     return f"{type(result).__name__}(result={result_shape})"
 
 
-def extract_raw_state(result: Any) -> dict[str, Any]:
-    if result is None:
-        return {}
-    if isinstance(result, dict):
-        raw_state = result.get("raw_state")
-        return raw_state if isinstance(raw_state, dict) else {}
-    raw_state = getattr(result, "raw_state", None)
-    return raw_state if isinstance(raw_state, dict) else {}
-
-
 def extract_result_confidence(result: Any) -> float | None:
     if result is None:
         return None
@@ -365,6 +363,18 @@ def extract_result_confidence(result: Any) -> float | None:
 
 
 def coerce_bbox_9dof(raw: Any, *, field_name: str) -> list[float]:
+    if isinstance(raw, str):
+        text = raw.strip()
+        try:
+            raw = json.loads(text)
+        except json.JSONDecodeError:
+            try:
+                raw = ast.literal_eval(text)
+            except (SyntaxError, ValueError) as exc:
+                raise TypeError(
+                    f"{field_name} must be a list/tuple or serialized list, "
+                    f"got str: {raw!r}"
+                ) from exc
     if not isinstance(raw, (list, tuple)):
         raise TypeError(
             f"{field_name} must be a list/tuple, got {type(raw).__name__}"
@@ -416,6 +426,7 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--output-dir", required=True, type=Path)
     p.add_argument("--pack-v1-inputs-dir", required=True, type=Path)
     p.add_argument("--embodiedscan-data-root", required=True, type=Path)
+    p.add_argument("--sample-retries", type=int, default=2)
     return p.parse_args()
 
 
@@ -427,6 +438,7 @@ def main() -> None:
         output_dir=args.output_dir,
         pack_v1_inputs_dir=args.pack_v1_inputs_dir,
         embodiedscan_data_root=args.embodiedscan_data_root,
+        sample_retries=args.sample_retries,
     )
 
 

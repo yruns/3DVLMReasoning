@@ -84,6 +84,8 @@ class Stage2DeepResearchAgent:
                 azure_deployment=self.config.model_name,
                 model=self.config.model_name,
                 api_keys=self.config.api_keys,
+                api_key_weights=self.config.api_key_weights,
+                api_key_initial_offset=self.config.api_key_initial_offset,
                 modelhub_path=self.config.modelhub_path,
                 session_id=self.config.session_id,
                 azure_endpoint=self.config.base_url,
@@ -145,43 +147,31 @@ class Stage2DeepResearchAgent:
         this module so older tests can patch ``create_deep_agent`` and wrapper
         methods such as ``_get_llm()`` / ``_build_runtime_tools()`` directly.
         """
-        # WARNING: this wrapper intentionally mirrors the runtime implementation
-        # in runtime/deepagents_agent.py so legacy tests can patch this class
-        # directly. Changes here must stay in sync with the runtime copy.
-        import numpy as np
+        from agents.packs import ensure_default_packs_registered
+
+        ensure_default_packs_registered()
 
         runtime = Stage2RuntimeState(bundle=bundle.model_copy(deep=True))
         runtime.task_type = task.task_type
 
-        # Keep the historical wrapper contract for VG setup while still using
-        # the runtime's shared helpers for prompt/tool construction. Mirror
-        # the runtime's pack_v1/legacy split so the wrapper supports both
-        # backends end-to-end (Plan A Section 2 / Task 19.5 review fix).
+        # Keep the wrapper contract for tests that patch this class directly,
+        # while using the same pack-v1 VG setup as the runtime implementation.
         if task.task_type == Stage2TaskType.VISUAL_GROUNDING:
-            if self.config.vg_backend == "pack_v1":
-                from agents.packs.vg_embodiedscan.ctx import build_ctx_from_bundle
-                runtime.task_ctx = build_ctx_from_bundle(runtime.bundle)
-            else:
-                extra = runtime.bundle.extra_metadata or {}
-                runtime.vg_scene_objects = extra.get("scene_objects")
-                mat = extra.get("axis_align_matrix")
-                if mat is not None:
-                    runtime.vg_axis_align_matrix = np.array(mat, dtype=np.float64)
-                cleaned = {
-                    k: v
-                    for k, v in extra.items()
-                    if k not in ("scene_objects", "axis_align_matrix")
-                }
-                runtime.bundle = runtime.bundle.model_copy(
-                    update={"extra_metadata": cleaned}
+            if self.config.vg_backend != "pack_v1":
+                raise ValueError(
+                    f"vg_backend={self.config.vg_backend!r} no longer supported; "
+                    "legacy branch removed in Plan C. Set vg_backend='pack_v1'."
                 )
+            from agents.packs.vg_embodiedscan.ctx import build_ctx_from_bundle
+
+            runtime.task_ctx = build_ctx_from_bundle(runtime.bundle)
 
         from agents.skills.validate import validate_packs
-        require_pack = (
-            task.task_type == Stage2TaskType.VISUAL_GROUNDING
-            and self.config.vg_backend == "pack_v1"
+        validate_packs(
+            task.task_type,
+            bundle,
+            require_pack=task.task_type == Stage2TaskType.VISUAL_GROUNDING,
         )
-        validate_packs(task.task_type, bundle, require_pack=require_pack)
 
         graph = create_deep_agent(
             model=self._get_llm(),
@@ -297,10 +287,6 @@ class Stage2DeepResearchAgent:
         )
 
         result_state = {k: v for k, v in raw_state.items() if k != "messages"}
-        if runtime.vg_selected_object_id is not None:
-            result_state["vg_selected_object_id"] = runtime.vg_selected_object_id
-            result_state["vg_selected_bbox_3d"] = runtime.vg_selected_bbox_3d
-            result_state["vg_selection_rationale"] = runtime.vg_selection_rationale
 
         return Stage2AgentResult(
             task=task,

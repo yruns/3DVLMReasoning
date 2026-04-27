@@ -435,7 +435,7 @@ class KeyframeSelector:
             image_idx = obj.get("image_idx", [])
             xyxy = obj.get("xyxy", [])
 
-            # Keep bbox for VG tools (select_object computes precise extent)
+            # Keep bbox for downstream VG proposal/candidate formatting.
             bbox_np_raw = obj.get("bbox_np")
             bbox_np_arr = (
                 np.asarray(bbox_np_raw, dtype=np.float32)

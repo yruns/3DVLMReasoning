@@ -1,4 +1,4 @@
-"""Additive task_ctx + skills_loaded fields on Stage2RuntimeState."""
+"""Task-pack fields on Stage2RuntimeState."""
 from __future__ import annotations
 
 from agents.core.task_types import Stage2EvidenceBundle
@@ -13,15 +13,6 @@ def test_task_ctx_defaults_to_none() -> None:
 def test_skills_loaded_defaults_empty_set() -> None:
     rs = Stage2RuntimeState(bundle=Stage2EvidenceBundle())
     assert rs.skills_loaded == set()
-
-
-def test_existing_vg_fields_unchanged() -> None:
-    rs = Stage2RuntimeState(bundle=Stage2EvidenceBundle())
-    assert rs.vg_scene_objects is None
-    assert rs.vg_axis_align_matrix is None
-    assert rs.vg_selected_object_id is None
-    assert rs.vg_selected_bbox_3d is None
-    assert rs.vg_selection_rationale == ""
 
 
 def test_skills_loaded_is_per_instance() -> None:

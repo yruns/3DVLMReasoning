@@ -1,18 +1,16 @@
 #!/usr/bin/env python
-"""EmbodiedScan VG pilot using pack-v1 backend.
+"""EmbodiedScan VG pilot using the pack-v1 backend.
 
-Differences from legacy embodiedscan_vg_pilot.py:
-- Stage2DeepAgentConfig(vg_backend="pack_v1")
-- bundle.extra_metadata.vg_proposal_pool populated by build_vg_proposal_pool
-- agent terminates via chassis submit_final, not select_object side effect
+This is the only supported EmbodiedScan VG pilot after Plan C. It builds a
+proposal-pool bundle and terminates through the chassis submit_final tool.
 """
 from __future__ import annotations
 
 import argparse
 import json
 import sys
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Sequence
 
 import numpy as np
 from loguru import logger
@@ -27,7 +25,9 @@ from agents.core.task_types import (  # noqa: E402
     Stage2EvidenceBundle,
     Stage2TaskSpec,
 )
-from agents.packs.vg_embodiedscan.proposal_pool import build_vg_proposal_pool  # noqa: E402
+from agents.packs.vg_embodiedscan.proposal_pool import (
+    build_vg_proposal_pool,  # noqa: E402
+)
 from agents.stage2_deep_agent import Stage2DeepResearchAgent  # noqa: E402
 
 

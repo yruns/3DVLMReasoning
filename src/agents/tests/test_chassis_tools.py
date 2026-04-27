@@ -1,17 +1,20 @@
 """Chassis tools: list_skills, load_skill, submit_final."""
 from __future__ import annotations
 
+import importlib
 import json
 from pathlib import Path
 
 import pytest
 
+import agents.packs.qa_default
+import agents.packs.vg_embodiedscan
 from agents.core.agent_config import Stage2TaskType
 from agents.core.task_types import Stage2EvidenceBundle
 from agents.runtime.base import Stage2RuntimeState
 from agents.skills import (
-    FinalizerSpec,
     PACKS,
+    FinalizerSpec,
     SkillSpec,
     TaskPack,
     register_pack,
@@ -136,10 +139,46 @@ def test_submit_final_does_not_set_final_submission_on_no_pack(tmp_path: Path) -
 def _ensure_vg_pack_registered() -> None:
     """Pull in the real VG_PACK; its `register()` runs on package import.
     Idempotent in case the autouse fixture cleared PACKS before this test."""
-    import importlib
-    import agents.packs.vg_embodiedscan
     if Stage2TaskType.VISUAL_GROUNDING not in PACKS:
         importlib.reload(agents.packs.vg_embodiedscan)
+
+
+def _ensure_qa_pack_registered() -> None:
+    if Stage2TaskType.QA not in PACKS:
+        importlib.reload(agents.packs.qa_default)
+
+
+def test_submit_final_unwraps_structured_response_payload_for_qa(tmp_path: Path) -> None:
+    """QA agents may pass a full Stage2StructuredResponse-shaped object as
+    the submit_final payload. The chassis should validate the nested
+    task payload instead of rejecting the call."""
+    _ensure_qa_pack_registered()
+    rs = _runtime(Stage2TaskType.QA)
+    _, _, submit_final = build_chassis_tools(rs)
+
+    response = submit_final.invoke(
+        {
+            "payload": {
+                "task_type": "qa",
+                "status": "completed",
+                "summary": "A red fire extinguisher is below the windows.",
+                "confidence": 0.91,
+                "payload": {
+                    "answer": "A fire extinguisher.",
+                    "supporting_claims": ["A red extinguisher is visible."],
+                },
+            },
+            "rationale": "direct visual evidence",
+            "evidence_refs": [],
+        }
+    )
+
+    assert "submitted" in response.lower()
+    assert rs.final_submission == {
+        "status": "completed",
+        "answer": "A fire extinguisher.",
+        "supporting_claims": ["A red extinguisher is visible."],
+    }
 
 
 def test_submit_final_coerces_dict_to_payload_model_for_pydantic(tmp_path: Path) -> None:

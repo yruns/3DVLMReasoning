@@ -3410,6 +3410,17 @@ pack_v1.Acc@0.25 >= legacy.Acc@0.25 - 0.01
 
 时,可启动 Plan B (steps 7–8)。
 
+2026-04-26 本地实跑输出位于
+`outputs/side_by_side_batch30/side_by_side.json`:
+
+- legacy: n=30, mean IoU=0.0346, Acc@0.25=0.0667, Acc@0.50=0.0000
+- pack_v1: n=30, mean IoU=0.0467, Acc@0.25=0.0667, Acc@0.50=0.0333
+- current pack_v1 proposal-pool oracle: mean IoU=0.5611,
+  Acc@0.25=0.9333, Acc@0.50=0.6667
+
+形式化 gate 通过,因此 Plan B 可启动;但这是弱通过,后续仍需单独定位
+agent proposal selection quality 与 oracle ceiling 的差距。
+
 如果不满足,**不要** 进 Plan B;在本仓建立 follow-up issue 定位
 差距,优先级:
 1. proposal_pool 是否带正确的 axis_align_matrix?

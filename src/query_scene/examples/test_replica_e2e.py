@@ -17,6 +17,8 @@ import os
 import sys
 from pathlib import Path
 
+import pytest
+
 # Add project root to path
 project_root = Path(__file__).parent.parent.parent.parent
 sys.path.insert(0, str(project_root))
@@ -30,6 +32,15 @@ logging.basicConfig(
     datefmt="%H:%M:%S",
 )
 logger = logging.getLogger(__name__)
+
+
+@pytest.fixture
+def pipeline():
+    """Build the example pipeline when the local Replica fixture is available."""
+    pipeline_ok, created_pipeline = test_pipeline_creation()
+    if not pipeline_ok or created_pipeline is None:
+        pytest.skip("Replica room0 pipeline fixture is not available")
+    return created_pipeline
 
 
 def test_adapter_loading():

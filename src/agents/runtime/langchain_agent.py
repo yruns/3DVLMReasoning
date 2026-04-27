@@ -25,26 +25,63 @@ class ModelHubKeyRotator:
         self,
         api_keys: list[str],
         *,
+        api_key_weights: list[float] | None = None,
+        initial_offset: int = 0,
         time_fn: Callable[[], float] | None = None,
+        sleep_fn: Callable[[float], None] | None = None,
     ) -> None:
         keys = [key for key in api_keys if key]
         if not keys:
             raise ValueError("ModelHubKeyRotator requires at least one AK")
+        weights = list(api_key_weights or [1.0] * len(keys))
+        if len(weights) != len(keys):
+            raise ValueError(
+                "ModelHubKeyRotator api_key_weights length must match api_keys"
+            )
+        if any(weight <= 0 for weight in weights):
+            raise ValueError("ModelHubKeyRotator api_key_weights must be positive")
+        if initial_offset < 0:
+            raise ValueError("ModelHubKeyRotator initial_offset must be non-negative")
         self._keys = list(keys)
-        self._next_index = 0
+        self._weights = [float(weight) for weight in weights]
+        self._current_weights = [0.0 for _ in keys]
         self._bad_until: dict[str, float] = {}
         self._time_fn = time_fn or time.time
+        self._sleep_fn = sleep_fn or time.sleep
         self._lock = threading.Lock()
+        for _ in range(initial_offset):
+            self.acquire()
 
     def acquire(self) -> str:
-        now = self._time_fn()
-        with self._lock:
-            for _ in range(len(self._keys)):
-                key = self._keys[self._next_index]
-                self._next_index = (self._next_index + 1) % len(self._keys)
-                if self._bad_until.get(key, 0.0) <= now:
-                    return key
-            return self._keys[0]
+        while True:
+            now = self._time_fn()
+            with self._lock:
+                available = [
+                    index
+                    for index, key in enumerate(self._keys)
+                    if self._bad_until.get(key, 0.0) <= now
+                ]
+                if available:
+                    total_weight = sum(self._weights[index] for index in available)
+                    for index in available:
+                        self._current_weights[index] += self._weights[index]
+
+                    selected = max(
+                        available,
+                        key=lambda index: (self._current_weights[index], -index),
+                    )
+                    self._current_weights[selected] -= total_weight
+                    return self._keys[selected]
+
+                earliest_ready = min(self._bad_until[key] for key in self._keys)
+                wait_s = max(0.0, earliest_ready - now)
+
+            if wait_s > 0:
+                logger.warning(
+                    "[ModelHubKeyRotator] all AKs cooling down; wait {:.1f}s",
+                    wait_s,
+                )
+                self._sleep_fn(wait_s)
 
     def demote(self, key: str, cooldown_s: float = 30.0) -> None:
         with self._lock:
@@ -108,7 +145,7 @@ def _is_retryable_modelhub_response(response: httpx.Response) -> bool:
         item = queue.pop()
         if isinstance(item, dict):
             code = item.get("code")
-            if code in {-1003, "-1003"}:
+            if code in {-1003, "-1003", -4201, "-4201"}:
                 return True
             message = str(item.get("message", "")).lower()
             if any(
@@ -119,6 +156,8 @@ def _is_retryable_modelhub_response(response: httpx.Response) -> bool:
                     "resource exhausted",
                     "server busy",
                     "timeout",
+                    "connection reset",
+                    "read tcp",
                 )
             ):
                 return True
@@ -137,6 +176,8 @@ def _retryable_cooldown_seconds(
 ) -> float:
     if response is not None and response.status_code == 403:
         return 60.0
+    if response is not None and response.status_code == 429:
+        return max(20.0, base_delay * (2**attempt))
     return base_delay * (2**attempt)
 
 
@@ -249,6 +290,8 @@ class ToolChoiceCompatibleAzureChatOpenAI(AzureChatOpenAI):
         self,
         *args: Any,
         api_keys: list[str] | None = None,
+        api_key_weights: list[float] | None = None,
+        api_key_initial_offset: int = 0,
         modelhub_path: str = "/api/modelhub/online/v2/crawl",
         session_id: str = "v15_eval_default",
         logid_prefix: str = "modelhub",
@@ -266,7 +309,11 @@ class ToolChoiceCompatibleAzureChatOpenAI(AzureChatOpenAI):
         )
         timeout = kwargs.get("timeout", 120.0)
         max_attempts = max(5, int(kwargs.get("max_retries", 0)) + 1)
-        rotator = ModelHubKeyRotator(resolved_api_keys)
+        rotator = ModelHubKeyRotator(
+            resolved_api_keys,
+            api_key_weights=api_key_weights,
+            initial_offset=api_key_initial_offset,
+        )
         http_client = ModelHubHttpClient(
             rotator=rotator,
             modelhub_path=modelhub_path,
@@ -287,6 +334,8 @@ class ToolChoiceCompatibleAzureChatOpenAI(AzureChatOpenAI):
         object.__setattr__(self, "_modelhub_http_client", http_client)
         object.__setattr__(self, "_session_id", session_id)
         object.__setattr__(self, "_api_keys", resolved_api_keys)
+        object.__setattr__(self, "_api_key_weights", api_key_weights)
+        object.__setattr__(self, "_api_key_initial_offset", api_key_initial_offset)
         object.__setattr__(self, "_modelhub_path", modelhub_path)
 
     def bind_tools(

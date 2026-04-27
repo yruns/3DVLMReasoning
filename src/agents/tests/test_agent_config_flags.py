@@ -11,14 +11,40 @@ def test_enable_chassis_tools_defaults_off() -> None:
     assert cfg.enable_chassis_tools is False
 
 
-def test_vg_backend_defaults_legacy() -> None:
+def test_vg_backend_defaults_pack_v1() -> None:
     cfg = Stage2DeepAgentConfig()
-    assert cfg.vg_backend == "legacy"
+    assert cfg.vg_backend == "pack_v1"
 
 
 def test_chassis_tools_version_default_is_int() -> None:
     cfg = Stage2DeepAgentConfig()
     assert isinstance(cfg.chassis_tools_version, int)
+    assert cfg.chassis_tools_version == 3
+
+
+def test_default_modelhub_pool_uses_three_weighted_gpt54_keys() -> None:
+    cfg = Stage2DeepAgentConfig()
+    assert cfg.base_url == "https://aidp-i18ntt-sg.tiktok-row.net"
+    assert cfg.model_name == "gpt-5.4-2026-03-05"
+    assert len(cfg.api_keys) == 3
+    assert cfg.api_key_weights == [5.0, 1.0, 2.5]
+    assert cfg.api_key_initial_offset == 0
+
+
+def test_modelhub_pool_initial_offset_can_come_from_env(monkeypatch) -> None:
+    monkeypatch.setenv("MODELHUB_AK_INITIAL_OFFSET", "2")
+
+    cfg = Stage2DeepAgentConfig()
+
+    assert cfg.api_key_initial_offset == 2
+
+
+def test_modelhub_pool_initial_offset_treats_empty_env_as_zero(monkeypatch) -> None:
+    monkeypatch.setenv("MODELHUB_AK_INITIAL_OFFSET", "")
+
+    cfg = Stage2DeepAgentConfig()
+
+    assert cfg.api_key_initial_offset == 0
 
 
 def test_vg_backend_rejects_unknown_value() -> None:

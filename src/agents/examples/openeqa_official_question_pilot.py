@@ -281,8 +281,8 @@ def derive_eval_session_id(
     *,
     output_root: Path,
     enable_temporal_fan: bool,
-    chassis_tools_version: int = 1,
-    vg_backend: str = "legacy",
+    chassis_tools_version: int = 3,
+    vg_backend: str = "pack_v1",
     explicit_session_id: str | None = None,
 ) -> str:
     if explicit_session_id:
@@ -294,7 +294,7 @@ def derive_eval_session_id(
             f"temporal_fan={enable_temporal_fan}|"
             f"chassis_tools_version={chassis_tools_version}|"
             f"vg_backend={vg_backend}"
-        ).encode("utf-8")
+        ).encode()
     ).hexdigest()[:16]
     return f"v15_{digest}"
 
@@ -757,8 +757,8 @@ def main() -> None:
     args.session_id = derive_eval_session_id(
         output_root=args.output_root,
         enable_temporal_fan=args.enable_temporal_fan,
-        chassis_tools_version=getattr(args, "chassis_tools_version", 1),
-        vg_backend=getattr(args, "vg_backend", "legacy"),
+        chassis_tools_version=getattr(args, "chassis_tools_version", 3),
+        vg_backend=getattr(args, "vg_backend", "pack_v1"),
         explicit_session_id=args.session_id,
     )
 

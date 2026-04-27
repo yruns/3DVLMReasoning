@@ -6,7 +6,7 @@ and applies coordinate transformations correctly.
 
 import numpy as np
 
-from ...dataset import CoordinateSystem
+from dataset import CoordinateSystem
 
 
 def test_coordinate_transform_logic():

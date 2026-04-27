@@ -11,15 +11,30 @@ def test_session_id_changes_when_chassis_tools_version_changes(tmp_path: Path) -
         output_root=tmp_path,
         enable_temporal_fan=False,
         chassis_tools_version=1,
-        vg_backend="legacy",
+        vg_backend="pack_v1",
     )
     b = derive_eval_session_id(
         output_root=tmp_path,
         enable_temporal_fan=False,
         chassis_tools_version=2,
-        vg_backend="legacy",
+        vg_backend="pack_v1",
     )
     assert a != b
+
+
+def test_default_session_id_uses_current_chassis_tools_version(tmp_path: Path) -> None:
+    default_id = derive_eval_session_id(
+        output_root=tmp_path,
+        enable_temporal_fan=False,
+        vg_backend="pack_v1",
+    )
+    explicit_current_id = derive_eval_session_id(
+        output_root=tmp_path,
+        enable_temporal_fan=False,
+        chassis_tools_version=3,
+        vg_backend="pack_v1",
+    )
+    assert default_id == explicit_current_id
 
 
 def test_session_id_changes_when_vg_backend_changes(tmp_path: Path) -> None:
@@ -43,7 +58,7 @@ def test_explicit_session_id_overrides(tmp_path: Path) -> None:
         output_root=tmp_path,
         enable_temporal_fan=False,
         chassis_tools_version=1,
-        vg_backend="legacy",
+        vg_backend="pack_v1",
         explicit_session_id="custom",
     )
     assert sid == "custom"

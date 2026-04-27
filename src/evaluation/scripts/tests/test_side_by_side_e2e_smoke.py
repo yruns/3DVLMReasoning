@@ -1,4 +1,4 @@
-"""End-to-end side-by-side smoke with offline inputs and mocked agents."""
+"""End-to-end pack-v1 smoke with offline inputs and mocked agents."""
 
 from __future__ import annotations
 
@@ -163,32 +163,6 @@ def test_side_by_side_e2e_smoke_with_mocked_agents(tmp_path, monkeypatch) -> Non
 
     monkeypatch.setattr(runner, "Stage2DeepResearchAgent", FakeStage2Agent)
 
-    from agents.adapters.embodiedscan_adapter import EmbodiedScanVGAdapter
-    from agents.examples import embodiedscan_vg_pilot
-
-    monkeypatch.setattr(
-        EmbodiedScanVGAdapter,
-        "load_samples",
-        lambda self, split="val", source_filter=None, **kwargs: [sample],
-    )
-
-    def fake_legacy_pilot(sample_arg, adapter_arg, config, *args, **kwargs):
-        assert sample_arg.scene_id == scene_id
-        assert sample_arg.target_id == target_id
-        assert config.vg_backend == "legacy"
-        return {
-            "sample": sample_arg,
-            "prediction": {"sample_id": sample_id, "bbox_3d": None},
-            "result": SimpleNamespace(
-                raw_state={
-                    "vg_selected_object_id": target_id,
-                    "vg_selected_bbox_3d": gt_bbox,
-                }
-            ),
-        }
-
-    monkeypatch.setattr(embodiedscan_vg_pilot, "run_one_sample", fake_legacy_pilot)
-
     out_dir = tmp_path / "out"
     results = runner.compare_backends(
         sample_ids=[sample_id],
@@ -198,8 +172,8 @@ def test_side_by_side_e2e_smoke_with_mocked_agents(tmp_path, monkeypatch) -> Non
     )
 
     assert (out_dir / "side_by_side.json").exists()
-    for backend in ("legacy", "pack_v1"):
-        assert results[backend]["n"] == 1
-        assert results[backend]["mean_iou"] == pytest.approx(1.0)
-        assert results[backend]["Acc@0.25"] == 1.0
-        assert results[backend]["Acc@0.50"] == 1.0
+    assert sorted(results) == ["pack_v1"]
+    assert results["pack_v1"]["n"] == 1
+    assert results["pack_v1"]["mean_iou"] == pytest.approx(1.0)
+    assert results["pack_v1"]["Acc@0.25"] == 1.0
+    assert results["pack_v1"]["Acc@0.50"] == 1.0

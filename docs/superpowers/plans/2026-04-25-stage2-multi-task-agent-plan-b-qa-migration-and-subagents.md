@@ -17,6 +17,21 @@ chassis trio) 与 step 8 (subagents `evidence_scout` + `task_head`
 
 **Source spec:** `docs/superpowers/specs/2026-04-25-stage2-multi-task-agent-design.md`
 
+**Execution status (2026-04-26):** Completed on local branch
+`feat/explore_3dbbox`. Targeted regression suites pass, and the
+OpenEQA 1-sample smoke completed with non-empty Stage2 and E2E
+answers under `outputs/qa_smoke_after_plan_b/`.
+
+Actual implementation notes:
+
+- QA auto-registers through `ensure_default_packs_registered()` so
+  tests/tools that clear `PACKS` do not silently lose the default pack.
+- `chassis_tools_version` is now `3`, not `2`: Plan B changes both QA's
+  chassis tool surface and the FULL-mode subagent surface/system prompt.
+- `submit_final` accepts the nested `Stage2StructuredResponse`-shaped
+  payload emitted by some LLM calls and unwraps its inner `payload`
+  before validating the task-specific QA payload.
+
 **粒度说明:** 本 plan 是**中粒度** — 每个 task 给出 file/test/key
 behavior,但不把每个 step 都展开 5 行 TDD 节奏。Plan A 的执行体感
 告诉我们某些细节(尤其 QA 的 finalizer payload)在那时会有更准确的
@@ -250,13 +265,24 @@ python src/agents/examples/openeqa_official_question_pilot.py \
 
 ## Self-Review checklist (Plan B)
 
-- [ ] spec 第 10 节 step 7 全部 task 覆盖(qa_default pack + chassis
+- [x] spec 第 10 节 step 7 全部 task 覆盖(qa_default pack + chassis
   trio for QA + qa-answering-playbook skill)
-- [ ] spec 第 10 节 step 8 全部 task 覆盖(subagents 降级 + system
+- [x] spec 第 10 节 step 8 全部 task 覆盖(subagents 降级 + system
   prompt 文案 + 测试重写)
-- [ ] 没有遗留 `enable_subagents` 的"幽灵开关"
-- [ ] QA snapshot test 与 chassis_tools_version 都更新到正确值
-- [ ] OpenEQA 1-sample smoke 通过
+- [x] 没有遗留 `enable_subagents` 的"幽灵开关"
+- [x] QA snapshot test 与 chassis_tools_version 都更新到正确值
+- [x] OpenEQA 1-sample smoke 通过
+
+2026-04-26 verification:
+
+- `PYTHONPATH=src .venv/bin/python -m pytest src/agents/tests/test_stage2_deep_agent.py src/agents/tests/test_agent_config_flags.py src/agents/tests/test_derive_eval_session_id.py src/agents/tests/test_validate_packs.py src/agents/tests/test_chassis_tools.py src/agents/tests/test_skills_registry.py src/agents/packs/qa_default/tests src/agents/packs/vg_embodiedscan/tests -q`
+  -> **109 passed**.
+- `PYTHONPATH=src .venv/bin/python -m pytest src/agents/tests/test_embodiedscan_adapter_paths.py src/evaluation/scripts/tests/test_run_embodiedscan_vg_side_by_side.py -q`
+  -> **11 passed, 7 warnings** (`integration` marker not registered).
+- `.venv/bin/python src/agents/examples/openeqa_official_question_pilot.py --max-samples 1 --output-root outputs/qa_smoke_after_plan_b`
+  -> **1 result, 0 failed**. Stage2 answer:
+  "A small red bottle." E2E answer:
+  "A small red bottle on the countertop below the window."
 
 ---
 
@@ -270,3 +296,15 @@ python src/agents/examples/openeqa_official_question_pilot.py --max-samples 5 --
 ```
 
 通过即可启动 Plan C(legacy `vg_*` 字段与 legacy VG 分支删除)。
+
+2026-04-27 追加验证:
+
+- OpenEQA post-Plan-B smoke: `outputs/qa_post_plan_b/official_batch_summary.json`,
+  5 results, 0 failed.
+- 100-sample EmbodiedScan side-by-side:
+  `outputs/side_by_side_100/side_by_side.json`.
+  legacy Acc@0.25=0.1400; pack_v1 Acc@0.25=0.1400.
+
+按文档 gate `pack_v1.Acc@0.25 >= legacy.Acc@0.25 - 0.01` 形式上
+通过,Plan C 可启动。但这是 weak pass: pack_v1 completed=94/100,
+failed=6/100,后续删除 legacy 分支时仍需保留这条风险记录。

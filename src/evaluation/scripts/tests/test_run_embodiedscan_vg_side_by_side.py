@@ -1,4 +1,4 @@
-"""Side-by-side runs both backends and produces a comparison table."""
+"""Pack-v1 EmbodiedScan VG runner tests."""
 
 from __future__ import annotations
 
@@ -63,13 +63,13 @@ def _write_pack_v1_inputs(tmp_path, *, sample_id: str = "scene0001_00::72"):
 
 
 @pytest.mark.integration
-def test_side_by_side_emits_comparison_dict(monkeypatch, tmp_path) -> None:
+def test_runner_emits_pack_v1_metrics(monkeypatch, tmp_path) -> None:
     from evaluation.scripts.run_embodiedscan_vg_side_by_side import (
         compare_backends,
     )
 
     def fake_run_one(sample_id, backend, **_kwargs):
-        return {"sample_id": sample_id, "iou": 0.5 if backend == "pack_v1" else 0.4}
+        return {"sample_id": sample_id, "iou": 0.5, "backend": backend}
 
     monkeypatch.setattr(
         "evaluation.scripts.run_embodiedscan_vg_side_by_side.run_one_sample",
@@ -81,8 +81,8 @@ def test_side_by_side_emits_comparison_dict(monkeypatch, tmp_path) -> None:
         pack_v1_inputs_dir=tmp_path / "pack_v1",
         embodiedscan_data_root=tmp_path / "embodiedscan",
     )
-    assert "legacy" in out and "pack_v1" in out
-    assert out["pack_v1"]["mean_iou"] >= out["legacy"]["mean_iou"]
+    assert sorted(out) == ["pack_v1"]
+    assert out["pack_v1"]["mean_iou"] == pytest.approx(0.5)
 
 
 @pytest.mark.integration
@@ -143,6 +143,30 @@ def test_pack_v1_run_one_sample_scores_agent_bbox(monkeypatch, tmp_path) -> None
         0.0,
     ]
     assert out["iou"] == pytest.approx(1.0)
+
+
+def test_removed_backend_is_rejected(tmp_path) -> None:
+    from evaluation.scripts import run_embodiedscan_vg_side_by_side as runner
+
+    pack_dir = _write_pack_v1_inputs(tmp_path)
+
+    with pytest.raises(ValueError, match="no longer supported"):
+        runner.run_one_sample(
+            "scene0001_00::72",
+            "legacy",
+            pack_v1_inputs_dir=pack_dir,
+            embodiedscan_data_root=tmp_path / "embodiedscan",
+        )
+
+
+def test_is_retryable_sample_error_accepts_connection_reset() -> None:
+    from evaluation.scripts.run_embodiedscan_vg_side_by_side import (
+        is_retryable_sample_error,
+    )
+
+    assert is_retryable_sample_error(
+        RuntimeError("Error code: 400 - connection reset by peer, code -4201")
+    )
 
 
 @pytest.mark.integration
@@ -219,7 +243,9 @@ def test_pack_v1_completed_payload_without_bbox_raises(monkeypatch, tmp_path) ->
 
 
 @pytest.mark.integration
-def test_pack_v1_payload_missing_status_raises(monkeypatch, tmp_path) -> None:
+def test_pack_v1_payload_missing_status_with_bbox_infers_completed(
+    monkeypatch, tmp_path
+) -> None:
     from evaluation.scripts import run_embodiedscan_vg_side_by_side as runner
 
     pack_dir = _write_pack_v1_inputs(tmp_path)
@@ -242,13 +268,16 @@ def test_pack_v1_payload_missing_status_raises(monkeypatch, tmp_path) -> None:
 
     monkeypatch.setattr(runner, "Stage2DeepResearchAgent", FakeAgent)
 
-    with pytest.raises(ValueError, match="pack_v1 payload missing 'status' field"):
-        runner.run_one_sample(
-            "scene0001_00::72",
-            "pack_v1",
-            pack_v1_inputs_dir=pack_dir,
-            embodiedscan_data_root=tmp_path / "embodiedscan",
-        )
+    out = runner.run_one_sample(
+        "scene0001_00::72",
+        "pack_v1",
+        pack_v1_inputs_dir=pack_dir,
+        embodiedscan_data_root=tmp_path / "embodiedscan",
+    )
+
+    assert out["status"] == "completed"
+    assert out["selected_object_id"] == 0
+    assert out["iou"] == pytest.approx(1.0)
 
 
 def test_coerce_bbox_9dof_requires_exactly_nine_floats() -> None:
@@ -258,10 +287,16 @@ def test_coerce_bbox_9dof_requires_exactly_nine_floats() -> None:
         [0, 0, 0, 1, 1, 1, 0, 0, 0],
         field_name="bbox",
     ) == [0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0]
+    assert coerce_bbox_9dof(
+        "[0, 0, 0, 1, 1, 1, 0, 0, 0]",
+        field_name="bbox",
+    ) == [0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0]
     with pytest.raises(ValueError, match="exactly 9 floats"):
         coerce_bbox_9dof([0, 0, 0, 1, 1, 1], field_name="bbox")
     with pytest.raises(ValueError, match="non-finite"):
         coerce_bbox_9dof([0, 0, 0, 1, 1, 1, 0, 0, float("nan")], field_name="bbox")
+    with pytest.raises(TypeError, match="serialized list"):
+        coerce_bbox_9dof("not a bbox", field_name="bbox")
 
 
 def test_load_sample_ids_accepts_string_list_or_dict_list(tmp_path) -> None:
@@ -327,7 +362,6 @@ def test_main_accepts_extractor_dict_sample_ids_json(monkeypatch, tmp_path) -> N
     runner.main()
 
     assert seen == [
-        ("scene0001_00::72", "legacy"),
         ("scene0001_00::72", "pack_v1"),
     ]
 
@@ -344,44 +378,3 @@ def test_extract_result_payload_requires_result_payload_shape() -> None:
     )
     with pytest.raises(ValueError, match="result.payload"):
         extract_result_payload({"payload": payload})
-
-
-@pytest.mark.integration
-def test_legacy_run_one_sample_scores_pilot_prediction(monkeypatch, tmp_path) -> None:
-    from evaluation.scripts import run_embodiedscan_vg_side_by_side as runner
-
-    pack_dir = _write_pack_v1_inputs(tmp_path)
-
-    def fake_legacy_pilot(sample_id, *, embodiedscan_data_root, config):
-        assert sample_id == "scene0001_00::72"
-        assert embodiedscan_data_root == tmp_path / "embodiedscan"
-        assert config.vg_backend == "legacy"
-        return {
-            "prediction": {"bbox_3d": [0, 0, 0, 1, 1, 1, 0, 0, 0]},
-            "result": SimpleNamespace(
-                raw_state={"vg_selected_bbox_3d": [0, 0, 0, 1, 1, 1, 0, 0, 0]}
-            ),
-        }
-
-    monkeypatch.setattr(runner, "run_legacy_pilot_sample", fake_legacy_pilot)
-
-    out = runner.run_one_sample(
-        "scene0001_00::72",
-        "legacy",
-        pack_v1_inputs_dir=pack_dir,
-        embodiedscan_data_root=tmp_path / "embodiedscan",
-    )
-
-    assert out["status"] == "completed"
-    assert out["predicted_bbox_3d_9dof"] == [
-        0.0,
-        0.0,
-        0.0,
-        1.0,
-        1.0,
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-    ]
-    assert out["iou"] == pytest.approx(1.0)

@@ -372,7 +372,7 @@ Plan A landed across **25 commits** on branch `feat/stage2-pack-v1`
 (`a3b416a..7779179`). The chassis primitives, the EmbodiedScan VG
 pack v1, and the offline pipeline + side-by-side runner are all in
 place; agents test suite ends at **248 passed, 6 skipped**. The
-30-sample acceptance run is the one remaining gate before Plan B.
+30-sample acceptance run has now completed and formally unblocks Plan B.
 
 ### Section 1 — Foundation (chassis + config + fail-loud) — 9 commits
 
@@ -445,17 +445,92 @@ the pack-v1 system prompt and several skill-body inaccuracies. Task
 19.5 fixed all eleven in one commit (`5781673`). Agents suite:
 232 → 247.
 
-### Pending: 30-sample side-by-side acceptance run
+### Completed: 30-sample side-by-side acceptance run
 
 The runner produces metrics but does not enforce the gate. The
-orchestrator (human) will run on the same 30-sample subset as the
-feasibility study's `batch30`
+orchestrator ran the same 30-sample subset as the feasibility study's `batch30`
 (`docs/10_experiment_log/embodiedscan_3d_bbox_feasibility_report/resources/data/batch30_class_breakdown.csv`).
 **Acceptance gate:** `pack_v1.Acc@0.25 >= legacy.Acc@0.25 - 0.01`.
 
-- If pass: Plan B (QA migration + subagents) is unblocked.
-- If fail: blocker investigation per Plan A's "触发 Plan B 的条件"
-  section before any further migration.
+2026-04-26 local run output:
+`outputs/side_by_side_batch30/side_by_side.json`.
+
+| backend | n | completed | failed | mean IoU | Acc@0.25 | Acc@0.50 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| legacy | 30 | 30 | 0 | 0.0346 | 0.0667 | 0.0000 |
+| pack_v1 | 30 | 28 | 2 | 0.0467 | 0.0667 | 0.0333 |
+
+The formal gate passes because `0.0667 >= 0.0667 - 0.01`, so Plan B
+(QA migration + subagents) is unblocked. This is a weak pass: the same
+current `pack_v1` proposal pool has oracle ceiling mean IoU 0.5611,
+Acc@0.25 0.9333, Acc@0.50 0.6667, so the remaining gap is agent
+proposal selection quality rather than proposal-pool coverage.
+
+### Completed: 100-sample post-Plan-B side-by-side trigger
+
+2026-04-27 local run output:
+`outputs/side_by_side_100/side_by_side.json`.
+
+| backend | n | completed | failed | mean IoU | Acc@0.25 | Acc@0.50 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| legacy | 100 | 100 | 0 | 0.0731 | 0.1400 | 0.0100 |
+| pack_v1 | 100 | 94 | 6 | 0.0901 | 0.1400 | 0.1000 |
+
+The formal Plan C trigger passes by the same gate because
+`0.1400 >= 0.1400 - 0.01`. This is also a weak pass: `pack_v1`
+still has 6 fail-loud samples, so legacy cleanup is allowed by the
+written trigger but VG selection quality remains an open risk.
+
+## Plan C Implementation Status (2026-04-27)
+
+Plan C (legacy VG cleanup) is implemented on the local
+`feat/explore_3dbbox` branch.
+
+- `Stage2RuntimeState` no longer contains the five legacy `vg_*`
+  fields.
+- `select_object.py`, `spatial_compare.py`, their tests, and
+  `embodiedscan_vg_pilot.py` were deleted.
+- VG now runs through the pack-v1 task pack only. Explicit
+  `vg_backend='legacy'` raises `ValueError`; the default backend is
+  now `pack_v1`.
+- The historical side-by-side runner no longer invokes the removed
+  legacy pilot; it is retained as a pack-v1 metrics runner.
+
+Verification:
+
+| suite | result |
+| --- | --- |
+| Plan C grep checks for legacy `vg_*` fields and old tool names | 0 matches in `src/` |
+| Changed-file `ruff check` | passed |
+| Targeted Plan C regression | 63 passed, 1 skipped |
+| Full `pytest src/ -q` | 1551 passed, 7 skipped, 12 warnings |
+| OpenEQA post-Plan-C smoke (`--max-samples 5 --workers 5`) | 5 results, 0 failed |
+| EmbodiedScan VG pack-v1 post-Plan-C smoke (`scene0040_00__9`) | completed; selected proposal 154 (`desk`), confidence 0.58 |
+
+## Plan B Implementation Status (2026-04-26)
+
+Plan B (QA default ToolPack + subagents demoted to skills) is
+implemented on the local `feat/explore_3dbbox` branch.
+
+- QA now has a registered default pack under
+  `src/agents/packs/qa_default/`, with `qa-answering-playbook`,
+  `evidence-scouting`, and a QA `FinalizerSpec`.
+- QA receives the chassis trio (`list_skills`, `load_skill`,
+  `submit_final`) through default pack registration.
+- FULL-mode DeepAgents subagents are no longer passed into
+  `create_deep_agent`; their guidance lives in skill markdown.
+- `chassis_tools_version` is bumped to `3` for the QA chassis surface
+  and system prompt/subagent surface change.
+- OpenEQA 1-sample smoke passed under
+  `outputs/qa_smoke_after_plan_b/` with Stage2 and E2E completed.
+
+Targeted verification:
+
+| suite | result |
+| --- | --- |
+| QA/VG pack + chassis targeted tests | 109 passed |
+| EmbodiedScan adapter + side-by-side tests | 11 passed, 7 warnings |
+| OpenEQA 1-sample smoke | 1 result, 0 failed |
 
 ### Out-of-scope issues discovered during execution
 
