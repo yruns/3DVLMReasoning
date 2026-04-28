@@ -20,13 +20,13 @@ T = TypeVar("T")
 # ============================================================================
 # weight: relative weight for weighted round-robin (higher = more requests)
 GEMINI_POOL_CONFIGS: list[dict[str, Any]] = [
-    {
-        "endpoint": "https://genai-sg-og.tiktok-row.org/gpt/openapi/online/v2/crawl/openai/deployments/gpt_openapi",
-        "model_name": "gemini-2.5-pro",
-        "api_key": "UhwiVMPWPSy9Qk5aTiXeUgHiXOIABGKY_GPT_AK",
-        "api_version": "2024-03-01-preview",
-        "weight": 1,
-    },
+    # {
+    #     "endpoint": "https://genai-sg-og.tiktok-row.org/gpt/openapi/online/v2/crawl/openai/deployments/gpt_openapi",
+    #     "model_name": "gemini-2.5-pro",
+    #     "api_key": "UhwiVMPWPSy9Qk5aTiXeUgHiXOIABGKY_GPT_AK",
+    #     "api_version": "2024-03-01-preview",
+    #     "weight": 1,
+    # },
     {
         "endpoint": "https://genai-sg-og.tiktok-row.org/gpt/openapi/online/v2/crawl/openai/deployments/gpt_openapi",
         "model_name": "gemini-2.5-pro",
