@@ -20,7 +20,8 @@ Only methods reporting ScanNet-specific scores:
 |---|--------|:-----------:|-------|-------|:-----:|
 | - | Human | 87.7 | OpenEQA | CVPR 2024 | - |
 | **1** | **Ours (v15, `s1_l1` stage2)** | **74.33** | **This work** | **-** | **Gemini 2.5 Pro** |
-| 2 | Ours (v14, e2e) | 73.1 | This work | - | Gemini 2.5 Pro |
+| 2 | Ours (v15-chassis-repro, stage2) | 73.76 | This work | - | Gemini 2.5 Pro |
+| 3 | Ours (v14, e2e) | 73.1 | This work | - | Gemini 2.5 Pro |
 | 3 | GPT-4V (500Q subset) | 51.3 | OpenEQA | CVPR 2024 | GPT-4 |
 | 4 | GPT-4 + LLaVA-1.5 | 45.4 | OpenEQA | CVPR 2024 | GPT-4 |
 | 5 | GPT-4 + Sparse Voxel Maps | 40.9 | OpenEQA | CVPR 2024 | GPT-4 |

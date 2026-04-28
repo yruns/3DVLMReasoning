@@ -19,8 +19,15 @@ MNAS column is the headline number reported in each version's doc — `v9..v14` 
 | [v13](v13_calibration_20260330.md) | 2026-03-30 | 71.4 | e2e | 1050Q | Mandatory crops + overconfidence calibration |
 | [v14](v14_inventory_20260404.md) | 2026-04-04 | 73.1 | e2e | 1050Q | Enrichment inventory in system prompt |
 | [v15](v15_trajectory_aware_20260420.md) | 2026-04-20 | **74.33** | stage2 | 1050Q (frozen) | Trajectory-aware Stage 1 (pose-aware + L1 frustum) |
+| [v15-chassis-repro](v15_chassis_repro_20260427.md) | 2026-04-27 | 73.76 | stage2 | 1047Q (frozen) | Plan B QA pack migration on top of v15 — chassis trio + skill catalog |
+| [postfix-mini35](postfix_mini35_20260428.md) | 2026-04-28 | 80.00¹ | stage2 | 35Q (mini frozen) | Fix 1+2+3 verification — switch_or_expand_hypothesis bug, QA opts out of chassis, per-qid LLM-call binding |
+| [postfix-full1050](postfix_full1050_20260428.md) | 2026-04-28 | 73.09 | stage2 | 1047Q (frozen) | Fix 1+2+3 full-scale rerun — net **noisily negative** vs v15 and pre-fix chassis; the mini35 result was n=35 noise |
 
 > v15 vs v14 on the matched **stage2** column: 74.33 vs 71.60 (`v14_full`) / 72.29 (`v14_rerun`) → **+2.04 to +2.73 MNAS**.
+>
+> v15-chassis-repro vs v15_s1_l1 on matched stage2: 73.76 vs 74.33 → **−0.57 MNAS** (within noise, 71.5% per-question agreement). Plan B QA pack migration ships safely on OpenEQA.
+>
+> ¹ postfix-mini35 (80.00) is on a 35-Q mini subset and turned out to be **small-sample noise**. Full 1050Q rerun (`postfix-full1050`) shows net −1.24 MNAS vs v15 — the 38 original chassis regressions were 47% recovered but ~23 new severe regressions appeared on different qids. Lesson: **never claim a benchmark improvement on n<200 questions**.
 
 ## Leaderboard (OpenEQA ScanNet EM-EQA)
 

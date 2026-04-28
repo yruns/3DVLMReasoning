@@ -27,7 +27,15 @@ class SkillSpec:
 
 @dataclass(frozen=True)
 class TaskPack:
-    """Per-task plug-in: tools, skills, finalizer, ctx factory."""
+    """Per-task plug-in: tools, skills, finalizer, ctx factory.
+
+    Set ``exposes_chassis=False`` for packs whose tools do NOT gate on
+    ``load_skill`` and where ``submit_final`` would compete with the
+    existing ``structured_response`` terminal (e.g. QA). This avoids
+    polluting the system prompt with a redundant skill catalog and
+    keeps the QA tool surface byte-stable to pre-Plan-B for legacy
+    benchmarks. See docs/benchmark/openeqa/v15_chassis_repro_20260427_regressions.md.
+    """
 
     task_type: Stage2TaskType
     tool_builder: Callable[[Any], list[BaseTool]]
@@ -36,6 +44,7 @@ class TaskPack:
     required_primary_skill: str
     required_extra_metadata: list[str]
     ctx_factory: Callable[[Any], Any]
+    exposes_chassis: bool = True
 
 
 PACKS: dict[Stage2TaskType, TaskPack] = {}

@@ -232,11 +232,26 @@ class DeepAgentsStage2Runtime(BaseStage2Runtime):
         @tool
         def switch_or_expand_hypothesis(
             request_text: str,
+            new_query: str | None = None,
             preferred_kind: str | None = None,
         ) -> str:
-            """Request Stage-1 hypothesis expansion or direct/proxy/context switching."""
+            """Re-run Stage 1 with a different retrieval query.
+
+            Use this when the initial Stage 1 hypothesis missed the target
+            entirely and you need *different* keyframes (not just more views
+            of the same objects — for that, prefer request_more_views).
+
+            Args:
+                request_text: human rationale for why hypothesis must change.
+                new_query: REQUIRED — the alternative Stage-1 query string
+                    (e.g. 'patio chair' instead of 'chair'). Without this,
+                    the tool cannot run.
+                preferred_kind: optional hint for hypothesis kind
+                    (direct / proxy / context).
+            """
             request = {
                 "request_text": request_text,
+                "new_query": new_query or "",
                 "preferred_kind": preferred_kind or "",
             }
             if self.hypothesis_callback is None:
@@ -263,13 +278,15 @@ class DeepAgentsStage2Runtime(BaseStage2Runtime):
             switch_or_expand_hypothesis,
         ]
 
-        # Chassis trio attaches whenever the active task has a pack registered
-        # or the operator explicitly opts in via enable_chassis_tools.
+        # Chassis trio attaches when the active task pack opts in
+        # (TaskPack.exposes_chassis=True) or when the operator forces it via
+        # enable_chassis_tools. QA pack opts out — see qa_default/registration.py.
         from agents.skills import PACKS
         from agents.skills.chassis_tools import build_chassis_tools
 
-        pack_in_use = PACKS.get(runtime.task_type) is not None
-        if pack_in_use or self.config.enable_chassis_tools:
+        pack = PACKS.get(runtime.task_type)
+        pack_exposes_chassis = pack is not None and pack.exposes_chassis
+        if pack_exposes_chassis or self.config.enable_chassis_tools:
             tools.extend(build_chassis_tools(runtime))
 
         # VG-specific tools are pack-v1 only after Plan C.

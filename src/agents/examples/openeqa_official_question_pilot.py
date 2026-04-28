@@ -617,6 +617,16 @@ def extract_prediction_text(stage_summary: dict[str, Any]) -> str | None:
 
 
 def run_one_sample(sample: dict[str, Any], args: argparse.Namespace) -> dict[str, Any]:
+    # Bind question_id into the contextvar so the per-LLM-call wrapper
+    # (scripts/run_openeqa_with_token_log.py) can tag every chat-completion
+    # row with the question being processed by this worker thread.
+    from agents._run_context import question_id_scope
+
+    with question_id_scope(sample["question_id"]):
+        return _run_one_sample_impl(sample, args)
+
+
+def _run_one_sample_impl(sample: dict[str, Any], args: argparse.Namespace) -> dict[str, Any]:
     clip_id = sample["clip_id"]
     scene_root = args.data_root / clip_id
 

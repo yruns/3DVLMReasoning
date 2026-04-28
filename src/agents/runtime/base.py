@@ -290,9 +290,16 @@ class BaseStage2Runtime(ABC):
         )
 
     def _format_skill_catalog(self, task_type: Stage2TaskType) -> str:
-        """Render the skill catalog block for the system prompt."""
-        from agents.skills.registry import skills_for
+        """Render the skill catalog block for the system prompt.
 
+        Suppressed for packs that do NOT expose chassis (e.g. QA), so the
+        prompt stays byte-stable for tasks where the skills are dead weight.
+        """
+        from agents.skills.registry import PACKS, skills_for
+
+        pack = PACKS.get(task_type)
+        if pack is not None and not pack.exposes_chassis:
+            return ""
         skills = skills_for(task_type)
         if not skills:
             return ""

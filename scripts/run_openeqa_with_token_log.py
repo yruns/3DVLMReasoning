@@ -67,6 +67,13 @@ def _extract_usage(message_or_meta) -> dict:
 def _patch_chat_models() -> None:
     from langchain_openai.chat_models.base import BaseChatOpenAI
 
+    # Lazy import: agents/_run_context only exists once PYTHONPATH=src is set.
+    try:
+        from agents._run_context import get_question_id
+    except Exception:
+        def get_question_id() -> str | None:  # type: ignore[misc]
+            return None
+
     orig_generate = BaseChatOpenAI._generate
 
     def _wrapped_generate(self, messages, stop=None, run_manager=None, **kwargs):
@@ -84,6 +91,7 @@ def _patch_chat_models() -> None:
                     "session_id": str(
                         (kwargs.get("extra_body") or {}).get("session_id", "")
                     ),
+                    "question_id": get_question_id(),
                 }
                 _emit(row)
         except Exception as exc:  # never let logging break a run

@@ -713,7 +713,15 @@ def create_hypothesis_callback(
 
         if not new_query:
             return Stage2ToolResult(
-                response_text="No new_query specified for hypothesis switching.",
+                response_text=(
+                    "switch_or_expand_hypothesis requires the `new_query` "
+                    "argument — a different Stage-1 retrieval query string "
+                    "(e.g. 'patio chair' instead of 'chair'). Re-call this "
+                    "tool with new_query=<your alternative query>. "
+                    "If you only need different views of objects you've "
+                    "already located, prefer request_more_views or "
+                    "request_crops instead."
+                ),
             )
 
         logger.info(

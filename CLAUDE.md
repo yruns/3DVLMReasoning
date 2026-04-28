@@ -286,6 +286,33 @@ Update the per-benchmark `README.md` and `leaderboard.md` at the same time so th
 - **Cross-version comparison** on the matched column / fold (e.g. v14 vs v15 stage2 MNAS on the same frozen 1050Q set).
 - **Caveats** — partial judging, fold mismatches, judge differences, anything that makes the number not directly comparable to a prior baseline or a published number.
 
+### Mandatory: SQLite ingestion of per-run logs
+
+Every benchmark run MUST be ingested into the per-benchmark SQLite database immediately after evaluation completes. Without this, ad-hoc per-question regression analysis (`Δ = chassis vs v15` per qid, per category, with tool traces) is impossible — and that analysis is what tells you *why* the headline metric moved.
+
+For OpenEQA, the canonical ingester is `scripts/ingest_openeqa_run.py` and the canonical DB is `docs/benchmark/openeqa/runs.sqlite`:
+
+```bash
+python scripts/ingest_openeqa_run.py \
+    --output-dir tmp/openeqa_eval_<run>/ \
+    --run-id <run> \
+    --branch <branch> \
+    --commit <short_sha> \
+    --judge-model gemini-2.5-pro \
+    --notes "<one-line summary of what's different>" \
+    --db docs/benchmark/openeqa/runs.sqlite
+```
+
+Tables: `runs`, `samples` (one row per qid with question + GT + chassis answer + stage2 score + tool count), `tool_calls` (one row per tool invocation with input/response), `llm_calls` (one row per chat-completion with prompt/cached/completion tokens). Add a query in the version doc that reproduces the headline number from the DB.
+
+When adding a new benchmark, write a parallel `scripts/ingest_<benchmark>_run.py` mirroring this schema. Reuse the `runs` / `tool_calls` / `llm_calls` columns; only `samples` should diverge to fit the benchmark's own per-question shape.
+
+### Per-LLM-call durability (going forward)
+
+The `token_usage.jsonl` produced by `scripts/run_openeqa_with_token_log.py` records prompt/cached/completion tokens per chat-completion response by monkey-patching `BaseChatOpenAI._generate`. It is process-global (not yet keyed by question_id). Future iterations of the pilot SHOULD use loguru contextvars (or langchain callbacks with `run_id` tagging) to associate each LLM call with the active question_id, so the ingester can populate `llm_calls.question_id` properly. Until that lands, treat `llm_calls` aggregates as run-level only.
+
+Console log per-question slicing has the same gap: the tee'd `/tmp/<run>.log` is one large append-only stream. Loguru `logger.bind(question_id=...)` plus a per-qid sink would close this gap.
+
 ### When adding a new benchmark
 
 Mirror the OpenEQA layout exactly. Create:

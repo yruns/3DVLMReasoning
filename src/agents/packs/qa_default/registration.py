@@ -32,6 +32,13 @@ QA_PACK = TaskPack(
     required_primary_skill="qa-answering-playbook",
     required_extra_metadata=[],
     ctx_factory=lambda bundle: bundle,
+    # NOTE on exposes_chassis: tried False on 2026-04-28 to revert QA back to
+    # v15-pre-Plan-B prompt surface. mini35 (n=35) suggested +5.7 MNAS, but full
+    # 1050Q rerun showed -1.24 MNAS net (recovered 18/38 original regressions
+    # but introduced ~23 new ones; spatial category dropped -7.14 MNAS due to
+    # avg tool calls falling 1.91→1.62, below v15's 1.70). Reverted on
+    # 2026-04-28 — the chassis surface stays uniform across QA + VG.
+    # See docs/benchmark/openeqa/postfix_full1050_20260428.md.
 )
 
 
