@@ -31,18 +31,13 @@ benchmark's version). Always include:
 | Benchmark | Status | Path | Highlight |
 |-----------|--------|------|-----------|
 | **OpenEQA ScanNet EM-EQA** | live | [`openeqa/`](openeqa/) | v15 stage2 MNAS **74.33** (`s1_l1`, frozen 1050Q, Gemini 2.5 Pro) |
+| **EmbodiedScan VG** | smoke | [`embodiedscan/`](embodiedscan/) | v1 GT-pool pack_v1 smoke: 68Q, Acc@0.25/0.50 **91.18** |
 
 ## Pending Migrations
 
 These bodies of work currently live elsewhere and should adopt this layout
 when their next results land:
 
-- **EmbodiedScan VG (ScanNet val)** — process notes scattered across
-  `docs/superpowers/specs/2026-04-25-stage2-multi-task-agent-design.md`,
-  the side-by-side run output at `outputs/side_by_side_batch30/`, and the
-  3D bbox feasibility study at
-  `docs/10_experiment_log/embodiedscan_3d_bbox_feasibility_report/`. Next
-  result drop should land under `docs/benchmark/embodiedscan/`.
 - **SQA3D / ScanRefer / Nav Plan** — not yet evaluated; create their own
   sub-folders when the first evaluation runs.
 
