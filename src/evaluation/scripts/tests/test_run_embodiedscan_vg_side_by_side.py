@@ -1,4 +1,4 @@
-"""Pack-v1 EmbodiedScan VG runner tests."""
+"""Pack-v1 EmbodiedScan VG runner tests (per-scene layout, GT pool)."""
 
 from __future__ import annotations
 
@@ -9,11 +9,13 @@ import pytest
 
 
 def _write_pack_v1_inputs(tmp_path, *, sample_id: str = "scene0001_00::72"):
-    scene_id, target_id = sample_id.split("::")
-    pack_dir = tmp_path / "pack_v1"
-    scene_dir = pack_dir / "scenes" / scene_id
+    """Write a per-scene pack-v1 layout under ``tmp_path`` (== data_root)."""
+    scene_id, target_str = sample_id.split("::")
+    target_id = int(target_str)
+    data_root = tmp_path
+    scene_dir = data_root / scene_id / "pack_v1"
     annotated = scene_dir / "annotated"
-    samples = pack_dir / "samples"
+    samples = scene_dir / "samples"
     annotated.mkdir(parents=True)
     samples.mkdir(parents=True)
 
@@ -21,33 +23,36 @@ def _write_pack_v1_inputs(tmp_path, *, sample_id: str = "scene0001_00::72"):
     (scene_dir / "proposals.jsonl").write_text(
         json.dumps(
             {
+                "source": "gt",
+                "scene_id": scene_id,
                 "proposals": [
                     {
+                        "id": target_id,
                         "bbox_3d": [0, 0, 0, 1, 1, 1, 0, 0, 0],
-                        "score": 0.9,
+                        "score": 1.0,
                         "label": "chair",
                     }
-                ]
+                ],
             }
         ),
         encoding="utf-8",
     )
     (scene_dir / "visibility.json").write_text(
-        json.dumps({"10": [0]}),
+        json.dumps({"10": [target_id]}),
         encoding="utf-8",
     )
-    sample_path = samples / f"{scene_id}__{target_id}.json"
+    sample_path = samples / f"{target_id}.json"
     sample_path.write_text(
         json.dumps(
             {
                 "sample_id": sample_id,
                 "scene_id": scene_id,
-                "target_id": int(target_id),
+                "target_id": target_id,
                 "category": "chair",
                 "query": "the chair by the table",
                 "gt_bbox_3d_9dof": [0, 0, 0, 1, 1, 1, 0, 0, 0],
                 "scene_artifacts_dir": str(scene_dir),
-                "source": "vdetr",
+                "source": "gt",
                 "keyframes": [
                     {
                         "keyframe_idx": 0,
@@ -59,7 +64,7 @@ def _write_pack_v1_inputs(tmp_path, *, sample_id: str = "scene0001_00::72"):
         ),
         encoding="utf-8",
     )
-    return pack_dir
+    return data_root
 
 
 @pytest.mark.integration
@@ -78,18 +83,52 @@ def test_runner_emits_pack_v1_metrics(monkeypatch, tmp_path) -> None:
     out = compare_backends(
         sample_ids=["s1", "s2"],
         output_dir=tmp_path,
-        pack_v1_inputs_dir=tmp_path / "pack_v1",
-        embodiedscan_data_root=tmp_path / "embodiedscan",
+        data_root=tmp_path / "data_root",
     )
     assert sorted(out) == ["pack_v1"]
     assert out["pack_v1"]["mean_iou"] == pytest.approx(0.5)
 
 
 @pytest.mark.integration
+def test_runner_workers_preserve_sample_order(monkeypatch, tmp_path) -> None:
+    from evaluation.scripts.run_embodiedscan_vg_side_by_side import (
+        compare_backends,
+    )
+
+    def fake_run_one(sample_id, backend, **_kwargs):
+        return {
+            "sample_id": sample_id,
+            "backend": backend,
+            "status": "completed",
+            "iou": 1.0,
+            "predicted_bbox_3d_9dof": [0, 0, 0, 1, 1, 1, 0, 0, 0],
+            "gt_bbox_3d_9dof": [0, 0, 0, 1, 1, 1, 0, 0, 0],
+            "selected_object_id": int(sample_id.rsplit("::", 1)[1]),
+            "confidence": 0.9,
+            "query": sample_id,
+        }
+
+    monkeypatch.setattr(
+        "evaluation.scripts.run_embodiedscan_vg_side_by_side.run_one_sample",
+        fake_run_one,
+    )
+    sample_ids = [f"scene0001_00::{idx}" for idx in range(8)]
+    out = compare_backends(
+        sample_ids=sample_ids,
+        output_dir=tmp_path,
+        data_root=tmp_path / "data_root",
+        workers=4,
+    )
+
+    observed = [r["sample_id"] for r in out["pack_v1"]["per_sample"]]
+    assert observed == sample_ids
+
+
+@pytest.mark.integration
 def test_pack_v1_run_one_sample_scores_agent_bbox(monkeypatch, tmp_path) -> None:
     from evaluation.scripts import run_embodiedscan_vg_side_by_side as runner
 
-    pack_dir = _write_pack_v1_inputs(tmp_path)
+    data_root = _write_pack_v1_inputs(tmp_path)
 
     class FakeAgent:
         def __init__(self, config):
@@ -102,7 +141,7 @@ def test_pack_v1_run_one_sample_scores_agent_bbox(monkeypatch, tmp_path) -> None
                 result=SimpleNamespace(
                     payload={
                         "status": "completed",
-                        "selected_object_id": 0,
+                        "selected_object_id": 72,
                         "bbox_3d": [0, 0, 0, 1, 1, 1, 0, 0, 0],
                     },
                     confidence=0.8,
@@ -115,8 +154,7 @@ def test_pack_v1_run_one_sample_scores_agent_bbox(monkeypatch, tmp_path) -> None
     out = runner.run_one_sample(
         "scene0001_00::72",
         "pack_v1",
-        pack_v1_inputs_dir=pack_dir,
-        embodiedscan_data_root=tmp_path / "embodiedscan",
+        data_root=data_root,
     )
 
     assert out["status"] == "completed"
@@ -148,14 +186,13 @@ def test_pack_v1_run_one_sample_scores_agent_bbox(monkeypatch, tmp_path) -> None
 def test_removed_backend_is_rejected(tmp_path) -> None:
     from evaluation.scripts import run_embodiedscan_vg_side_by_side as runner
 
-    pack_dir = _write_pack_v1_inputs(tmp_path)
+    data_root = _write_pack_v1_inputs(tmp_path)
 
     with pytest.raises(ValueError, match="no longer supported"):
         runner.run_one_sample(
             "scene0001_00::72",
             "legacy",
-            pack_v1_inputs_dir=pack_dir,
-            embodiedscan_data_root=tmp_path / "embodiedscan",
+            data_root=data_root,
         )
 
 
@@ -175,7 +212,7 @@ def test_pack_v1_failed_marker_via_selected_object_id_none_and_status_failed(
 ) -> None:
     from evaluation.scripts import run_embodiedscan_vg_side_by_side as runner
 
-    pack_dir = _write_pack_v1_inputs(tmp_path)
+    data_root = _write_pack_v1_inputs(tmp_path)
 
     class FakeAgent:
         def __init__(self, config):
@@ -199,8 +236,7 @@ def test_pack_v1_failed_marker_via_selected_object_id_none_and_status_failed(
     out = runner.run_one_sample(
         "scene0001_00::72",
         "pack_v1",
-        pack_v1_inputs_dir=pack_dir,
-        embodiedscan_data_root=tmp_path / "embodiedscan",
+        data_root=data_root,
     )
 
     assert out["status"] == "failed"
@@ -212,7 +248,7 @@ def test_pack_v1_failed_marker_via_selected_object_id_none_and_status_failed(
 def test_pack_v1_completed_payload_without_bbox_raises(monkeypatch, tmp_path) -> None:
     from evaluation.scripts import run_embodiedscan_vg_side_by_side as runner
 
-    pack_dir = _write_pack_v1_inputs(tmp_path)
+    data_root = _write_pack_v1_inputs(tmp_path)
 
     class FakeAgent:
         def __init__(self, config):
@@ -223,7 +259,7 @@ def test_pack_v1_completed_payload_without_bbox_raises(monkeypatch, tmp_path) ->
                 result=SimpleNamespace(
                     payload={
                         "status": "completed",
-                        "selected_object_id": 0,
+                        "selected_object_id": 72,
                         "bbox_3d": None,
                     },
                     confidence=0.8,
@@ -237,8 +273,7 @@ def test_pack_v1_completed_payload_without_bbox_raises(monkeypatch, tmp_path) ->
         runner.run_one_sample(
             "scene0001_00::72",
             "pack_v1",
-            pack_v1_inputs_dir=pack_dir,
-            embodiedscan_data_root=tmp_path / "embodiedscan",
+            data_root=data_root,
         )
 
 
@@ -248,7 +283,7 @@ def test_pack_v1_payload_missing_status_with_bbox_infers_completed(
 ) -> None:
     from evaluation.scripts import run_embodiedscan_vg_side_by_side as runner
 
-    pack_dir = _write_pack_v1_inputs(tmp_path)
+    data_root = _write_pack_v1_inputs(tmp_path)
 
     class FakeAgent:
         def __init__(self, config):
@@ -258,7 +293,7 @@ def test_pack_v1_payload_missing_status_with_bbox_infers_completed(
             return SimpleNamespace(
                 result=SimpleNamespace(
                     payload={
-                        "selected_object_id": 0,
+                        "selected_object_id": 72,
                         "bbox_3d": [0, 0, 0, 1, 1, 1, 0, 0, 0],
                     },
                     confidence=0.8,
@@ -271,12 +306,11 @@ def test_pack_v1_payload_missing_status_with_bbox_infers_completed(
     out = runner.run_one_sample(
         "scene0001_00::72",
         "pack_v1",
-        pack_v1_inputs_dir=pack_dir,
-        embodiedscan_data_root=tmp_path / "embodiedscan",
+        data_root=data_root,
     )
 
     assert out["status"] == "completed"
-    assert out["selected_object_id"] == 0
+    assert out["selected_object_id"] == 72
     assert out["iou"] == pytest.approx(1.0)
 
 
@@ -323,7 +357,7 @@ def test_load_sample_ids_accepts_string_list_or_dict_list(tmp_path) -> None:
 def test_main_accepts_extractor_dict_sample_ids_json(monkeypatch, tmp_path) -> None:
     from evaluation.scripts import run_embodiedscan_vg_side_by_side as runner
 
-    sample_ids_path = tmp_path / "batch30_sample_ids.json"
+    sample_ids_path = tmp_path / "frozen_sample_ids.json"
     sample_ids_path.write_text(
         json.dumps(
             [
@@ -352,10 +386,8 @@ def test_main_accepts_extractor_dict_sample_ids_json(monkeypatch, tmp_path) -> N
             str(sample_ids_path),
             "--output-dir",
             str(tmp_path / "out"),
-            "--pack-v1-inputs-dir",
-            str(tmp_path / "pack_v1"),
-            "--embodiedscan-data-root",
-            str(tmp_path / "embodiedscan"),
+            "--data-root",
+            str(tmp_path / "data_root"),
         ],
     )
 

@@ -1,12 +1,14 @@
 """Build the vg_proposal_pool dict that the runtime adapter expects.
 
 Inputs:
-- proposals_jsonl: a JSON file from the feasibility module containing
-  a `{"proposals": [{"bbox_3d": [...], "score": ..., "label": ..., "metadata": {...}}, ...]}`
-- source: 'vdetr' or 'conceptgraph'
+- proposals_jsonl: a JSON file containing
+  `{"proposals": [{"id": <int>, "bbox_3d": [...], "score": ..., "label": ...}, ...]}`
+  When `id` is present, it is used as the proposal id (e.g. EmbodiedScan
+  bbox_id for the GT pool); otherwise the positional index is used.
+- source: 'gt' (EmbodiedScan annotation), 'vdetr', or 'conceptgraph'
 - annotated_image_dir: directory of pre-rendered set-of-marks frames
-- frame_visibility: precomputed mapping frame_id -> list of proposal indices
-  visible in that frame (computed offline by Stage 1's visibility builder)
+- frame_visibility: mapping frame_id -> list of proposal ids visible
+  in that frame (must match the ids produced by this builder)
 - axis_align_matrix: 4x4 numpy array or None
 """
 from __future__ import annotations
@@ -22,7 +24,7 @@ import numpy as np
 def build_vg_proposal_pool(
     *,
     proposals_jsonl: Path,
-    source: Literal["vdetr", "conceptgraph"],
+    source: Literal["gt", "vdetr", "conceptgraph"],
     annotated_image_dir: Path,
     frame_visibility: dict[int, list[int]],
     axis_align_matrix: np.ndarray | None,
@@ -47,9 +49,10 @@ def build_vg_proposal_pool(
                 raise ValueError(
                     f"proposal[{idx}].{required_key} is required in {proposals_jsonl}"
                 )
+        pid = int(p["id"]) if "id" in p else idx
         proposals_out.append(
             {
-                "id": idx,
+                "id": pid,
                 "bbox_3d_9dof": [float(x) for x in p["bbox_3d"]],
                 "category": str(p["label"]),
                 "score": float(p["score"]),

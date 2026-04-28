@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import argparse
 import ast
+import concurrent.futures
+import functools
 import json
 import math
 import statistics
@@ -27,8 +29,7 @@ def run_one_sample(
     sample_id: str,
     backend: BackendName,
     *,
-    pack_v1_inputs_dir: Path,
-    embodiedscan_data_root: Path,
+    data_root: Path,
     config: Stage2DeepAgentConfig | None = None,
     sample_retries: int = 0,
 ) -> dict:
@@ -41,8 +42,7 @@ def run_one_sample(
             return _run_one_sample_once(
                 sample_id,
                 backend,
-                pack_v1_inputs_dir=pack_v1_inputs_dir,
-                embodiedscan_data_root=embodiedscan_data_root,
+                data_root=data_root,
                 config=config,
             )
         except Exception as exc:
@@ -69,12 +69,11 @@ def _run_one_sample_once(
     sample_id: str,
     backend: BackendName,
     *,
-    pack_v1_inputs_dir: Path,
-    embodiedscan_data_root: Path,
+    data_root: Path,
     config: Stage2DeepAgentConfig | None = None,
 ) -> dict:
     """Run one sample once through a backend and score predicted bbox against GT."""
-    sample = load_sample_artifact(pack_v1_inputs_dir, sample_id)
+    sample = load_sample_artifact(data_root, sample_id)
     gt_bbox = coerce_bbox_9dof(
         sample.get("gt_bbox_3d_9dof"),
         field_name=f"{sample_id}.gt_bbox_3d_9dof",
@@ -86,7 +85,7 @@ def _run_one_sample_once(
             f"backend={backend!r} no longer supported after Plan C; "
             "run the pack_v1 backend."
         )
-    raw_result = run_pack_v1_sample(sample, pack_v1_inputs_dir, cfg)
+    raw_result = run_pack_v1_sample(sample, data_root, cfg)
     prediction = extract_pack_v1_prediction(raw_result)
 
     status = prediction.get("status")
@@ -138,25 +137,37 @@ def compare_backends(
     *,
     sample_ids: Sequence[str],
     output_dir: Path,
-    pack_v1_inputs_dir: Path,
-    embodiedscan_data_root: Path,
+    data_root: Path,
     config: Stage2DeepAgentConfig | None = None,
     sample_retries: int = 0,
+    workers: int = 1,
 ) -> dict:
+    if workers <= 0:
+        raise ValueError("workers must be positive")
     output_dir.mkdir(parents=True, exist_ok=True)
     results: dict[str, dict] = {}
     for backend in ("pack_v1",):
-        per_sample = [
-            run_one_sample(
-                s,
-                backend,
-                pack_v1_inputs_dir=pack_v1_inputs_dir,
-                embodiedscan_data_root=embodiedscan_data_root,
+        if workers == 1:
+            per_sample = [
+                run_one_sample(
+                    s,
+                    backend,
+                    data_root=data_root,
+                    config=config,
+                    sample_retries=sample_retries,
+                )
+                for s in sample_ids
+            ]
+        else:
+            run_sample = functools.partial(
+                run_one_sample,
+                backend=backend,
+                data_root=data_root,
                 config=config,
                 sample_retries=sample_retries,
             )
-            for s in sample_ids
-        ]
+            with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as executor:
+                per_sample = list(executor.map(run_sample, sample_ids))
         ious = [r["iou"] for r in per_sample if r.get("iou") is not None]
         acc25 = sum(1 for v in ious if v >= 0.25) / max(len(ious), 1)
         acc50 = sum(1 for v in ious if v >= 0.50) / max(len(ious), 1)
@@ -210,9 +221,9 @@ def is_retryable_sample_error(exc: Exception) -> bool:
     )
 
 
-def load_sample_artifact(pack_v1_inputs_dir: Path, sample_id: str) -> dict[str, Any]:
+def load_sample_artifact(data_root: Path, sample_id: str) -> dict[str, Any]:
     scene_id, target_id = parse_scene_target_id(sample_id)
-    sample_path = pack_v1_inputs_dir / "samples" / f"{scene_id}__{target_id}.json"
+    sample_path = data_root / scene_id / "pack_v1" / "samples" / f"{target_id}.json"
     if not sample_path.exists():
         raise FileNotFoundError(f"Missing prepared sample artifact: {sample_path}")
     payload = json.loads(sample_path.read_text(encoding="utf-8"))
@@ -246,10 +257,10 @@ def parse_scene_target_id(sample_id: str) -> tuple[str, int]:
 
 def run_pack_v1_sample(
     sample: dict[str, Any],
-    pack_v1_inputs_dir: Path,
+    data_root: Path,
     config: Stage2DeepAgentConfig,
 ) -> Any:
-    bundle = build_pack_v1_bundle_from_sample(sample, pack_v1_inputs_dir)
+    bundle = build_pack_v1_bundle_from_sample(sample, data_root)
     task = Stage2TaskSpec(
         task_type=Stage2TaskType.VISUAL_GROUNDING,
         user_query=str(sample["query"]),
@@ -260,9 +271,9 @@ def run_pack_v1_sample(
 
 def build_pack_v1_bundle_from_sample(
     sample: dict[str, Any],
-    pack_v1_inputs_dir: Path,
+    data_root: Path,
 ):
-    scene_dir = resolve_scene_artifacts_dir(sample, pack_v1_inputs_dir)
+    scene_dir = resolve_scene_artifacts_dir(sample, data_root)
     visibility_json = scene_dir / "visibility.json"
     if not visibility_json.exists():
         raise FileNotFoundError(f"Missing visibility index: {visibility_json}")
@@ -283,7 +294,7 @@ def build_pack_v1_bundle_from_sample(
 
     return build_pack_v1_bundle(
         proposals_jsonl=scene_dir / "proposals.jsonl",
-        source=str(sample.get("source", "vdetr")),
+        source=str(sample.get("source", "gt")),
         annotated_image_dir=scene_dir / "annotated",
         frame_visibility=frame_visibility,
         keyframes=keyframes,
@@ -293,15 +304,15 @@ def build_pack_v1_bundle_from_sample(
 
 def resolve_scene_artifacts_dir(
     sample: dict[str, Any],
-    pack_v1_inputs_dir: Path,
+    data_root: Path,
 ) -> Path:
     raw = sample.get("scene_artifacts_dir")
     if raw:
         scene_dir = Path(raw)
         if scene_dir.is_absolute() or scene_dir.exists():
             return scene_dir
-        return pack_v1_inputs_dir / scene_dir
-    return pack_v1_inputs_dir / "scenes" / str(sample["scene_id"])
+        return data_root / scene_dir
+    return data_root / str(sample["scene_id"]) / "pack_v1"
 
 
 def extract_pack_v1_prediction(result: Any) -> dict[str, Any]:
@@ -376,9 +387,7 @@ def coerce_bbox_9dof(raw: Any, *, field_name: str) -> list[float]:
                     f"got str: {raw!r}"
                 ) from exc
     if not isinstance(raw, (list, tuple)):
-        raise TypeError(
-            f"{field_name} must be a list/tuple, got {type(raw).__name__}"
-        )
+        raise TypeError(f"{field_name} must be a list/tuple, got {type(raw).__name__}")
     values = [float(v) for v in raw]
     if len(values) != 9:
         raise ValueError(
@@ -424,9 +433,20 @@ def parse_args() -> argparse.Namespace:
         "--sample-ids", required=True, type=Path, help="JSON file with [sample_id, ...]"
     )
     p.add_argument("--output-dir", required=True, type=Path)
-    p.add_argument("--pack-v1-inputs-dir", required=True, type=Path)
-    p.add_argument("--embodiedscan-data-root", required=True, type=Path)
+    p.add_argument(
+        "--data-root",
+        required=True,
+        type=Path,
+        help="EmbodiedScan data root; samples are read from "
+        "<data_root>/<scene_id>/pack_v1/samples/<target_id>.json.",
+    )
     p.add_argument("--sample-retries", type=int, default=2)
+    p.add_argument(
+        "--workers",
+        type=int,
+        default=1,
+        help="Number of concurrent sample workers for pack_v1 inference.",
+    )
     return p.parse_args()
 
 
@@ -436,9 +456,9 @@ def main() -> None:
     compare_backends(
         sample_ids=sample_ids,
         output_dir=args.output_dir,
-        pack_v1_inputs_dir=args.pack_v1_inputs_dir,
-        embodiedscan_data_root=args.embodiedscan_data_root,
+        data_root=args.data_root,
         sample_retries=args.sample_retries,
+        workers=args.workers,
     )
 
 

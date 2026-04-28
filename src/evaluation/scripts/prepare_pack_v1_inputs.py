@@ -1,4 +1,19 @@
-"""Prepare offline pack-v1 inputs for EmbodiedScan VG side-by-side runs."""
+"""Prepare offline pack-v1 inputs for EmbodiedScan VG runs.
+
+Per-scene layout (output):
+
+    <data_root>/<scene_id>/pack_v1/
+        proposals.jsonl          # GT instances normalized: id == bbox_id
+        visibility.json          # frame_id -> [bbox_id, ...]
+        annotated/frame_<id>.png # set-of-marks render
+        samples/<target_id>.json # per-question bundle
+
+The proposal pool is the EmbodiedScan GT instance set for the scene, read
+from ``embodiedscan_infos_<split>.pkl``. No detector (vDETR / conceptgraph)
+is involved on this path; evaluation is the oracle "given all real objects,
+pick the one the query refers to" task.
+"""
+
 from __future__ import annotations
 
 import argparse
@@ -6,7 +21,7 @@ import json
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any
 
 import numpy as np
 from PIL import Image
@@ -16,12 +31,9 @@ from benchmarks.embodiedscan_bbox_feasibility.render_marks import (
     render_marked_keyframe,
 )
 from benchmarks.embodiedscan_bbox_feasibility.visibility_index import (
-    build_frame_visibility,
     project_bbox_3d_to_2d,
 )
 from benchmarks.embodiedscan_loader import EmbodiedScanVGSample
-
-SourceName = Literal["vdetr", "conceptgraph"]
 
 
 @dataclass(frozen=True)
@@ -46,24 +58,35 @@ class SceneArtifacts:
     visibility_json: Path
     annotated_dir: Path
     frame_visibility: dict[int, list[int]]
+    proposal_ids: list[int]
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--sample-ids", required=True, type=Path)
-    parser.add_argument("--vdetr-proposals-dir", required=True, type=Path)
-    parser.add_argument("--embodiedscan-data-root", required=True, type=Path)
-    parser.add_argument("--output-dir", required=True, type=Path)
-    parser.add_argument("--source", choices=["vdetr", "conceptgraph"], default="vdetr")
+    parser.add_argument(
+        "--data-root",
+        required=True,
+        type=Path,
+        help="EmbodiedScan data root containing infos_<split>.pkl, "
+        "<scene>/raw/, etc. Outputs land under <data_root>/<scene>/pack_v1/.",
+    )
+    parser.add_argument(
+        "--split",
+        default="val",
+        choices=["train", "val", "test"],
+        help="Which infos_<split>.pkl to source GT instances from.",
+    )
     parser.add_argument("--max-samples", type=int, default=None)
     return parser.parse_args()
 
 
 def load_sample_lookup(
     data_root: Path,
+    split: str,
 ) -> tuple[EmbodiedScanVGAdapter, dict[tuple[str, int], EmbodiedScanVGSample]]:
     adapter = EmbodiedScanVGAdapter(data_root=data_root, scene_data_root=data_root)
-    samples = adapter.load_samples(split="val", source_filter=None)
+    samples = adapter.load_samples(split=split, source_filter=None)
     lookup: dict[tuple[str, int], EmbodiedScanVGSample] = {}
     for sample in samples:
         if not isinstance(sample, EmbodiedScanVGSample):
@@ -81,15 +104,7 @@ def select_keyframes_for_sample(
     k: int = 5,
 ) -> list[dict[str, Any]]:
     """Pick up to k frames where the target is visible, sampled uniformly
-    across the visible-frame set of the EmbodiedScan annotation.
-
-    This bypasses the full Stage 1 KeyframeSelector (which requires
-    `enriched_objects.json` not present for batch30 scenes per CLAUDE.md)
-    and uses GT visibility directly. For Plan A's feasibility demo this
-    is the documented fallback: the agent gets a small set of frames
-    where the target IS visible, and the pack-v1 pipeline injects the
-    set-of-marks annotated versions of those frames.
-    """
+    across the visible-frame set of the EmbodiedScan annotation."""
     scene_info = adapter.dataset.get_scene_info(sample.scan_id)
     if not scene_info:
         raise ValueError(f"scene_info missing for scan_id={sample.scan_id}")
@@ -109,7 +124,6 @@ def select_keyframes_for_sample(
             f"no visible frames for target_id={sample.target_id} in {sample.scan_id}"
         )
 
-    # Uniform sample up to k.
     if len(visible) <= k:
         chosen = visible
     else:
@@ -118,7 +132,7 @@ def select_keyframes_for_sample(
 
     keyframes: list[dict[str, Any]] = []
     for keyframe_idx, (frame_id, image) in enumerate(chosen):
-        rgb_path = resolve_rgb_path(image, embodiedscan_data_root)
+        rgb_path = resolve_rgb_path(image, embodiedscan_data_root, frame_pos=frame_id)
         keyframes.append(
             {
                 "keyframe_idx": keyframe_idx,
@@ -129,59 +143,11 @@ def select_keyframes_for_sample(
     return keyframes
 
 
-def normalize_keyframes(stage1_result: Any) -> list[dict[str, Any]]:
-    if isinstance(stage1_result, Sequence) and not isinstance(
-        stage1_result,
-        (str, bytes),
-    ):
-        return [
-            _normalize_keyframe_item(item, idx)
-            for idx, item in enumerate(stage1_result)
-        ]
-
-    metadata = getattr(stage1_result, "metadata", {}) or {}
-    frame_mappings = metadata.get("frame_mappings") or []
-    if frame_mappings:
-        keyframes = []
-        for idx, mapping in enumerate(frame_mappings):
-            path = mapping.get("path")
-            if path is None:
-                continue
-            frame_id = mapping.get(
-                "resolved_frame_id",
-                mapping.get("requested_frame_id"),
-            )
-            keyframes.append(
-                {
-                    "keyframe_idx": int(idx),
-                    "image_path": str(path),
-                    "frame_id": int(frame_id),
-                }
-            )
-        return keyframes
-
-    indices = list(getattr(stage1_result, "keyframe_indices", []) or [])
-    paths = list(getattr(stage1_result, "keyframe_paths", []) or [])
-    keyframes = []
-    for idx, path in enumerate(paths):
-        frame_id = indices[idx] if idx < len(indices) else idx
-        keyframes.append(
-            {
-                "keyframe_idx": int(idx),
-                "image_path": str(path),
-                "frame_id": int(frame_id),
-            }
-        )
-    return keyframes
-
-
 def prepare_pack_v1_inputs(
     *,
     sample_ids_path: Path,
-    vdetr_proposals_dir: Path,
-    embodiedscan_data_root: Path,
-    output_dir: Path,
-    source: SourceName = "vdetr",
+    data_root: Path,
+    split: str = "val",
     max_samples: int | None = None,
 ) -> list[Path]:
     requests = load_sample_requests(sample_ids_path)
@@ -190,40 +156,54 @@ def prepare_pack_v1_inputs(
             raise ValueError("max_samples must be positive when provided")
         requests = requests[:max_samples]
 
-    adapter, sample_lookup = load_sample_lookup(embodiedscan_data_root)
-    samples_dir = output_dir / "samples"
-    samples_dir.mkdir(parents=True, exist_ok=True)
+    adapter, sample_lookup = load_sample_lookup(data_root, split)
 
     scene_artifacts: dict[str, SceneArtifacts] = {}
     written_samples: list[Path] = []
+    skipped: list[tuple[str, str]] = []
     for request in requests:
         sample = sample_lookup.get((request.scene_id, request.target_id))
         if sample is None:
             raise ValueError(
                 f"No EmbodiedScan VG sample for scene_id={request.scene_id!r}, "
-                f"target_id={request.target_id}"
+                f"target_id={request.target_id} (split={split})"
             )
 
-        if request.scene_id not in scene_artifacts:
-            scene_artifacts[request.scene_id] = prepare_scene_artifacts(
-                scene_id=request.scene_id,
+        try:
+            if request.scene_id not in scene_artifacts:
+                scene_artifacts[request.scene_id] = prepare_scene_artifacts(
+                    scene_id=request.scene_id,
+                    sample=sample,
+                    adapter=adapter,
+                    data_root=data_root,
+                )
+            sample_json = write_sample_artifact(
+                request=request,
                 sample=sample,
                 adapter=adapter,
-                embodiedscan_data_root=embodiedscan_data_root,
-                vdetr_proposals_dir=vdetr_proposals_dir,
-                output_dir=output_dir,
+                data_root=data_root,
+                scene_artifacts=scene_artifacts[request.scene_id],
             )
+        except ValueError as exc:
+            from loguru import logger
 
-        sample_json = write_sample_artifact(
-            request=request,
-            sample=sample,
-            adapter=adapter,
-            embodiedscan_data_root=embodiedscan_data_root,
-            scene_artifacts=scene_artifacts[request.scene_id],
-            output_dir=output_dir,
-            source=source,
-        )
+            logger.warning(
+                "skipping {}: {}",
+                request.sample_id,
+                exc,
+            )
+            skipped.append((request.sample_id, str(exc)))
+            continue
         written_samples.append(sample_json)
+
+    if skipped:
+        from loguru import logger
+
+        logger.warning(
+            "skipped {} sample(s); first few: {}",
+            len(skipped),
+            skipped[:3],
+        )
     return written_samples
 
 
@@ -246,7 +226,9 @@ def load_sample_requests(sample_ids_path: Path) -> list[SampleRequest]:
         category = str(row.get("category") or "").strip()
         sample_id = str(row.get("sample_id") or f"{scene_id}::{target_id}").strip()
         if not sample_id:
-            raise ValueError(f"sample ids row {row_index} has invalid sample_id: {row!r}")
+            raise ValueError(
+                f"sample ids row {row_index} has invalid sample_id: {row!r}"
+            )
         requests.append(
             SampleRequest(
                 sample_id=sample_id,
@@ -265,38 +247,62 @@ def prepare_scene_artifacts(
     scene_id: str,
     sample: EmbodiedScanVGSample,
     adapter: EmbodiedScanVGAdapter,
-    embodiedscan_data_root: Path,
-    vdetr_proposals_dir: Path,
-    output_dir: Path,
+    data_root: Path,
 ) -> SceneArtifacts:
     scene_info = load_scene_info(adapter, sample)
     intrinsic = scene_intrinsic(scene_info)
-    frames = scene_frames(scene_info, embodiedscan_data_root)
+    frames = scene_frames(scene_info, data_root)
     if not frames:
         raise ValueError(f"scene has no frames: {scene_id}")
 
-    predictions_path = vdetr_proposals_dir / scene_id / "predictions.json"
-    if not predictions_path.exists():
-        raise FileNotFoundError(f"Missing V-DETR predictions: {predictions_path}")
-    predictions = json.loads(predictions_path.read_text(encoding="utf-8"))
-    proposals = validate_predictions(predictions, predictions_path)
+    label_to_name = adapter.dataset.label_to_name
+    proposals = build_proposals_from_instances(
+        instances=scene_info.get("instances") or [],
+        label_to_name=label_to_name,
+        scene_id=scene_id,
+    )
+    if not proposals:
+        raise ValueError(f"scene has no GT instances: {scene_id}")
+    proposal_ids = [int(p["id"]) for p in proposals]
 
-    scene_dir = output_dir / "scenes" / scene_id
+    scene_dir = data_root / scene_id / "pack_v1"
     scene_dir.mkdir(parents=True, exist_ok=True)
+
     proposals_jsonl = scene_dir / "proposals.jsonl"
+    axis_align_matrix = scene_info.get("axis_align_matrix")
     proposals_jsonl.write_text(
-        json.dumps({"proposals": proposals}, ensure_ascii=False, indent=2),
+        json.dumps(
+            {
+                "source": "gt",
+                "scene_id": scene_id,
+                "axis_align_matrix": (
+                    np.asarray(axis_align_matrix).tolist()
+                    if axis_align_matrix is not None
+                    else None
+                ),
+                "proposals": proposals,
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
         encoding="utf-8",
     )
 
     image_size = load_image_size(frames[0].rgb_path)
-    extrinsics = {frame.frame_id: frame.extrinsic_world_to_cam for frame in frames}
-    frame_visibility = build_frame_visibility(
-        proposals=proposals,
-        intrinsic=intrinsic,
-        extrinsics_per_frame=extrinsics,
-        image_size=image_size,
-    )
+    # Authoritative visibility from EmbodiedScan annotation (mask-based,
+    # depth-aware). Per-frame `visible_instance_ids` are bbox_ids; we keep
+    # only those that are present in the GT instance set for this scene.
+    valid_ids = set(proposal_ids)
+    images = scene_info.get("images") or []
+    frame_visibility: dict[int, list[int]] = {}
+    for default_id, image in enumerate(images):
+        frame_id = int(image.get("frame_id", image.get("frame_idx", default_id)))
+        ids = [
+            int(x)
+            for x in (image.get("visible_instance_ids") or [])
+            if int(x) in valid_ids
+        ]
+        frame_visibility[frame_id] = ids
     validate_visibility_frames(frame_visibility, {frame.frame_id for frame in frames})
 
     visibility_json = scene_dir / "visibility.json"
@@ -307,13 +313,25 @@ def prepare_scene_artifacts(
 
     annotated_dir = scene_dir / "annotated"
     frame_by_id = {frame.frame_id: frame for frame in frames}
+    proposal_by_id = {int(p["id"]): p for p in proposals}
+    # Bboxes are in axis-aligned scene coords; raw camera poses (cam2global)
+    # are in original ScanNet world coords. Compose axis_align_matrix into the
+    # extrinsic so the 3D->2D projection lands marks on the correct pixels.
+    axis_align_arr: np.ndarray | None = None
+    if axis_align_matrix is not None:
+        axis_align_arr = np.asarray(axis_align_matrix, dtype=float)
+        if axis_align_arr.shape != (4, 4):
+            raise ValueError(
+                f"axis_align_matrix must be 4x4, got {axis_align_arr.shape}"
+            )
     render_annotated_frames(
-        proposals=proposals,
+        proposal_by_id=proposal_by_id,
         frame_visibility=frame_visibility,
         frame_by_id=frame_by_id,
         intrinsic=intrinsic,
         image_size=image_size,
         annotated_dir=annotated_dir,
+        axis_align_matrix=axis_align_arr,
     )
 
     return SceneArtifacts(
@@ -322,7 +340,65 @@ def prepare_scene_artifacts(
         visibility_json=visibility_json,
         annotated_dir=annotated_dir,
         frame_visibility=frame_visibility,
+        proposal_ids=proposal_ids,
     )
+
+
+def build_proposals_from_instances(
+    *,
+    instances: list[dict[str, Any]],
+    label_to_name: dict[int, str],
+    scene_id: str,
+) -> list[dict[str, Any]]:
+    """Convert EmbodiedScan ``instances`` entries to the proposal jsonl
+    schema. ``id`` is set to ``bbox_id`` so the agent's ``selected_object_id``
+    can be compared directly against the VG ``target_id``.
+
+    A small fraction of EmbodiedScan val scenes contain duplicate ``bbox_id``
+    entries with different geometry (e.g. extra label_idx=276 instances).
+    To stay consistent with ``EmbodiedScanDataset._build_bbox_dict`` (which
+    keeps the last via dict assignment), we keep the **last** entry per
+    ``bbox_id`` and warn on the duplicates we drop.
+    """
+    by_id: dict[int, dict[str, Any]] = {}
+    dup_ids: list[int] = []
+    for idx, inst in enumerate(instances):
+        if not isinstance(inst, dict):
+            raise ValueError(f"{scene_id}.instances[{idx}] must be an object: {inst!r}")
+        if (
+            "bbox_id" not in inst
+            or "bbox_3d" not in inst
+            or "bbox_label_3d" not in inst
+        ):
+            raise ValueError(
+                f"{scene_id}.instances[{idx}] missing bbox_id / bbox_3d / bbox_label_3d"
+            )
+        bbox_id = int(inst["bbox_id"])
+        if bbox_id in by_id:
+            dup_ids.append(bbox_id)
+        bbox_9dof = validate_bbox_9dof(
+            inst["bbox_3d"], f"{scene_id}.instances[{idx}].bbox_3d"
+        )
+        label_idx = int(inst["bbox_label_3d"])
+        label_name = label_to_name.get(label_idx, f"label_{label_idx}")
+        by_id[bbox_id] = {
+            "id": bbox_id,
+            "bbox_3d": bbox_9dof,
+            "score": 1.0,
+            "label": label_name,
+            "label_idx": label_idx,
+        }
+    if dup_ids:
+        from loguru import logger
+
+        logger.warning(
+            "{}: {} duplicate bbox_id(s) in instances ({}); keeping last occurrence "
+            "(matches EmbodiedScanDataset._build_bbox_dict).",
+            scene_id,
+            len(dup_ids),
+            sorted(set(dup_ids)),
+        )
+    return list(by_id.values())
 
 
 def write_sample_artifact(
@@ -330,14 +406,14 @@ def write_sample_artifact(
     request: SampleRequest,
     sample: EmbodiedScanVGSample,
     adapter: EmbodiedScanVGAdapter,
-    embodiedscan_data_root: Path,
+    data_root: Path,
     scene_artifacts: SceneArtifacts,
-    output_dir: Path,
-    source: SourceName,
 ) -> Path:
-    keyframes = select_keyframes_for_sample(sample, adapter, embodiedscan_data_root)
+    keyframes = select_keyframes_for_sample(sample, adapter, data_root)
     if not keyframes:
-        raise ValueError(f"Stage 1 returned no keyframes for {request.sample_id}")
+        raise ValueError(
+            f"keyframe selection returned no frames for {request.sample_id}"
+        )
     normalized_keyframes = normalize_prepared_keyframes(
         keyframes,
         scene_artifacts.annotated_dir,
@@ -351,14 +427,15 @@ def write_sample_artifact(
         "query": getattr(sample, "query", "") or getattr(sample, "text", ""),
         "gt_bbox_3d_9dof": gt_bbox,
         "scene_artifacts_dir": str(scene_artifacts.scene_dir),
-        "source": source,
+        "source": "gt",
         "keyframes": normalized_keyframes,
     }
     if not payload["query"]:
         raise ValueError(f"Missing query for {request.sample_id}")
 
-    sample_path = output_dir / "samples" / f"{request.scene_id}__{request.target_id}.json"
-    sample_path.parent.mkdir(parents=True, exist_ok=True)
+    samples_dir = scene_artifacts.scene_dir / "samples"
+    samples_dir.mkdir(parents=True, exist_ok=True)
+    sample_path = samples_dir / f"{request.target_id}.json"
     sample_path.write_text(
         json.dumps(payload, ensure_ascii=False, indent=2),
         encoding="utf-8",
@@ -366,7 +443,9 @@ def write_sample_artifact(
     return sample_path
 
 
-def load_scene_info(adapter: EmbodiedScanVGAdapter, sample: EmbodiedScanVGSample) -> dict:
+def load_scene_info(
+    adapter: EmbodiedScanVGAdapter, sample: EmbodiedScanVGSample
+) -> dict:
     try:
         scene_info = adapter.dataset.get_scene_info(sample.scan_id)
     except KeyError as exc:
@@ -411,14 +490,26 @@ def scene_frames(scene_info: dict, data_root: Path) -> list[SceneFrame]:
         frames.append(
             SceneFrame(
                 frame_id=frame_id,
-                rgb_path=resolve_rgb_path(image, data_root),
+                rgb_path=resolve_rgb_path(image, data_root, frame_pos=frame_id),
                 extrinsic_world_to_cam=image_world_to_cam(image),
             )
         )
     return frames
 
 
-def resolve_rgb_path(image: dict, data_root: Path) -> Path:
+def resolve_rgb_path(
+    image: dict, data_root: Path, *, frame_pos: int | None = None
+) -> Path:
+    """Resolve the RGB frame path.
+
+    EmbodiedScan ``infos_<split>.pkl`` references frames as
+    ``scannet/posed_images/<scene>/<NNNNN>.jpg`` (5-digit, encoding the
+    original ScanNet sens index). Locally we keep the **subsampled**
+    posed-images set under ``<data_root>/<scene>/raw/<NNNNNN>-rgb.{jpg,png}``
+    where the 6-digit number is the **positional** index into the posed
+    list (0..len(images)-1), not the original sens index. Pass
+    ``frame_pos`` to use that position-based local layout.
+    """
     raw = None
     for key in ("img_path", "image_path", "rgb_path", "path"):
         v = image.get(key)
@@ -430,7 +521,18 @@ def resolve_rgb_path(image: dict, data_root: Path) -> Path:
     path = Path(str(raw))
     if path.is_absolute():
         return path
-    return data_root / path
+    candidate = data_root / path
+    if candidate.exists():
+        return candidate
+    if frame_pos is not None:
+        parts = path.parts
+        scene_id = parts[-2] if len(parts) >= 2 else None
+        if scene_id:
+            for ext in ("jpg", "png"):
+                local = data_root / scene_id / "raw" / f"{frame_pos:06d}-rgb.{ext}"
+                if local.exists():
+                    return local
+    return candidate
 
 
 def image_world_to_cam(image: dict) -> np.ndarray:
@@ -450,33 +552,6 @@ def validate_matrix_4x4(raw: Any, *, field_name: str) -> np.ndarray:
     if not np.isfinite(mat).all():
         raise ValueError(f"{field_name} must contain only finite values")
     return mat
-
-
-def validate_predictions(predictions: Any, path: Path) -> list[dict[str, Any]]:
-    if not isinstance(predictions, dict):
-        raise ValueError(f"predictions JSON must be an object: {path}")
-    proposals = predictions.get("proposals")
-    if not isinstance(proposals, list):
-        raise ValueError(f"predictions.proposals must be a list: {path}")
-    out = []
-    for idx, proposal in enumerate(proposals):
-        if not isinstance(proposal, dict):
-            raise ValueError(f"proposal[{idx}] must be an object in {path}")
-        bbox = proposal.get("bbox_3d") or proposal.get("bbox_3d_9dof")
-        bbox_9dof = validate_bbox_9dof(bbox, f"proposal[{idx}].bbox_3d")
-        if "score" not in proposal:
-            raise ValueError(f"proposal[{idx}].score missing in {path}")
-        if "label" not in proposal:
-            raise ValueError(f"proposal[{idx}].label missing in {path}")
-        out.append(
-            {
-                **proposal,
-                "bbox_3d": bbox_9dof,
-                "score": float(proposal["score"]),
-                "label": str(proposal["label"]),
-            }
-        )
-    return out
 
 
 def validate_bbox_9dof(raw: Any, field_name: str) -> list[float]:
@@ -506,31 +581,43 @@ def validate_visibility_frames(
 
 def render_annotated_frames(
     *,
-    proposals: list[dict[str, Any]],
+    proposal_by_id: dict[int, dict[str, Any]],
     frame_visibility: dict[int, list[int]],
     frame_by_id: dict[int, SceneFrame],
     intrinsic: np.ndarray,
     image_size: tuple[int, int],
     annotated_dir: Path,
+    axis_align_matrix: np.ndarray | None = None,
 ) -> None:
-    for frame_id, proposal_indices in frame_visibility.items():
+    aligned_to_world = (
+        np.linalg.inv(axis_align_matrix) if axis_align_matrix is not None else None
+    )
+    for frame_id, visible_ids in frame_visibility.items():
         if frame_id not in frame_by_id:
             raise ValueError(f"visibility references missing frame_id={frame_id}")
         frame = frame_by_id[frame_id]
+        if aligned_to_world is not None:
+            extrinsic = frame.extrinsic_world_to_cam @ aligned_to_world
+        else:
+            extrinsic = frame.extrinsic_world_to_cam
         marks = []
-        for proposal_idx in proposal_indices:
-            proposal = proposals[int(proposal_idx)]
+        for proposal_id in visible_ids:
+            proposal = proposal_by_id.get(int(proposal_id))
+            if proposal is None:
+                raise ValueError(
+                    f"visibility refers to unknown proposal_id={proposal_id}"
+                )
             rect = project_bbox_3d_to_2d(
                 proposal["bbox_3d"],
                 intrinsic,
-                frame.extrinsic_world_to_cam,
+                extrinsic,
                 image_size,
             )
             if rect is None:
                 continue
             marks.append(
                 {
-                    "proposal_id": int(proposal_idx),
+                    "proposal_id": int(proposal_id),
                     "label": proposal["label"],
                     "bbox_2d": rect,
                 }
@@ -569,44 +656,40 @@ def validate_gt_bbox(raw: Any, sample_id: str) -> list[float]:
     return validate_bbox_9dof(raw, f"{sample_id}.gt_bbox_3d_9dof")
 
 
-def _normalize_keyframe_item(item: Any, idx: int) -> dict[str, Any]:
-    if isinstance(item, dict):
-        frame_id = item.get("frame_id", item.get("view_id", idx))
-        path = item.get("image_path") or item.get("path")
-        if path is None:
-            raise ValueError(f"keyframe item missing image_path: {item!r}")
-        return {
-            "keyframe_idx": int(item.get("keyframe_idx", idx)),
-            "image_path": str(path),
-            "frame_id": int(frame_id),
-        }
-    if isinstance(item, (list, tuple)) and len(item) >= 3:
-        return {
-            "keyframe_idx": int(item[0]),
-            "image_path": str(item[1]),
-            "frame_id": int(item[2]),
-        }
-    raise ValueError(f"unsupported keyframe item: {item!r}")
-
-
-def _required_nonempty_str(row: dict[str, Any], key: str, row_index: int) -> str:
-    value = str(row.get(key) or "").strip()
-    if not value:
-        raise ValueError(f"sample ids row {row_index} missing {key}: {row!r}")
-    return value
+def _required_nonempty_str(row: dict, key: str, row_index: int) -> str:
+    value = row.get(key)
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError(
+            f"sample ids row {row_index}.{key} must be a non-empty string: {row!r}"
+        )
+    return value.strip()
 
 
 def main() -> None:
     args = parse_args()
-    prepare_pack_v1_inputs(
+    written = prepare_pack_v1_inputs(
         sample_ids_path=args.sample_ids,
-        vdetr_proposals_dir=args.vdetr_proposals_dir,
-        embodiedscan_data_root=args.embodiedscan_data_root,
-        output_dir=args.output_dir,
-        source=args.source,
+        data_root=args.data_root,
+        split=args.split,
         max_samples=args.max_samples,
+    )
+    print(
+        f"wrote {len(written)} sample artifacts under {args.data_root}/<scene>/pack_v1/"
     )
 
 
 if __name__ == "__main__":
     main()
+
+
+__all__ = [
+    "SampleRequest",
+    "SceneArtifacts",
+    "SceneFrame",
+    "build_proposals_from_instances",
+    "load_sample_requests",
+    "prepare_pack_v1_inputs",
+    "prepare_scene_artifacts",
+    "select_keyframes_for_sample",
+    "write_sample_artifact",
+]

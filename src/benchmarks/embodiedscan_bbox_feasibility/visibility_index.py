@@ -103,14 +103,27 @@ def build_frame_visibility(
     extrinsics_per_frame: dict[int, np.ndarray],
     image_size: tuple[int, int],
     depth_max: float = 10.0,
+    proposal_ids: list[int] | None = None,
 ) -> dict[int, list[int]]:
+    """Compute per-frame visibility for a list of 3D bbox proposals.
+
+    The output values are proposal ids: positional indices into ``proposals``
+    by default, or the entries of ``proposal_ids`` when supplied (e.g. the
+    EmbodiedScan ``bbox_id`` for the GT pool). When ``proposal_ids`` is given
+    it must have the same length as ``proposals``.
+    """
+    if proposal_ids is not None and len(proposal_ids) != len(proposals):
+        raise ValueError(
+            "proposal_ids length must match proposals; got "
+            f"{len(proposal_ids)} vs {len(proposals)}"
+        )
     out: dict[int, list[int]] = {}
     for fid, extr in extrinsics_per_frame.items():
         visible = []
         for idx, p in enumerate(proposals):
             bbox = p.get("bbox_3d_9dof") or p.get("bbox_3d")
             if bbox and bbox_visible_in_frustum(bbox, intrinsic, extr, image_size, depth_max):
-                visible.append(idx)
+                visible.append(int(proposal_ids[idx]) if proposal_ids is not None else idx)
         out[int(fid)] = visible
     return out
 

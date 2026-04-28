@@ -1,4 +1,4 @@
-"""End-to-end pack-v1 smoke with offline inputs and mocked agents."""
+"""End-to-end pack-v1 smoke (per-scene layout, GT pool, mocked agent)."""
 
 from __future__ import annotations
 
@@ -21,7 +21,7 @@ def test_side_by_side_e2e_smoke_with_mocked_agents(tmp_path, monkeypatch) -> Non
     sample_id = f"{scene_id}::{target_id}"
     gt_bbox = [0.0, 0.0, 5.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0]
 
-    sample_ids_path = tmp_path / "batch_sample_ids.json"
+    sample_ids_path = tmp_path / "frozen_sample_ids.json"
     sample_ids_path.write_text(
         json.dumps(
             [
@@ -36,31 +36,8 @@ def test_side_by_side_e2e_smoke_with_mocked_agents(tmp_path, monkeypatch) -> Non
         encoding="utf-8",
     )
 
-    vdetr_dir = tmp_path / "vdetr"
-    predictions_path = vdetr_dir / scene_id / "predictions.json"
-    predictions_path.parent.mkdir(parents=True)
-    predictions_path.write_text(
-        json.dumps(
-            {
-                "proposals": [
-                    {
-                        "bbox_3d": gt_bbox,
-                        "score": 0.95,
-                        "label": "chair",
-                    },
-                    {
-                        "bbox_3d": [2.0, 0.0, 5.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0],
-                        "score": 0.60,
-                        "label": "table",
-                    },
-                ]
-            }
-        ),
-        encoding="utf-8",
-    )
-
-    embodiedscan_data_root = tmp_path / "embodiedscan"
-    rgb_path = embodiedscan_data_root / scene_id / "posed_images" / "000010.jpg"
+    data_root = tmp_path / "embodiedscan"
+    rgb_path = data_root / scene_id / "raw" / "000010-rgb.jpg"
     rgb_path.parent.mkdir(parents=True)
     Image.new("RGB", (100, 100), color="white").save(rgb_path)
 
@@ -68,11 +45,24 @@ def test_side_by_side_e2e_smoke_with_mocked_agents(tmp_path, monkeypatch) -> Non
         "sample_idx": f"scannet/{scene_id}",
         "cam2img": [[50.0, 0.0, 50.0], [0.0, 50.0, 50.0], [0.0, 0.0, 1.0]],
         "axis_align_matrix": np.eye(4).tolist(),
+        "instances": [
+            {
+                "bbox_id": target_id,
+                "bbox_3d": gt_bbox,
+                "bbox_label_3d": 3,
+            },
+            {
+                "bbox_id": 9,
+                "bbox_3d": [2.0, 0.0, 5.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0],
+                "bbox_label_3d": 5,
+            },
+        ],
         "images": [
             {
                 "frame_id": 10,
-                "img_path": str(rgb_path.relative_to(embodiedscan_data_root)),
+                "img_path": str(rgb_path.relative_to(data_root)),
                 "cam2global": np.eye(4).tolist(),
+                "visible_instance_ids": [target_id],
             }
         ],
     }
@@ -86,14 +76,17 @@ def test_side_by_side_e2e_smoke_with_mocked_agents(tmp_path, monkeypatch) -> Non
         gt_bbox_3d=gt_bbox,
     )
     adapter = SimpleNamespace(
-        dataset=SimpleNamespace(get_scene_info=lambda scan_id: scene_info),
+        dataset=SimpleNamespace(
+            get_scene_info=lambda scan_id: scene_info,
+            label_to_name={3: "chair", 5: "table"},
+        ),
         get_axis_align_matrix=lambda scan_id: np.eye(4),
     )
 
     monkeypatch.setattr(
         prep,
         "load_sample_lookup",
-        lambda data_root: (adapter, {(scene_id, target_id): sample}),
+        lambda data_root, split: (adapter, {(scene_id, target_id): sample}),
     )
     monkeypatch.setattr(
         prep,
@@ -103,20 +96,17 @@ def test_side_by_side_e2e_smoke_with_mocked_agents(tmp_path, monkeypatch) -> Non
         ],
     )
 
-    pack_v1_inputs_dir = tmp_path / "outputs" / "pack_v1"
     written = prep.prepare_pack_v1_inputs(
         sample_ids_path=sample_ids_path,
-        vdetr_proposals_dir=vdetr_dir,
-        embodiedscan_data_root=embodiedscan_data_root,
-        output_dir=pack_v1_inputs_dir,
-        source="vdetr",
+        data_root=data_root,
+        split="val",
     )
 
-    scene_dir = pack_v1_inputs_dir / "scenes" / scene_id
+    scene_dir = data_root / scene_id / "pack_v1"
     proposals_jsonl = scene_dir / "proposals.jsonl"
     visibility_json = scene_dir / "visibility.json"
     annotated_frames = sorted((scene_dir / "annotated").glob("frame_*.png"))
-    sample_json = pack_v1_inputs_dir / "samples" / f"{scene_id}__{target_id}.json"
+    sample_json = scene_dir / "samples" / f"{target_id}.json"
 
     assert written == [sample_json]
     assert proposals_jsonl.exists()
@@ -136,7 +126,7 @@ def test_side_by_side_e2e_smoke_with_mocked_agents(tmp_path, monkeypatch) -> Non
     sample_payload = json.loads(sample_json.read_text(encoding="utf-8"))
     bundle = runner.build_pack_v1_bundle_from_sample(
         sample_payload,
-        pack_v1_inputs_dir,
+        data_root,
     )
     validate_packs(Stage2TaskType.VISUAL_GROUNDING, bundle)
 
@@ -167,8 +157,7 @@ def test_side_by_side_e2e_smoke_with_mocked_agents(tmp_path, monkeypatch) -> Non
     results = runner.compare_backends(
         sample_ids=[sample_id],
         output_dir=out_dir,
-        pack_v1_inputs_dir=pack_v1_inputs_dir,
-        embodiedscan_data_root=embodiedscan_data_root,
+        data_root=data_root,
     )
 
     assert (out_dir / "side_by_side.json").exists()

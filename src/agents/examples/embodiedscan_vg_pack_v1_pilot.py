@@ -62,7 +62,7 @@ def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser()
     p.add_argument("--scene-id", required=True)
     p.add_argument("--proposals-jsonl", type=Path, required=True)
-    p.add_argument("--source", choices=["vdetr", "conceptgraph"], required=True)
+    p.add_argument("--source", choices=["gt", "vdetr", "conceptgraph"], default="gt")
     p.add_argument("--annotated-image-dir", type=Path, required=True)
     p.add_argument("--visibility-json", type=Path, required=True)
     p.add_argument("--keyframes-json", type=Path, required=True)

@@ -1,7 +1,8 @@
 """Typed runtime ctx for the EmbodiedScan VG pack."""
+
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
@@ -20,10 +21,10 @@ class Proposal:
 
 @dataclass
 class VgEmbodiedScanCtx:
-    proposal_pool_source: Literal["vdetr", "conceptgraph"]
+    proposal_pool_source: Literal["gt", "vdetr", "conceptgraph"]
     proposals: list[Proposal]
-    frame_index: dict[int, list[int]]      # frame_id -> [proposal_id]
-    proposal_index: dict[int, list[int]]   # proposal_id -> [frame_id]
+    frame_index: dict[int, list[int]]  # frame_id -> [proposal_id]
+    proposal_index: dict[int, list[int]]  # proposal_id -> [frame_id]
     annotated_image_dir: Path
     axis_align_matrix: np.ndarray | None = None
 
@@ -35,9 +36,9 @@ def build_ctx_from_bundle(bundle: Stage2EvidenceBundle) -> VgEmbodiedScanCtx:
         raise ValueError("bundle.extra_metadata.vg_proposal_pool is missing")
 
     source = pool.get("source")
-    if source not in ("vdetr", "conceptgraph"):
+    if source not in ("gt", "vdetr", "conceptgraph"):
         raise ValueError(
-            f"proposal_pool_source must be 'vdetr' or 'conceptgraph', got {source!r}"
+            f"proposal_pool_source must be 'gt', 'vdetr', or 'conceptgraph', got {source!r}"
         )
 
     if "proposals" not in pool:
@@ -74,9 +75,7 @@ def build_ctx_from_bundle(bundle: Stage2EvidenceBundle) -> VgEmbodiedScanCtx:
         raise ValueError("vg_proposal_pool.frame_index key is required")
     if "proposal_index" not in pool:
         raise ValueError("vg_proposal_pool.proposal_index key is required")
-    frame_index = {
-        int(k): [int(x) for x in v] for k, v in pool["frame_index"].items()
-    }
+    frame_index = {int(k): [int(x) for x in v] for k, v in pool["frame_index"].items()}
     proposal_index = {
         int(k): [int(x) for x in v] for k, v in pool["proposal_index"].items()
     }
@@ -92,9 +91,7 @@ def build_ctx_from_bundle(bundle: Stage2EvidenceBundle) -> VgEmbodiedScanCtx:
     if matrix is not None:
         arr = np.asarray(matrix, dtype=np.float64)
         if arr.shape != (4, 4):
-            raise ValueError(
-                f"axis_align_matrix must be 4x4, got shape {arr.shape}"
-            )
+            raise ValueError(f"axis_align_matrix must be 4x4, got shape {arr.shape}")
         axis_align_matrix = arr
 
     return VgEmbodiedScanCtx(
