@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import pickle
-import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -17,7 +16,6 @@ from benchmarks.embodiedscan_loader import (
     EmbodiedScanVGSample,
     _find_instance_bbox,
 )
-
 
 # ---------------------------------------------------------------------------
 # Fixtures: synthetic annotation data
@@ -51,7 +49,7 @@ def _make_scene(
         {
             "img_path": f"{scan_id}/posed_images/{i:05d}.jpg",
             "cam2global": np.eye(4).tolist(),
-            "visible_instance_ids": [inst["bbox_id"] for inst in instances],
+            "visible_instance_ids": list(range(len(instances))),
             "depth_path": f"{scan_id}/posed_images/{i:05d}.png",
         }
         for i in range(n_images)
@@ -402,6 +400,24 @@ class TestEmbodiedScanDataset:
         ds = EmbodiedScanDataset.from_path(data_dir, source_filter=None)
         # 4 original entries loaded, 1 skipped
         assert len(ds) == 4
+
+    def test_skips_entries_with_ambiguous_duplicate_target_id(self, data_dir: Path) -> None:
+        """Official EmbodiedScan VG skips targets whose bbox_id is not unique."""
+        pkl_path = data_dir / "embodiedscan_infos_val.pkl"
+        with open(pkl_path, "rb") as f:
+            pkl_data = pickle.load(f)
+        scene = next(
+            row
+            for row in pkl_data["data_list"]
+            if row["sample_idx"] == "scannet/scene0001_00"
+        )
+        scene["instances"].append(_make_instance(1, 100, (9.0, 9.0, 9.0)))
+        with open(pkl_path, "wb") as f:
+            pickle.dump(pkl_data, f)
+
+        ds = EmbodiedScanDataset.from_path(data_dir, source_filter="scannet")
+
+        assert [s.target_id for s in ds] == [2, 2]
 
 
 # ---------------------------------------------------------------------------

@@ -62,7 +62,7 @@ def test_side_by_side_e2e_smoke_with_mocked_agents(tmp_path, monkeypatch) -> Non
                 "frame_id": 10,
                 "img_path": str(rgb_path.relative_to(data_root)),
                 "cam2global": np.eye(4).tolist(),
-                "visible_instance_ids": [target_id],
+                "visible_instance_ids": [0],
             }
         ],
     }

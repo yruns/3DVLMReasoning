@@ -51,10 +51,14 @@ def test_load_targets_carries_axis_align_matrix(monkeypatch) -> None:
                     [0, 0, 1, 30],
                     [0, 0, 0, 1],
                 ],
+                "instances": [
+                    {"bbox_id": 7},
+                    {"bbox_id": 8},
+                ],
                 "images": [
-                    {"visible_instance_ids": [7]},
+                    {"visible_instance_ids": [0]},
                     {"visible_instance_ids": []},
-                    {"visible_instance_ids": [7, 8]},
+                    {"visible_instance_ids": [0, 1]},
                 ],
             }
 

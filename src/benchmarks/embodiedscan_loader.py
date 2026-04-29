@@ -171,6 +171,10 @@ class EmbodiedScanDataset:
             )
 
         # --- Pre-build bbox lookup dicts per scene ---
+        # EmbodiedScan's official 3DVG loader only keeps language samples whose
+        # target_id maps to exactly one scene instance. Some ScanNet scenes have
+        # duplicated bbox_id entries; treating those as "keep last" silently
+        # changes the ground truth category/geometry for those samples.
         bbox_lookup: dict[str, dict[int, list[float]]] = {}
         for scan_id_key, scene_data in scene_index.items():
             bbox_lookup[scan_id_key] = _build_bbox_dict(
@@ -179,7 +183,8 @@ class EmbodiedScanDataset:
 
         # --- Build samples ---
         samples: list[EmbodiedScanVGSample] = []
-        skipped = 0
+        skipped_missing_scene = 0
+        skipped_missing_or_ambiguous_bbox = 0
 
         for idx, entry in enumerate(vg_entries):
             if max_samples is not None and len(samples) >= max_samples:
@@ -187,7 +192,7 @@ class EmbodiedScanDataset:
 
             scan_id = entry["scan_id"]
             if scan_id not in scene_index:
-                skipped += 1
+                skipped_missing_scene += 1
                 continue
 
             # Extract scene_id (last component, e.g. "scene0415_00")
@@ -195,6 +200,9 @@ class EmbodiedScanDataset:
 
             # O(1) GT bbox lookup
             gt_bbox = bbox_lookup[scan_id].get(entry["target_id"])
+            if gt_bbox is None:
+                skipped_missing_or_ambiguous_bbox += 1
+                continue
 
             sample = EmbodiedScanVGSample(
                 sample_id=f"es_vg_{split}_{idx}",
@@ -211,9 +219,15 @@ class EmbodiedScanDataset:
             )
             samples.append(sample)
 
-        if skipped > 0:
+        if skipped_missing_scene > 0:
             logger.warning(
-                "Skipped {} entries with no matching scene in PKL", skipped
+                "Skipped {} entries with no matching scene in PKL",
+                skipped_missing_scene,
+            )
+        if skipped_missing_or_ambiguous_bbox > 0:
+            logger.warning(
+                "Skipped {} entries with missing or ambiguous target bbox_id",
+                skipped_missing_or_ambiguous_bbox,
             )
 
         logger.info(
@@ -343,10 +357,20 @@ def _normalize_bbox(bbox: Any) -> list[float]:
 def _build_bbox_dict(
     instances: list[dict[str, Any]],
 ) -> dict[int, list[float]]:
-    """Build {bbox_id: bbox_3d} lookup dict for O(1) access."""
+    """Build a unique {bbox_id: bbox_3d} lookup dict for O(1) access.
+
+    Duplicate bbox_id values are excluded to match the official EmbodiedScan
+    3DVG loader, which skips language samples whose target_id does not map to
+    exactly one scene instance.
+    """
+    counts: dict[int, int] = {}
+    for inst in instances:
+        bbox_id = int(inst["bbox_id"])
+        counts[bbox_id] = counts.get(bbox_id, 0) + 1
     return {
-        inst["bbox_id"]: _normalize_bbox(inst["bbox_3d"])
+        int(inst["bbox_id"]): _normalize_bbox(inst["bbox_3d"])
         for inst in instances
+        if counts[int(inst["bbox_id"])] == 1
     }
 
 
@@ -357,7 +381,7 @@ def _find_instance_bbox(
 
     Returns None if not found. Used by get_gt_bbox() for ad-hoc lookups.
     """
-    for inst in instances:
-        if inst["bbox_id"] == target_id:
-            return _normalize_bbox(inst["bbox_3d"])
-    return None
+    matches = [inst for inst in instances if int(inst["bbox_id"]) == int(target_id)]
+    if len(matches) != 1:
+        return None
+    return _normalize_bbox(matches[0]["bbox_3d"])

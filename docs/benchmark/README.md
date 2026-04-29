@@ -31,7 +31,7 @@ benchmark's version). Always include:
 | Benchmark | Status | Path | Highlight |
 |-----------|--------|------|-----------|
 | **OpenEQA ScanNet EM-EQA** | live | [`openeqa/`](openeqa/) | v15 stage2 MNAS **74.33** (`s1_l1`, frozen 1050Q, Gemini 2.5 Pro) |
-| **EmbodiedScan VG** | smoke | [`embodiedscan/`](embodiedscan/) | v1 GT-pool pack_v1 smoke: 68Q, Acc@0.25/0.50 **91.18** |
+| **EmbodiedScan VG** | smoke | [`embodiedscan/`](embodiedscan/) | v3 GT-pool pack_v1 2k smoke: 2000Q, Acc@0.25/0.50 **89.15** |
 
 ## Pending Migrations
 

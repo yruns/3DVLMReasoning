@@ -125,6 +125,96 @@ def test_runner_workers_preserve_sample_order(monkeypatch, tmp_path) -> None:
 
 
 @pytest.mark.integration
+def test_runner_workers_record_sample_errors_and_continue(monkeypatch, tmp_path) -> None:
+    from evaluation.scripts.run_embodiedscan_vg_side_by_side import (
+        compare_backends,
+    )
+
+    def fake_run_one(sample_id, backend, **_kwargs):
+        if sample_id.endswith("::1"):
+            raise RuntimeError("invalid_prompt")
+        return {
+            "sample_id": sample_id,
+            "backend": backend,
+            "status": "completed",
+            "iou": 1.0,
+        }
+
+    monkeypatch.setattr(
+        "evaluation.scripts.run_embodiedscan_vg_side_by_side.run_one_sample",
+        fake_run_one,
+    )
+    sample_ids = [f"scene0001_00::{idx}" for idx in range(3)]
+
+    out = compare_backends(
+        sample_ids=sample_ids,
+        output_dir=tmp_path,
+        data_root=tmp_path / "data_root",
+        workers=2,
+    )
+
+    per_sample = out["pack_v1"]["per_sample"]
+    assert [r["sample_id"] for r in per_sample] == sample_ids
+    assert [r["status"] for r in per_sample] == [
+        "completed",
+        "error",
+        "completed",
+    ]
+    assert per_sample[1]["error_type"] == "RuntimeError"
+    assert per_sample[1]["iou"] == 0.0
+    assert out["pack_v1"]["Acc@0.50"] == pytest.approx(2 / 3)
+
+
+@pytest.mark.integration
+def test_runner_resumes_from_per_sample_checkpoint(monkeypatch, tmp_path) -> None:
+    from evaluation.scripts.run_embodiedscan_vg_side_by_side import (
+        compare_backends,
+        sample_result_path,
+    )
+
+    cached = {
+        "sample_id": "scene0001_00::0",
+        "backend": "pack_v1",
+        "status": "completed",
+        "iou": 0.25,
+    }
+    cached_path = sample_result_path(tmp_path, "pack_v1", cached["sample_id"])
+    cached_path.parent.mkdir(parents=True)
+    cached_path.write_text(json.dumps(cached), encoding="utf-8")
+    calls: list[str] = []
+
+    def fake_run_one(sample_id, backend, **_kwargs):
+        calls.append(sample_id)
+        return {
+            "sample_id": sample_id,
+            "backend": backend,
+            "status": "completed",
+            "iou": 1.0,
+        }
+
+    monkeypatch.setattr(
+        "evaluation.scripts.run_embodiedscan_vg_side_by_side.run_one_sample",
+        fake_run_one,
+    )
+    sample_ids = ["scene0001_00::0", "scene0001_00::1"]
+
+    out = compare_backends(
+        sample_ids=sample_ids,
+        output_dir=tmp_path,
+        data_root=tmp_path / "data_root",
+        workers=2,
+    )
+
+    assert calls == ["scene0001_00::1"]
+    per_sample = out["pack_v1"]["per_sample"]
+    assert [r["sample_id"] for r in per_sample] == sample_ids
+    assert [r["iou"] for r in per_sample] == [0.25, 1.0]
+    written_path = sample_result_path(tmp_path, "pack_v1", "scene0001_00::1")
+    assert json.loads(written_path.read_text(encoding="utf-8"))["iou"] == 1.0
+    assert out["pack_v1"]["Acc@0.25"] == pytest.approx(1.0)
+
+
+@pytest.mark.integration
 def test_pack_v1_run_one_sample_scores_agent_bbox(monkeypatch, tmp_path) -> None:
     from evaluation.scripts import run_embodiedscan_vg_side_by_side as runner
 

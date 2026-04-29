@@ -63,9 +63,17 @@ def _visible_frame_ids_for_target(
     scene_info: dict,
     target_id: int,
 ) -> list[int]:
+    target_indices = [
+        idx
+        for idx, inst in enumerate(scene_info.get("instances", []))
+        if int(inst.get("bbox_id", -1)) == int(target_id)
+    ]
+    if len(target_indices) != 1:
+        return []
+    target_instance_idx = target_indices[0]
     frame_ids: list[int] = []
     for frame_idx, image in enumerate(scene_info.get("images", [])):
         visible_ids = image.get("visible_instance_ids", [])
-        if target_id in visible_ids:
+        if target_instance_idx in {int(idx) for idx in visible_ids}:
             frame_ids.append(frame_idx)
     return frame_ids

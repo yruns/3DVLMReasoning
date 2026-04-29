@@ -5,7 +5,7 @@ from __future__ import annotations
 import argparse
 import ast
 import concurrent.futures
-import functools
+import hashlib
 import json
 import math
 import statistics
@@ -144,30 +144,40 @@ def compare_backends(
 ) -> dict:
     if workers <= 0:
         raise ValueError("workers must be positive")
+    validate_unique_sample_ids(sample_ids)
     output_dir.mkdir(parents=True, exist_ok=True)
     results: dict[str, dict] = {}
     for backend in ("pack_v1",):
-        if workers == 1:
-            per_sample = [
-                run_one_sample(
-                    s,
+        def run_sample_with_error_record(
+            sample_id: str,
+            backend: BackendName = backend,
+        ) -> dict:
+            cached = load_sample_result_checkpoint(output_dir, backend, sample_id)
+            if cached is not None:
+                return cached
+            try:
+                result = run_one_sample(
+                    sample_id,
                     backend,
                     data_root=data_root,
                     config=config,
                     sample_retries=sample_retries,
                 )
-                for s in sample_ids
-            ]
+            except Exception as exc:
+                logger.exception(
+                    "{} {} failed after retries; recording error and continuing",
+                    sample_id,
+                    backend,
+                )
+                result = sample_error_result(sample_id, backend, exc)
+            write_sample_result_checkpoint(output_dir, backend, result)
+            return result
+
+        if workers == 1:
+            per_sample = [run_sample_with_error_record(s) for s in sample_ids]
         else:
-            run_sample = functools.partial(
-                run_one_sample,
-                backend=backend,
-                data_root=data_root,
-                config=config,
-                sample_retries=sample_retries,
-            )
             with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as executor:
-                per_sample = list(executor.map(run_sample, sample_ids))
+                per_sample = list(executor.map(run_sample_with_error_record, sample_ids))
         ious = [r["iou"] for r in per_sample if r.get("iou") is not None]
         acc25 = sum(1 for v in ious if v >= 0.25) / max(len(ious), 1)
         acc50 = sum(1 for v in ious if v >= 0.50) / max(len(ious), 1)
@@ -184,6 +194,93 @@ def compare_backends(
     )
     logger.info("pack_v1: Acc@0.25={:.3f}", results["pack_v1"]["Acc@0.25"])
     return results
+
+
+def validate_unique_sample_ids(sample_ids: Sequence[str]) -> None:
+    seen: set[str] = set()
+    duplicates: list[str] = []
+    for sample_id in sample_ids:
+        if sample_id in seen:
+            duplicates.append(sample_id)
+        seen.add(sample_id)
+    if duplicates:
+        raise ValueError(
+            "sample_ids must be unique for per-sample checkpointing; "
+            f"duplicates={duplicates[:10]}"
+        )
+
+
+def sample_result_path(output_dir: Path, backend: BackendName, sample_id: str) -> Path:
+    digest = hashlib.sha1(sample_id.encode("utf-8")).hexdigest()[:12]
+    safe = "".join(c if c.isalnum() else "_" for c in sample_id).strip("_")
+    if not safe:
+        safe = "sample"
+    return output_dir / "per_sample" / backend / f"{safe}_{digest}.json"
+
+
+def load_sample_result_checkpoint(
+    output_dir: Path,
+    backend: BackendName,
+    sample_id: str,
+) -> dict | None:
+    path = sample_result_path(output_dir, backend, sample_id)
+    if not path.exists():
+        return None
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError(f"Checkpoint must be a JSON object: {path}")
+    if payload.get("sample_id") != sample_id:
+        raise ValueError(
+            f"Checkpoint {path} has sample_id={payload.get('sample_id')!r}, "
+            f"expected {sample_id!r}"
+        )
+    if payload.get("backend") != backend:
+        raise ValueError(
+            f"Checkpoint {path} has backend={payload.get('backend')!r}, "
+            f"expected {backend!r}"
+        )
+    logger.info("{} {} loaded from checkpoint {}", sample_id, backend, path)
+    return payload
+
+
+def write_sample_result_checkpoint(
+    output_dir: Path,
+    backend: BackendName,
+    result: dict,
+) -> Path:
+    sample_id = result.get("sample_id")
+    if not isinstance(sample_id, str) or not sample_id:
+        raise ValueError(f"Cannot checkpoint result without sample_id: {result!r}")
+    if result.get("backend") != backend:
+        raise ValueError(
+            f"Cannot checkpoint {sample_id}: backend={result.get('backend')!r}, "
+            f"expected {backend!r}"
+        )
+    path = sample_result_path(output_dir, backend, sample_id)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp_path = path.with_name(f"{path.name}.tmp")
+    tmp_path.write_text(
+        json.dumps(result, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    tmp_path.replace(path)
+    return path
+
+
+def sample_error_result(sample_id: str, backend: BackendName, exc: Exception) -> dict:
+    return {
+        "sample_id": sample_id,
+        "backend": backend,
+        "status": "error",
+        "iou": 0.0,
+        "predicted_bbox_3d_9dof": None,
+        "gt_bbox_3d_9dof": None,
+        "selected_object_id": None,
+        "confidence": None,
+        "query": None,
+        "error_type": type(exc).__name__,
+        "error": str(exc),
+    }
 
 
 def config_for_backend(

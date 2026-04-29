@@ -11,22 +11,25 @@ Stage-2 task-pack pipeline.
 
 | Version | Date | Acc@0.25 | Acc@0.50 | mean IoU | Eval Scale | Key Change |
 |---------|------|---------:|---------:|---------:|------------|------------|
+| [v3](v3_projectable_2k_20260429.md) | 2026-04-29 | 89.15 | 89.15 | 89.20 | 2000Q smoke | Projectable-only unique-target sweep with checkpointed adaptive concurrency |
+| [v2](v2_projectable_20260429.md) | 2026-04-29 | 94.03 | 94.03 | 94.08 | 67Q smoke | Projectable-only corrected GT-pool prep, 12-worker run |
 | [v1](v1_gt_pool_20260428.md) | 2026-04-28 | 91.18 | 91.18 | 91.18 | 68Q smoke | GT-pool oracle pack_v1, per-scene artifacts |
 
 ## Current Interpretation
 
-The v1 run is a pipeline smoke, not a headline benchmark result. It verifies
-that the pack_v1 visual-grounding agent can consume per-scene GT proposal pools,
-inspect marked keyframes, submit a selected EmbodiedScan `bbox_id`, and be
-scored by oriented 3D IoU.
+The v1/v2 runs are pipeline smokes, and v3 is the first broad 2k smoke. They
+verify that the pack_v1 visual-grounding agent can consume per-scene GT proposal
+pools, inspect marked keyframes, submit a selected EmbodiedScan `bbox_id`, and
+be scored by oriented 3D IoU. v3 is the current large smoke because it uses the
+corrected projectable-only preparation path at 2000 samples.
 
-Do not compare this 68-question smoke directly to public detector-based
+Do not compare these small smokes directly to public detector-based
 EmbodiedScan numbers:
 
 - the proposal pool is oracle GT, not vDETR or another detector;
-- two of the frozen 70 targets were skipped because the annotation reported no
-  visible frames;
-- n=68 is below the repo's n>=200 benchmark-claim threshold.
+- the frozen sample counts changed as the preparation filter was corrected;
+- v1/v2 are below the repo's n>=200 benchmark-claim threshold; v3 is large
+  enough for a broad smoke but still not detector-comparable.
 
 ## Reproduction Pattern
 
@@ -43,9 +46,10 @@ Run the side-by-side pack_v1 agent:
 
 ```bash
 PYTHONPATH=src python src/evaluation/scripts/run_embodiedscan_vg_side_by_side.py \
-    --sample-ids tmp/embodiedscan_artifacts/v1_68_prepared_sample_ids.json \
-    --output-dir tmp/embodiedscan_eval_v1_smoke_20260428_1749 \
+    --sample-ids tmp/embodiedscan_artifacts/v1_prepared_projectable_20260429_sample_ids.json \
+    --output-dir tmp/embodiedscan_eval_projectable_w12_20260429_150000 \
     --data-root data/embodiedscan \
+    --workers 12 \
     --sample-retries 2
 ```
 
@@ -53,11 +57,13 @@ Ingest the output:
 
 ```bash
 PYTHONPATH=src python scripts/ingest_embodiedscan_run.py \
-    --output-dir tmp/embodiedscan_eval_v1_smoke_20260428_1749 \
-    --run-id v1_gt_pool_smoke_68 \
+    --output-dir tmp/embodiedscan_eval_v3_projectable_2k_w32_20260429_1730 \
+    --run-id v3_projectable_2k_adaptive \
     --branch feat/explore_3dbbox \
-    --commit 3e4d108 \
-    --notes "GT-pool pack_v1 70-sample smoke; 68 prepared after filtering zero-visible targets" \
+    --commit 370b12e \
+    --backend pack_v1 \
+    --judge-model gpt-5.4-2026-03-05 \
+    --notes "Projectable GT-pool pack_v1 2k unique-target smoke" \
     --db docs/benchmark/embodiedscan/runs.sqlite
 ```
 

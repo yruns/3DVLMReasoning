@@ -112,11 +112,20 @@ def select_keyframes_for_sample(
     if not isinstance(images, list) or not images:
         raise ValueError(f"scene_info.images missing or empty for {sample.scan_id}")
 
+    target_instance_idx = unique_instance_index_for_bbox_id(
+        scene_info.get("instances") or [],
+        int(sample.target_id),
+        field_name=f"{sample.scan_id}.target_id={sample.target_id}",
+    )
+
     visible: list[tuple[int, dict]] = []
     for default_id, image in enumerate(images):
         if not isinstance(image, dict):
             continue
-        if sample.target_id in (image.get("visible_instance_ids") or []):
+        visible_instance_indices = {
+            int(x) for x in (image.get("visible_instance_ids") or [])
+        }
+        if target_instance_idx in visible_instance_indices:
             frame_id = int(image.get("frame_id", image.get("frame_idx", default_id)))
             visible.append((frame_id, image))
     if not visible:
@@ -124,15 +133,51 @@ def select_keyframes_for_sample(
             f"no visible frames for target_id={sample.target_id} in {sample.scan_id}"
         )
 
-    if len(visible) <= k:
-        chosen = visible
+    sample_name = getattr(
+        sample,
+        "sample_id",
+        f"{getattr(sample, 'scene_id', sample.scan_id)}::{sample.target_id}",
+    )
+    gt_bbox = validate_gt_bbox(getattr(sample, "gt_bbox_3d", None), sample_name)
+    intrinsic = scene_intrinsic(scene_info)
+    axis_align_matrix = scene_info.get("axis_align_matrix")
+    aligned_to_world: np.ndarray | None = None
+    if axis_align_matrix is not None:
+        aligned_to_world = np.linalg.inv(
+            validate_matrix_4x4(axis_align_matrix, field_name="axis_align_matrix")
+        )
+
+    projectable: list[tuple[int, dict, Path]] = []
+    for frame_id, image in visible:
+        rgb_path = resolve_rgb_path(image, embodiedscan_data_root, frame_pos=frame_id)
+        extrinsic = image_world_to_cam(image)
+        if aligned_to_world is not None:
+            extrinsic = extrinsic @ aligned_to_world
+        rect = project_bbox_3d_to_2d(
+            gt_bbox,
+            intrinsic,
+            extrinsic,
+            load_image_size(rgb_path),
+        )
+        if rect is not None:
+            projectable.append((frame_id, image, rgb_path))
+    if not projectable:
+        raise ValueError(
+            f"no projectable visible frames for target_id={sample.target_id} "
+            f"in {sample.scan_id}"
+        )
+
+    if len(projectable) <= k:
+        chosen = projectable
     else:
-        step = len(visible) / k
-        chosen = [visible[min(int(i * step), len(visible) - 1)] for i in range(k)]
+        step = len(projectable) / k
+        chosen = [
+            projectable[min(int(i * step), len(projectable) - 1)]
+            for i in range(k)
+        ]
 
     keyframes: list[dict[str, Any]] = []
-    for keyframe_idx, (frame_id, image) in enumerate(chosen):
-        rgb_path = resolve_rgb_path(image, embodiedscan_data_root, frame_pos=frame_id)
+    for keyframe_idx, (frame_id, _image, rgb_path) in enumerate(chosen):
         keyframes.append(
             {
                 "keyframe_idx": keyframe_idx,
@@ -164,10 +209,16 @@ def prepare_pack_v1_inputs(
     for request in requests:
         sample = sample_lookup.get((request.scene_id, request.target_id))
         if sample is None:
-            raise ValueError(
+            reason = (
                 f"No EmbodiedScan VG sample for scene_id={request.scene_id!r}, "
                 f"target_id={request.target_id} (split={split})"
             )
+            from loguru import logger
+
+            logger.warning("skipping {}: {}", request.sample_id, reason)
+            remove_stale_sample_artifact(data_root, request)
+            skipped.append((request.sample_id, reason))
+            continue
 
         try:
             if request.scene_id not in scene_artifacts:
@@ -192,6 +243,7 @@ def prepare_pack_v1_inputs(
                 request.sample_id,
                 exc,
             )
+            remove_stale_sample_artifact(data_root, request)
             skipped.append((request.sample_id, str(exc)))
             continue
         written_samples.append(sample_json)
@@ -256,8 +308,9 @@ def prepare_scene_artifacts(
         raise ValueError(f"scene has no frames: {scene_id}")
 
     label_to_name = adapter.dataset.label_to_name
+    instances = scene_info.get("instances") or []
     proposals = build_proposals_from_instances(
-        instances=scene_info.get("instances") or [],
+        instances=instances,
         label_to_name=label_to_name,
         scene_id=scene_id,
     )
@@ -297,11 +350,13 @@ def prepare_scene_artifacts(
     frame_visibility: dict[int, list[int]] = {}
     for default_id, image in enumerate(images):
         frame_id = int(image.get("frame_id", image.get("frame_idx", default_id)))
-        ids = [
-            int(x)
-            for x in (image.get("visible_instance_ids") or [])
-            if int(x) in valid_ids
-        ]
+        ids = visible_bbox_ids_for_image(
+            image,
+            instances=instances,
+            valid_bbox_ids=valid_ids,
+            scene_id=scene_id,
+            frame_id=frame_id,
+        )
         frame_visibility[frame_id] = ids
     validate_visibility_frames(frame_visibility, {frame.frame_id for frame in frames})
 
@@ -356,12 +411,20 @@ def build_proposals_from_instances(
 
     A small fraction of EmbodiedScan val scenes contain duplicate ``bbox_id``
     entries with different geometry (e.g. extra label_idx=276 instances).
-    To stay consistent with ``EmbodiedScanDataset._build_bbox_dict`` (which
-    keeps the last via dict assignment), we keep the **last** entry per
-    ``bbox_id`` and warn on the duplicates we drop.
+    The official EmbodiedScan 3DVG loader skips targets whose ``bbox_id`` is
+    ambiguous; for the proposal pool we drop all duplicated ids so the agent
+    never sees two different objects with the same selectable id.
     """
-    by_id: dict[int, dict[str, Any]] = {}
-    dup_ids: list[int] = []
+    counts: dict[int, int] = {}
+    for inst in instances:
+        if not isinstance(inst, dict):
+            continue
+        if "bbox_id" in inst:
+            bbox_id = int(inst["bbox_id"])
+            counts[bbox_id] = counts.get(bbox_id, 0) + 1
+
+    proposals: list[dict[str, Any]] = []
+    dup_ids = sorted(bbox_id for bbox_id, count in counts.items() if count > 1)
     for idx, inst in enumerate(instances):
         if not isinstance(inst, dict):
             raise ValueError(f"{scene_id}.instances[{idx}] must be an object: {inst!r}")
@@ -374,31 +437,97 @@ def build_proposals_from_instances(
                 f"{scene_id}.instances[{idx}] missing bbox_id / bbox_3d / bbox_label_3d"
             )
         bbox_id = int(inst["bbox_id"])
-        if bbox_id in by_id:
-            dup_ids.append(bbox_id)
+        if counts[bbox_id] > 1:
+            continue
         bbox_9dof = validate_bbox_9dof(
             inst["bbox_3d"], f"{scene_id}.instances[{idx}].bbox_3d"
         )
         label_idx = int(inst["bbox_label_3d"])
         label_name = label_to_name.get(label_idx, f"label_{label_idx}")
-        by_id[bbox_id] = {
-            "id": bbox_id,
-            "bbox_3d": bbox_9dof,
-            "score": 1.0,
-            "label": label_name,
-            "label_idx": label_idx,
-        }
+        proposals.append(
+            {
+                "id": bbox_id,
+                "bbox_3d": bbox_9dof,
+                "score": 1.0,
+                "label": label_name,
+                "label_idx": label_idx,
+            }
+        )
     if dup_ids:
         from loguru import logger
 
         logger.warning(
-            "{}: {} duplicate bbox_id(s) in instances ({}); keeping last occurrence "
-            "(matches EmbodiedScanDataset._build_bbox_dict).",
+            "{}: {} duplicate bbox_id(s) in instances ({}); dropping ambiguous ids "
+            "from GT proposal pool.",
             scene_id,
             len(dup_ids),
-            sorted(set(dup_ids)),
+            dup_ids,
         )
-    return list(by_id.values())
+    return proposals
+
+
+def unique_instance_index_for_bbox_id(
+    instances: list[dict[str, Any]],
+    bbox_id: int,
+    *,
+    field_name: str,
+) -> int:
+    """Return the single instance-list index for an EmbodiedScan bbox_id."""
+    matches = [
+        idx
+        for idx, inst in enumerate(instances)
+        if isinstance(inst, dict) and int(inst.get("bbox_id", -1)) == int(bbox_id)
+    ]
+    if len(matches) != 1:
+        raise ValueError(
+            f"{field_name} must map to exactly one instance; matched {len(matches)}"
+        )
+    return matches[0]
+
+
+def visible_bbox_ids_for_image(
+    image: dict[str, Any],
+    *,
+    instances: list[dict[str, Any]],
+    valid_bbox_ids: set[int],
+    scene_id: str,
+    frame_id: int,
+) -> list[int]:
+    """Map EmbodiedScan per-frame visible instance indices to bbox_id values."""
+    visible_bbox_ids: list[int] = []
+    seen: set[int] = set()
+    for raw_idx in image.get("visible_instance_ids") or []:
+        try:
+            instance_idx = int(raw_idx)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(
+                f"{scene_id}.frame_{frame_id} has non-integer visible_instance_id: "
+                f"{raw_idx!r}"
+            ) from exc
+        if instance_idx < 0 or instance_idx >= len(instances):
+            raise ValueError(
+                f"{scene_id}.frame_{frame_id} visible_instance_id={instance_idx} "
+                f"out of range for {len(instances)} instances"
+            )
+        instance = instances[instance_idx]
+        bbox_id = int(instance["bbox_id"])
+        if bbox_id not in valid_bbox_ids or bbox_id in seen:
+            continue
+        visible_bbox_ids.append(bbox_id)
+        seen.add(bbox_id)
+    return visible_bbox_ids
+
+
+def remove_stale_sample_artifact(data_root: Path, request: SampleRequest) -> None:
+    sample_path = (
+        data_root
+        / request.scene_id
+        / "pack_v1"
+        / "samples"
+        / f"{request.target_id}.json"
+    )
+    if sample_path.exists():
+        sample_path.unlink()
 
 
 def write_sample_artifact(
