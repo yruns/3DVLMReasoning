@@ -15,6 +15,31 @@ def _bbox_corners(bbox_9dof: list[float]) -> np.ndarray:
     return base + signs * half  # shape (8, 3)
 
 
+def _bbox_surface_samples(bbox_9dof: list[float], steps: int = 7) -> np.ndarray:
+    cx, cy, cz, dx, dy, dz, *_ = bbox_9dof
+    half = np.array([dx, dy, dz], dtype=float) / 2.0
+    base = np.array([cx, cy, cz], dtype=float)
+    axes = [
+        np.linspace(base[axis] - half[axis], base[axis] + half[axis], steps)
+        for axis in range(3)
+    ]
+    samples = []
+    for fixed_axis in range(3):
+        other_axes = [axis for axis in range(3) if axis != fixed_axis]
+        for fixed_value in (
+            base[fixed_axis] - half[fixed_axis],
+            base[fixed_axis] + half[fixed_axis],
+        ):
+            for value_a in axes[other_axes[0]]:
+                for value_b in axes[other_axes[1]]:
+                    point = np.empty(3, dtype=float)
+                    point[fixed_axis] = fixed_value
+                    point[other_axes[0]] = value_a
+                    point[other_axes[1]] = value_b
+                    samples.append(point)
+    return np.unique(np.asarray(samples, dtype=float), axis=0)
+
+
 def project_bbox_3d_to_2d(
     bbox_9dof: list[float],
     intrinsic: np.ndarray,
@@ -45,28 +70,27 @@ def project_bbox_3d_to_2d(
     if depth_max <= 0:
         raise ValueError("depth_max must be positive")
 
-    corners_world = _bbox_corners(bbox_arr.tolist())
-    corners_h = np.hstack([corners_world, np.ones((8, 1))])
-    cam = (extrinsic_world_to_cam @ corners_h.T).T[:, :3]
+    samples_world = _bbox_surface_samples(bbox_arr.tolist())
+    samples_h = np.hstack([samples_world, np.ones((len(samples_world), 1))])
+    cam = (extrinsic_world_to_cam @ samples_h.T).T[:, :3]
     valid = cam[(cam[:, 2] > 0) & (cam[:, 2] < depth_max)]
     if len(valid) == 0:
         return None
 
     px = (intrinsic @ valid.T).T
     px = px[:, :2] / px[:, 2:3]
-    in_image = (
-        (px[:, 0] >= 0)
-        & (px[:, 0] < w)
-        & (px[:, 1] >= 0)
-        & (px[:, 1] < h)
-    )
-    if not in_image.any():
+    min_x = float(px[:, 0].min())
+    max_x = float(px[:, 0].max())
+    min_y = float(px[:, 1].min())
+    max_y = float(px[:, 1].max())
+    overlaps_image = max_x >= 0 and min_x < w and max_y >= 0 and min_y < h
+    if not overlaps_image:
         return None
 
-    x1 = int(np.clip(np.floor(px[:, 0].min()), 0, w - 1))
-    y1 = int(np.clip(np.floor(px[:, 1].min()), 0, h - 1))
-    x2 = int(np.clip(np.ceil(px[:, 0].max()), 0, w - 1))
-    y2 = int(np.clip(np.ceil(px[:, 1].max()), 0, h - 1))
+    x1 = int(np.clip(np.floor(min_x), 0, w - 1))
+    y1 = int(np.clip(np.floor(min_y), 0, h - 1))
+    x2 = int(np.clip(np.ceil(max_x), 0, w - 1))
+    y2 = int(np.clip(np.ceil(max_y), 0, h - 1))
     return x1, y1, x2, y2
 
 

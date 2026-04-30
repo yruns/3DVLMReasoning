@@ -74,3 +74,55 @@ def test_project_bbox_3d_to_2d_returns_none_when_behind_camera() -> None:
         )
         is None
     )
+
+
+def test_project_bbox_3d_to_2d_returns_clamped_rect_when_bbox_spans_image() -> None:
+    intrinsic = np.array([[500, 0, 320], [0, 500, 240], [0, 0, 1]], dtype=float)
+    extrinsic = np.eye(4)
+    bbox = [0, 0, 5, 10, 8, 1, 0, 0, 0]
+
+    rect = project_bbox_3d_to_2d(
+        bbox, intrinsic, extrinsic, (640, 480), depth_max=10.0
+    )
+
+    assert rect == (0, 0, 639, 479)
+
+
+def test_project_bbox_3d_to_2d_handles_near_plane_box_with_no_visible_corners() -> None:
+    intrinsic = np.array(
+        [
+            [1170.187988, 0.0, 647.75],
+            [0.0, 1170.187988, 483.75],
+            [0.0, 0.0, 1.0],
+        ],
+        dtype=float,
+    )
+    extrinsic = np.array(
+        [
+            [-0.0737540786, 0.9963085861, 0.0439334179, -1.194721683],
+            [0.4724581939, 0.0737026557, -0.8782660832, 0.3076867497],
+            [-0.878261485, -0.0440191357, -0.4761496028, 2.1504956031],
+            [0.0, 0.0, 0.0, 1.0],
+        ],
+        dtype=float,
+    )
+    bbox = [
+        0.8108325681,
+        0.0893528946,
+        1.5604110486,
+        0.1376120578,
+        3.7822901726,
+        3.6012418872,
+        0.0,
+        0.0,
+        0.0,
+    ]
+
+    rect = project_bbox_3d_to_2d(
+        bbox, intrinsic, extrinsic, (1296, 968), depth_max=20.0
+    )
+
+    assert rect is not None
+    x1, y1, x2, y2 = rect
+    assert 0 <= x1 < x2 <= 1295
+    assert 0 <= y1 < y2 <= 967
