@@ -51,6 +51,7 @@ logs/
 # Data: ignore every immediate child of data/ so large datasets stay out of git.
 # Use `data/*` (not `data/`) so sub-paths can be selectively re-included below.
 data/*
+data/nr3d/
 *.pkl
 *.pth
 *.pt

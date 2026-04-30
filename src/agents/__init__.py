@@ -50,7 +50,6 @@ from .stage1_callbacks import (
     create_hypothesis_callback,
     create_more_views_callback,
 )
-from .stage2_deep_agent import Stage2DeepResearchAgent
 from .trace import (
     ExecutionTrace,
     HTMLTraceRenderer,
@@ -62,6 +61,15 @@ from .trace_server import (
     TraceServer,
     TracingAgent,
 )
+
+
+def __getattr__(name: str):
+    """Lazily import optional DeepAgents-backed entrypoints."""
+    if name == "Stage2DeepResearchAgent":
+        from .stage2_deep_agent import Stage2DeepResearchAgent
+
+        return Stage2DeepResearchAgent
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 __all__ = [
     # Benchmark adapters

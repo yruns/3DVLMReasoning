@@ -16,6 +16,7 @@ from .embodiedscan_eval import (
     oriented_bbox_to_corners,
 )
 from .embodiedscan_loader import EmbodiedScanDataset, EmbodiedScanVGSample
+from .nr3d_loader import Nr3dDataset, Nr3dVGSample
 from .openeqa_loader import OpenEQADataset, OpenEQASample, download_openeqa
 from .scanrefer_loader import (
     BoundingBox3D,
@@ -45,6 +46,8 @@ __all__ = [
     # EmbodiedScan
     "EmbodiedScanDataset",
     "EmbodiedScanVGSample",
+    "Nr3dDataset",
+    "Nr3dVGSample",
     "compute_oriented_iou_3d",
     "evaluate_vg_predictions",
     "euler_to_rotation_matrix",

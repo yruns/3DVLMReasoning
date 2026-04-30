@@ -32,6 +32,7 @@ benchmark's version). Always include:
 |-----------|--------|------|-----------|
 | **OpenEQA ScanNet EM-EQA** | live | [`openeqa/`](openeqa/) | v15 stage2 MNAS **74.33** (`s1_l1`, frozen 1050Q, Gemini 2.5 Pro) |
 | **EmbodiedScan VG** | smoke | [`embodiedscan/`](embodiedscan/) | v3 GT-pool pack_v1 2k smoke: 2000Q, Acc@0.25/0.50 **89.15** |
+| **NR3D VG** | scaffold | [`nr3d/`](nr3d/) | Loader/evaluator/adapter ready; first 9-DoF IoU run pending |
 
 ## Pending Migrations
 
