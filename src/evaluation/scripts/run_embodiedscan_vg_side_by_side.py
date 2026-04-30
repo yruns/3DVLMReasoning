@@ -30,6 +30,7 @@ def run_one_sample(
     backend: BackendName,
     *,
     data_root: Path,
+    pack_name: str = "pack_v1",
     config: Stage2DeepAgentConfig | None = None,
     sample_retries: int = 0,
 ) -> dict:
@@ -43,6 +44,7 @@ def run_one_sample(
                 sample_id,
                 backend,
                 data_root=data_root,
+                pack_name=pack_name,
                 config=config,
             )
         except Exception as exc:
@@ -70,10 +72,11 @@ def _run_one_sample_once(
     backend: BackendName,
     *,
     data_root: Path,
+    pack_name: str = "pack_v1",
     config: Stage2DeepAgentConfig | None = None,
 ) -> dict:
     """Run one sample once through a backend and score predicted bbox against GT."""
-    sample = load_sample_artifact(data_root, sample_id)
+    sample = load_sample_artifact(data_root, sample_id, pack_name=pack_name)
     gt_bbox = coerce_bbox_9dof(
         sample.get("gt_bbox_3d_9dof"),
         field_name=f"{sample_id}.gt_bbox_3d_9dof",
@@ -85,7 +88,7 @@ def _run_one_sample_once(
             f"backend={backend!r} no longer supported after Plan C; "
             "run the pack_v1 backend."
         )
-    raw_result = run_pack_v1_sample(sample, data_root, cfg)
+    raw_result = run_pack_v1_sample(sample, data_root, cfg, pack_name=pack_name)
     prediction = extract_pack_v1_prediction(raw_result)
 
     status = prediction.get("status")
@@ -138,6 +141,7 @@ def compare_backends(
     sample_ids: Sequence[str],
     output_dir: Path,
     data_root: Path,
+    pack_name: str = "pack_v1",
     config: Stage2DeepAgentConfig | None = None,
     sample_retries: int = 0,
     workers: int = 1,
@@ -145,6 +149,12 @@ def compare_backends(
     if workers <= 0:
         raise ValueError("workers must be positive")
     validate_unique_sample_ids(sample_ids)
+    if sample_ids:
+        preflight_pack_sample_exists(
+            data_root,
+            sample_ids[0],
+            pack_name=pack_name,
+        )
     output_dir.mkdir(parents=True, exist_ok=True)
     results: dict[str, dict] = {}
     for backend in ("pack_v1",):
@@ -152,7 +162,12 @@ def compare_backends(
             sample_id: str,
             backend: BackendName = backend,
         ) -> dict:
-            cached = load_sample_result_checkpoint(output_dir, backend, sample_id)
+            cached = load_sample_result_checkpoint(
+                output_dir,
+                backend,
+                sample_id,
+                pack_name=pack_name,
+            )
             if cached is not None:
                 return cached
             try:
@@ -160,6 +175,7 @@ def compare_backends(
                     sample_id,
                     backend,
                     data_root=data_root,
+                    pack_name=pack_name,
                     config=config,
                     sample_retries=sample_retries,
                 )
@@ -170,7 +186,12 @@ def compare_backends(
                     backend,
                 )
                 result = sample_error_result(sample_id, backend, exc)
-            write_sample_result_checkpoint(output_dir, backend, result)
+            write_sample_result_checkpoint(
+                output_dir,
+                backend,
+                result,
+                pack_name=pack_name,
+            )
             return result
 
         if workers == 1:
@@ -210,20 +231,65 @@ def validate_unique_sample_ids(sample_ids: Sequence[str]) -> None:
         )
 
 
-def sample_result_path(output_dir: Path, backend: BackendName, sample_id: str) -> Path:
+def expected_pack_sample_path(
+    data_root: Path,
+    sample_id: str,
+    *,
+    pack_name: str = "pack_v1",
+) -> Path:
+    scene_id, target_id = parse_scene_target_id(sample_id)
+    return data_root / scene_id / pack_name / "samples" / f"{target_id}.json"
+
+
+def preflight_pack_sample_exists(
+    data_root: Path,
+    sample_id: str,
+    *,
+    pack_name: str = "pack_v1",
+) -> None:
+    expected_path = expected_pack_sample_path(
+        data_root,
+        sample_id,
+        pack_name=pack_name,
+    )
+    if expected_path.exists():
+        return
+    raise FileNotFoundError(
+        f"pack_name={pack_name!r}: expected first sample at {expected_path}, "
+        "but the file does not exist. Did you forget to run "
+        f"prepare_pack_v1_inputs --pack-name {pack_name} (or its detector "
+        "equivalent)? Aborting before launching the worker pool."
+    )
+
+
+def sample_result_path(
+    output_dir: Path,
+    backend: BackendName,
+    sample_id: str,
+    *,
+    pack_name: str = "pack_v1",
+) -> Path:
     digest = hashlib.sha1(sample_id.encode("utf-8")).hexdigest()[:12]
     safe = "".join(c if c.isalnum() else "_" for c in sample_id).strip("_")
     if not safe:
         safe = "sample"
-    return output_dir / "per_sample" / backend / f"{safe}_{digest}.json"
+    namespace = backend if pack_name == "pack_v1" else f"{backend}__{pack_name}"
+    return output_dir / "per_sample" / namespace / f"{safe}_{digest}.json"
 
 
 def load_sample_result_checkpoint(
     output_dir: Path,
     backend: BackendName,
     sample_id: str,
+    *,
+    pack_name: str = "pack_v1",
 ) -> dict | None:
-    path = sample_result_path(output_dir, backend, sample_id)
+    path = sample_result_path(
+        output_dir,
+        backend,
+        sample_id,
+        pack_name=pack_name,
+    )
     if not path.exists():
         return None
     payload = json.loads(path.read_text(encoding="utf-8"))
@@ -247,6 +313,8 @@ def write_sample_result_checkpoint(
     output_dir: Path,
     backend: BackendName,
     result: dict,
+    *,
+    pack_name: str = "pack_v1",
 ) -> Path:
     sample_id = result.get("sample_id")
     if not isinstance(sample_id, str) or not sample_id:
@@ -256,7 +324,12 @@ def write_sample_result_checkpoint(
             f"Cannot checkpoint {sample_id}: backend={result.get('backend')!r}, "
             f"expected {backend!r}"
         )
-    path = sample_result_path(output_dir, backend, sample_id)
+    path = sample_result_path(
+        output_dir,
+        backend,
+        sample_id,
+        pack_name=pack_name,
+    )
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp_path = path.with_name(f"{path.name}.tmp")
     tmp_path.write_text(
@@ -318,9 +391,17 @@ def is_retryable_sample_error(exc: Exception) -> bool:
     )
 
 
-def load_sample_artifact(data_root: Path, sample_id: str) -> dict[str, Any]:
-    scene_id, target_id = parse_scene_target_id(sample_id)
-    sample_path = data_root / scene_id / "pack_v1" / "samples" / f"{target_id}.json"
+def load_sample_artifact(
+    data_root: Path,
+    sample_id: str,
+    *,
+    pack_name: str = "pack_v1",
+) -> dict[str, Any]:
+    sample_path = expected_pack_sample_path(
+        data_root,
+        sample_id,
+        pack_name=pack_name,
+    )
     if not sample_path.exists():
         raise FileNotFoundError(f"Missing prepared sample artifact: {sample_path}")
     payload = json.loads(sample_path.read_text(encoding="utf-8"))
@@ -356,8 +437,14 @@ def run_pack_v1_sample(
     sample: dict[str, Any],
     data_root: Path,
     config: Stage2DeepAgentConfig,
+    *,
+    pack_name: str = "pack_v1",
 ) -> Any:
-    bundle = build_pack_v1_bundle_from_sample(sample, data_root)
+    bundle = build_pack_v1_bundle_from_sample(
+        sample,
+        data_root,
+        pack_name=pack_name,
+    )
     task = Stage2TaskSpec(
         task_type=Stage2TaskType.VISUAL_GROUNDING,
         user_query=str(sample["query"]),
@@ -369,8 +456,16 @@ def run_pack_v1_sample(
 def build_pack_v1_bundle_from_sample(
     sample: dict[str, Any],
     data_root: Path,
+    *,
+    pack_name: str = "pack_v1",
 ):
-    scene_dir = resolve_scene_artifacts_dir(sample, data_root)
+    source = sample.get("source")
+    if not isinstance(source, str) or not source:
+        raise ValueError(
+            f"Sample {sample.get('sample_id')} must include non-empty source"
+        )
+
+    scene_dir = resolve_scene_artifacts_dir(sample, data_root, pack_name=pack_name)
     visibility_json = scene_dir / "visibility.json"
     if not visibility_json.exists():
         raise FileNotFoundError(f"Missing visibility index: {visibility_json}")
@@ -391,7 +486,7 @@ def build_pack_v1_bundle_from_sample(
 
     return build_pack_v1_bundle(
         proposals_jsonl=scene_dir / "proposals.jsonl",
-        source=str(sample.get("source", "gt")),
+        source=source,
         annotated_image_dir=scene_dir / "annotated",
         frame_visibility=frame_visibility,
         keyframes=keyframes,
@@ -402,14 +497,23 @@ def build_pack_v1_bundle_from_sample(
 def resolve_scene_artifacts_dir(
     sample: dict[str, Any],
     data_root: Path,
+    *,
+    pack_name: str = "pack_v1",
 ) -> Path:
     raw = sample.get("scene_artifacts_dir")
     if raw:
         scene_dir = Path(raw)
+        if pack_name != "pack_v1" and pack_name not in scene_dir.parts:
+            raise ValueError(
+                f"sample {sample.get('sample_id')} has "
+                f"scene_artifacts_dir={scene_dir} but caller requested "
+                f"pack_name={pack_name}; refusing to mix V-DETR/GT artifacts "
+                "silently."
+            )
         if scene_dir.is_absolute() or scene_dir.exists():
             return scene_dir
         return data_root / scene_dir
-    return data_root / str(sample["scene_id"]) / "pack_v1"
+    return data_root / str(sample["scene_id"]) / pack_name
 
 
 def extract_pack_v1_prediction(result: Any) -> dict[str, Any]:
@@ -535,7 +639,12 @@ def parse_args() -> argparse.Namespace:
         required=True,
         type=Path,
         help="EmbodiedScan data root; samples are read from "
-        "<data_root>/<scene_id>/pack_v1/samples/<target_id>.json.",
+        "<data_root>/<scene_id>/<pack_name>/samples/<target_id>.json.",
+    )
+    p.add_argument(
+        "--pack-name",
+        default="pack_v1",
+        help="Prepared pack directory name under each scene.",
     )
     p.add_argument("--sample-retries", type=int, default=2)
     p.add_argument(
@@ -554,6 +663,7 @@ def main() -> None:
         sample_ids=sample_ids,
         output_dir=args.output_dir,
         data_root=args.data_root,
+        pack_name=args.pack_name,
         sample_retries=args.sample_retries,
         workers=args.workers,
     )

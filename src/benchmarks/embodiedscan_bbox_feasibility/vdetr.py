@@ -6,7 +6,6 @@ from typing import Any
 
 import numpy as np
 
-
 VDETR_REPO_URL = "https://github.com/V-DETR/V-DETR.git"
 VDETR_SCANNET_CKPT_URL = (
     "https://huggingface.co/byshen/vdetr/resolve/main/scannet_540ep.pth"
@@ -114,14 +113,17 @@ def write_vdetr_proposal_json(
         class_id = prediction.get("class_id")
         if label is None and class_id is not None:
             label = class_name_from_id(int(class_id))
+        corners = prediction["corners"]
         proposals.append(
             {
-                "bbox_3d": corners_to_aabb_9dof(prediction["corners"]),
+                "bbox_3d": corners_to_aabb_9dof(corners),
                 "score": float(prediction.get("score", 0.0)),
                 "label": label,
                 "source": "vdetr",
                 "metadata": {
                     "class_id": class_id,
+                    "detector": "V-DETR",
+                    "raw_corners": [list(map(float, c)) for c in corners],
                     "box_format": "aabb_from_vdetr_corners",
                 },
             }

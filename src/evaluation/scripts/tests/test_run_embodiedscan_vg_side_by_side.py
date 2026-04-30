@@ -8,22 +8,28 @@ from types import SimpleNamespace
 import pytest
 
 
-def _write_pack_v1_inputs(tmp_path, *, sample_id: str = "scene0001_00::72"):
-    """Write a per-scene pack-v1 layout under ``tmp_path`` (== data_root)."""
+def _write_pack_v1_inputs(
+    tmp_path,
+    *,
+    sample_id: str = "scene0001_00::72",
+    pack_name: str = "pack_v1",
+    source: str = "gt",
+):
+    """Write a per-scene pack layout under ``tmp_path`` (== data_root)."""
     scene_id, target_str = sample_id.split("::")
     target_id = int(target_str)
     data_root = tmp_path
-    scene_dir = data_root / scene_id / "pack_v1"
+    scene_dir = data_root / scene_id / pack_name
     annotated = scene_dir / "annotated"
     samples = scene_dir / "samples"
-    annotated.mkdir(parents=True)
-    samples.mkdir(parents=True)
+    annotated.mkdir(parents=True, exist_ok=True)
+    samples.mkdir(parents=True, exist_ok=True)
 
     (annotated / "frame_10.png").write_bytes(b"\x89PNG")
     (scene_dir / "proposals.jsonl").write_text(
         json.dumps(
             {
-                "source": "gt",
+                "source": source,
                 "scene_id": scene_id,
                 "proposals": [
                     {
@@ -52,7 +58,7 @@ def _write_pack_v1_inputs(tmp_path, *, sample_id: str = "scene0001_00::72"):
                 "query": "the chair by the table",
                 "gt_bbox_3d_9dof": [0, 0, 0, 1, 1, 1, 0, 0, 0],
                 "scene_artifacts_dir": str(scene_dir),
-                "source": "gt",
+                "source": source,
                 "keyframes": [
                     {
                         "keyframe_idx": 0,
@@ -65,6 +71,97 @@ def _write_pack_v1_inputs(tmp_path, *, sample_id: str = "scene0001_00::72"):
         encoding="utf-8",
     )
     return data_root
+
+
+def test_load_sample_artifact_uses_requested_pack_name(tmp_path) -> None:
+    from evaluation.scripts.run_embodiedscan_vg_side_by_side import (
+        load_sample_artifact,
+    )
+
+    default_sample_id = "scene0001_00::72"
+    vdetr_sample_id = "scene0001_00::73"
+    data_root = _write_pack_v1_inputs(tmp_path, sample_id=default_sample_id)
+    _write_pack_v1_inputs(
+        tmp_path,
+        sample_id=vdetr_sample_id,
+        pack_name="pack_vdetr",
+        source="vdetr",
+    )
+
+    default_sample = load_sample_artifact(data_root, default_sample_id)
+    vdetr_sample = load_sample_artifact(
+        data_root,
+        vdetr_sample_id,
+        pack_name="pack_vdetr",
+    )
+
+    assert default_sample["sample_id"] == default_sample_id
+    assert default_sample["source"] == "gt"
+    assert default_sample["scene_artifacts_dir"].endswith("pack_v1")
+    assert vdetr_sample["sample_id"] == vdetr_sample_id
+    assert vdetr_sample["source"] == "vdetr"
+    assert vdetr_sample["scene_artifacts_dir"].endswith("pack_vdetr")
+
+
+def test_sample_result_path_namespaces_non_default_pack(tmp_path) -> None:
+    from evaluation.scripts.run_embodiedscan_vg_side_by_side import sample_result_path
+
+    sample_id = "scene0001_00::72"
+
+    legacy_path = sample_result_path(tmp_path, "pack_v1", sample_id)
+    vdetr_path = sample_result_path(
+        tmp_path,
+        "pack_v1",
+        sample_id,
+        pack_name="pack_vdetr",
+    )
+
+    assert legacy_path.parent == tmp_path / "per_sample" / "pack_v1"
+    assert vdetr_path.parent == tmp_path / "per_sample" / "pack_v1__pack_vdetr"
+    assert vdetr_path.name == legacy_path.name
+
+
+def test_build_pack_bundle_requires_sample_source(tmp_path) -> None:
+    from evaluation.scripts.run_embodiedscan_vg_side_by_side import (
+        build_pack_v1_bundle_from_sample,
+        load_sample_artifact,
+    )
+
+    data_root = _write_pack_v1_inputs(tmp_path)
+    sample = load_sample_artifact(data_root, "scene0001_00::72")
+    del sample["source"]
+
+    with pytest.raises(ValueError, match="source"):
+        build_pack_v1_bundle_from_sample(sample, data_root)
+
+
+def test_compare_backends_preflights_requested_pack_name(tmp_path) -> None:
+    from evaluation.scripts.run_embodiedscan_vg_side_by_side import compare_backends
+
+    sample_id = "scene0001_00::72"
+
+    with pytest.raises(FileNotFoundError, match="pack_name='pack_tpyo'"):
+        compare_backends(
+            sample_ids=[sample_id],
+            output_dir=tmp_path / "out",
+            data_root=tmp_path / "data_root",
+            pack_name="pack_tpyo",
+        )
+
+
+def test_resolve_scene_artifacts_dir_rejects_non_default_pack_mismatch(tmp_path) -> None:
+    from evaluation.scripts.run_embodiedscan_vg_side_by_side import (
+        resolve_scene_artifacts_dir,
+    )
+
+    sample = {
+        "sample_id": "scene0001_00::72",
+        "scene_id": "scene0001_00",
+        "scene_artifacts_dir": str(tmp_path / "scene0001_00" / "pack_v1"),
+    }
+
+    with pytest.raises(ValueError, match="refusing to mix V-DETR/GT artifacts"):
+        resolve_scene_artifacts_dir(sample, tmp_path, pack_name="pack_vdetr")
 
 
 @pytest.mark.integration
@@ -80,10 +177,12 @@ def test_runner_emits_pack_v1_metrics(monkeypatch, tmp_path) -> None:
         "evaluation.scripts.run_embodiedscan_vg_side_by_side.run_one_sample",
         fake_run_one,
     )
+    sample_ids = ["scene0001_00::1", "scene0001_00::2"]
+    data_root = _write_pack_v1_inputs(tmp_path / "data_root", sample_id=sample_ids[0])
     out = compare_backends(
-        sample_ids=["s1", "s2"],
+        sample_ids=sample_ids,
         output_dir=tmp_path,
-        data_root=tmp_path / "data_root",
+        data_root=data_root,
     )
     assert sorted(out) == ["pack_v1"]
     assert out["pack_v1"]["mean_iou"] == pytest.approx(0.5)
@@ -113,10 +212,11 @@ def test_runner_workers_preserve_sample_order(monkeypatch, tmp_path) -> None:
         fake_run_one,
     )
     sample_ids = [f"scene0001_00::{idx}" for idx in range(8)]
+    data_root = _write_pack_v1_inputs(tmp_path / "data_root", sample_id=sample_ids[0])
     out = compare_backends(
         sample_ids=sample_ids,
         output_dir=tmp_path,
-        data_root=tmp_path / "data_root",
+        data_root=data_root,
         workers=4,
     )
 
@@ -145,11 +245,12 @@ def test_runner_workers_record_sample_errors_and_continue(monkeypatch, tmp_path)
         fake_run_one,
     )
     sample_ids = [f"scene0001_00::{idx}" for idx in range(3)]
+    data_root = _write_pack_v1_inputs(tmp_path / "data_root", sample_id=sample_ids[0])
 
     out = compare_backends(
         sample_ids=sample_ids,
         output_dir=tmp_path,
-        data_root=tmp_path / "data_root",
+        data_root=data_root,
         workers=2,
     )
 
@@ -197,11 +298,12 @@ def test_runner_resumes_from_per_sample_checkpoint(monkeypatch, tmp_path) -> Non
         fake_run_one,
     )
     sample_ids = ["scene0001_00::0", "scene0001_00::1"]
+    data_root = _write_pack_v1_inputs(tmp_path / "data_root", sample_id=sample_ids[0])
 
     out = compare_backends(
         sample_ids=sample_ids,
         output_dir=tmp_path,
-        data_root=tmp_path / "data_root",
+        data_root=data_root,
         workers=2,
     )
 
@@ -467,6 +569,10 @@ def test_main_accepts_extractor_dict_sample_ids_json(monkeypatch, tmp_path) -> N
         seen.append((sample_id, backend))
         return {"sample_id": sample_id, "backend": backend, "iou": 0.5}
 
+    data_root = _write_pack_v1_inputs(
+        tmp_path / "data_root",
+        sample_id="scene0001_00::72",
+    )
     monkeypatch.setattr(runner, "run_one_sample", fake_run_one)
     monkeypatch.setattr(
         "sys.argv",
@@ -477,7 +583,7 @@ def test_main_accepts_extractor_dict_sample_ids_json(monkeypatch, tmp_path) -> N
             "--output-dir",
             str(tmp_path / "out"),
             "--data-root",
-            str(tmp_path / "data_root"),
+            str(data_root),
         ],
     )
 

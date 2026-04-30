@@ -87,6 +87,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="Keep at most this many selected targets per scene.",
     )
     prepare.add_argument(
+        "--scene-ids",
+        nargs="+",
+        default=None,
+        help="Keep only targets from these scene ids.",
+    )
+    prepare.add_argument(
         "--scene-level-full",
         action="store_true",
         help="For scannet_full, write one scene-level detector input per scene.",
@@ -211,6 +217,7 @@ def run_prepare_inputs(args: argparse.Namespace) -> None:
         targets,
         target_categories=getattr(args, "target_categories", None),
         require_visible_frames=getattr(args, "require_visible_frames", False),
+        scene_ids=getattr(args, "scene_ids", None),
         max_scenes=getattr(args, "max_scenes", None),
         max_targets_per_scene=getattr(args, "max_targets_per_scene", None),
         max_targets=args.max_targets,
@@ -264,6 +271,7 @@ def select_targets_for_detector_batch(
     *,
     target_categories: list[str] | None = None,
     require_visible_frames: bool = False,
+    scene_ids: list[str] | None = None,
     max_scenes: int | None = None,
     max_targets_per_scene: int | None = None,
     max_targets: int | None = None,
@@ -280,9 +288,12 @@ def select_targets_for_detector_batch(
         if target_categories
         else None
     )
+    allowed_scene_ids = set(scene_ids) if scene_ids else None
 
     eligible = []
     for target in targets:
+        if allowed_scene_ids is not None and target.scene_id not in allowed_scene_ids:
+            continue
         if allowed_categories is not None and (
             _normalize_category(target.target_category) not in allowed_categories
         ):

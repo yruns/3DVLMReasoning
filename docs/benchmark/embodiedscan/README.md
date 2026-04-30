@@ -11,6 +11,7 @@ Stage-2 task-pack pipeline.
 
 | Version | Date | Acc@0.25 | Acc@0.50 | mean IoU | Eval Scale | Key Change |
 |---------|------|---------:|---------:|---------:|------------|------------|
+| [v4](v4_vdetr_pool_prepared_20260430.md) | 2026-04-30 | n/a | n/a | n/a | 220 scenes / 2000Q prepared | V-DETR detector pool engineering-complete; metrics pending Stage 2 endpoint access |
 | [v3](v3_projectable_2k_20260429.md) | 2026-04-29 | 89.15 | 89.15 | 89.20 | 2000Q smoke | Projectable-only unique-target sweep with checkpointed adaptive concurrency |
 | [v2](v2_projectable_20260429.md) | 2026-04-29 | 94.03 | 94.03 | 94.08 | 67Q smoke | Projectable-only corrected GT-pool prep, 12-worker run |
 | [v1](v1_gt_pool_20260428.md) | 2026-04-28 | 91.18 | 91.18 | 91.18 | 68Q smoke | GT-pool oracle pack_v1, per-scene artifacts |

@@ -71,6 +71,9 @@ def test_parser_accepts_prepare_inputs_batch_filters() -> None:
             "10",
             "--max-targets-per-scene",
             "3",
+            "--scene-ids",
+            "scene0001_00",
+            "scene0002_00",
             "--scene-level-full",
         ]
     )
@@ -79,6 +82,7 @@ def test_parser_accepts_prepare_inputs_batch_filters() -> None:
     assert args.require_visible_frames is True
     assert args.max_scenes == 10
     assert args.max_targets_per_scene == 3
+    assert args.scene_ids == ["scene0001_00", "scene0002_00"]
     assert args.scene_level_full is True
 
 
@@ -321,6 +325,35 @@ def test_select_targets_for_detector_batch_filters_and_caps_by_scene() -> None:
     assert [(target.scene_id, target.target_id) for target in selected] == [
         ("scene_a", 1),
         ("scene_a", 2),
+        ("scene_b", 4),
+    ]
+
+
+def test_select_targets_for_detector_batch_filters_by_scene_ids() -> None:
+    def target(scene_id: str, target_id: int):
+        return EmbodiedScanTarget(
+            sample_ids=[f"{scene_id}-{target_id}"],
+            scan_id=f"scannet/{scene_id}",
+            scene_id=scene_id,
+            target_id=target_id,
+            target_category="chair",
+            gt_bbox_3d=[0, 0, 0, 1, 1, 1],
+            visible_frame_ids=[0],
+        )
+
+    selected = select_targets_for_detector_batch(
+        [
+            target("scene_a", 1),
+            target("scene_b", 2),
+            target("scene_c", 3),
+            target("scene_b", 4),
+        ],
+        scene_ids=["scene_b", "scene_c"],
+    )
+
+    assert [(target.scene_id, target.target_id) for target in selected] == [
+        ("scene_b", 2),
+        ("scene_c", 3),
         ("scene_b", 4),
     ]
 

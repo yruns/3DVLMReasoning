@@ -1,8 +1,8 @@
-"""Prepare offline pack-v1 inputs for EmbodiedScan VG runs.
+"""Prepare offline pack inputs for EmbodiedScan VG runs.
 
 Per-scene layout (output):
 
-    <data_root>/<scene_id>/pack_v1/
+    <data_root>/<scene_id>/<pack_name>/
         proposals.jsonl          # GT instances normalized: id == bbox_id
         visibility.json          # frame_id -> [bbox_id, ...]
         annotated/frame_<id>.png # set-of-marks render
@@ -69,7 +69,13 @@ def parse_args() -> argparse.Namespace:
         required=True,
         type=Path,
         help="EmbodiedScan data root containing infos_<split>.pkl, "
-        "<scene>/raw/, etc. Outputs land under <data_root>/<scene>/pack_v1/.",
+        "<scene>/raw/, etc. Outputs land under "
+        "<data_root>/<scene>/<pack_name>/.",
+    )
+    parser.add_argument(
+        "--pack-name",
+        default="pack_v1",
+        help="Prepared pack directory name under each scene.",
     )
     parser.add_argument(
         "--split",
@@ -192,6 +198,7 @@ def prepare_pack_v1_inputs(
     *,
     sample_ids_path: Path,
     data_root: Path,
+    pack_name: str = "pack_v1",
     split: str = "val",
     max_samples: int | None = None,
 ) -> list[Path]:
@@ -216,7 +223,7 @@ def prepare_pack_v1_inputs(
             from loguru import logger
 
             logger.warning("skipping {}: {}", request.sample_id, reason)
-            remove_stale_sample_artifact(data_root, request)
+            remove_stale_sample_artifact(data_root, request, pack_name=pack_name)
             skipped.append((request.sample_id, reason))
             continue
 
@@ -227,6 +234,7 @@ def prepare_pack_v1_inputs(
                     sample=sample,
                     adapter=adapter,
                     data_root=data_root,
+                    pack_name=pack_name,
                 )
             sample_json = write_sample_artifact(
                 request=request,
@@ -243,7 +251,7 @@ def prepare_pack_v1_inputs(
                 request.sample_id,
                 exc,
             )
-            remove_stale_sample_artifact(data_root, request)
+            remove_stale_sample_artifact(data_root, request, pack_name=pack_name)
             skipped.append((request.sample_id, str(exc)))
             continue
         written_samples.append(sample_json)
@@ -300,6 +308,7 @@ def prepare_scene_artifacts(
     sample: EmbodiedScanVGSample,
     adapter: EmbodiedScanVGAdapter,
     data_root: Path,
+    pack_name: str = "pack_v1",
 ) -> SceneArtifacts:
     scene_info = load_scene_info(adapter, sample)
     intrinsic = scene_intrinsic(scene_info)
@@ -318,7 +327,7 @@ def prepare_scene_artifacts(
         raise ValueError(f"scene has no GT instances: {scene_id}")
     proposal_ids = [int(p["id"]) for p in proposals]
 
-    scene_dir = data_root / scene_id / "pack_v1"
+    scene_dir = data_root / scene_id / pack_name
     scene_dir.mkdir(parents=True, exist_ok=True)
 
     proposals_jsonl = scene_dir / "proposals.jsonl"
@@ -518,11 +527,16 @@ def visible_bbox_ids_for_image(
     return visible_bbox_ids
 
 
-def remove_stale_sample_artifact(data_root: Path, request: SampleRequest) -> None:
+def remove_stale_sample_artifact(
+    data_root: Path,
+    request: SampleRequest,
+    *,
+    pack_name: str = "pack_v1",
+) -> None:
     sample_path = (
         data_root
         / request.scene_id
-        / "pack_v1"
+        / pack_name
         / "samples"
         / f"{request.target_id}.json"
     )
@@ -799,11 +813,13 @@ def main() -> None:
     written = prepare_pack_v1_inputs(
         sample_ids_path=args.sample_ids,
         data_root=args.data_root,
+        pack_name=args.pack_name,
         split=args.split,
         max_samples=args.max_samples,
     )
     print(
-        f"wrote {len(written)} sample artifacts under {args.data_root}/<scene>/pack_v1/"
+        f"wrote {len(written)} sample artifacts under "
+        f"{args.data_root}/<scene>/{args.pack_name}/"
     )
 
 
