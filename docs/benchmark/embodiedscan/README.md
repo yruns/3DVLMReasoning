@@ -11,6 +11,8 @@ Stage-2 task-pack pipeline.
 
 | Version | Date | Acc@0.25 | Acc@0.50 | mean IoU | Eval Scale | Key Change |
 |---------|------|---------:|---------:|---------:|------------|------------|
+| [v6](v6_conceptgraph_recall_20260430.md) | 2026-04-30 | n/a | n/a | n/a | 2000Q recall study | ConceptGraph bbox_np proposal pool added; recall only 0.35%@0.25; 3-way union unchanged vs v5 |
+| [v5](v5_deground_recall_20260430.md) | 2026-04-30 | n/a | n/a | n/a | 2000Q recall study | BIP3D detector pool added; recall +31.7pp@0.25 vs V-DETR; merged pool ready for Stage 2 |
 | [v4](v4_vdetr_pool_prepared_20260430.md) | 2026-04-30 | n/a | n/a | n/a | 220 scenes / 2000Q prepared | V-DETR detector pool engineering-complete; metrics pending Stage 2 endpoint access |
 | [v3](v3_projectable_2k_20260429.md) | 2026-04-29 | 89.15 | 89.15 | 89.20 | 2000Q smoke | Projectable-only unique-target sweep with checkpointed adaptive concurrency |
 | [v2](v2_projectable_20260429.md) | 2026-04-29 | 94.03 | 94.03 | 94.08 | 67Q smoke | Projectable-only corrected GT-pool prep, 12-worker run |
@@ -31,6 +33,12 @@ EmbodiedScan numbers:
 - the frozen sample counts changed as the preparation filter was corrected;
 - v1/v2 are below the repo's n>=200 benchmark-claim threshold; v3 is large
   enough for a broad smoke but still not detector-comparable.
+
+The v4-v6 runs are detector-pool engineering and recall studies. They report
+oracle proposal-pool recall, not Stage 2 selected-box accuracy. v6 shows that
+ConceptGraph is not useful on this fold by itself: after the `bbox_np`
+correction it reaches only 0.35% Recall@0.25, and the 3-way union leaves the
+v5 V-DETR+BIP3D headline recall unchanged at 77.35% Recall@0.25.
 
 ## Reproduction Pattern
 
