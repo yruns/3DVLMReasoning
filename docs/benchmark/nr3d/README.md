@@ -11,14 +11,23 @@ task-pack pipeline.
 
 | Version | Date | Acc@0.25 | Acc@0.50 | mean IoU | Eval Scale | Key Change |
 |---------|------|---------:|---------:|---------:|------------|------------|
-| [v1_phase8_smoke](v1_phase8_smoke_20260430.md) | 2026-04-30 | - | - | - | 20Q smoke | Phase 8 GT-CG bbox source, NR3D pack prep, runner reached Stage 2 call; endpoint unreachable |
+| [v1_phase8_smoke](v1_phase8_smoke_20260430.md) | 2026-04-30 | - | - | - | 20Q smoke | Phase 8 GT-CG bbox source, NR3D pack prep, runner reached Stage 2 call; endpoint unreachable on Linux |
+| [v1_phase8_smoke20_mac](v1_phase8_smoke20_mac_20260430.md) | 2026-04-30 | 0.7000 | 0.6500 | 0.6701 | 20Q smoke (same fold) | First green pack_v1 numbers on Mac (PCA-aligned 9-DoF, endpoint reachable). 13/20 IoU=1.0 (GT-pool inflation). |
 
 ## Current Interpretation
 
-The first NR3D pack-v1 smoke has been run on 20 test utterances across 5 scenes.
-It produced `pack_nr3d_v1/` artifacts and reached the first Stage 2 model call,
-but no metric was produced because the backend failed with an OpenAI transport
-connection error before the first prediction.
+The first NR3D pack-v1 smoke (v1_phase8_smoke) reached the first Stage 2 model
+call on Linux but the internal ModelHub endpoint returned `[SSL:
+UNEXPECTED_EOF_WHILE_READING]` on every retry, so no metric was produced.
+
+The same 20-sample fold was re-run on Mac (v1_phase8_smoke20_mac, 2026-04-30)
+on tip `9115fd7` (commits since the original Linux smoke include the loader's
+PCA-aligned 9-DoF OBB recovery for Phase 8 corners). The Mac endpoint is
+reachable and produced the first green pack_v1 numbers: **Acc@0.25 = 70.0 %**,
+**Acc@0.50 = 65.0 %**, **mean IoU = 0.6701** on 19 completed + 1 failed
+samples. Of the 14 IoU ≥ 0.25 hits, 13 are exactly IoU = 1.0 because the
+GT-pool setup includes every aggregation instance (including the GT itself) as
+a candidate; a detector-pool variant is tracked separately.
 
 The Phase-2 plumbing path loads the canonical NR3D CSV, derives train/test
 membership from upstream scene lists, filters bad contexts and clothing rows by
