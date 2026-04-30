@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import numpy as np
 
@@ -21,13 +21,39 @@ class Nr3dVGAdapter(BenchmarkAdapter):
     def __init__(
         self,
         data_root: str | Path,
-        embodiedscan_data_root: str | Path,
-        scene_data_root: str | Path,
+        embodiedscan_data_root: str | Path | None = None,
+        scene_data_root: str | Path | None = None,
+        bbox_source: Literal["embodiedscan_pkl", "phase8_gt_cg"] = "embodiedscan_pkl",
+        phase8_data_root: str | Path = "data/nr3d/scannet",
+        default_split: str = "train",
     ) -> None:
         self.data_root = Path(data_root)
-        self.embodiedscan_data_root = Path(embodiedscan_data_root)
-        self.scene_data_root = Path(scene_data_root)
+        self.embodiedscan_data_root = (
+            Path(embodiedscan_data_root) if embodiedscan_data_root is not None else None
+        )
+        self.scene_data_root = Path(scene_data_root or phase8_data_root)
+        self.bbox_source = bbox_source
+        self.phase8_data_root = Path(phase8_data_root)
+        self.default_split = default_split
         self._dataset: Nr3dDataset | None = None
+
+    @classmethod
+    def from_phase8_test(
+        cls,
+        data_root: str | Path = "data/nr3d",
+        phase8_data_root: str | Path = "data/nr3d/scannet",
+        scene_data_root: str | Path | None = None,
+    ) -> Nr3dVGAdapter:
+        """Build the common NR3D test-split adapter backed by Phase 8 GT-CG."""
+        phase8_root = Path(phase8_data_root)
+        return cls(
+            data_root=data_root,
+            embodiedscan_data_root=None,
+            scene_data_root=scene_data_root or phase8_root,
+            bbox_source="phase8_gt_cg",
+            phase8_data_root=phase8_root,
+            default_split="test",
+        )
 
     @property
     def dataset(self) -> Nr3dDataset:
@@ -38,12 +64,13 @@ class Nr3dVGAdapter(BenchmarkAdapter):
 
     def load_samples(
         self,
-        split: str = "train",
+        split: str | None = None,
         max_samples: int | None = None,
         correct_guess_only: bool = False,
         mentions_target_class_only: bool = False,
         apply_blacklist: bool = True,
         drop_clothes: bool = True,
+        sample_ids: set[str] | None = None,
         **kwargs: Any,
     ) -> list[BenchmarkSample]:
         """Load NR3D VG samples.
@@ -51,6 +78,9 @@ class Nr3dVGAdapter(BenchmarkAdapter):
         Defaults to ``"train"`` since the EmbodiedScan test PKL withholds
         ``instances``; see ``docs/benchmark/nr3d/README.md`` Caveats.
         """
+        split = split or self.default_split
+        bbox_source = kwargs.pop("bbox_source", self.bbox_source)
+        phase8_data_root = kwargs.pop("phase8_data_root", self.phase8_data_root)
         self._dataset = Nr3dDataset.from_path(
             data_root=self.data_root,
             embodiedscan_data_root=self.embodiedscan_data_root,
@@ -60,6 +90,9 @@ class Nr3dVGAdapter(BenchmarkAdapter):
             mentions_target_class_only=mentions_target_class_only,
             apply_blacklist=apply_blacklist,
             drop_clothes=drop_clothes,
+            bbox_source=bbox_source,
+            phase8_data_root=phase8_data_root,
+            sample_ids=sample_ids,
         )
         return list(self._dataset)
 
@@ -79,6 +112,8 @@ class Nr3dVGAdapter(BenchmarkAdapter):
 
     def get_axis_align_matrix(self, scan_id: str) -> np.ndarray | None:
         """Get axis-alignment metadata from the loaded bbox oracle."""
+        if self.bbox_source == "phase8_gt_cg":
+            return None
         scene_info = self.dataset.get_scene_info(scan_id)
         mat = scene_info.get("axis_align_matrix")
         if mat is not None:

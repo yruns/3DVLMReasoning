@@ -1,0 +1,225 @@
+"""NR3D pack-v1 side-by-side runner tests."""
+
+from __future__ import annotations
+
+import json
+from types import SimpleNamespace
+
+import pytest
+
+
+def _write_nr3d_pack_inputs(
+    tmp_path,
+    *,
+    sample_id: str = "scannet/scene0001_00::72::A1",
+    pack_name: str = "pack_nr3d_v1",
+    source: str = "gt",
+):
+    from evaluation.scripts.run_nr3d_vg_side_by_side import safe_sample_id
+
+    scene_segment, target_text, _assignment = sample_id.split("::")
+    scene_id = scene_segment.split("/")[-1]
+    target_id = int(target_text)
+    scene_dir = tmp_path / scene_id / pack_name
+    annotated = scene_dir / "annotated"
+    samples = scene_dir / "samples"
+    annotated.mkdir(parents=True, exist_ok=True)
+    samples.mkdir(parents=True, exist_ok=True)
+    (annotated / "frame_10.png").write_bytes(b"\x89PNG")
+    (scene_dir / "proposals.jsonl").write_text(
+        json.dumps(
+            {
+                "source": source,
+                "scene_id": scene_id,
+                "proposals": [
+                    {
+                        "id": target_id,
+                        "bbox_3d": [0, 0, 0, 1, 1, 1, 0, 0, 0],
+                        "score": 1.0,
+                        "label": "chair",
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    (scene_dir / "visibility.json").write_text(
+        json.dumps({"10": [target_id]}),
+        encoding="utf-8",
+    )
+    sample_path = samples / f"{safe_sample_id(sample_id)}.json"
+    sample_path.write_text(
+        json.dumps(
+            {
+                "sample_id": sample_id,
+                "scene_id": scene_id,
+                "target_id": target_id,
+                "category": "chair",
+                "query": "the chair by the table",
+                "gt_bbox_3d_9dof": [0, 0, 0, 1, 1, 1, 0, 0, 0],
+                "scene_artifacts_dir": str(scene_dir),
+                "source": source,
+                "keyframes": [
+                    {
+                        "keyframe_idx": 0,
+                        "image_path": str(annotated / "frame_10.png"),
+                        "frame_id": 10,
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    return tmp_path
+
+
+def test_parse_nr3d_sample_id_accepts_three_segments() -> None:
+    from evaluation.scripts.run_nr3d_vg_side_by_side import parse_nr3d_sample_id
+
+    parsed = parse_nr3d_sample_id("scannet/scene0001_00::72::A1")
+
+    assert parsed.scene_id == "scene0001_00"
+    assert parsed.scan_id == "scannet/scene0001_00"
+    assert parsed.target_id == 72
+    assert parsed.assignment_id == "A1"
+
+
+def test_expected_pack_sample_path_uses_safe_three_segment_filename(tmp_path) -> None:
+    from evaluation.scripts.run_nr3d_vg_side_by_side import expected_pack_sample_path
+
+    assert expected_pack_sample_path(
+        tmp_path,
+        "scannet/scene0001_00::72::A1",
+    ) == (
+        tmp_path
+        / "scene0001_00"
+        / "pack_nr3d_v1"
+        / "samples"
+        / "scannet__scene0001_00__72__A1.json"
+    )
+
+
+def test_sample_result_path_namespaces_by_nr3d_pack(tmp_path) -> None:
+    from evaluation.scripts.run_nr3d_vg_side_by_side import sample_result_path
+
+    path = sample_result_path(
+        tmp_path,
+        "pack_v1",
+        "scannet/scene0001_00::72::A1",
+    )
+
+    assert path.parent == tmp_path / "per_sample" / "pack_nr3d_v1"
+    assert path.name.startswith("scannet__scene0001_00__72__A1_")
+
+
+def test_run_one_sample_scores_agent_bbox(monkeypatch, tmp_path) -> None:
+    from evaluation.scripts import run_nr3d_vg_side_by_side as runner
+
+    data_root = _write_nr3d_pack_inputs(tmp_path)
+
+    class FakeAgent:
+        def __init__(self, config):
+            assert config.vg_backend == "pack_v1"
+
+        def run(self, task, bundle):
+            assert task.user_query == "the chair by the table"
+            assert bundle.scene_id == "scene0001_00"
+            return SimpleNamespace(
+                result=SimpleNamespace(
+                    payload={
+                        "status": "completed",
+                        "selected_object_id": 72,
+                        "bbox_3d": [0, 0, 0, 1, 1, 1, 0, 0, 0],
+                    },
+                    confidence=0.8,
+                )
+            )
+
+    monkeypatch.setattr(runner, "Stage2DeepResearchAgent", FakeAgent)
+    monkeypatch.setattr(
+        runner,
+        "build_pack_v1_bundle",
+        lambda **kwargs: SimpleNamespace(scene_id=kwargs["scene_id"]),
+    )
+
+    out = runner.run_one_sample(
+        "scannet/scene0001_00::72::A1",
+        "pack_v1",
+        data_root=data_root,
+    )
+
+    assert out["status"] == "completed"
+    assert out["iou"] == pytest.approx(1.0)
+    assert out["selected_object_id"] == 72
+
+
+def test_compare_backends_writes_side_by_side_and_checkpoints(
+    monkeypatch, tmp_path
+) -> None:
+    from evaluation.scripts import run_nr3d_vg_side_by_side as runner
+
+    sample_ids = [
+        "scannet/scene0001_00::72::A1",
+        "scannet/scene0001_00::73::A2",
+    ]
+    data_root = _write_nr3d_pack_inputs(tmp_path / "data_root", sample_id=sample_ids[0])
+    _write_nr3d_pack_inputs(tmp_path / "data_root", sample_id=sample_ids[1])
+
+    def fake_run_one(sample_id, backend, **_kwargs):
+        return {
+            "sample_id": sample_id,
+            "backend": backend,
+            "status": "completed",
+            "iou": 0.5,
+        }
+
+    monkeypatch.setattr(runner, "run_one_sample", fake_run_one)
+
+    out = runner.compare_backends(
+        sample_ids=sample_ids,
+        output_dir=tmp_path / "out",
+        data_root=data_root,
+        workers=1,
+    )
+
+    assert out["pack_v1"]["n"] == 2
+    assert out["pack_v1"]["Acc@0.25"] == pytest.approx(1.0)
+    assert (tmp_path / "out" / "side_by_side.json").exists()
+    assert (
+        len(list((tmp_path / "out" / "per_sample" / "pack_nr3d_v1").glob("*.json")))
+        == 2
+    )
+
+
+def test_compare_backends_propagates_sample_exceptions(monkeypatch, tmp_path) -> None:
+    from evaluation.scripts import run_nr3d_vg_side_by_side as runner
+
+    sample_id = "scannet/scene0001_00::72::A1"
+    data_root = _write_nr3d_pack_inputs(tmp_path / "data_root", sample_id=sample_id)
+
+    def fake_run_one(sample_id, backend, **_kwargs):
+        raise RuntimeError("endpoint unreachable")
+
+    monkeypatch.setattr(runner, "run_one_sample", fake_run_one)
+
+    with pytest.raises(RuntimeError, match="endpoint unreachable"):
+        runner.compare_backends(
+            sample_ids=[sample_id],
+            output_dir=tmp_path / "out",
+            data_root=data_root,
+        )
+
+
+def test_load_sample_ids_accepts_strings_or_dicts(tmp_path) -> None:
+    from evaluation.scripts.run_nr3d_vg_side_by_side import load_sample_ids
+
+    strings = tmp_path / "strings.json"
+    strings.write_text(json.dumps(["scannet/scene0001_00::72::A1"]), encoding="utf-8")
+    assert load_sample_ids(strings) == ["scannet/scene0001_00::72::A1"]
+
+    dicts = tmp_path / "dicts.json"
+    dicts.write_text(
+        json.dumps([{"sample_id": "scannet/scene0001_00::73::A2"}]),
+        encoding="utf-8",
+    )
+    assert load_sample_ids(dicts) == ["scannet/scene0001_00::73::A2"]

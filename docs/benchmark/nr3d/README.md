@@ -3,7 +3,7 @@
 This directory tracks NR3D visual-grounding evaluations for the Stage-2
 task-pack pipeline.
 
-**Benchmark:** NR3D ScanNet visual grounding (train split for local 9-DoF scoring; test split inference-only until GT source is wired)
+**Benchmark:** NR3D ScanNet visual grounding (test split now has Phase 8 GT-CG bboxes for local 9-DoF scoring)
 **Metric:** 9-DoF oriented 3D IoU (matching EmbodiedScan v3 setup), reported as Acc@0.25, Acc@0.50, mean IoU
 **Judge:** none; scoring is programmatic IoU against EmbodiedScan PKL bbox
 
@@ -11,19 +11,20 @@ task-pack pipeline.
 
 | Version | Date | Acc@0.25 | Acc@0.50 | mean IoU | Eval Scale | Key Change |
 |---------|------|---------:|---------:|---------:|------------|------------|
-| _none yet_ | - | - | - | - | - | Loader, evaluator, adapter, ingester, and docs scaffolded; first eval run pending |
+| [v1_phase8_smoke](v1_phase8_smoke_20260430.md) | 2026-04-30 | - | - | - | 20Q smoke | Phase 8 GT-CG bbox source, NR3D pack prep, runner reached Stage 2 call; endpoint unreachable |
 
 ## Current Interpretation
 
-No NR3D pipeline version has been evaluated yet. This scaffold exists so the
-first evaluation can leave a durable process record immediately, including
-the raw artifact directory, SQLite ingestion, exact fold, and metric query.
+The first NR3D pack-v1 smoke has been run on 20 test utterances across 5 scenes.
+It produced `pack_nr3d_v1/` artifacts and reached the first Stage 2 model call,
+but no metric was produced because the backend failed with an OpenAI transport
+connection error before the first prediction.
 
 The Phase-2 plumbing path loads the canonical NR3D CSV, derives train/test
 membership from upstream scene lists, filters bad contexts and clothing rows by
-default, and scores predictions against 9-DoF oriented boxes sourced from local
-EmbodiedScan PKLs. On this checkout, only EmbodiedScan train+val PKLs expose
-GT `instances`; the EmbodiedScan test PKL withholds instances.
+default, and can still score train split predictions against EmbodiedScan PKL
+boxes. The Phase-8 path adds local test split GT boxes from
+`data/nr3d/scannet/<scene>/conceptgraph/pcd_saves/full_pcd_gt_axisaligned_post.pkl.gz`.
 
 ## Reproduction Pattern
 
@@ -33,15 +34,16 @@ Download the raw NR3D annotation files:
 bash scripts/download_nr3d.sh data/nr3d
 ```
 
-Load samples with EmbodiedScan PKLs as the bbox oracle:
+Load test samples with Phase 8 GT-CG boxes:
 
 ```bash
 PYTHONPATH=src python -c "
 from benchmarks.nr3d_loader import Nr3dDataset
 ds = Nr3dDataset.from_path(
     data_root='data/nr3d',
-    embodiedscan_data_root='data/embodiedscan',
-    split='train',
+    split='test',
+    bbox_source='phase8_gt_cg',
+    phase8_data_root='data/nr3d/scannet',
     max_samples=200,
 )
 print(f'loaded={len(ds)} stats={ds.stats}')
@@ -61,8 +63,26 @@ PYTHONPATH=src python scripts/ingest_nr3d_run.py \
     --notes "NR3D pack_v1 run"
 ```
 
-The runner and pack-prep entrypoints are intentionally deferred until a
-follow-up branch.
+Prepare a Phase 8 pack:
+
+```bash
+PYTHONPATH=src python src/evaluation/scripts/prepare_pack_v1_inputs_nr3d.py \
+    --sample-ids tmp/nr3d_artifacts/v1_smoke20_sample_ids.json \
+    --data-root data/nr3d/scannet \
+    --pack-name pack_nr3d_v1 \
+    --split test
+```
+
+Run the pack-v1 Stage 2 runner:
+
+```bash
+PYTHONPATH=src python src/evaluation/scripts/run_nr3d_vg_side_by_side.py \
+    --sample-ids tmp/nr3d_artifacts/v1_smoke20_sample_ids.json \
+    --data-root data/nr3d/scannet \
+    --pack-name pack_nr3d_v1 \
+    --output-dir tmp/nr3d_eval_v1_smoke20 \
+    --workers 1
+```
 
 ## SQLite
 
@@ -78,18 +98,12 @@ FROM runs;
 
 ## Caveats
 
-- GT bboxes are sourced from EmbodiedScan train + val PKLs (which hold
-  `instances`), not ScanNet raw aggregation. The EmbodiedScan test PKL
-  withholds GT instances.
-- As a consequence: NR3D **train** split (511 scenes) is fully evaluable
-  against our pipeline. Every NR3D-train scene has a bbox in either ES train
-  or ES val PKL.
-- NR3D **test** split (130 scenes) parses cleanly from `nr3d.csv`, but
-  `Nr3dDataset.from_path(split="test")` currently yields zero samples because
-  every test scene's GT bbox lookup fails through
-  `skipped_missing_or_ambiguous_bbox`. An inference-only mode (yielding samples
-  with `gt_bbox_3d=None`) is a follow-up; until then the headline NR3D metric
-  we report is the **train**-split number.
+- EmbodiedScan PKL boxes remain available through
+  `bbox_source="embodiedscan_pkl"` for the train split.
+- NR3D test split local scoring now uses Phase 8 GT-CG boxes through
+  `bbox_source="phase8_gt_cg"`.
+- Phase 8 boxes are axis-aligned 8-corner boxes; the current conversion emits
+  zero Euler angles.
 - View-dep / view-indep breakdown not implemented (no canonical word list).
 - Easy / Hard breakdown not implemented (data is on the sample; aggregator is
   a follow-up).

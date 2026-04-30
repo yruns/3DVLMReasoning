@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import csv
+import gzip
 import json
 import pickle
 from pathlib import Path
@@ -12,7 +13,12 @@ import numpy as np
 import pytest
 
 from benchmarks.base import BenchmarkSample
-from benchmarks.nr3d_loader import Nr3dDataset, Nr3dVGSample, decode_stimulus_string
+from benchmarks.nr3d_loader import (
+    Nr3dDataset,
+    Nr3dVGSample,
+    _phase8_corners_to_9dof,
+    decode_stimulus_string,
+)
 
 CSV_COLUMNS = [
     "assignmentid",
@@ -189,12 +195,64 @@ def _make_es_pkl(tmp_path: Path, scenes: dict[str, list[dict[str, Any]]]) -> Pat
     return es_root
 
 
+def _box_corners(
+    center: tuple[float, float, float] = (1.0, 2.0, 4.0),
+    size: tuple[float, float, float] = (2.0, 4.0, 8.0),
+) -> np.ndarray:
+    cx, cy, cz = center
+    dx, dy, dz = size
+    mins = np.array([cx - dx / 2, cy - dy / 2, cz - dz / 2], dtype=np.float64)
+    maxs = np.array([cx + dx / 2, cy + dy / 2, cz + dz / 2], dtype=np.float64)
+    return np.array(
+        [
+            [x, y, z]
+            for x in (mins[0], maxs[0])
+            for y in (mins[1], maxs[1])
+            for z in (mins[2], maxs[2])
+        ],
+        dtype=np.float64,
+    )
+
+
+def _write_phase8_scene(
+    phase8_root: Path,
+    scene_id: str,
+    objects: list[dict[str, Any]],
+) -> Path:
+    pkl_path = (
+        phase8_root
+        / scene_id
+        / "conceptgraph"
+        / "pcd_saves"
+        / "full_pcd_gt_axisaligned_post.pkl.gz"
+    )
+    pkl_path.parent.mkdir(parents=True, exist_ok=True)
+    with gzip.open(pkl_path, "wb") as f:
+        pickle.dump(
+            {
+                "objects": objects,
+                "bg_objects": None,
+                "cfg": {},
+                "class_names": [],
+                "class_colors": {},
+            },
+            f,
+        )
+    return pkl_path
+
+
 @pytest.fixture()
 def nr3d_dirs(tmp_path: Path) -> tuple[Path, Path]:
     rows = [
-        _make_csv_row("scene0001_00", 1, "chair", "the chair near the door", assignment_id="A1"),
-        _make_csv_row("scene0001_00", 2, "table", "the table in front", assignment_id="A2"),
-        _make_csv_row("scene0002_00", 3, "lamp", "the lamp on the desk", assignment_id="A3"),
+        _make_csv_row(
+            "scene0001_00", 1, "chair", "the chair near the door", assignment_id="A1"
+        ),
+        _make_csv_row(
+            "scene0001_00", 2, "table", "the table in front", assignment_id="A2"
+        ),
+        _make_csv_row(
+            "scene0002_00", 3, "lamp", "the lamp on the desk", assignment_id="A3"
+        ),
     ]
     _write_nr3d_csv(tmp_path, rows)
     _write_scan_lists(tmp_path, train=["scene0002_00"], test=["scene0001_00"])
@@ -275,6 +333,17 @@ class TestNr3dDataset:
         nr3d_root, es_root = nr3d_dirs
         dataset = Nr3dDataset.from_path(nr3d_root, es_root, split="test", max_samples=1)
         assert len(dataset) == 1
+
+    def test_from_path_sample_ids_filter(self, nr3d_dirs: tuple[Path, Path]) -> None:
+        nr3d_root, es_root = nr3d_dirs
+        dataset = Nr3dDataset.from_path(
+            nr3d_root,
+            es_root,
+            split="test",
+            sample_ids={"scannet/scene0001_00::2::A2"},
+        )
+        assert len(dataset) == 1
+        assert dataset[0].sample_id == "scannet/scene0001_00::2::A2"
 
     def test_from_path_invalid_split(self, nr3d_dirs: tuple[Path, Path]) -> None:
         nr3d_root, es_root = nr3d_dirs
@@ -386,8 +455,12 @@ class TestNr3dDataset:
 
     def test_correct_guess_only(self, tmp_path: Path) -> None:
         rows = [
-            _make_csv_row("scene0001_00", 1, "chair", correct_guess=True, assignment_id="A1"),
-            _make_csv_row("scene0001_00", 2, "chair", correct_guess=False, assignment_id="A2"),
+            _make_csv_row(
+                "scene0001_00", 1, "chair", correct_guess=True, assignment_id="A1"
+            ),
+            _make_csv_row(
+                "scene0001_00", 2, "chair", correct_guess=False, assignment_id="A2"
+            ),
         ]
         _write_nr3d_csv(tmp_path, rows)
         _write_scan_lists(tmp_path, train=[], test=["scene0001_00"])
@@ -406,10 +479,18 @@ class TestNr3dDataset:
     def test_mentions_target_class_only(self, tmp_path: Path) -> None:
         rows = [
             _make_csv_row(
-                "scene0001_00", 1, "chair", mentions_target_class=True, assignment_id="A1"
+                "scene0001_00",
+                1,
+                "chair",
+                mentions_target_class=True,
+                assignment_id="A1",
             ),
             _make_csv_row(
-                "scene0001_00", 2, "chair", mentions_target_class=False, assignment_id="A2"
+                "scene0001_00",
+                2,
+                "chair",
+                mentions_target_class=False,
+                assignment_id="A2",
             ),
         ]
         _write_nr3d_csv(tmp_path, rows)
@@ -447,7 +528,9 @@ class TestNr3dDataset:
         with pytest.raises(ValueError, match="distractor count 1 does not match"):
             decode_stimulus_string("scene0001_00-chair-3-1-2")
 
-    def test_duplicate_embodiedscan_scene_across_pkls_raises(self, tmp_path: Path) -> None:
+    def test_duplicate_embodiedscan_scene_across_pkls_raises(
+        self, tmp_path: Path
+    ) -> None:
         _write_nr3d_csv(tmp_path, [_make_csv_row("scene0001_00", 1, "chair")])
         _write_scan_lists(tmp_path, train=[], test=["scene0001_00"])
         _write_blacklist(tmp_path, [])
@@ -559,3 +642,143 @@ class TestNr3dDataset:
             "skipped_correct_guess_filter": 1,
             "skipped_mentions_target_class_filter": 1,
         }
+
+    def test_from_path_bbox_source_phase8_gt_cg(self, tmp_path: Path) -> None:
+        _write_nr3d_csv(
+            tmp_path,
+            [_make_csv_row("scene0001_00", 1, "chair", assignment_id="A1")],
+        )
+        _write_scan_lists(tmp_path, train=[], test=["scene0001_00"])
+        _write_blacklist(tmp_path, [])
+        phase8_root = tmp_path / "phase8"
+        _write_phase8_scene(
+            phase8_root,
+            "scene0001_00",
+            [
+                {"bbox_np": _box_corners(center=(0.0, 0.0, 5.0), size=(1.0, 1.0, 1.0))},
+                {"bbox_np": _box_corners(center=(1.0, 2.0, 4.0), size=(2.0, 4.0, 8.0))},
+            ],
+        )
+
+        dataset = Nr3dDataset.from_path(
+            tmp_path / "nr3d",
+            split="test",
+            bbox_source="phase8_gt_cg",
+            phase8_data_root=phase8_root,
+        )
+
+        assert len(dataset) == 1
+        assert dataset[0].sample_id == "scannet/scene0001_00::1::A1"
+        assert dataset[0].gt_bbox_3d == pytest.approx(
+            [1.0, 2.0, 4.0, 2.0, 4.0, 8.0, 0.0, 0.0, 0.0]
+        )
+        assert dataset.stats["total_loaded"] == 1
+
+    def test_phase8_corners_to_9dof_conversion(self) -> None:
+        bbox = _phase8_corners_to_9dof(
+            _box_corners(center=(1.0, 2.0, 4.0), size=(2.0, 4.0, 8.0)),
+            field_name="fixture.bbox_np",
+        )
+
+        assert bbox == pytest.approx([1.0, 2.0, 4.0, 2.0, 4.0, 8.0, 0.0, 0.0, 0.0])
+
+    def test_phase8_corners_to_9dof_recovers_yaw_obb(self) -> None:
+        """Rotated 8-corner input must round-trip via oriented_bbox_to_corners.
+
+        Locks down the OBB-recovery behavior introduced after the AABB
+        shortcut was found to inflate volume by ~3x mean (median 2.6x) on
+        real Phase 8 outputs.
+        """
+        import numpy as np
+
+        from benchmarks.embodiedscan_eval import oriented_bbox_to_corners
+
+        # 30° yaw on a 2x4x1 box centered at (5, -2, 3)
+        cx, cy, cz = 5.0, -2.0, 3.0
+        dx, dy, dz = 2.0, 4.0, 1.0
+        yaw = np.deg2rad(30.0)
+        c, s = np.cos(yaw), np.sin(yaw)
+        R = np.array([[c, -s, 0.0], [s, c, 0.0], [0.0, 0.0, 1.0]])
+        local = np.array(
+            [
+                [+dx / 2, +dy / 2, +dz / 2],
+                [+dx / 2, +dy / 2, -dz / 2],
+                [+dx / 2, -dy / 2, +dz / 2],
+                [+dx / 2, -dy / 2, -dz / 2],
+                [-dx / 2, +dy / 2, +dz / 2],
+                [-dx / 2, +dy / 2, -dz / 2],
+                [-dx / 2, -dy / 2, +dz / 2],
+                [-dx / 2, -dy / 2, -dz / 2],
+            ]
+        )
+        corners = (R @ local.T).T + np.array([cx, cy, cz])
+
+        bbox = _phase8_corners_to_9dof(corners, field_name="fixture.bbox_np")
+
+        # Center + extent must be exact.
+        assert bbox[:3] == pytest.approx([cx, cy, cz], abs=1e-9)
+        assert sorted(bbox[3:6]) == pytest.approx(sorted([dx, dy, dz]), abs=1e-9)
+
+        # Round-trip: 9-DOF → 8 corners covers the same point set as input.
+        reconstructed = oriented_bbox_to_corners(bbox)
+        sorted_in = np.sort(corners, axis=0)
+        sorted_out = np.sort(reconstructed, axis=0)
+        np.testing.assert_array_almost_equal(sorted_in, sorted_out, decimal=6)
+
+    def test_phase8_missing_pkl_skips_with_counter(self, tmp_path: Path) -> None:
+        _write_nr3d_csv(tmp_path, [_make_csv_row("scene0001_00", 1, "chair")])
+        _write_scan_lists(tmp_path, train=[], test=["scene0001_00"])
+        _write_blacklist(tmp_path, [])
+
+        dataset = Nr3dDataset.from_path(
+            tmp_path / "nr3d",
+            split="test",
+            bbox_source="phase8_gt_cg",
+            phase8_data_root=tmp_path / "phase8",
+        )
+
+        assert len(dataset) == 0
+        assert dataset.stats["skipped_missing_scene"] == 1
+
+    def test_phase8_missing_target_id_skips_with_counter(self, tmp_path: Path) -> None:
+        _write_nr3d_csv(tmp_path, [_make_csv_row("scene0001_00", 7, "chair")])
+        _write_scan_lists(tmp_path, train=[], test=["scene0001_00"])
+        _write_blacklist(tmp_path, [])
+        phase8_root = tmp_path / "phase8"
+        _write_phase8_scene(
+            phase8_root,
+            "scene0001_00",
+            [{"bbox_np": _box_corners(center=(0.0, 0.0, 5.0), size=(1.0, 1.0, 1.0))}],
+        )
+
+        dataset = Nr3dDataset.from_path(
+            tmp_path / "nr3d",
+            split="test",
+            bbox_source="phase8_gt_cg",
+            phase8_data_root=phase8_root,
+        )
+
+        assert len(dataset) == 0
+        assert dataset.stats["skipped_missing_or_ambiguous_bbox"] == 1
+
+    def test_phase8_bbox_shape_mismatch_raises(self, tmp_path: Path) -> None:
+        _write_nr3d_csv(tmp_path, [_make_csv_row("scene0001_00", 0, "chair")])
+        _write_scan_lists(tmp_path, train=[], test=["scene0001_00"])
+        _write_blacklist(tmp_path, [])
+        phase8_root = tmp_path / "phase8"
+        _write_phase8_scene(
+            phase8_root,
+            "scene0001_00",
+            [{"bbox_np": np.zeros((7, 3), dtype=np.float64)}],
+        )
+
+        with pytest.raises(
+            ValueError,
+            match=r"scene0001_00::0 bbox_np shape is \(7, 3\), expected \(8,3\)",
+        ):
+            Nr3dDataset.from_path(
+                tmp_path / "nr3d",
+                split="test",
+                bbox_source="phase8_gt_cg",
+                phase8_data_root=phase8_root,
+            )

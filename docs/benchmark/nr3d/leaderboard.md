@@ -13,8 +13,8 @@ papers also report Acc@0.25 / Acc@0.5.
 | MiKASA | classification | 64.4 | 69.7 | 59.4 | 65.4 | 64.0 | leaderboard |
 | UniVLG | classification | 65.2 | 73.3 | 57.0 | 55.1 | 69.9 | leaderboard 2026 |
 
-Our numbers, when available, will appear in `README.md` against this
-reference table. Until an alternate NR3D test GT source is wired, our headline
-metric will be reported on the NR3D **train** split. Note: our setup is
-detection-mode (Acc@0.25/0.50) on EmbodiedScan-derived 9-DOF bboxes, so it is
-not directly comparable to the classification leaderboard above.
+Our numbers, when available, will appear in `README.md` against this reference
+table. The Phase 8 GT-CG path now enables local NR3D **test** split scoring in
+detection mode (Acc@0.25/0.50) against 9-DOF boxes derived from axis-aligned
+ScanNet GT objects. That setup is still not directly comparable to the
+classification leaderboard above.

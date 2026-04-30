@@ -1,0 +1,650 @@
+"""Prepare offline pack inputs for NR3D VG runs from Phase 8 GT-CG output."""
+
+from __future__ import annotations
+
+import argparse
+import gzip
+import json
+import pickle
+from collections import Counter
+from collections.abc import Sequence
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
+
+import numpy as np
+
+from agents.adapters.nr3d_adapter import Nr3dVGAdapter
+from benchmarks.embodiedscan_bbox_feasibility.render_marks import (
+    render_marked_keyframe,
+)
+from benchmarks.embodiedscan_bbox_feasibility.visibility_index import (
+    project_bbox_3d_to_2d,
+)
+from benchmarks.nr3d_loader import Nr3dVGSample, _phase8_corners_to_9dof
+from evaluation.scripts.prepare_pack_v1_inputs import (
+    load_image_size,
+    normalize_prepared_keyframes,
+    validate_bbox_9dof,
+    validate_matrix_4x4,
+)
+
+PHASE8_PCD_REL = Path("conceptgraph/pcd_saves/full_pcd_gt_axisaligned_post.pkl.gz")
+PHASE8_VIS_REL = Path("conceptgraph/indices/visibility_index.pkl")
+
+
+@dataclass(frozen=True)
+class SampleRequest:
+    sample_id: str
+    scene_id: str
+    target_id: int
+    category: str
+
+
+@dataclass(frozen=True)
+class SceneFrame:
+    frame_id: int
+    raw_frame_id: int
+    rgb_path: Path
+    extrinsic_world_to_cam: np.ndarray
+
+
+@dataclass(frozen=True)
+class Phase8Visibility:
+    object_to_views: dict[int, list[tuple[int, float]]]
+    view_to_objects: dict[int, list[tuple[int, float]]]
+
+
+@dataclass(frozen=True)
+class SceneArtifacts:
+    scene_dir: Path
+    proposals_jsonl: Path
+    visibility_json: Path
+    annotated_dir: Path
+    frame_visibility: dict[int, list[int]]
+    proposal_ids: list[int]
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--sample-ids", required=True, type=Path)
+    parser.add_argument(
+        "--data-root",
+        required=True,
+        type=Path,
+        help=(
+            "Phase 8 NR3D ScanNet root containing <scene>/conceptgraph and "
+            "<scene>/raw. Outputs land under <data_root>/<scene>/<pack_name>/."
+        ),
+    )
+    parser.add_argument("--pack-name", default="pack_nr3d_v1")
+    parser.add_argument("--split", default="test", choices=["train", "test"])
+    parser.add_argument("--max-samples", type=int, default=None)
+    parser.add_argument(
+        "--nr3d-root",
+        type=Path,
+        default=None,
+        help="NR3D root containing raw/nr3d.csv. Defaults to data-root parent.",
+    )
+    return parser.parse_args()
+
+
+def prepare_pack_v1_inputs_nr3d(
+    *,
+    sample_ids_path: Path,
+    data_root: Path,
+    pack_name: str = "pack_nr3d_v1",
+    split: str = "test",
+    max_samples: int | None = None,
+    nr3d_root: Path | None = None,
+) -> list[Path]:
+    requests = load_sample_requests(sample_ids_path)
+    if max_samples is not None:
+        if max_samples <= 0:
+            raise ValueError("max_samples must be positive when provided")
+        requests = requests[:max_samples]
+
+    nr3d_root = nr3d_root or data_root.parent
+    _adapter, sample_lookup = load_sample_lookup(
+        nr3d_root=nr3d_root,
+        phase8_data_root=data_root,
+        split=split,
+        sample_ids={request.sample_id for request in requests},
+    )
+
+    scene_artifacts: dict[str, SceneArtifacts] = {}
+    written_samples: list[Path] = []
+    for request in requests:
+        sample = sample_lookup.get(request.sample_id)
+        if sample is None:
+            raise ValueError(
+                f"No NR3D sample for sample_id={request.sample_id!r} "
+                f"(split={split})"
+            )
+        if request.scene_id not in scene_artifacts:
+            scene_artifacts[request.scene_id] = prepare_scene_artifacts(
+                scene_id=request.scene_id,
+                data_root=data_root,
+                pack_name=pack_name,
+            )
+        written_samples.append(
+            write_sample_artifact(
+                request=request,
+                sample=sample,
+                data_root=data_root,
+                scene_artifacts=scene_artifacts[request.scene_id],
+            )
+        )
+    return written_samples
+
+
+def load_sample_lookup(
+    *,
+    nr3d_root: Path,
+    phase8_data_root: Path,
+    split: str,
+    sample_ids: set[str] | None = None,
+) -> tuple[Nr3dVGAdapter, dict[str, Nr3dVGSample]]:
+    adapter = Nr3dVGAdapter.from_phase8_test(
+        data_root=nr3d_root,
+        phase8_data_root=phase8_data_root,
+        scene_data_root=phase8_data_root,
+    )
+    samples = adapter.load_samples(split=split, sample_ids=sample_ids)
+    lookup: dict[str, Nr3dVGSample] = {}
+    for sample in samples:
+        if not isinstance(sample, Nr3dVGSample):
+            continue
+        if sample.sample_id in lookup:
+            raise ValueError(f"Duplicate NR3D sample_id loaded: {sample.sample_id}")
+        lookup[sample.sample_id] = sample
+    return adapter, lookup
+
+
+def load_sample_requests(sample_ids_path: Path) -> list[SampleRequest]:
+    raw = json.loads(sample_ids_path.read_text(encoding="utf-8"))
+    if not isinstance(raw, list):
+        raise ValueError(f"sample ids JSON must be a list: {sample_ids_path}")
+    requests: list[SampleRequest] = []
+    for row_index, row in enumerate(raw, start=1):
+        if not isinstance(row, dict):
+            raise ValueError(f"sample ids row {row_index} must be an object: {row!r}")
+        sample_id = _required_nonempty_str(row, "sample_id", row_index)
+        parsed_scene, parsed_target, _assignment = parse_sample_id(sample_id)
+        scene_id = str(row.get("scene_id") or parsed_scene).split("/")[-1]
+        raw_target_id = row.get("target_id", parsed_target)
+        try:
+            target_id = int(raw_target_id)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(
+                f"sample ids row {row_index} has invalid target_id: {row!r}"
+            ) from exc
+        if scene_id != parsed_scene.split("/")[-1]:
+            raise ValueError(
+                f"sample ids row {row_index} scene_id={scene_id!r} does not "
+                f"match sample_id={sample_id!r}"
+            )
+        if target_id != parsed_target:
+            raise ValueError(
+                f"sample ids row {row_index} target_id={target_id} does not "
+                f"match sample_id={sample_id!r}"
+            )
+        requests.append(
+            SampleRequest(
+                sample_id=sample_id,
+                scene_id=scene_id,
+                target_id=target_id,
+                category=str(row.get("category") or "").strip(),
+            )
+        )
+    if not requests:
+        raise ValueError(f"sample ids JSON is empty: {sample_ids_path}")
+    return requests
+
+
+def prepare_scene_artifacts(
+    *,
+    scene_id: str,
+    data_root: Path,
+    pack_name: str = "pack_nr3d_v1",
+) -> SceneArtifacts:
+    scene_root = data_root / scene_id
+    objects = load_phase8_objects(scene_root)
+    proposals = build_proposals_from_phase8_objects(objects=objects, scene_id=scene_id)
+    if not proposals:
+        raise ValueError(f"scene has no Phase 8 objects: {scene_id}")
+    visibility = load_phase8_visibility_index(scene_root)
+    frame_visibility = {
+        frame_id: [obj_id for obj_id, _score in entries]
+        for frame_id, entries in visibility.view_to_objects.items()
+    }
+    proposal_ids = [int(proposal["id"]) for proposal in proposals]
+    valid_ids = set(proposal_ids)
+    for frame_id, ids in frame_visibility.items():
+        unknown = sorted(set(ids) - valid_ids)
+        if unknown:
+            raise ValueError(
+                f"{scene_id} visibility frame {frame_id} references unknown "
+                f"object id(s): {unknown}"
+            )
+
+    scene_dir = data_root / scene_id / pack_name
+    scene_dir.mkdir(parents=True, exist_ok=True)
+    proposals_jsonl = scene_dir / "proposals.jsonl"
+    proposals_jsonl.write_text(
+        json.dumps(
+            {
+                "source": "gt",
+                "scene_id": scene_id,
+                "axis_align_matrix": None,
+                "proposals": proposals,
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+
+    visibility_json = scene_dir / "visibility.json"
+    visibility_json.write_text(
+        json.dumps(
+            {str(k): v for k, v in sorted(frame_visibility.items())},
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+
+    frames = scene_frames(scene_root, sorted(frame_visibility))
+    if not frames:
+        raise ValueError(f"scene has no visible frames: {scene_id}")
+    frame_by_id = {frame.frame_id: frame for frame in frames}
+    intrinsic = scene_intrinsic(scene_root)
+    image_size = load_image_size(frames[0].rgb_path)
+    annotated_dir = scene_dir / "annotated"
+    render_annotated_frames(
+        proposal_by_id={int(p["id"]): p for p in proposals},
+        frame_visibility=frame_visibility,
+        frame_by_id=frame_by_id,
+        intrinsic=intrinsic,
+        image_size=image_size,
+        annotated_dir=annotated_dir,
+    )
+
+    return SceneArtifacts(
+        scene_dir=scene_dir,
+        proposals_jsonl=proposals_jsonl,
+        visibility_json=visibility_json,
+        annotated_dir=annotated_dir,
+        frame_visibility=frame_visibility,
+        proposal_ids=proposal_ids,
+    )
+
+
+def build_proposals_from_phase8_objects(
+    *,
+    objects: list[dict[str, Any]],
+    scene_id: str,
+) -> list[dict[str, Any]]:
+    proposals: list[dict[str, Any]] = []
+    for object_id, obj in enumerate(objects):
+        if not isinstance(obj, dict):
+            raise ValueError(
+                f"{scene_id}.objects[{object_id}] must be an object, got {type(obj).__name__}"
+            )
+        if "bbox_np" not in obj:
+            raise ValueError(f"{scene_id}.objects[{object_id}] missing bbox_np")
+        corners = np.asarray(obj["bbox_np"], dtype=np.float64)
+        if corners.shape != (8, 3):
+            raise ValueError(
+                f"{scene_id}::{object_id} bbox_np shape is {corners.shape}, "
+                "expected (8,3)"
+            )
+        label = _dominant_label(obj, scene_id=scene_id, object_id=object_id)
+        label_idx = _dominant_label_idx(obj, scene_id=scene_id, object_id=object_id)
+        proposals.append(
+            {
+                "id": object_id,
+                "bbox_3d": _phase8_corners_to_9dof(
+                    corners,
+                    field_name=f"{scene_id}::{object_id}.bbox_np",
+                ),
+                "score": 1.0,
+                "label": label,
+                "label_idx": label_idx,
+            }
+        )
+    return proposals
+
+
+def write_sample_artifact(
+    *,
+    request: SampleRequest,
+    sample: Nr3dVGSample,
+    data_root: Path,
+    scene_artifacts: SceneArtifacts,
+) -> Path:
+    visibility = load_phase8_visibility_index(data_root / request.scene_id)
+    keyframes = select_keyframes_for_sample(
+        scene_root=data_root / request.scene_id,
+        target_id=request.target_id,
+        visibility=visibility,
+        k=5,
+    )
+    normalized_keyframes = normalize_prepared_keyframes(
+        keyframes,
+        scene_artifacts.annotated_dir,
+    )
+    gt_bbox = validate_bbox_9dof(
+        getattr(sample, "gt_bbox_3d", None),
+        f"{request.sample_id}.gt_bbox_3d_9dof",
+    )
+    query = getattr(sample, "query", "") or getattr(sample, "text", "")
+    if not query:
+        raise ValueError(f"Missing query for {request.sample_id}")
+    payload = {
+        "sample_id": request.sample_id,
+        "scene_id": request.scene_id,
+        "target_id": request.target_id,
+        "category": request.category or getattr(sample, "target", ""),
+        "query": query,
+        "gt_bbox_3d_9dof": gt_bbox,
+        "scene_artifacts_dir": str(scene_artifacts.scene_dir),
+        "source": "gt",
+        "keyframes": normalized_keyframes,
+    }
+    path = sample_artifact_path(
+        data_root,
+        request,
+        pack_name=scene_artifacts.scene_dir.name,
+    )
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    return path
+
+
+def select_keyframes_for_sample(
+    *,
+    scene_root: Path,
+    target_id: int,
+    visibility: Phase8Visibility,
+    k: int = 5,
+) -> list[dict[str, Any]]:
+    views = visibility.object_to_views.get(int(target_id))
+    if not views:
+        raise ValueError(
+            f"no visible frames for target_id={target_id} in {scene_root.name}"
+        )
+    chosen = views[:k]
+    keyframes: list[dict[str, Any]] = []
+    for keyframe_idx, (frame_id, _score) in enumerate(chosen):
+        keyframes.append(
+            {
+                "keyframe_idx": keyframe_idx,
+                "image_path": str(resolve_raw_rgb_path(scene_root, int(frame_id))),
+                "frame_id": int(frame_id),
+            }
+        )
+    return keyframes
+
+
+def render_annotated_frames(
+    *,
+    proposal_by_id: dict[int, dict[str, Any]],
+    frame_visibility: dict[int, list[int]],
+    frame_by_id: dict[int, SceneFrame],
+    intrinsic: np.ndarray,
+    image_size: tuple[int, int],
+    annotated_dir: Path,
+) -> None:
+    for frame_id, visible_ids in frame_visibility.items():
+        if frame_id not in frame_by_id:
+            raise ValueError(f"visibility references missing frame_id={frame_id}")
+        frame = frame_by_id[frame_id]
+        marks = []
+        for proposal_id in visible_ids:
+            proposal = proposal_by_id.get(int(proposal_id))
+            if proposal is None:
+                raise ValueError(
+                    f"visibility refers to unknown proposal_id={proposal_id}"
+                )
+            rect = project_bbox_3d_to_2d(
+                proposal["bbox_3d"],
+                intrinsic,
+                frame.extrinsic_world_to_cam,
+                image_size,
+            )
+            if rect is None:
+                continue
+            marks.append(
+                {
+                    "proposal_id": int(proposal_id),
+                    "label": proposal["label"],
+                    "bbox_2d": rect,
+                }
+            )
+        render_marked_keyframe(
+            rgb_path=frame.rgb_path,
+            out_path=annotated_dir / f"frame_{frame_id}.png",
+            marks=marks,
+        )
+
+
+def scene_frames(scene_root: Path, frame_ids: Sequence[int]) -> list[SceneFrame]:
+    frames: list[SceneFrame] = []
+    for frame_id in frame_ids:
+        raw_frame_id = raw_frame_id_for_view(scene_root, int(frame_id))
+        pose_path = scene_root / "raw" / f"{raw_frame_id:06d}.txt"
+        if not pose_path.exists():
+            raise FileNotFoundError(f"Missing Phase 8 pose file: {pose_path}")
+        cam_to_world = validate_matrix_4x4(
+            np.loadtxt(pose_path),
+            field_name=str(pose_path),
+        )
+        frames.append(
+            SceneFrame(
+                frame_id=int(frame_id),
+                raw_frame_id=raw_frame_id,
+                rgb_path=resolve_raw_rgb_path(scene_root, int(frame_id)),
+                extrinsic_world_to_cam=np.linalg.inv(cam_to_world),
+            )
+        )
+    return frames
+
+
+def scene_intrinsic(scene_root: Path) -> np.ndarray:
+    path = scene_root / "raw" / "intrinsic_color.txt"
+    if not path.exists():
+        raise FileNotFoundError(f"Missing Phase 8 intrinsic file: {path}")
+    mat = np.asarray(np.loadtxt(path), dtype=float)
+    if mat.shape == (4, 4):
+        return mat[:3, :3]
+    if mat.shape == (3, 3):
+        return mat
+    raise ValueError(f"intrinsic matrix must be 3x3 or 4x4, got {mat.shape}: {path}")
+
+
+def resolve_raw_rgb_path(scene_root: Path, frame_id: int) -> Path:
+    raw_frame_id = raw_frame_id_for_view(scene_root, frame_id)
+    path = scene_root / "raw" / f"{raw_frame_id:06d}-rgb.png"
+    if not path.exists():
+        raise FileNotFoundError(f"Missing Phase 8 RGB frame: {path}")
+    return path
+
+
+def raw_frame_id_for_view(scene_root: Path, frame_id: int) -> int:
+    info = load_raw_scene_info(scene_root)
+    kept = info.get("kept_frame_ids")
+    if not isinstance(kept, list) or not all(isinstance(v, int) for v in kept):
+        raise ValueError(f"{scene_root}/raw/scene_info.json missing kept_frame_ids")
+    if frame_id < 0 or frame_id >= len(kept):
+        raise ValueError(
+            f"{scene_root.name} frame_id={frame_id} out of range for "
+            f"{len(kept)} kept frames"
+        )
+    return int(kept[frame_id])
+
+
+def load_raw_scene_info(scene_root: Path) -> dict[str, Any]:
+    path = scene_root / "raw" / "scene_info.json"
+    if not path.exists():
+        raise FileNotFoundError(f"Missing Phase 8 raw scene_info: {path}")
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError(f"Phase 8 raw scene_info must be an object: {path}")
+    return payload
+
+
+def load_phase8_objects(scene_root: Path) -> list[dict[str, Any]]:
+    pkl_path = scene_root / PHASE8_PCD_REL
+    if not pkl_path.exists():
+        raise FileNotFoundError(f"Missing Phase 8 GT-CG pkl: {pkl_path}")
+    with gzip.open(pkl_path, "rb") as f:
+        payload = pickle.load(f)
+    objects = payload.get("objects")
+    if not isinstance(objects, list):
+        raise ValueError(f"{pkl_path} must contain an objects list")
+    return objects
+
+
+def load_phase8_visibility_index(scene_root: Path) -> Phase8Visibility:
+    vis_path = scene_root / PHASE8_VIS_REL
+    if not vis_path.exists():
+        raise FileNotFoundError(f"Missing Phase 8 visibility index: {vis_path}")
+    with open(vis_path, "rb") as f:
+        payload = pickle.load(f)
+    raw_object_to_views = payload.get("object_to_views")
+    raw_view_to_objects = payload.get("view_to_objects")
+    if not isinstance(raw_object_to_views, dict) or not isinstance(
+        raw_view_to_objects,
+        dict,
+    ):
+        raise ValueError(f"{vis_path} must contain object_to_views and view_to_objects")
+    return Phase8Visibility(
+        object_to_views=_coerce_visibility_mapping(raw_object_to_views, vis_path),
+        view_to_objects=_coerce_visibility_mapping(raw_view_to_objects, vis_path),
+    )
+
+
+def sample_artifact_path(
+    data_root: Path,
+    request: SampleRequest,
+    *,
+    pack_name: str = "pack_nr3d_v1",
+) -> Path:
+    return (
+        data_root
+        / request.scene_id
+        / pack_name
+        / "samples"
+        / f"{safe_sample_id(request.sample_id)}.json"
+    )
+
+
+def safe_sample_id(sample_id: str) -> str:
+    return sample_id.replace("/", "__").replace("::", "__")
+
+
+def parse_sample_id(sample_id: str) -> tuple[str, int, str]:
+    parts = sample_id.split("::")
+    if len(parts) != 3:
+        raise ValueError(
+            f"Expected NR3D sample_id '<scene>::<target_id>::<assignment>', "
+            f"got {sample_id!r}"
+        )
+    scene_id, target_text, assignment_id = parts
+    if not scene_id or not assignment_id:
+        raise ValueError(f"Invalid NR3D sample_id={sample_id!r}")
+    try:
+        target_id = int(target_text)
+    except ValueError as exc:
+        raise ValueError(f"Invalid target_id in sample_id={sample_id!r}") from exc
+    return scene_id, target_id, assignment_id
+
+
+def _coerce_visibility_mapping(
+    raw: dict[Any, Any],
+    path: Path,
+) -> dict[int, list[tuple[int, float]]]:
+    out: dict[int, list[tuple[int, float]]] = {}
+    for raw_key, raw_entries in raw.items():
+        key = int(raw_key)
+        if not isinstance(raw_entries, list):
+            raise ValueError(f"{path} visibility[{raw_key!r}] must be a list")
+        entries: list[tuple[int, float]] = []
+        for entry in raw_entries:
+            if not isinstance(entry, (list, tuple)) or len(entry) != 2:
+                raise ValueError(
+                    f"{path} visibility entry must be (id, score): {entry!r}"
+                )
+            entries.append((int(entry[0]), float(entry[1])))
+        out[key] = entries
+    return out
+
+
+def _dominant_label(obj: dict[str, Any], *, scene_id: str, object_id: int) -> str:
+    names = obj.get("class_name")
+    if (
+        not isinstance(names, list)
+        or not names
+        or not all(isinstance(name, str) and name for name in names)
+    ):
+        raise ValueError(f"{scene_id}.objects[{object_id}].class_name must be strings")
+    return Counter(names).most_common(1)[0][0]
+
+
+def _dominant_label_idx(obj: dict[str, Any], *, scene_id: str, object_id: int) -> int:
+    ids = obj.get("class_id")
+    if not isinstance(ids, list) or not ids:
+        raise ValueError(f"{scene_id}.objects[{object_id}].class_id must be a list")
+    return int(Counter(int(value) for value in ids).most_common(1)[0][0])
+
+
+def _required_nonempty_str(row: dict[str, Any], key: str, row_index: int) -> str:
+    value = row.get(key)
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError(
+            f"sample ids row {row_index}.{key} must be a non-empty string: {row!r}"
+        )
+    return value.strip()
+
+
+def main() -> None:
+    args = parse_args()
+    written = prepare_pack_v1_inputs_nr3d(
+        sample_ids_path=args.sample_ids,
+        data_root=args.data_root,
+        pack_name=args.pack_name,
+        split=args.split,
+        max_samples=args.max_samples,
+        nr3d_root=args.nr3d_root,
+    )
+    print(
+        f"wrote {len(written)} sample artifacts under "
+        f"{args.data_root}/<scene>/{args.pack_name}/"
+    )
+
+
+if __name__ == "__main__":
+    main()
+
+
+__all__ = [
+    "Phase8Visibility",
+    "SampleRequest",
+    "SceneArtifacts",
+    "SceneFrame",
+    "build_proposals_from_phase8_objects",
+    "load_phase8_visibility_index",
+    "load_sample_lookup",
+    "load_sample_requests",
+    "prepare_pack_v1_inputs_nr3d",
+    "prepare_scene_artifacts",
+    "sample_artifact_path",
+    "safe_sample_id",
+    "select_keyframes_for_sample",
+    "write_sample_artifact",
+]
