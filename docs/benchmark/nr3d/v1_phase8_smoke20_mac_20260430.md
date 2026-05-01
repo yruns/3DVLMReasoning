@@ -11,7 +11,17 @@
 
 ## What Changed vs Prior Smoke
 
-This is the same fold as `v1_phase8_smoke_20260430.md` (20 utterances × 5 scenes), but two differences make the numbers meaningful for the first time:
+An earlier Linux-side attempt on the same 20-utt × 5-scene fold (commit
+`3c491a9`) reached the first Stage 2 chat-completion call and then failed
+with `[SSL: UNEXPECTED_EOF_WHILE_READING]` on every transport retry, so it
+produced no `side_by_side.json` and no metric. That attempt is **not**
+preserved as its own doc — its failure mode is captured here instead:
+
+- Same fold (20 utterances × 5 scenes: scene0011_00 / 0015 / 0019 / 0025 / 0030)
+- Same code path (`prepare_pack_v1_inputs_nr3d.py` + `run_nr3d_vg_side_by_side.py`)
+- Outcome on Linux: SSL EOF on every transport attempt → 0 finished samples → no metric
+
+Two differences make the Mac re-run numbers below meaningful for the first time:
 
 1. **Code**: tip is `9115fd7` (loader's PCA-aligned 9-DoF OBB recovery from 8-corner Phase 8 boxes). The earlier Linux smoke ran on `3c491a9` which still emitted axis-aligned `[..., 0, 0, 0]` boxes; numerically it never reached metric output anyway because of the endpoint failure, but had it reached metrics they would have been biased by the AABB shortcut.
 2. **Endpoint**: Mac's network reaches `https://aidp-i18ntt-sg.tiktok-row.net/api/modelhub/online/v2/crawl` cleanly (TLS handshakes, returns 404 on probe, completes POST chat-completions). The Linux smoke hit `[SSL: UNEXPECTED_EOF_WHILE_READING]` on every transport attempt and produced no `side_by_side.json`.
