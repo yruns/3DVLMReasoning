@@ -191,7 +191,9 @@ def test_compare_backends_writes_side_by_side_and_checkpoints(
     )
 
 
-def test_compare_backends_propagates_sample_exceptions(monkeypatch, tmp_path) -> None:
+def test_compare_backends_persists_failed_sentinel_on_sample_exception(
+    monkeypatch, tmp_path
+) -> None:
     from evaluation.scripts import run_nr3d_vg_side_by_side as runner
 
     sample_id = "scannet/scene0001_00::72::A1"
@@ -202,12 +204,27 @@ def test_compare_backends_propagates_sample_exceptions(monkeypatch, tmp_path) ->
 
     monkeypatch.setattr(runner, "run_one_sample", fake_run_one)
 
-    with pytest.raises(RuntimeError, match="endpoint unreachable"):
-        runner.compare_backends(
-            sample_ids=[sample_id],
-            output_dir=tmp_path / "out",
-            data_root=data_root,
-        )
+    out = runner.compare_backends(
+        sample_ids=[sample_id],
+        output_dir=tmp_path / "out",
+        data_root=data_root,
+    )
+
+    # One rotten sample no longer kills the whole run; instead the per-sample
+    # record is a 'failed' sentinel with iou=0 and the error string preserved.
+    assert out["pack_v1"]["n"] == 1
+    assert out["pack_v1"]["Acc@0.25"] == 0.0
+    assert out["pack_v1"]["mean_iou"] == 0.0
+    only = out["pack_v1"]["per_sample"][0]
+    assert only["status"] == "failed"
+    assert only["iou"] == 0.0
+    assert only["selected_object_id"] is None
+    assert "endpoint unreachable" in only["error"]
+    assert "RuntimeError" in only["error"]
+    # The sentinel is also written to the per-sample checkpoint dir so resumes
+    # do not re-attempt the rotten sample.
+    ckpts = list((tmp_path / "out" / "per_sample" / "pack_nr3d_v1").glob("*.json"))
+    assert len(ckpts) == 1
 
 
 def test_load_sample_ids_accepts_strings_or_dicts(tmp_path) -> None:

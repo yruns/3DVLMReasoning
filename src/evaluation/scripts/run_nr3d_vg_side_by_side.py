@@ -153,14 +153,32 @@ def compare_backends(
             )
             if cached is not None:
                 return cached
-            result = run_one_sample(
-                sample_id,
-                backend,
-                data_root=data_root,
-                pack_name=pack_name,
-                config=config,
-                sample_retries=sample_retries,
-            )
+            try:
+                result = run_one_sample(
+                    sample_id,
+                    backend,
+                    data_root=data_root,
+                    pack_name=pack_name,
+                    config=config,
+                    sample_retries=sample_retries,
+                )
+            except Exception as exc:
+                # Per-sample uncaught failure: persist a failed sentinel so the
+                # whole run does not collapse on one rotten sample (e.g. an
+                # upstream image-processing 500 that survives all retries).
+                # The sample still counts toward Acc/n with iou=0.
+                result = {
+                    "sample_id": sample_id,
+                    "backend": backend,
+                    "status": "failed",
+                    "iou": 0.0,
+                    "predicted_bbox_3d_9dof": None,
+                    "gt_bbox_3d_9dof": None,
+                    "selected_object_id": None,
+                    "confidence": None,
+                    "query": None,
+                    "error": f"{type(exc).__name__}: {str(exc)[:480]}",
+                }
             write_sample_result_checkpoint(
                 output_dir,
                 backend,

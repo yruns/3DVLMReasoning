@@ -13,8 +13,21 @@ task-pack pipeline.
 |---------|------|---------:|---------:|---------:|------------|------------|
 | [v1_phase8_smoke](v1_phase8_smoke_20260430.md) | 2026-04-30 | - | - | - | 20Q smoke | Phase 8 GT-CG bbox source, NR3D pack prep, runner reached Stage 2 call; endpoint unreachable on Linux |
 | [v1_phase8_smoke20_mac](v1_phase8_smoke20_mac_20260430.md) | 2026-04-30 | 0.7000 | 0.6500 | 0.6701 | 20Q smoke (same fold) | First green pack_v1 numbers on Mac (PCA-aligned 9-DoF, endpoint reachable). 13/20 IoU=1.0 (GT-pool inflation). |
+| [v2_phase8_full](v2_phase8_full_20260501.md) | 2026-05-01 | **0.7767** | **0.7762** | **0.7800** | **8584Q full test** | **First full NR3D test sweep** — 130/130 scenes, gpt-5.4 backend, 32 workers. 5150/8584 IoU=1.0 (60%, GT-pool). 287 failed (3.3%, mostly upstream image-500). Bug fixes: bg-skip in pack prep + failed-sentinel in runner. |
 
 ## Current Interpretation
+
+**Latest (v2_phase8_full, 2026-05-01)**: full NR3D test split (8584
+utterances, 130 / 130 scenes) scored end-to-end on the Stage 1 + Stage 2
+pipeline with `gpt-5.4-2026-03-05` and the Phase 8 GT-CG candidate pool.
+Headline: **Acc@0.25 = 77.67 %**, **Acc@0.50 = 77.62 %**, **mean IoU =
+0.7800** on 8297 completed + 287 failed (3.34 % failure rate, mostly upstream
+image-500 rejection). The IoU distribution is bi-modal — 60 % of samples land
+at IoU = 1.0 (agent picked the right instance ID) and ~21 % at 0.0 (wrong
+instance) — which is the GT-pool signature. See `v2_phase8_full_20260501.md`
+for the full doc, including per-failure breakdown, throughput history, and a
+SOTA comparison vs the public NR3D classification leaderboard with
+caveats about pool / metric comparability.
 
 The first NR3D pack-v1 smoke (v1_phase8_smoke) reached the first Stage 2 model
 call on Linux but the internal ModelHub endpoint returned `[SSL:

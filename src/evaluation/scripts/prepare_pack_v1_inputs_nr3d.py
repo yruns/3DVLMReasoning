@@ -300,6 +300,17 @@ def build_proposals_from_phase8_objects(
                 f"{scene_id}::{object_id} bbox_np shape is {corners.shape}, "
                 "expected (8,3)"
             )
+        names = obj.get("class_name")
+        if not (isinstance(names, list) and names and all(isinstance(n, str) and n for n in names)):
+            # Phase 8 producer occasionally leaks a background-only object into
+            # ``objects`` with empty class_name/class_id/n_points (observed once
+            # in 130 scenes: scene0496_00.objects[28], is_background=1,
+            # num_detections=0). Such entries are not valid candidates — they
+            # carry no semantic label the agent can reason about — so we drop
+            # them from the proposal pool. The object_id space stays anchored
+            # to the source pkl index, so any direct GT lookup by id still
+            # resolves through the loader.
+            continue
         label = _dominant_label(obj, scene_id=scene_id, object_id=object_id)
         label_idx = _dominant_label_idx(obj, scene_id=scene_id, object_id=object_id)
         proposals.append(
