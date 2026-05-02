@@ -82,6 +82,36 @@ CREATE INDEX IF NOT EXISTS idx_nr3d_llm_run
     ON llm_calls(run_id);
 """
 
+_RUNS_NEW_COLUMNS: list[tuple[str, str]] = [
+    ("classification_acc_full", "REAL"),
+    ("classification_acc_filtered", "REAL"),
+    ("acc_easy", "REAL"),
+    ("acc_hard", "REAL"),
+    ("acc_view_dep", "REAL"),
+    ("acc_view_indep", "REAL"),
+    ("n_filtered", "INTEGER"),
+]
+_SAMPLES_NEW_COLUMNS: list[tuple[str, str]] = [
+    ("is_easy", "INTEGER"),
+    ("is_view_dep", "INTEGER"),
+    ("is_filtered_out", "INTEGER"),
+    ("classification_correct", "INTEGER"),
+]
+
+
+def _ensure_columns(
+    conn: sqlite3.Connection,
+    table: str,
+    cols: list[tuple[str, str]],
+) -> None:
+    """Idempotently add columns to ``table`` (no-op if already present)."""
+    existing = {r[1] for r in conn.execute(f"PRAGMA table_info({table})")}
+    for col_name, col_type in cols:
+        if col_name not in existing:
+            conn.execute(
+                f"ALTER TABLE {table} ADD COLUMN {col_name} {col_type}"
+            )
+
 
 def _read_json(path: Path) -> Any:
     return json.loads(path.read_text(encoding="utf-8"))
@@ -125,6 +155,7 @@ def ingest(
     backend: str = "pack_v1",
     judge_model: str | None = None,
     notes: str | None = None,
+    leaderboard_metrics_path: Path | None = None,
 ) -> None:
     side_by_side_path = output_dir / "side_by_side.json"
     if not side_by_side_path.exists():
@@ -148,13 +179,30 @@ def ingest(
     acc25 = float(_require_metric(metrics, "Acc@0.25", backend))
     acc50 = float(_require_metric(metrics, "Acc@0.50", backend))
 
+    leaderboard: dict[str, Any] | None = None
+    leaderboard_per_sample: dict[str, dict[str, Any]] = {}
+    if leaderboard_metrics_path is not None:
+        leaderboard = _read_json(Path(leaderboard_metrics_path))
+        for entry in leaderboard.get("per_sample", []):
+            sid = entry.get("sample_id")
+            if isinstance(sid, str):
+                leaderboard_per_sample[sid] = entry
+
     db_path.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(str(db_path))
     try:
         conn.executescript(SCHEMA)
+        _ensure_columns(conn, "runs", _RUNS_NEW_COLUMNS)
+        _ensure_columns(conn, "samples", _SAMPLES_NEW_COLUMNS)
         cur = conn.cursor()
         cur.execute(
-            "INSERT OR REPLACE INTO runs VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            """INSERT OR REPLACE INTO runs (
+                run_id, branch, commit_hash, output_dir, backend, n,
+                mean_iou, acc25, acc50, judge_model, started_at, ingested_at,
+                notes,
+                classification_acc_full, classification_acc_filtered,
+                acc_easy, acc_hard, acc_view_dep, acc_view_indep, n_filtered
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 run_id,
                 branch,
@@ -169,6 +217,13 @@ def ingest(
                 None,
                 time.time(),
                 notes,
+                leaderboard.get("classification_acc_full") if leaderboard else None,
+                leaderboard.get("classification_acc_filtered") if leaderboard else None,
+                leaderboard.get("acc_easy") if leaderboard else None,
+                leaderboard.get("acc_hard") if leaderboard else None,
+                leaderboard.get("acc_view_dep") if leaderboard else None,
+                leaderboard.get("acc_view_indep") if leaderboard else None,
+                leaderboard.get("n_filtered") if leaderboard else None,
             ),
         )
         cur.execute("DELETE FROM samples WHERE run_id=?", (run_id,))
@@ -184,9 +239,14 @@ def ingest(
             scene_id, target_id = _parse_sample_id(sample_id)
             iou = item.get("iou")
             iou_float = float(iou) if iou is not None else None
+            extra = leaderboard_per_sample.get(sample_id)
             cur.execute(
-                """INSERT INTO samples VALUES
-                   (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                """INSERT INTO samples (
+                    run_id, sample_id, scene_id, target_id, query, status,
+                    selected_object_id, confidence, iou, acc25, acc50,
+                    predicted_bbox_3d_9dof, gt_bbox_3d_9dof,
+                    is_easy, is_view_dep, is_filtered_out, classification_correct
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     run_id,
                     sample_id,
@@ -201,6 +261,10 @@ def ingest(
                     int(iou_float is not None and iou_float >= 0.50),
                     _json_or_none(item.get("predicted_bbox_3d_9dof")),
                     _json_or_none(item.get("gt_bbox_3d_9dof")),
+                    int(extra["is_easy"]) if extra else None,
+                    int(extra["is_view_dep"]) if extra else None,
+                    int(extra["is_filtered_out"]) if extra else None,
+                    int(extra["is_correct"]) if extra else None,
                 ),
             )
 
@@ -221,6 +285,16 @@ def main() -> None:
     parser.add_argument("--judge-model", default=None)
     parser.add_argument("--db", default=Path("docs/benchmark/nr3d/runs.sqlite"), type=Path)
     parser.add_argument("--notes", default=None)
+    parser.add_argument(
+        "--leaderboard-metrics",
+        default=None,
+        type=Path,
+        help=(
+            "optional path to leaderboard_metrics.json from "
+            "nr3d_leaderboard_metrics.py; populates classification "
+            "accuracy + slicing columns on the runs/samples tables"
+        ),
+    )
     args = parser.parse_args()
     ingest(
         db_path=args.db,
@@ -231,6 +305,7 @@ def main() -> None:
         backend=args.backend,
         judge_model=args.judge_model,
         notes=args.notes,
+        leaderboard_metrics_path=args.leaderboard_metrics,
     )
 
 
