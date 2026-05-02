@@ -141,3 +141,43 @@ def test_skipped_when_phase8_missing(fake_dataset: Path):
     # scene_b utterance is skipped
     assert len(ds) == 3
     assert ds.stats["skipped_missing_scene"] == 1
+
+
+def test_phase8_corners_to_9dof_unit_cube():
+    """Verify 9-DoF derivation: center, extents, Euler=0 from a known AABB."""
+    from benchmarks.scanrefer_loader import _phase8_corners_to_9dof
+
+    # AABB spanning x:[1,3], y:[2,4], z:[5,7] → center=(2,3,6), extents=(2,2,2)
+    corners = np.array([
+        [1, 2, 5], [3, 2, 5], [1, 4, 5], [3, 4, 5],
+        [1, 2, 7], [3, 2, 7], [1, 4, 7], [3, 4, 7],
+    ], dtype=np.float64)
+    nine = _phase8_corners_to_9dof(corners)
+    assert nine == [2.0, 3.0, 6.0, 2.0, 2.0, 2.0, 0.0, 0.0, 0.0]
+
+
+def test_phase8_corners_to_9dof_rejects_wrong_shape():
+    from benchmarks.scanrefer_loader import _phase8_corners_to_9dof
+
+    with pytest.raises(ValueError, match=r"corners shape"):
+        _phase8_corners_to_9dof(np.zeros((4, 3), dtype=np.float64))
+
+
+def test_skipped_missing_or_ambiguous_bbox_counts_out_of_range_target(fake_dataset: Path):
+    """Out-of-range object_id should land in the ambiguous-bbox skip counter, not crash."""
+    raw = fake_dataset / "scanrefer/raw/ScanRefer_filtered_val.json"
+    data = json.loads(raw.read_text())
+    # scene_a has 3 GT objects (indices 0..2); reference object_id=99 (out of range)
+    data.append({
+        "scene_id": "scene_a", "object_id": "99", "object_name": "ghost",
+        "ann_id": "0", "description": "missing target", "token": ["missing", "target"],
+    })
+    raw.write_text(json.dumps(data), encoding="utf-8")
+
+    ds = ScanRefVGDataset.from_path(
+        data_root=fake_dataset / "scanrefer",
+        phase8_data_root=fake_dataset / "phase8",
+        split="val",
+    )
+    assert len(ds) == 3   # original 3 still load, the bad one drops
+    assert ds.stats["skipped_missing_or_ambiguous_bbox"] == 1

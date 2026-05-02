@@ -24,10 +24,10 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from .base import BenchmarkSample
-
 import numpy as np
 from loguru import logger
+
+from .base import BenchmarkSample
 
 
 @dataclass
