@@ -32,7 +32,7 @@ benchmark's version). Always include:
 |-----------|--------|------|-----------|
 | **OpenEQA ScanNet EM-EQA** | live | [`openeqa/`](openeqa/) | v15 stage2 MNAS **74.33** (`s1_l1`, frozen 1050Q, Gemini 2.5 Pro) |
 | **EmbodiedScan VG** | smoke | [`embodiedscan/`](embodiedscan/) | v3 GT-pool pack_v1 2k smoke: 2000Q, Acc@0.25/0.50 **89.15** |
-| **NR3D VG** | live | [`nr3d/`](nr3d/) | v2_phase8 full GT-pool 8584Q test: Acc@0.25 **77.67**, Acc@0.50 **77.62**, mean IoU **0.7800** (gpt-5.4) |
+| **NR3D VG** | live | [`nr3d/`](nr3d/) | v3 leaderboard-track 8584Q (n_filtered=7805): classification_acc=**80.79**, Easy=**86.06**, Hard=**75.87**, V-Dep=**72.46**, V-Indep=**85.34** (gpt-5.4, zero-shot) |
 
 ## Pending Migrations
 

@@ -3,30 +3,46 @@
 This directory tracks NR3D visual-grounding evaluations for the Stage-2
 task-pack pipeline.
 
-**Benchmark:** NR3D ScanNet visual grounding (test split now has Phase 8 GT-CG bboxes for local 9-DoF scoring)
-**Metric:** 9-DoF oriented 3D IoU (matching EmbodiedScan v3 setup), reported as Acc@0.25, Acc@0.50, mean IoU
-**Judge:** none; scoring is programmatic IoU against EmbodiedScan PKL bbox
+**Benchmark:** NR3D ScanNet visual grounding (test split now has Phase 8 GT-CG bboxes for local scoring)
+**Metric (v3, leaderboard track):** classification accuracy = `selected_object_id == target_id`, with Easy/Hard + View-Dep/View-Indep slicing — matches the public ReferIt3D leaderboard
+**Metric (v1/v2, GT-pool IoU track):** 9-DoF oriented 3D IoU, reported as Acc@0.25 / Acc@0.50 / mean IoU
+**Judge:** none; scoring is fully programmatic
 
 ## Version Timeline
 
-| Version | Date | Acc@0.25 | Acc@0.50 | mean IoU | Eval Scale | Key Change |
-|---------|------|---------:|---------:|---------:|------------|------------|
-| [v1_phase8_smoke20_mac](v1_phase8_smoke20_mac_20260430.md) | 2026-04-30 | 0.7000 | 0.6500 | 0.6701 | 20Q smoke | First green pack_v1 numbers on Mac (PCA-aligned 9-DoF, endpoint reachable). 13/20 IoU=1.0 (GT-pool inflation). Linux side of same fold had hit SSL EOF on every retry — no separate doc kept; failure mode summarized in the `What Changed vs Prior Smoke` section of the Mac doc. |
-| [v2_phase8_full](v2_phase8_full_20260501.md) | 2026-05-01 | **0.7767** | **0.7762** | **0.7800** | **8584Q full test** | **First full NR3D test sweep** — 130/130 scenes, gpt-5.4 backend, 32 workers. 5150/8584 IoU=1.0 (60%, GT-pool). 287 failed (3.3%, mostly upstream image-500). Bug fixes: bg-skip in pack prep + failed-sentinel in runner. |
+| Version | Date | Headline | Eval Scale | Key Change |
+|---------|------|----------|------------|------------|
+| [v1_phase8_smoke20_mac](v1_phase8_smoke20_mac_20260430.md) | 2026-04-30 | Acc@0.25=0.7000, Acc@0.50=0.6500, mean IoU=0.6701 | 20Q smoke | First green pack_v1 numbers on Mac (PCA-aligned 9-DoF, endpoint reachable). 13/20 IoU=1.0 (GT-pool inflation). Linux side of same fold had hit SSL EOF on every retry — failure mode summarized in the `What Changed vs Prior Smoke` section of the Mac doc. |
+| [v2_phase8_full](v2_phase8_full_20260501.md) | 2026-05-01 | Acc@0.25=**0.7767**, Acc@0.50=**0.7762**, mean IoU=**0.7800** | 8584Q full test | First full NR3D test sweep — 130/130 scenes, gpt-5.4 backend, 32 workers. 5150/8584 IoU=1.0 (60%, GT-pool). 287 failed (3.3%, mostly upstream image-500). Bug fixes: bg-skip in pack prep + failed-sentinel in runner. |
+| [v3_referit3d_track](v3_referit3d_track_20260501.md) | 2026-05-01 | Overall=**0.8079**, Easy=**0.8606**, Hard=**0.7587**, V-Dep=**0.7246**, V-Indep=**0.8534** | 8584Q (n_filtered=7805) | **First leaderboard-comparable NR3D run** — canonical filter chain (`mentions_target_class_only=True`), classification accuracy as headline, 5-column SOTA-aligned table. Post-aggregated from v2 outputs (no agent re-run). Pool / fold equivalence empirically verified (see `pool_equivalence_log_20260501.md`). |
 
 ## Current Interpretation
 
-**Latest (v2_phase8_full, 2026-05-01)**: full NR3D test split (8584
-utterances, 130 / 130 scenes) scored end-to-end on the Stage 1 + Stage 2
-pipeline with `gpt-5.4-2026-03-05` and the Phase 8 GT-CG candidate pool.
-Headline: **Acc@0.25 = 77.67 %**, **Acc@0.50 = 77.62 %**, **mean IoU =
-0.7800** on 8297 completed + 287 failed (3.34 % failure rate, mostly upstream
-image-500 rejection). The IoU distribution is bi-modal — 60 % of samples land
-at IoU = 1.0 (agent picked the right instance ID) and ~21 % at 0.0 (wrong
-instance) — which is the GT-pool signature. See `v2_phase8_full_20260501.md`
-for the full doc, including per-failure breakdown, throughput history, and a
-SOTA comparison vs the public NR3D classification leaderboard with
-caveats about pool / metric comparability.
+**Latest (v3_referit3d_track, 2026-05-01)**: post-aggregation of v2
+predictions under the canonical ReferIt3D leaderboard protocol — the
+**first apples-to-apples NR3D number** for our pipeline. Headline:
+**classification_acc = 80.79 %** (Easy=86.06, Hard=75.87, V-Dep=72.46,
+V-Indep=85.34) on n_filtered=7805 (after canonical
+`mentions_target_class_only=True` filter), with full Easy/Hard +
+View-Dep/View-Indep breakdown. Pool / fold equivalence to canonical is
+verified empirically in `pool_equivalence_log_20260501.md`. See
+`v3_referit3d_track_20260501.md` for the full SOTA comparison table
+against ReferIt3DNet, BUTD-DETR, MVT, 3D-VisTA, MiKASA, and UniVLG GT-track.
+
+The v2 numbers (Acc@0.25/0.50 = 77.67/77.62) remain valid as the IoU-on-GT-pool
+proxy of classification accuracy, but they are **superseded by v3** as the
+leaderboard-comparable headline going forward. Empirically,
+`classification_acc_full = 0.7762` matches `v2 Acc@0.50 = 0.7762` to four
+decimals — confirming that under GT-pool, IoU ≥ 0.50 ⟺ correct ID, and the
+v2 number was already a classification accuracy in disguise.
+
+**Earlier (v2_phase8_full, 2026-05-01)**: full NR3D test split (8584
+utterances, 130/130 scenes) scored end-to-end on Stage 1 + Stage 2 with
+`gpt-5.4-2026-03-05` and the Phase 8 GT-CG candidate pool. Acc@0.25 =
+77.67%, Acc@0.50 = 77.62%, mean IoU = 0.7800 (8297 completed + 287 failed,
+3.34% failure rate, mostly upstream image-500). The IoU distribution is
+bi-modal — 60% at 1.0, 21% at 0.0 — which is the GT-pool signature. v3 makes
+this explicit by reporting classification accuracy directly.
 
 An earlier Linux-side attempt on the 20-sample fold (commit `3c491a9`)
 reached the first Stage 2 chat-completion call but the internal ModelHub
@@ -124,8 +140,10 @@ FROM runs;
   `bbox_source="embodiedscan_pkl"` for the train split.
 - NR3D test split local scoring now uses Phase 8 GT-CG boxes through
   `bbox_source="phase8_gt_cg"`.
-- Phase 8 boxes are axis-aligned 8-corner boxes; the current conversion emits
-  zero Euler angles.
-- View-dep / view-indep breakdown not implemented (no canonical word list).
-- Easy / Hard breakdown not implemented (data is on the sample; aggregator is
-  a follow-up).
+- Pool / fold equivalence to canonical referit3d is empirically verified
+  in `pool_equivalence_log_20260501.md` (8584 utterances, 130/130 scenes,
+  100% target_id ↔ ScanNet objectId class match).
+- View-dep / view-indep breakdown — implemented in v3 via the canonical
+  10-token literal set from `referit3d/analysis/utterances.py:103-105`.
+- Easy / Hard breakdown — implemented in v3 via `n_objects ≤ 2`, matching
+  `referit3d/analysis/deepnet_predictions.py:34-36`.
