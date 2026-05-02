@@ -151,7 +151,7 @@ DEFAULT_RAW_ROOT = Path("data/nr3d/scannet")
 DEFAULT_OUTPUT_ROOT = Path("data/scanrefer/scannet")
 
 
-def _load_camera(raw_dir: Path) -> tuple[np.ndarray, list[np.ndarray], list[Path]]:
+def _load_camera(raw_dir: Path) -> tuple[np.ndarray, list[np.ndarray], list[Path | None]]:
     """Load intrinsics + per-frame cam-to-world poses + depth paths from raw dir."""
     intr_path = raw_dir / "intrinsic_color.txt"
     if not intr_path.exists():
@@ -169,7 +169,7 @@ def _load_camera(raw_dir: Path) -> tuple[np.ndarray, list[np.ndarray], list[Path
         raise ValueError(f"scene_info.json missing kept_frame_ids: {info_path}")
 
     poses: list[np.ndarray] = []
-    depth_paths: list[Path] = []
+    depth_paths: list[Path | None] = []
     for frame_id in kept:
         pose_path = raw_dir / f"{int(frame_id):06d}.txt"
         if not pose_path.exists():
@@ -277,7 +277,7 @@ def build_mask3d_cg_for_scene(
                 "source_npz": str(mask3d_npz_path),
                 "raw_dir": str(raw_dir),
                 "num_objects": n_kept,
-                "num_dropped_background": n_dropped,
+                "num_dropped": n_dropped,
                 "num_rgb_frames": len(poses),
                 "num_visibility_mappings": n_visibility_mappings,
                 "source": "scanrefer-mask3d-cg-producer",
