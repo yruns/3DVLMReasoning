@@ -126,3 +126,59 @@ def test_build_object_dict_pcd_no_color():
         confidence=0.95,
     )
     assert obj["pcd_color_np"] is None
+
+
+def test_build_one_scene_smoke(tmp_path):
+    """Smoke test: synthetic mask3d npz + minimal raw dir → produced pkl + visibility."""
+    import json
+
+    from scripts.build_scanrefer_mask3d_cg import build_mask3d_cg_for_scene
+
+    # Synthetic Mask3D npz: 2 instances (1 chair, 1 wall — wall should be filtered)
+    npz_path = tmp_path / "scene_test.npz"
+    pcd_chair = np.random.rand(100, 6).astype(np.float32) * np.array([1, 1, 1, 255, 255, 255])
+    pcd_wall = np.random.rand(50, 6).astype(np.float32) * np.array([3, 3, 3, 255, 255, 255])
+    np.savez_compressed(
+        npz_path,
+        ins_pcds=np.array([pcd_chair, pcd_wall], dtype=object),
+        ins_labels=np.array(["chair", "wall"], dtype="<U16"),
+        ins_scores=np.array([0.9, 0.7], dtype=np.float32),
+    )
+
+    # Synthetic raw dir with 1 frame: identity pose, identity intrinsic
+    raw_dir = tmp_path / "raw"
+    raw_dir.mkdir()
+    np.savetxt(raw_dir / "intrinsic_color.txt",
+               np.array([[500, 0, 320], [0, 500, 240], [0, 0, 1]], dtype=np.float64))
+    np.savetxt(raw_dir / "000000.txt", np.eye(4, dtype=np.float64))
+    # scene_info.json with kept_frame_ids=[0]
+    (raw_dir / "scene_info.json").write_text(
+        json.dumps({"kept_frame_ids": [0]}), encoding="utf-8"
+    )
+
+    # Outputs
+    pkl_out = tmp_path / "out.pkl.gz"
+    vis_out = tmp_path / "vis.pkl"
+    info_out = tmp_path / "scene_info.json"
+
+    summary = build_mask3d_cg_for_scene(
+        scene_id="scene_test",
+        mask3d_npz_path=npz_path,
+        raw_dir=raw_dir,
+        output_pkl=pkl_out,
+        output_visibility=vis_out,
+        output_scene_info=info_out,
+        scannet200_taxonomy=tmp_path / "scannet200_classes.txt",
+        drop_background=True,
+    )
+    assert summary["n_kept"] == 1   # chair kept, wall dropped
+    assert summary["n_dropped"] == 1
+    assert pkl_out.exists()
+    assert vis_out.exists()
+    assert info_out.exists()
+
+
+def test_load_scannet200_taxonomy_uses_default_taxonomy(tmp_path, monkeypatch):
+    """If --scannet200-taxonomy isn't provided, code should default to repo file."""
+    from scripts.build_scanrefer_mask3d_cg import DEFAULT_SCANNET200_TAXONOMY
+    assert DEFAULT_SCANNET200_TAXONOMY.name == "scannet200_classes.txt"
