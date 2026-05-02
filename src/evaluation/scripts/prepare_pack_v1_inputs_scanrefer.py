@@ -197,10 +197,11 @@ def prepare_scene_artifacts(
     scene_dir.mkdir(parents=True, exist_ok=True)
     (scene_dir / "proposals.jsonl").write_text(
         json.dumps({
-            "source": "mask3d",
+            "source": "conceptgraph",
             "scene_id": scene_id,
             "axis_align_matrix": None,
             "proposals": proposals,
+            "proposal_provenance": "mask3d",
         }, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
@@ -298,7 +299,8 @@ def write_sample_artifact(
         "query": sample.query,
         "gt_bbox_3d_9dof": gt_bbox,
         "scene_artifacts_dir": str(scene_artifacts.scene_dir),
-        "source": "mask3d",
+        "source": "conceptgraph",
+        "proposal_provenance": "mask3d",
         "keyframes": normalized,
     }
     path = sample_artifact_path(data_root, request,
