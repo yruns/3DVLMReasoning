@@ -79,12 +79,14 @@ def load_scannet200_class_index(taxonomy_file: Path) -> dict[str, int]:
     if not taxonomy_file.exists():
         raise FileNotFoundError(f"ScanNet200 taxonomy not found: {taxonomy_file}")
     out: dict[str, int] = {}
+    canonical_idx = 0
     with open(taxonomy_file, encoding="utf-8") as f:
-        for idx, line in enumerate(f):
+        for line in f:
             label = line.strip()
             if not label:
                 continue
-            out[label.lower()] = idx
+            out[label.lower()] = canonical_idx
+            canonical_idx += 1
     return out
 
 

@@ -73,6 +73,14 @@ def test_load_scannet200_class_index_returns_lowercased_label_to_idx_dict(tmp_pa
     assert idx == {"alarm clock": 0, "armchair": 1, "chair": 2}
 
 
+def test_load_scannet200_class_index_skips_blank_lines_without_offset(tmp_path):
+    """Blank lines in the canonical file must not advance the canonical index counter."""
+    txt = tmp_path / "scannet200_classes.txt"
+    txt.write_text("alarm clock\n\nchair\n\n\narmchair\n", encoding="utf-8")
+    idx = load_scannet200_class_index(txt)
+    assert idx == {"alarm clock": 0, "chair": 1, "armchair": 2}
+
+
 def test_scannet200_class_id_known_label():
     idx = {"chair": 2, "table": 5}
     assert scannet200_class_id("chair", idx) == 2
