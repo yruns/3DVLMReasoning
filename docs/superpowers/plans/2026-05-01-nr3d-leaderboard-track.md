@@ -10,8 +10,8 @@
 
 **Context references:**
 - Design spec: `docs/superpowers/specs/2026-05-01-nr3d-fairness-design.md` (commit `2fead86`)
-- ReferIt3D code audit: `tmp/nr3d_referit3d_protocol_audit.md` (752 lines, file:line cited)
-- Paper crosscheck: `tmp/nr3d_paper_crosscheck.md`
+- ReferIt3D code audit: `docs/benchmark/nr3d/protocol_audit_20260501.md` (752 lines, file:line cited)
+- Paper crosscheck: `docs/benchmark/nr3d/paper_crosscheck_20260501.md`
 - Pool equivalence: `docs/benchmark/nr3d/pool_equivalence_log_20260501.md`
 - Branch: `feat/nr3d-vg-benchmark`, baseline tip: `2fead86`
 
@@ -276,7 +276,7 @@ spec at ``docs/superpowers/specs/2026-05-01-nr3d-fairness-design.md``.
 
 Source citations
 ----------------
-- Pool / metric / filter protocol: ``tmp/nr3d_referit3d_protocol_audit.md``
+- Pool / metric / filter protocol: ``docs/benchmark/nr3d/protocol_audit_20260501.md``
 - View-dep keyword set: ``referit3d/analysis/utterances.py:103-105``
 - Easy / hard definition: ``referit3d/analysis/deepnet_predictions.py:34-36``
 - Filter chain: ``referit3d/in_out/neural_net_oriented.py:55-105``

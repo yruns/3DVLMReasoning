@@ -2,7 +2,7 @@
 
 Source: https://referit3d.github.io/benchmarks.html and the NR3D paper.
 Numbers are GT-classification overall accuracy unless noted; some recent
-papers also report Acc@0.25 / Acc@0.5.
+papers also report Acc@0.25 / Acc@0.5 in a separate detection-mode track.
 
 | Method | Setup | Overall | Easy | Hard | View-dep | View-indep | Reference |
 |---|---|---:|---:|---:|---:|---:|---|
@@ -12,9 +12,17 @@ papers also report Acc@0.25 / Acc@0.5.
 | 3D-VisTA | classification | 64.2 | 72.1 | 56.7 | 61.5 | 65.1 | leaderboard |
 | MiKASA | classification | 64.4 | 69.7 | 59.4 | 65.4 | 64.0 | leaderboard |
 | UniVLG | classification | 65.2 | 73.3 | 57.0 | 55.1 | 69.9 | leaderboard 2026 |
+| **Ours (v3, zero-shot RGB+VLM)** | classification | **80.79** | **86.06** | **75.87** | **72.46** | **85.34** | [v3_referit3d_track_20260501.md](v3_referit3d_track_20260501.md) |
 
-Our numbers, when available, will appear in `README.md` against this reference
-table. The Phase 8 GT-CG path now enables local NR3D **test** split scoring in
-detection mode (Acc@0.25/0.50) against 9-DOF boxes derived from axis-aligned
-ScanNet GT objects. That setup is still not directly comparable to the
-classification leaderboard above.
+The "Ours" row is apples-to-apples with the public leaderboard column —
+canonical full-scene GT-instance pool (cap 88), `mentions_target_class_only=True`
+filter, classification accuracy as the metric, identical Easy/Hard +
+View-Dep/View-Indep slicing. Pool / fold equivalence is empirically verified in
+[pool_equivalence_log_20260501.md](pool_equivalence_log_20260501.md). The remaining
+asymmetry vs the published rows is paradigm (zero-shot RGB+VLM vs trained
+3D-point-cloud model), not protocol.
+
+Reference table for the separate detection-mode track (NR3D Det Acc@0.25 /
+Acc@0.50 — distinct from the classification leaderboard above): see
+[paper_crosscheck_20260501.md](paper_crosscheck_20260501.md) §Q7 for
+UniVLG / MCLN / 3D-VisTA-reeval / BUTD-DETR-reeval / PQ3D numbers.

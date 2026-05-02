@@ -15,8 +15,8 @@ every check below can be re-run from the commands provided.
 
 Earlier docs (`v2_phase8_full_20260501.md`) carried a caveat that our pool was
 "wider than the public target-type-only pool." The protocol audit at
-`tmp/nr3d_referit3d_protocol_audit.md` and the paper cross-check at
-`tmp/nr3d_paper_crosscheck.md` proved that assumption was wrong:
+`docs/benchmark/nr3d/protocol_audit_20260501.md` and the paper cross-check at
+`docs/benchmark/nr3d/paper_crosscheck_20260501.md` proved that assumption was wrong:
 
 - Canonical pool = full-scene segmented instances (target + same-class +
   shuffled clutter from other classes), capped at `max_test_objects=88`.

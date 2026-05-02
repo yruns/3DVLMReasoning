@@ -11,7 +11,7 @@ spec at ``docs/superpowers/specs/2026-05-01-nr3d-fairness-design.md``.
 
 Source citations
 ----------------
-- Pool / metric / filter protocol: ``tmp/nr3d_referit3d_protocol_audit.md``
+- Pool / metric / filter protocol: ``docs/benchmark/nr3d/protocol_audit_20260501.md``
 - View-dep keyword set: ``referit3d/analysis/utterances.py:103-105``
 - Easy / hard definition: ``referit3d/analysis/deepnet_predictions.py:34-36``
 - Filter chain: ``referit3d/in_out/neural_net_oriented.py:55-105``
