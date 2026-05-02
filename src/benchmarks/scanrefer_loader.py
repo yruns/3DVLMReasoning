@@ -14,12 +14,17 @@ objects in 3D scenes based on natural language descriptions.
 
 from __future__ import annotations
 
+import gzip
 import json
+import pickle
 import subprocess
+from collections import Counter
 from collections.abc import Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
+
+from .base import BenchmarkSample
 
 import numpy as np
 from loguru import logger
@@ -446,3 +451,217 @@ def compute_scanrefer_metrics_by_category(
         category: compute_scanrefer_metrics(cat_results)
         for category, cat_results in category_results.items()
     }
+
+
+# ---------------------------------------------------------------------------
+# ScanRefer VG loader (Phase 8 GT-CG backed) — Task 4 additions
+# ---------------------------------------------------------------------------
+
+_PHASE8_PCD_REL = Path("conceptgraph/pcd_saves/full_pcd_gt_axisaligned_post.pkl.gz")
+
+_STATS_KEYS = [
+    "total_loaded",
+    "skipped_missing_scene",
+    "skipped_missing_or_ambiguous_bbox",
+]
+
+
+@dataclass(frozen=True)
+class ParsedScanRefSampleId:
+    scan_id: str
+    scene_id: str
+    target_id: int
+    ann_id: str
+
+
+def parse_scanrefer_sample_id(sample_id: str) -> ParsedScanRefSampleId:
+    """Parse ``scannet/<scene>::<target_id>::<ann_id>`` form."""
+    parts = sample_id.split("::")
+    if len(parts) != 3:
+        raise ValueError(
+            "Expected sample_id in '<scan_id>::<target_id>::<ann_id>' "
+            f"format, got {sample_id!r}"
+        )
+    scan_id, target_text, ann_id = parts
+    try:
+        target_id = int(target_text)
+    except ValueError as exc:
+        raise ValueError(f"Invalid target_id in sample_id={sample_id!r}") from exc
+    return ParsedScanRefSampleId(
+        scan_id=scan_id,
+        scene_id=scan_id.split("/")[-1],
+        target_id=target_id,
+        ann_id=ann_id,
+    )
+
+
+@dataclass
+class ScanRefVGSample(BenchmarkSample):
+    """ScanRefer visual-grounding sample."""
+
+    scan_id: str = ""
+    target_id: int = -1
+    target: str = ""             # ScanRefer JSON's object_name
+    ann_id: str = ""
+    description: str = ""        # alias of query, kept for clarity
+    is_unique: bool = False
+    gt_bbox_3d: list[float] | None = None
+
+    @property
+    def text(self) -> str:
+        """VG referring expression (alias for query)."""
+        return self.query
+
+
+def _phase8_corners_to_9dof(corners) -> list[float]:
+    """Reuse the same conversion NR3D uses (axis-aligned, Euler=0)."""
+    import numpy as np
+    arr = np.asarray(corners, dtype=np.float64)
+    if arr.shape != (8, 3):
+        raise ValueError(f"corners shape {arr.shape}, expected (8,3)")
+    mn = arr.min(axis=0)
+    mx = arr.max(axis=0)
+    cx, cy, cz = ((mn + mx) / 2.0).tolist()
+    dx, dy, dz = (mx - mn).tolist()
+    return [cx, cy, cz, dx, dy, dz, 0.0, 0.0, 0.0]
+
+
+class ScanRefVGDataset:
+    """ScanRefer VG dataset backed by Phase 8 GT-CG pkl for GT bbox lookup."""
+
+    def __init__(
+        self,
+        samples: list[ScanRefVGSample],
+        stats: dict[str, int],
+        split: str,
+    ) -> None:
+        self._samples = samples
+        self._stats = stats
+        self._split = split
+
+    @classmethod
+    def from_path(
+        cls,
+        data_root: str | Path,
+        phase8_data_root: str | Path,
+        split: str = "val",
+        sample_ids: set[str] | None = None,
+    ) -> ScanRefVGDataset:
+        """Load ScanRefer VG samples joined to Phase 8 GT-CG GT bboxes.
+
+        Args:
+            data_root: Directory containing ``raw/ScanRefer_filtered_<split>.json``.
+            phase8_data_root: Directory containing ``<scene>/conceptgraph/pcd_saves/full_pcd_gt_axisaligned_post.pkl.gz``.
+            split: ``"val"`` or ``"train"``.
+            sample_ids: Optional restriction to specific sample_ids.
+
+        Raises:
+            FileNotFoundError: If ScanRefer JSON is missing.
+        """
+        if split not in {"val", "train"}:
+            raise ValueError(f"Unknown ScanRefer split {split!r}")
+
+        data_root = Path(data_root)
+        phase8_data_root = Path(phase8_data_root)
+        json_path = data_root / "raw" / f"ScanRefer_filtered_{split}.json"
+        if not json_path.exists():
+            raise FileNotFoundError(f"ScanRefer JSON missing: {json_path}")
+
+        utterances = json.loads(json_path.read_text(encoding="utf-8"))
+
+        # Cache per-scene Phase 8 objects + class counts (for is_unique).
+        scene_cache: dict[str, list[dict[str, Any]] | None] = {}
+        scene_class_counts: dict[str, Counter] = {}
+
+        def _load_scene(scene: str) -> list[dict[str, Any]] | None:
+            if scene in scene_cache:
+                return scene_cache[scene]
+            pkl_path = phase8_data_root / scene / _PHASE8_PCD_REL
+            if not pkl_path.exists():
+                scene_cache[scene] = None
+                return None
+            with gzip.open(pkl_path, "rb") as f:
+                objs = pickle.load(f).get("objects") or []
+            scene_cache[scene] = objs
+            counts: Counter = Counter()
+            for o in objs:
+                cn = o.get("class_name")
+                if isinstance(cn, list) and cn:
+                    counts[cn[0].lower()] += 1
+            scene_class_counts[scene] = counts
+            return objs
+
+        stats = dict.fromkeys(_STATS_KEYS, 0)
+        samples: list[ScanRefVGSample] = []
+        requested = set(sample_ids) if sample_ids is not None else None
+
+        for row in utterances:
+            scene = row["scene_id"]
+            target_id = int(row["object_id"])
+            ann_id = row["ann_id"]
+            target_name = row["object_name"]
+            sample_id = f"scannet/{scene}::{target_id}::{ann_id}"
+            if requested is not None and sample_id not in requested:
+                continue
+
+            objs = _load_scene(scene)
+            if objs is None:
+                stats["skipped_missing_scene"] += 1
+                continue
+            if target_id < 0 or target_id >= len(objs):
+                stats["skipped_missing_or_ambiguous_bbox"] += 1
+                continue
+
+            corners = objs[target_id].get("bbox_np")
+            if corners is None:
+                stats["skipped_missing_or_ambiguous_bbox"] += 1
+                continue
+            try:
+                gt_bbox = _phase8_corners_to_9dof(corners)
+            except ValueError:
+                stats["skipped_missing_or_ambiguous_bbox"] += 1
+                continue
+
+            counts = scene_class_counts.get(scene, Counter())
+            is_unique = counts.get(target_name.lower(), 0) == 1
+
+            description = row["description"]
+            samples.append(
+                ScanRefVGSample(
+                    sample_id=sample_id,
+                    scene_id=scene,
+                    query=description,
+                    scan_id=f"scannet/{scene}",
+                    target_id=target_id,
+                    target=target_name,
+                    ann_id=ann_id,
+                    description=description,
+                    is_unique=is_unique,
+                    gt_bbox_3d=gt_bbox,
+                    metadata={"token": list(row.get("token", []))},
+                )
+            )
+
+        stats["total_loaded"] = len(samples)
+        logger.info(
+            "Built {} ScanRefer samples (split={}, stats={})",
+            len(samples), split, stats,
+        )
+        return cls(samples=samples, stats=stats, split=split)
+
+    def __iter__(self) -> Iterator[ScanRefVGSample]:
+        return iter(self._samples)
+
+    def __len__(self) -> int:
+        return len(self._samples)
+
+    def __getitem__(self, idx: int) -> ScanRefVGSample:
+        return self._samples[idx]
+
+    @property
+    def stats(self) -> dict[str, int]:
+        return dict(self._stats)
+
+    @property
+    def split(self) -> str:
+        return self._split
