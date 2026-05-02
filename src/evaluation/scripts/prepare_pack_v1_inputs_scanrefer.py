@@ -249,6 +249,8 @@ def build_proposals_from_mask3d_objects(
             isinstance(n, str) and n for n in names
         )):
             continue
+        if "bbox_np" not in obj:
+            raise ValueError(f"{scene_id}.objects[{obj_id}] missing bbox_np")
         corners = np.asarray(obj["bbox_np"], dtype=np.float64)
         if corners.shape != (8, 3):
             raise ValueError(
@@ -278,7 +280,6 @@ def write_sample_artifact(
     *, request: SampleRequest, sample: ScanRefVGSample,
     data_root: Path, raw_frames_root: Path, scene_artifacts: SceneArtifacts,
 ) -> Path:
-    visibility = load_mask3d_visibility_index(data_root / request.scene_id)
     keyframes = select_keyframes_from_phase8_target(
         scene_id=request.scene_id,
         target_id=request.target_id,
