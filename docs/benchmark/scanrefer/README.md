@@ -11,38 +11,43 @@ Stage-2 task-pack pipeline.
 
 | Version | Date | Headline | Eval Scale | Key Change |
 |---|---|---|---|---|
-| [v1_mask3d_track](v1_mask3d_track_20260502.md) | 2026-05-02 | Acc@0.25 = 51.65 / Acc@0.50 = 16.22 | 9508 utts (full canonical val) | First ScanRefer eval. Mask3D ScanNet200 pool from ZSVG3D distribution; gpt-5.4-2026-03-05 backend; full 141 / 141 scene coverage (130 NR3D-overlap + 11 newly-built). |
+| [v1_mask3d_track](v1_mask3d_track_20260502.md) | 2026-05-02 | Acc@0.25 = 51.65 / Acc@0.50 = 16.22 | 9508 utts (full canonical val) | First ScanRefer eval. Mask3D ScanNet200 pool from ZSVG3D distribution; gpt-5.4-2026-03-05 backend; full 141 / 141 scene coverage. **Phase 8 GT-CG bbox — not paper-comparable** (see oracle analysis). |
+| [**v2_aggregation_gt_track**](v2_aggregation_gt_track_20260503.md) | 2026-05-03 | **Acc@0.25 = 69.92 / Acc@0.50 = 62.79** | 9508 utts (same v1 run) | Same v1 agent decisions, GT bbox swapped to ScanNet aggregation-derived (mesh + segs + axis-align) — paper-comparable. **Camp-A SOTA across all 6 columns** (Z3D +10pp on @0.50). |
 
 ## Current Interpretation
 
-**v1_mask3d_track, 2026-05-02 (with 2026-05-03 oracle-analysis update)**:
-First ScanRefer detection-mode eval on canonical 9508 utts. Headline
-**Acc@0.25 = 51.65** / **Acc@0.50 = 16.22** with Unique/Multiple
-decomposition (Unique@0.25 = 62.97, Multiple@0.25 = 47.43;
-Unique@0.50 = 25.41, Multiple@0.50 = 12.79).
+**v2_aggregation_gt_track, 2026-05-03 (paper-comparable headline)**:
+Re-aggregation of the v1 9508-utt agent run with ScanNet
+aggregation-based GT bbox (the canonical Camp-A reference). Headline
+**Acc@0.25 = 69.92 / Acc@0.50 = 62.79** with Unique/Multiple
+decomposition (Unique@0.25 = 83.11, Multiple@0.25 = 65.00;
+Unique@0.50 = 76.49, Multiple@0.50 = 57.68); mean IoU = 0.6022. Same
+9508 agent decisions as v1 — only the GT side of IoU was swapped from
+Phase 8 GT-CG to mesh-aggregation-derived AABB. Full diagnosis +
+oracle/picking-quality sanity check in
+[`v2_aggregation_gt_track_20260503.md`](v2_aggregation_gt_track_20260503.md).
 
-> **Important caveat:** v1's GT bbox is derived from Phase 8 GT-CG (a
-> ConceptGraph reconstruction), which is systematically ~2× larger by
-> volume than Mask3D bbox / ScanRefer official aggregation GT. The
-> oracle ceiling on this fold is Acc@0.50 = 20.53 % — Z3D's published
-> 52.7 % is unreachable here. Acc@0.50 = 16.22 is therefore **not
-> directly comparable** to ZSVG3D 32.7 / SeeGround 39.4 / CSVG 39.8 /
-> Z3D 52.7. **Acc@0.25 = 51.65 is approximately comparable** (at the
-> looser threshold the bias mostly cancels). The agent's
-> oracle-normalized picking quality is 73.97 % @0.25 / 79.00 % @0.50,
-> consistent with NR3D v3 classification_acc = 80.79 %. v2 will
-> re-aggregate against ScanNet aggregation-based GT to produce
-> paper-comparable numbers.
->
-> See [`v1_oracle_analysis_20260503.md`](v1_oracle_analysis_20260503.md)
-> for the quantitative diagnosis, and
-> `docs/superpowers/specs/2026-05-03-scanrefer-v2-aggregation-gt.md` for
-> the v2 plan.
+**Camp-A SOTA on Mask3D-pool zero-shot across all 6 columns**:
 
-Pool is Mask3D ScanNet200 from ZSVG3D's CUHK SharePoint distribution
-(the de-facto shared detector for Camp-A zero-shot methods); GT lookup
-is the Phase 8 GT-CG pkl (Vil3dRef-equivalent). See
-`v1_mask3d_track_20260502.md` for SOTA comparison.
+| | Unique@0.25 | Unique@0.50 | Multiple@0.25 | Multiple@0.50 | Overall@0.25 | Overall@0.50 |
+|---|---:|---:|---:|---:|---:|---:|
+| Z3D (prior SOTA) | 82.3 | 74.8 | 51.5 | 45.7 | 58.9 | 52.7 |
+| **Ours v2** | **83.11** | **76.49** | **65.00** | **57.68** | **69.92** | **62.79** |
+| Δ | +0.81 | +1.69 | +13.5 | +11.98 | +11.02 | +10.09 |
+
+The Multiple gap is the largest — language-disambiguation (the part
+where RGB+VLM agents have a structural advantage over pure-3D models)
+shows the strongest improvement.
+
+**v1_mask3d_track, 2026-05-02 (historical record)**: First ScanRefer
+detection-mode eval. Headline **Acc@0.25 = 51.65 / Acc@0.50 = 16.22**.
+Used Phase 8 GT-CG bbox (ConceptGraph reconstruction), which is
+systematically ~2× larger than mesh-aggregation GT. Oracle ceiling on
+v1 was Acc@0.50 = 20.53 %, so the v1 number is **not directly
+comparable** to published Camp-A baselines. v1 is preserved as the
+audit trail showing why v2 was needed; see
+[`v1_oracle_analysis_20260503.md`](v1_oracle_analysis_20260503.md) for
+the quantitative diagnosis that motivated v2.
 
 ## Reproduction
 

@@ -33,14 +33,17 @@ Source: https://kaldir.vc.in.tum.de/scanrefer_benchmark/benchmark_localization
 | SeeGround / Qwen2-VL-72B | CVPR 2025 | 75.7 | 68.9 | 34.0 | 30.0 | 44.1 | 39.4 |
 | VLM-Grounder (250 sub-sample) | CoRL 2024 | 66.0 | 29.8 | 48.3 | 33.5 | 51.6 | 32.8 |
 | Z3D (Mask3D row) | 2026 arXiv | 82.3 | 74.8 | 51.5 | 45.7 | 58.9 | 52.7 |
-| **Ours v1 (gpt-5.4)** [†] | this work | **62.97** | **25.41** | **47.43** | **12.79** | **51.65** | **16.22** |
+| **Ours v2 (gpt-5.4)** | this work | **83.11** | **76.49** | **65.00** | **57.68** | **69.92** | **62.79** |
+| Ours v1 (gpt-5.4) [†] | this work | 62.97 | 25.41 | 47.43 | 12.79 | 51.65 | 16.22 |
 
-[†] **GT bbox not paper-comparable.** v1 uses Phase 8 GT-CG bbox (~2× larger
-by volume than the ScanNet aggregation-based GT bbox the other rows in this
-table use). Oracle-picker ceiling on this fold is Acc@0.50 = 20.53 %, so
-the @0.50 column is not on the same scale as ZSVG3D / SeeGround / CSVG /
-Z3D; the @0.25 column is approximately comparable. v2 (
-`docs/superpowers/specs/2026-05-03-scanrefer-v2-aggregation-gt.md`)
-re-aggregates against the standard aggregation GT. See
-[`v1_oracle_analysis_20260503.md`](v1_oracle_analysis_20260503.md) for the
-quantitative diagnosis.
+**v2 is the paper-comparable headline** — same v1 agent decisions
+re-aggregated against ScanNet aggregation-derived GT (the bbox source
+that Mask3D was trained against and that all other rows in this table
+use). Camp-A SOTA across every column. See
+[`v2_aggregation_gt_track_20260503.md`](v2_aggregation_gt_track_20260503.md).
+
+[†] **v1 GT bbox not paper-comparable.** v1 uses Phase 8 GT-CG bbox
+(~2× larger by volume than the ScanNet aggregation-based GT bbox the
+other rows use). Oracle-picker ceiling on v1 is Acc@0.50 = 20.53 %;
+v1 is preserved as audit trail. See
+[`v1_oracle_analysis_20260503.md`](v1_oracle_analysis_20260503.md).

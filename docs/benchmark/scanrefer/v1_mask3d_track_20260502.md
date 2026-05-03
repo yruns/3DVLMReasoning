@@ -18,9 +18,11 @@
 >
 > Full diagnosis: [`v1_oracle_analysis_20260503.md`](v1_oracle_analysis_20260503.md).
 >
-> **v2 fix:** spec at `docs/superpowers/specs/2026-05-03-scanrefer-v2-aggregation-gt.md`
-> — re-aggregate the existing v1 run with ScanNet aggregation-based GT
-> (no agent re-run needed; ~30 min compute).
+> **v2 has shipped (2026-05-03)** at
+> [`v2_aggregation_gt_track_20260503.md`](v2_aggregation_gt_track_20260503.md).
+> Same agent decisions, aggregation-GT re-aggregation. Headline:
+> Acc@0.25 = 69.92 / Acc@0.50 = 62.79 — Camp-A SOTA across all 6
+> columns. Use v2 numbers for any external comparison.
 
 First ScanRefer detection-mode evaluation on the canonical full val set
 (9508 utterances on 141 scenes), using Mask3D ScanNet200 predictions as

@@ -33,7 +33,7 @@ benchmark's version). Always include:
 | **OpenEQA ScanNet EM-EQA** | live | [`openeqa/`](openeqa/) | v15 stage2 MNAS **74.33** (`s1_l1`, frozen 1050Q, Gemini 2.5 Pro) |
 | **EmbodiedScan VG** | smoke | [`embodiedscan/`](embodiedscan/) | v3 GT-pool pack_v1 2k smoke: 2000Q, Acc@0.25/0.50 **89.15** |
 | **NR3D VG** | live | [`nr3d/`](nr3d/) | v3 leaderboard-track 8584Q (n_filtered=7805): classification_acc=**80.79**, Easy=**86.06**, Hard=**75.87**, V-Dep=**72.46**, V-Indep=**85.34** (gpt-5.4, zero-shot) |
-| **ScanRefer VG** | live | [`scanrefer/`](scanrefer/) | v1 Mask3D-pool 9508Q val: Overall@0.25 **51.65**, Overall@0.50 **16.22**, Unique/Multiple split (gpt-5.4, zero-shot). **@0.50 not paper-comparable** — Phase 8 GT-CG bbox is ~2× larger than aggregation GT used by other Camp-A baselines; oracle ceiling is 20.53 %. v2 (aggregation-GT re-aggregation) is the immediate next step. |
+| **ScanRefer VG** | live | [`scanrefer/`](scanrefer/) | **v2** aggregation-GT track 9508Q val: Overall@0.25 **69.92**, Overall@0.50 **62.79**, Unique@0.25 83.11 / Unique@0.50 76.49 / Multiple@0.25 65.00 / Multiple@0.50 57.68 (gpt-5.4, zero-shot, Mask3D pool). **Camp-A SOTA across all 6 columns** (Z3D +10pp on Overall@0.50). v1 retained as audit trail with caveat. |
 
 ## Pending Migrations
 
