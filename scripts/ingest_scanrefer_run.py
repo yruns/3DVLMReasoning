@@ -226,9 +226,11 @@ def main() -> None:
                    help="optional path to leaderboard_metrics.json")
     p.add_argument(
         "--keyframe-mode", default=None,
-        choices=["gt_target", "query_driven"],
+        choices=["gt_target", "query_driven", "mask3d_query_driven"],
         help="How keyframes were selected during pack-prep. v1/v2 used "
-             "gt_target (GT view oracle); v3 uses query_driven.",
+             "gt_target (GT view oracle); v3 uses query_driven via Phase 8 "
+             "GT visibility; v3.1 uses mask3d_query_driven via Mask3D-CG "
+             "candidate visibility (same index that renders annotated PNGs).",
     )
     args = p.parse_args()
     ingest(

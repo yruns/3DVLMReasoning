@@ -72,6 +72,9 @@ class SceneArtifacts:
     annotated_dir: Path
     frame_visibility: dict[int, list[int]]
     proposal_ids: list[int]
+    proposal_labels: dict[int, str]
+    mask3d_visibility: Mask3dVisibility
+    scene_categories: list[str]
 
 
 def parse_sample_id(sample_id: str) -> tuple[str, int, str]:
@@ -114,13 +117,16 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--keyframe-mode",
         default="gt_target",
-        choices=["gt_target", "query_driven"],
+        choices=["gt_target", "query_driven", "mask3d_query_driven"],
         help=(
-            "How to pick the 5 initial RGB keyframes per query. "
+            "How to pick the 3-5 initial RGB keyframes per query. "
             "'gt_target' (v1/v2 default): top-5 frames where the GT "
             "target_id is most visible (a GT view oracle). "
-            "'query_driven' (v3): KeyframeSelector.select_keyframes_v2(query, k=5) "
-            "with use_visual_context=False — same hypothesis-driven entry OpenEQA uses."
+            "'query_driven' (v3): KeyframeSelector.select_keyframes_v2(query, k=3) "
+            "via Phase 8 GT visibility — same hypothesis-driven entry OpenEQA uses. "
+            "'mask3d_query_driven' (v3.1): parse query → categories → score frames "
+            "by Mask3D-CG visibility weight of same-category candidates → top-3. "
+            "Aligned with the visibility index used to render annotated PNGs."
         ),
     )
     parser.add_argument(
@@ -144,9 +150,10 @@ def prepare_pack_v1_inputs_scanrefer(
     keyframe_mode: str = "gt_target",
     keyframe_llm_model: str = "gemini-2.5-pro",
 ) -> list[Path]:
-    if keyframe_mode not in ("gt_target", "query_driven"):
+    if keyframe_mode not in ("gt_target", "query_driven", "mask3d_query_driven"):
         raise ValueError(
-            f"keyframe_mode must be 'gt_target' or 'query_driven', got {keyframe_mode!r}"
+            "keyframe_mode must be 'gt_target', 'query_driven', or "
+            f"'mask3d_query_driven', got {keyframe_mode!r}"
         )
 
     requests = load_sample_requests(sample_ids_path)
@@ -166,6 +173,7 @@ def prepare_pack_v1_inputs_scanrefer(
 
     scene_artifacts: dict[str, SceneArtifacts] = {}
     selector_cache: dict[str, Any] = {}  # scene_id -> KeyframeSelector (lazy)
+    parser_cache: dict[str, Any] = {}    # scene_id -> QueryParser (lazy)
     fallback_count = 0
     written: list[Path] = []
     for request in requests:
@@ -190,6 +198,7 @@ def prepare_pack_v1_inputs_scanrefer(
             keyframe_mode=keyframe_mode,
             keyframe_llm_model=keyframe_llm_model,
             selector_cache=selector_cache,
+            parser_cache=parser_cache,
         )
         if used_fallback:
             fallback_count += 1
@@ -204,12 +213,12 @@ def prepare_pack_v1_inputs_scanrefer(
                 keyframe_mode=keyframe_mode,
             )
         )
-    if keyframe_mode == "query_driven":
+    if keyframe_mode in ("query_driven", "mask3d_query_driven"):
         from loguru import logger
         logger.info(
-            "[prepare_pack_v1_inputs_scanrefer] query_driven mode: "
+            "[prepare_pack_v1_inputs_scanrefer] {} mode: "
             "{}/{} samples used Mask3D-density fallback ({:.2%})",
-            fallback_count, len(requests),
+            keyframe_mode, fallback_count, len(requests),
             fallback_count / max(len(requests), 1),
         )
     return written
@@ -225,6 +234,7 @@ def _select_keyframes(
     keyframe_mode: str,
     keyframe_llm_model: str,
     selector_cache: dict[str, Any],
+    parser_cache: dict[str, Any],
 ) -> tuple[list[dict[str, Any]], bool]:
     """Dispatch keyframe selection by mode. Returns (keyframes, used_fallback)."""
     if keyframe_mode == "gt_target":
@@ -235,6 +245,39 @@ def _select_keyframes(
             k=5,
         )
         return kfs, False
+
+    if keyframe_mode == "mask3d_query_driven":
+        parser = parser_cache.get(request.scene_id)
+        if parser is None:
+            from loguru import logger
+            from query_scene.query_parser import QueryParser
+            logger.info(
+                "[prepare_pack_v1_inputs_scanrefer] building QueryParser for {} "
+                "(LLM={}, n_categories={})",
+                request.scene_id, keyframe_llm_model,
+                len(scene_artifacts.scene_categories),
+            )
+            parser = QueryParser(
+                llm_model=keyframe_llm_model,
+                scene_categories=scene_artifacts.scene_categories,
+            )
+            parser_cache[request.scene_id] = parser
+        kfs = select_keyframes_mask3d_query_driven(
+            scene_id=request.scene_id,
+            query=sample.query,
+            scene_artifacts=scene_artifacts,
+            raw_frames_root=raw_frames_root,
+            query_parser=parser,
+            k=3,
+        )
+        if kfs:
+            return kfs, False
+        return _fallback_top5_by_mask3d_density(
+            scene_id=request.scene_id,
+            scene_artifacts=scene_artifacts,
+            raw_frames_root=raw_frames_root,
+            k=3,
+        ), True
 
     # query_driven path
     selector = selector_cache.get(request.scene_id)
@@ -287,6 +330,10 @@ def prepare_scene_artifacts(
         for frame_id, entries in visibility.view_to_objects.items()
     }
     proposal_ids = [int(p["id"]) for p in proposals]
+    proposal_labels = {
+        int(p["id"]): str(p.get("label", "")).lower().strip() for p in proposals
+    }
+    scene_categories = sorted({lab for lab in proposal_labels.values() if lab})
     valid_ids = set(proposal_ids)
     for frame_id, ids in frame_visibility.items():
         unknown = sorted(set(ids) - valid_ids)
@@ -338,6 +385,9 @@ def prepare_scene_artifacts(
         annotated_dir=annotated_dir,
         frame_visibility=frame_visibility,
         proposal_ids=proposal_ids,
+        proposal_labels=proposal_labels,
+        mask3d_visibility=visibility,
+        scene_categories=scene_categories,
     )
 
 
@@ -488,6 +538,172 @@ def select_keyframes_query_driven(
             )),
             "frame_id": int(frame_id),
         })
+    return keyframes
+
+
+# Stopwords stripped from category tokens before fuzzy matching against
+# Mask3D ScanNet200 labels. Keep narrow — the goal is to drop articles, not
+# prune useful nouns ("table" should still match "coffee table").
+_CATEGORY_STOPWORDS: frozenset[str] = frozenset({
+    "the", "a", "an", "of", "and", "or", "in", "on", "at", "to",
+})
+
+
+def _normalize_category_tokens(category: str) -> set[str]:
+    """Lowercase, split on whitespace + underscores, drop short stopwords.
+
+    Returns a set of meaningful tokens used for fuzzy match against
+    Mask3D-CG ScanNet200 labels.
+    """
+    raw = category.replace("_", " ").lower().strip()
+    if not raw:
+        return set()
+    tokens = {t for t in raw.split() if t and t not in _CATEGORY_STOPWORDS}
+    return tokens
+
+
+def _matching_proposal_ids(
+    target_categories: list[str], proposal_labels: dict[int, str],
+) -> set[int]:
+    """Fuzzy-match LLM-parsed categories against Mask3D-CG label vocab.
+
+    A proposal matches when:
+    - its full lowercased label equals one of the categories (after _ -> space), or
+    - its label tokens share at least one non-stopword token with a category.
+
+    This handles common ScanNet200 vs LLM-vocab gaps such as
+    "office chair" vs "chair", "trash can" vs "trash_can", and
+    "coffee table" vs "table".
+    """
+    cat_tokens_per_cat: list[tuple[str, set[str]]] = []
+    for cat in target_categories:
+        if not isinstance(cat, str):
+            continue
+        flat = cat.replace("_", " ").lower().strip()
+        if flat in {"", "unknow", "unknown"}:
+            continue
+        toks = _normalize_category_tokens(cat)
+        if toks:
+            cat_tokens_per_cat.append((flat, toks))
+    if not cat_tokens_per_cat:
+        return set()
+
+    matching: set[int] = set()
+    for pid, label in proposal_labels.items():
+        if not label:
+            continue
+        label_l = label.replace("_", " ").lower().strip()
+        label_toks = _normalize_category_tokens(label)
+        for cat_flat, cat_toks in cat_tokens_per_cat:
+            if label_l == cat_flat:
+                matching.add(pid)
+                break
+            if cat_toks & label_toks:
+                matching.add(pid)
+                break
+    return matching
+
+
+def select_keyframes_mask3d_query_driven(
+    *,
+    scene_id: str,
+    query: str,
+    scene_artifacts: SceneArtifacts,
+    raw_frames_root: Path,
+    query_parser: Any,
+    k: int = 3,
+) -> list[dict[str, Any]]:
+    """v3.1 Mask3D-driven Stage 1 path.
+
+    Pipeline:
+        1. Parse `query` -> HypothesisOutputV1 via the cached QueryParser.
+        2. Collect all category strings (target + anchors) across hypotheses.
+        3. Fuzzy-match against Mask3D-CG proposal labels for this scene.
+        4. Score each frame by sum of visibility weights of matching candidates.
+        5. Return top-k frames as keyframes.
+
+    Returns [] when the parser yields no usable categories or no Mask3D
+    candidate matches the categories. The caller should fall back to
+    Mask3D-density top-k in that case.
+
+    The Mask3D-CG visibility index used here is the SAME index the
+    annotated-PNG renderer consumes, so initial keyframes are guaranteed
+    to contain at least one same-category mark when this path succeeds.
+    """
+    from loguru import logger
+
+    try:
+        output = query_parser.parse(query)
+    except Exception as exc:
+        logger.warning(
+            "[select_keyframes_mask3d_query_driven] parse failed for {} "
+            "query={!r} err={}",
+            scene_id, query, exc,
+        )
+        return []
+
+    target_categories: list[str] = []
+    seen: set[str] = set()
+    for hypothesis in output.ordered_hypotheses():
+        for cat in hypothesis.grounding_query.get_all_categories():
+            if not cat:
+                continue
+            key = cat.replace("_", " ").lower().strip()
+            if key in seen:
+                continue
+            seen.add(key)
+            target_categories.append(cat)
+    if not target_categories:
+        logger.warning(
+            "[select_keyframes_mask3d_query_driven] no categories parsed "
+            "for {} query={!r}",
+            scene_id, query,
+        )
+        return []
+
+    matching_pids = _matching_proposal_ids(
+        target_categories, scene_artifacts.proposal_labels,
+    )
+    if not matching_pids:
+        logger.warning(
+            "[select_keyframes_mask3d_query_driven] no Mask3D candidates match "
+            "categories={} for {} (query={!r})",
+            target_categories, scene_id, query,
+        )
+        return []
+
+    frame_scores: dict[int, float] = {}
+    for view_id, entries in scene_artifacts.mask3d_visibility.view_to_objects.items():
+        score = sum(
+            float(weight) for (oid, weight) in entries if int(oid) in matching_pids
+        )
+        if score > 0.0:
+            frame_scores[int(view_id)] = score
+    if not frame_scores:
+        logger.warning(
+            "[select_keyframes_mask3d_query_driven] matching candidates {} "
+            "have no Mask3D-visible frames in {}",
+            sorted(matching_pids), scene_id,
+        )
+        return []
+
+    top = sorted(frame_scores.items(), key=lambda kv: -kv[1])[:k]
+    keyframes = []
+    for kfi, (frame_id, _) in enumerate(top):
+        keyframes.append({
+            "keyframe_idx": kfi,
+            "image_path": str(_resolve_raw_rgb_path(
+                raw_frames_root / scene_id, int(frame_id),
+            )),
+            "frame_id": int(frame_id),
+        })
+    logger.info(
+        "[select_keyframes_mask3d_query_driven] {} q={!r} cats={} "
+        "matching_pids={} -> {} frames (top weights {})",
+        scene_id, query, target_categories,
+        len(matching_pids), len(top),
+        [round(s, 2) for _, s in top],
+    )
     return keyframes
 
 
@@ -681,6 +897,7 @@ if __name__ == "__main__":
 
 
 __all__ = [
+    "Mask3dVisibility",
     "SampleRequest",
     "SceneArtifacts",
     "build_proposals_from_mask3d_objects",
@@ -688,4 +905,7 @@ __all__ = [
     "parse_sample_id",
     "prepare_pack_v1_inputs_scanrefer",
     "safe_sample_id",
+    "select_keyframes_mask3d_query_driven",
+    "_matching_proposal_ids",
+    "_normalize_category_tokens",
 ]

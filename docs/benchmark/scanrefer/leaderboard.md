@@ -35,15 +35,18 @@ Source: https://kaldir.vc.in.tum.de/scanrefer_benchmark/benchmark_localization
 | Z3D (Mask3D row) | 2026 arXiv | 82.3 | 74.8 | 51.5 | 45.7 | 58.9 | 52.7 |
 | **Ours v2 (gpt-5.4) [‡]** | this work | **83.11** | **76.49** | **65.00** | **57.68** | **69.92** | **62.79** |
 | Ours v1 (gpt-5.4) [†][‡] | this work | 62.97 | 25.41 | 47.43 | 12.79 | 51.65 | 16.22 |
+| Ours v3 (gpt-5.4) [§] | this work | — | — | — | — | 39.0 | 14.0 |
+| Ours v3.1 (gpt-5.4) [§] | this work | — | — | — | — | 39.0 | 15.0 |
 
 **v2's GT bbox source is paper-comparable** — same v1 agent decisions
 re-aggregated against ScanNet aggregation-derived GT (the bbox source
 that Mask3D was trained against and that all other rows in this table
 use). However, the keyframe selector uses a GT view oracle (see [‡]
 below), so v2's wins over zero-shot Camp-A baselines are **not**
-directly comparable. The planned v3 query-driven track will produce
-the apples-to-apples headline. See
-[`v2_aggregation_gt_track_20260503.md`](v2_aggregation_gt_track_20260503.md).
+directly comparable. v3 (Phase 8 hypothesis-parser KFs) and v3.1
+(Mask3D-CG visibility KFs) are zero-shot Camp-A but currently
+evaluated only on a 100-utt random fold; v3.1 doc:
+[`v3p1_mask3d_query_driven_20260503.md`](v3p1_mask3d_query_driven_20260503.md).
 
 [†] **v1 GT bbox not paper-comparable.** v1 uses Phase 8 GT-CG bbox
 (~2× larger by volume than the ScanNet aggregation-based GT bbox the
@@ -59,8 +62,16 @@ appears in the initial RGB evidence and is a form of GT-assisted
 evidence selection (a view oracle, not full label leakage — `proposal_id`
 is still picked from the Mask3D pool). Z3D / SeeGround / ZSVG3D / CSVG
 do not use a GT view oracle, so per-column wins above are not
-apples-to-apples as a zero-shot Camp-A comparison. The v3 query-driven
-track will swap the selector for
-`query_scene.keyframe_selector.select_keyframes_v2(query, ...)` — the
-hypothesis-driven entry OpenEQA already uses. Detailed discussion in
+apples-to-apples as a zero-shot Camp-A comparison. v3 / v3.1 swap
+this oracle for query-driven Stage 1 (`select_keyframes_v2(query)`
+and `mask3d_query_driven` respectively). Detailed discussion in
 [v2 doc § Caveats](v2_aggregation_gt_track_20260503.md#caveats).
+
+[§] **100-utt random fold, not full 9508 val.** v3 / v3.1 numbers
+above are reported on a frozen 100-utt random sub-fold (seed=20260503,
+file `tmp/scanrefer_artifacts/random100_sample_ids.json`) per the
+project's iteration-on-100-first methodology. v2 on the same fold is
+67.0 / 59.0 (vs 69.92 / 62.79 on full val), so fold representativeness
+is consistent within ~3pp. Per-column splits (Unique / Multiple) and
+full-val v3.x runs are deferred until X2 playbook hardening lands.
+See [`v3p1_mask3d_query_driven_20260503.md`](v3p1_mask3d_query_driven_20260503.md).
