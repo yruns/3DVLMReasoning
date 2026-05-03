@@ -173,6 +173,50 @@ Errors: bad relation, missing anchor, or any candidate not in the pool
 all FAIL-LOUD with explicit error strings. See the
 `vg_spatial_disambiguation` skill for the full workflow.
 
+## tool: switch_or_expand_hypothesis (chassis tool, Stage 2 → Stage 1 callback)
+
+Inputs:
+- `request_text: str` — human rationale for re-running Stage 1.
+- `new_query: str` — REQUIRED — the alternative retrieval query string
+  (e.g. `"patio chair near the kitchen"` instead of the original
+  `"this is a brown chair next to the door"`).
+- `preferred_kind: str` — optional hint for hypothesis kind
+  (`direct` / `proxy` / `context`).
+
+Calls Stage 1's `KeyframeSelector.select_keyframes_v2(new_query, k=3)`
+and **appends** the new keyframes to your bundle. After this returns,
+the chassis injects the new annotated images into your next user
+message turn — like `view_keyframe_marked` but in batches of 1-3.
+
+When to use:
+- **The initial keyframes don't show the right region of the scene at
+  all.** E.g., the utterance is "a printer on the desk in the office"
+  but Stage 1 picked living-room frames. A re-query with
+  `new_query="printer on desk"` may pull office-area views.
+- **`find_proposals_by_category` returned an empty list.** The
+  detector may have labeled the target with a synonym; a re-query
+  with a broader or differently-worded category sometimes pulls in
+  Stage 1 hypotheses that catch it.
+- **You've viewed 3+ frames and the target category just isn't
+  visible anywhere you've looked.** A fresh Stage 1 query with a more
+  specific or more general phrasing can break the loop.
+
+When NOT to use:
+- The initial keyframes show the right region but you need a
+  different *angle* of the same object — use `view_keyframe_marked`
+  with another frame from `inspect_proposal[K].frames_appeared`
+  instead. Re-running Stage 1 is more expensive (~2-5 s LLM call)
+  than `view_keyframe_marked` (instant).
+- You haven't yet called `find_proposals_by_category` on the original
+  query — try that cheap option first.
+
+Cost: each call triggers a Stage 1 LLM parse (~2-5 s). Treat 1-2
+calls per sample as normal; 3+ as a sign you should consider OOD.
+
+Returns text like:
+`Re-ran Stage 1 with query 'printer on desk': added 2 new keyframe(s).
+Total keyframes now: 5.`
+
 ## VgPayload schema
 
 `submit_final(payload, rationale, evidence_refs=[])`:
@@ -276,6 +320,52 @@ The initial 5 keyframes did not contain proposal 17 or 23, but the
 agent recovered by category lookup → frames_appeared → cross-frame
 view. **This is the standard ReAct recovery; do not stop at the
 initial 5.**
+
+### Example 1c: Stage 2 → Stage 1 callback (re-query for new keyframes)
+
+Query: "this is the printer next to the desk in the office."
+
+Stage 1's initial 3 keyframes are all in the living room — its
+hypothesis parser fixated on "desk" and pulled the most-visible desk,
+which happens to be a writing desk in the living area.
+
+1. `list_keyframes_with_proposals()` — initial keyframes
+   `[18, 34, 47]`; `visible_proposal_ids` cover sofas, lamp, coffee
+   table, the writing desk. No printer.
+2. `find_proposals_by_category("printer")` → `{"proposal_ids": []}`
+   — but `available_categories` lists `["printer-laser",
+   "monitor", ...]` so a printer-like proposal does exist.
+3. `find_proposals_by_category("printer-laser")` → `{"proposal_ids":
+   [29]}`. Found it.
+4. `inspect_proposal(proposal_id=29)` → `frames_appeared=[112, 138]`.
+   Both frames are NOT in the initial 3.
+5. `view_keyframe_marked(frame_id=112)` — annotated frame 112 shows
+   the printer (`29`) on a desk in the office.
+6. `submit_final({"proposal_id": 29, "confidence": 0.85},
+   rationale="laser printer on the office desk, visible in frame
+   112; Stage 1 mis-routed initial KFs to the living-room desk so we
+   navigated via category lookup")`.
+
+Notice that `switch_or_expand_hypothesis` was *not* needed here —
+`find_proposals_by_category` + cross-frame navigation was enough.
+**Use `switch_or_expand_hypothesis` only when category lookup ALSO
+returns empty / inconclusive.** Here is when it WOULD be needed:
+
+Query: "this is the floor lamp by the bay window."
+
+Initial keyframes don't show any window. `find_proposals_by_category("lamp")`
+returns proposals 4, 11, 18 — but you've viewed them all and none is
+near a window:
+
+7. `switch_or_expand_hypothesis(request_text="initial KFs don't show
+   any window; need bay-window views", new_query="floor lamp near
+   the window in the bedroom")` — Stage 1 returns 2 new keyframes
+   pulled from a different region.
+8. `view_keyframe_marked(frame_id=144)` — the new frame shows lamp
+   `18` next to a bay window. Confirmed.
+9. `submit_final({"proposal_id": 18, "confidence": 0.80},
+   rationale="floor lamp by bay window; verified after Stage 1
+   re-query with 'floor lamp near the window'")`.
 
 ### Example 2: OOD case
 
