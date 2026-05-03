@@ -1,5 +1,27 @@
 # v1 Mask3D-Track — 2026-05-02
 
+> **CRITICAL CAVEAT (added 2026-05-03 after oracle analysis): The
+> Acc@0.50 number reported here is NOT directly comparable to published
+> Camp-A zero-shot baselines (ZSVG3D / SeeGround / CSVG / Z3D).** v1
+> uses Phase 8 GT-CG bbox as the IoU reference, which is systematically
+> ~2× larger than the ScanNet aggregation-based GT bbox that all other
+> Camp-A methods use. Even an oracle picker on this fold would top out
+> at Acc@0.50 = 20.53 % — i.e. Z3D's published 52.7 % is mathematically
+> unreachable here regardless of agent quality.
+>
+> **Acc@0.25 = 51.65 % IS approximately comparable** (the threshold is
+> loose enough that GT-volume bias mostly doesn't push valid picks below
+> 0.25). The agent's oracle-normalized picking quality is **73.97 % at
+> @0.25 and 79.00 % at @0.50** — i.e. the agent is performing on par
+> with NR3D v3 classification_acc 80.79 %; the @0.50 headline number is
+> bottlenecked by GT geometry, not agent skill.
+>
+> Full diagnosis: [`v1_oracle_analysis_20260503.md`](v1_oracle_analysis_20260503.md).
+>
+> **v2 fix:** spec at `docs/superpowers/specs/2026-05-03-scanrefer-v2-aggregation-gt.md`
+> — re-aggregate the existing v1 run with ScanNet aggregation-based GT
+> (no agent re-run needed; ~30 min compute).
+
 First ScanRefer detection-mode evaluation on the canonical full val set
 (9508 utterances on 141 scenes), using Mask3D ScanNet200 predictions as
 the proposal pool — the de-facto shared detector for Camp-A zero-shot
@@ -64,7 +86,12 @@ Failed sentinels: 205 / 9508 (2.16 %) — counted as iou=0 in the metrics above.
 | SeeGround / Qwen2-VL-72B | Mask3D pool, zero-shot | 75.7 | 68.9 | 34.0 | 30.0 | 44.1 | 39.4 |
 | VLM-Grounder / GPT-4V (250 sub-sample) | 2D-online proj, zero-shot | 66.0 | 29.8 | 48.3 | 33.5 | 51.6 | 32.8 |
 | Z3D (Mask3D row) | Mask3D pool, zero-shot | 82.3 | 74.8 | 51.5 | 45.7 | 58.9 | 52.7 |
-| **Ours v1 (gpt-5.4)** | Mask3D pool, zero-shot | **62.97** | **25.41** | **47.43** | **12.79** | **51.65** | **16.22** |
+| **Ours v1 (gpt-5.4)** [†] | Mask3D pool, zero-shot | **62.97** | **25.41** | **47.43** | **12.79** | **51.65** | **16.22** |
+
+[†] @0.50 columns are not on the same GT scale as the other rows — see the
+critical caveat at the top of this doc and `v1_oracle_analysis_20260503.md`.
+Oracle-picker ceiling on this fold is Acc@0.50 = 20.53 %; v2 will fix this
+by switching GT bbox source.
 
 For supervised SOTA (test-server top-5 + val Table 1), see `leaderboard.md`.
 
@@ -75,7 +102,22 @@ For supervised SOTA (test-server top-5 + val Table 1), see `leaderboard.md`.
 - **Wall/floor/ceiling Mask3D candidates filtered** — matches ZSVG3D `keep_background=False`. Drop count per scene visible in producer report.
 - **GT bbox source** = Phase 8 GT-CG pkl (Vil3dRef-equivalent; see `pool_equivalence_log_20260501.md` from NR3D v3 work).
 - **Per-LLM-call durability gap** carried forward from NR3D v3 — `tool_calls`/`llm_calls` SQLite tables empty for v1.
-- **Acc@0.50 is a notable weak spot** — Overall 16.22% sits below Camp-A SOTA (32-53%). The gap is concentrated in Multiple@0.50 (12.79% vs SOTA 24-46%); Unique@0.50 25.41% is in the SOTA-low range. Hypothesis: keyframe selection on Phase 8 GT visibility gives the agent strong target localization (high Acc@0.25) but the agent's bbox refinement is bounded by the Mask3D candidate's tight-fit precision rather than agent intent. v2/v3 ablations should isolate this.
+- **Acc@0.50 = 16.22 is a GT-derivation artefact, not an agent weakness.**
+  The 2026-05-03 oracle analysis (see `v1_oracle_analysis_20260503.md`)
+  showed Phase 8 GT-CG bbox is ~2× larger by volume than Mask3D bbox
+  (median Mask3D-vol / Phase8-vol = 0.502; per-axis median ratio ≈ 0.80;
+  85.3 % of samples have Mask3D < 80 % of Phase 8 volume). This expansion
+  comes from ConceptGraph reconstruction over-extending to adjacent
+  surfaces / depth noise / merged fragments. Even with a perfect picker,
+  Acc@0.50 ceiling on this fold is 20.53 %. The agent is hitting 79 %
+  picking quality against this ceiling — comparable to NR3D v3
+  classification_acc = 80.79 %. The published Camp-A numbers (32.7-52.7 %)
+  use ScanNet aggregation-based GT, which is mesh-tight and matches what
+  Mask3D itself was trained against. The fix lives in v2 — see Next Steps.
+- **Acc@0.25 = 51.65 is approximately Camp-A-comparable** — at this
+  threshold the GT-volume bias is mostly absorbed (most valid picks still
+  clear 0.25 against the larger GT). Agent picking quality 73.97 % is on
+  par with the same Stage 1 + Stage 2 stack on NR3D v3.
 
 ## Cross-version comparison (ScanRefer-only)
 
@@ -149,6 +191,14 @@ PYTHONPATH=src python scripts/ingest_scanrefer_run.py \
 
 ## Next Steps
 
-- v2: SeeGround head-to-head with Qwen2-VL-72B backbone (apples-to-apples backbone match).
-- v3: detector ablation (BIP3D / V-DETR / GroupFree3D pool variants).
-- v4: SR3D extension.
+- **v2 (immediate, blocks paper-comparable numbers): aggregation-GT re-aggregation.**
+  Spec at `docs/superpowers/specs/2026-05-03-scanrefer-v2-aggregation-gt.md`.
+  Re-derives every val scene's GT bbox from `data/nr3d/scannet_aux/<scene>/<scene>.aggregation.json`
+  + `<scene>_vh_clean_2.0.010000.segs.json` + ScanNet mesh `.ply` (axis-aligned),
+  matching the bbox source ZSVG3D / SeeGround / CSVG / Z3D all use. No agent
+  re-run is needed — the v1 `side_by_side.json` already contains the agent's
+  picked Mask3D candidate per sample; only the GT side of the IoU computation
+  changes. Estimated impact: Acc@0.25 → 60-65, Acc@0.50 → 35-45.
+- v3: SeeGround head-to-head with Qwen2-VL-72B backbone (apples-to-apples backbone match).
+- v4: detector ablation (BIP3D / V-DETR / GroupFree3D pool variants).
+- v5: SR3D extension.

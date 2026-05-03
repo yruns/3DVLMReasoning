@@ -15,17 +15,34 @@ Stage-2 task-pack pipeline.
 
 ## Current Interpretation
 
-**v1_mask3d_track, 2026-05-02**: First ScanRefer detection-mode eval on
-canonical 9508 utts. Headline **Acc@0.25 = 51.65** /
-**Acc@0.50 = 16.22** with Unique/Multiple decomposition (Unique@0.25 =
-62.97, Multiple@0.25 = 47.43; Unique@0.50 = 25.41, Multiple@0.50 =
-12.79). Pool is Mask3D ScanNet200 from ZSVG3D's CUHK SharePoint
-distribution (the de-facto shared detector for Camp-A zero-shot
-methods); GT lookup is the Phase 8 GT-CG pkl (Vil3dRef-equivalent).
-Acc@0.25 is competitive with Camp-A SOTA (mid-pack vs ZSVG3D 36.4 /
-CSVG 49.6 / SeeGround 44.1 / VLM-Grounder 51.6 / Z3D 58.9). Acc@0.50 is
-notably below Camp-A peers — see v1 doc for the localization-vs-fit
-hypothesis. See `v1_mask3d_track_20260502.md` for SOTA comparison.
+**v1_mask3d_track, 2026-05-02 (with 2026-05-03 oracle-analysis update)**:
+First ScanRefer detection-mode eval on canonical 9508 utts. Headline
+**Acc@0.25 = 51.65** / **Acc@0.50 = 16.22** with Unique/Multiple
+decomposition (Unique@0.25 = 62.97, Multiple@0.25 = 47.43;
+Unique@0.50 = 25.41, Multiple@0.50 = 12.79).
+
+> **Important caveat:** v1's GT bbox is derived from Phase 8 GT-CG (a
+> ConceptGraph reconstruction), which is systematically ~2× larger by
+> volume than Mask3D bbox / ScanRefer official aggregation GT. The
+> oracle ceiling on this fold is Acc@0.50 = 20.53 % — Z3D's published
+> 52.7 % is unreachable here. Acc@0.50 = 16.22 is therefore **not
+> directly comparable** to ZSVG3D 32.7 / SeeGround 39.4 / CSVG 39.8 /
+> Z3D 52.7. **Acc@0.25 = 51.65 is approximately comparable** (at the
+> looser threshold the bias mostly cancels). The agent's
+> oracle-normalized picking quality is 73.97 % @0.25 / 79.00 % @0.50,
+> consistent with NR3D v3 classification_acc = 80.79 %. v2 will
+> re-aggregate against ScanNet aggregation-based GT to produce
+> paper-comparable numbers.
+>
+> See [`v1_oracle_analysis_20260503.md`](v1_oracle_analysis_20260503.md)
+> for the quantitative diagnosis, and
+> `docs/superpowers/specs/2026-05-03-scanrefer-v2-aggregation-gt.md` for
+> the v2 plan.
+
+Pool is Mask3D ScanNet200 from ZSVG3D's CUHK SharePoint distribution
+(the de-facto shared detector for Camp-A zero-shot methods); GT lookup
+is the Phase 8 GT-CG pkl (Vil3dRef-equivalent). See
+`v1_mask3d_track_20260502.md` for SOTA comparison.
 
 ## Reproduction
 
