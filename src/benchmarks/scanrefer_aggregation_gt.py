@@ -12,8 +12,9 @@ bbox per objectId. Output convention is identical to other v1 helpers:
 
 This is the GT bbox source ZSVG3D / SeeGround / CSVG / Z3D and Mask3D
 training all derive from. See
-``docs/benchmark/scanrefer/v1_oracle_analysis_20260503.md`` for why v1's
-Phase 8 GT-CG was incompatible with paper-comparable evaluation.
+``docs/benchmark/scanrefer/v2_aggregation_gt_track_20260503.md`` § "Audit
+trail" for why v1's Phase 8 GT-CG was incompatible with paper-comparable
+evaluation.
 """
 
 from __future__ import annotations

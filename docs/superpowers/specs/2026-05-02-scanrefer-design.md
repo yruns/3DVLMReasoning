@@ -487,7 +487,9 @@ Reference artifacts (read-only):
 - `tmp/scanrefer_zsl_code_audit.md` — 2-repo zero-shot code audit
 - `tmp/scanrefer_zsl_paper_survey.md` — 6-paper paper survey
 - `tmp/seeground_vog_audit_{claude,codex}.md` — SeeGround + VoG cross-validation deep audit
-- `docs/benchmark/scanrefer/producer_report_20260502.md` — Linux-side ScanRefer-only-11-scene producer run
-- `docs/handoff_2026-05-02_scanrefer_11scenes_linux.md` — handoff for the 11-scene producer run
+- (Linux-side 11-scene producer run record + its handoff have been
+  retired as obsolete process info; the produced Phase 8 GT-CG pkls
+  for those 11 scenes live alongside the other 130 under
+  `data/nr3d/scannet/<scene>/conceptgraph/pcd_saves/`.)
 - `docs/superpowers/specs/2026-05-01-nr3d-fairness-design.md` — NR3D leaderboard track design (template parent)
 - `docs/benchmark/nr3d/v3_referit3d_track_20260501.md` — NR3D v3 results (proves the agent can do this protocol family)

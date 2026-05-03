@@ -45,5 +45,5 @@ use). Camp-A SOTA across every column. See
 [†] **v1 GT bbox not paper-comparable.** v1 uses Phase 8 GT-CG bbox
 (~2× larger by volume than the ScanNet aggregation-based GT bbox the
 other rows use). Oracle-picker ceiling on v1 is Acc@0.50 = 20.53 %;
-v1 is preserved as audit trail. See
-[`v1_oracle_analysis_20260503.md`](v1_oracle_analysis_20260503.md).
+v1 is preserved as audit trail in `runs.sqlite`. Full diagnosis in
+[v2 doc § Audit trail](v2_aggregation_gt_track_20260503.md#audit-trail--why-v2-exists).

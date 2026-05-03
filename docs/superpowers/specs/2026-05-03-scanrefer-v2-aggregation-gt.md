@@ -19,10 +19,10 @@ The headline outcome is a v2 row in `runs.sqlite` and a new
 agent decisions against the standard GT, eligible to be quoted alongside
 published baselines.
 
-Estimated impact (from oracle analysis at
-`docs/benchmark/scanrefer/v1_oracle_analysis_20260503.md`): Acc@0.25
-moves from 51.65 → ~60-65, Acc@0.50 moves from 16.22 → ~35-45. The
-agent run is reused as-is; only the GT side of the IoU changes.
+Estimated impact (from oracle analysis, now folded into v2 doc §
+"Audit trail": `docs/benchmark/scanrefer/v2_aggregation_gt_track_20260503.md`):
+Acc@0.25 moves from 51.65 → ~60-65, Acc@0.50 moves from 16.22 → ~35-45.
+The agent run is reused as-is; only the GT side of the IoU changes.
 
 ## Why this is the right fix (not a re-run)
 
