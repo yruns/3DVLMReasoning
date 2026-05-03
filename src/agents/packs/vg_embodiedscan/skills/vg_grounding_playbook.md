@@ -17,15 +17,30 @@ mark the sample as failed if no proposal in the pool plausibly matches.
 
 ## Decision tree
 
-1. `list_keyframes_with_proposals()` — see which keyframes carry which
-   proposal ids and how many proposals each frame shows.
-2. Pick 1-3 candidate keyframes. To narrow to a category, call
-   `find_proposals_by_category("<category>")` first and prefer frames
-   whose `visible_proposal_ids` overlap that result; otherwise prefer
-   frames with a small `n_proposals` count.
-3. `view_keyframe_marked(frame_id=N)` for each chosen frame — this
-   queues the annotated image for the next user message and returns
-   the visible proposal ids and categories.
+This is a ReAct loop. The 5 initial keyframes are a *starting point*,
+not the final evidence — `view_keyframe_marked` works on ANY frame in
+the scene where Mask3D has at least one proposal (typically 50-300
+frames per scene), so keep exploring until you actually see the target,
+or until you have proven the referent is not in the proposal pool.
+
+1. `list_keyframes_with_proposals()` — see which **initial** keyframes
+   carry which proposal ids and how many proposals each frame shows.
+2. **Identify target category and find ALL same-category candidates
+   scene-wide** — call `find_proposals_by_category("<category>")`. The
+   returned `proposal_ids` cover the whole scene's Mask3D pool, not
+   just the 5 keyframes.
+3. **Decide where to look:**
+   - If the initial 5 keyframes contain ≥ 1 same-category candidate
+     (overlap between their `visible_proposal_ids` and step-2 ids):
+     `view_keyframe_marked(frame_id=N)` on those frames.
+   - **If the initial 5 keyframes carry NO same-category candidate**
+     (Stage 1 picked frames that don't show your target category at
+     all — common on multi-instance VG queries), do **not** stop. Pick
+     2-3 candidates from step-2's pool, call
+     `inspect_proposal(proposal_id=K)` on each to read its
+     `frames_appeared`, then `view_keyframe_marked(frame_id=M)` on
+     those frames. M can be any frame in the scene where the proposal
+     is visible — you are NOT restricted to the initial keyframes.
 4. If you have ≥ 2 plausible candidates after looking at the marks,
    call `inspect_proposal(proposal_id=K)` on each to disambiguate by
    category, score, or which other frames the proposal appears in.
@@ -34,8 +49,9 @@ mark the sample as failed if no proposal in the pool plausibly matches.
    its workflow before submitting.
 6. `submit_final({"proposal_id": K, "confidence": C}, rationale=...)`
    — the chassis validator will reject any unknown id and FAIL-LOUD.
-7. If the referent genuinely is not in the proposal pool, submit the
-   OOD marker (see "OOD handling" below).
+7. If the referent genuinely is not in the proposal pool **after**
+   exhausting same-category candidates and viewing 3+ frames, submit
+   the OOD marker (see "OOD handling" below).
 
 ## tool: list_keyframes_with_proposals
 
@@ -58,7 +74,10 @@ look-and-pick.
 
 ## tool: view_keyframe_marked
 
-Inputs: `frame_id: int` (must be a key in the frame index).
+Inputs: `frame_id: int` (must be a key in the **scene-wide frame
+index**, NOT just the initial 5 keyframes — the index covers every
+frame in the scene where at least one Mask3D proposal is visible,
+typically 50-300 frames per scene).
 
 Returns a text body summarizing the chosen frame:
 `frame_id=N marked image at <path>; visible_proposals=[...]; categories=[...]`.
@@ -68,10 +87,17 @@ Side effect: appends the annotated image path to
 updated. The chassis run loop will inject the actual pixel content on
 the next user message turn — you do not need to also request a crop.
 
+Use this aggressively for cross-frame navigation:
+1. `find_proposals_by_category("X")` → list of proposal ids for class X.
+2. `inspect_proposal(K)` → `frames_appeared = [...]` for proposal K.
+3. `view_keyframe_marked(frame_id=M)` for any M in `frames_appeared`,
+   even if M was not in the initial keyframes shown by
+   `list_keyframes_with_proposals`.
+
 Errors: `"ERROR: frame_id={N} not in proposal index; available: [...]"`
-if the frame has no proposals; `"ERROR: annotated image not found:
-{path}"` if the renderer hasn't produced the file (treat as a Stage 1
-data bug — switch to a different frame).
+— the error message lists the first 20 valid frame_ids; pick one of
+those instead of a random integer. `"ERROR: annotated image not found:
+{path}"` — treat as a Stage 1 data bug, switch to a different frame.
 
 ## tool: inspect_proposal
 
@@ -171,6 +197,17 @@ proposal-pool miss, not a model bug.
   clear category — it cheaply reduces a 200-id pool to 2-5 candidates.
 - Do NOT submit `proposal_id=-1` just because the first keyframe
   doesn't show the target. Try at least 2 keyframes first.
+- **Do NOT pick a proposal whose category obviously mismatches the
+  query just because it appears in the initial 5 keyframes.** If the
+  initial 5 carry no same-category candidate, navigate via
+  `find_proposals_by_category` → `inspect_proposal[K].frames_appeared`
+  → `view_keyframe_marked(frame_id=M)` to a frame that actually
+  shows your target. The initial keyframes are a starting point, not
+  a constraint.
+- **Do NOT submit `proposal_id=-1` if `find_proposals_by_category`
+  returned a non-empty list.** OOD only applies when no same-category
+  candidate exists in the entire pool — exploring frames beyond the
+  initial 5 first is mandatory.
 
 ## Examples
 
@@ -187,6 +224,38 @@ Query: "find the chair near the wall on the left."
    `inspect_proposal(proposal_id=9)` shows it is in the centre.
 5. `submit_final({"proposal_id": 4, "confidence": 0.85},
    rationale="chair against the left wall, visible in frame 12")`.
+
+### Example 1b: cross-frame navigation when initial 5 miss the target
+
+Query: "this is a brown wooden chair next to the kitchen counter."
+
+Initial 5 keyframes from Stage 1 happen to show the dining area
+without the kitchen.
+
+1. `list_keyframes_with_proposals()` — keyframes are frames `[42, 58,
+   71, 89, 102]`; their `visible_proposal_ids` cover dining-table-area
+   proposals like `[2, 5, 8, 11]` (categories: dining table, dining
+   chair, dining chair, lamp). No counter, no kitchen chair.
+2. `find_proposals_by_category("chair")` → `{"proposal_ids": [5, 8,
+   17, 23]}`. Two of those (`5, 8`) are dining chairs already
+   visible; `17, 23` are not in any of the initial 5 keyframes —
+   they're the kitchen chairs we want.
+3. `inspect_proposal(proposal_id=17)` → `frames_appeared=[155, 168,
+   201]`, category `chair`. `inspect_proposal(proposal_id=23)` →
+   `frames_appeared=[180, 199]`, category `chair`.
+4. `view_keyframe_marked(frame_id=155)` — annotates frame 155 (NOT
+   in the initial 5) and shows proposals `[17, 19]` over the kitchen
+   counter. The brown wooden chair is `17`.
+5. `view_keyframe_marked(frame_id=199)` — confirms `23` is also a
+   chair near the counter but plastic, not wooden.
+6. `submit_final({"proposal_id": 17, "confidence": 0.85},
+   rationale="brown wooden chair next to kitchen counter; verified
+   via cross-frame navigation to frame 155")`.
+
+The initial 5 keyframes did not contain proposal 17 or 23, but the
+agent recovered by category lookup → frames_appeared → cross-frame
+view. **This is the standard ReAct recovery; do not stop at the
+initial 5.**
 
 ### Example 2: OOD case
 
