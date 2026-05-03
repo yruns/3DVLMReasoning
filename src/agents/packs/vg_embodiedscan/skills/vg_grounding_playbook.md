@@ -18,26 +18,39 @@ mark the sample as failed if no proposal in the pool plausibly matches.
 ## Decision tree
 
 This is a ReAct loop. The 1-3 initial keyframes are a *starting point*,
-not the final evidence. You have **two independent escape hatches** when
-they don't show the target:
+not the final evidence. You have **four independent paths** to acquire
+fresh visual evidence when the initial keyframes don't show the target,
+ordered cheapest-first:
 
-- **`switch_or_expand_hypothesis(new_query="...")`** — calls Stage 1
-  again with a refined query string and **appends** new keyframes to
-  your bundle (1-3 more). Use this when the initial keyframes don't
-  cover the right *region* of the scene — e.g., Stage 1 mis-parsed the
-  utterance, or the target's category isn't represented in any of the
-  initial frames at all. This is the project's **Stage 2 → Stage 1
-  callback** (mirrors OpenEQA); use it freely.
-- **`view_keyframe_marked(frame_id=N)`** for any N in the scene-wide
-  frame index (typically 50-300 frames per scene). Use this when the
-  initial keyframes show the right region but not the specific
-  instance — e.g. you have category candidates from
+- **`view_keyframe_marked(frame_id=N)`** — instant. For any N in the
+  scene-wide frame index (typically 50-300 frames per scene). Use this
+  when the initial keyframes show the right *region* but not the
+  specific instance — e.g. you have category candidates from
   `find_proposals_by_category` and want to verify each in a frame
   where Mask3D actually marked it.
+- **`request_more_views(request_text, mode="targeted"|"explore"|"temporal_fan", object_terms=[...], frame_indices=[...])`**
+  — Stage-1 visibility-driven view fetch. Cheap (no LLM). Use when
+  you need additional views *centered on specific scene objects*
+  (`mode="targeted"` + object_terms), or when you want views maximally
+  different from what you've seen (`mode="explore"`), or temporal
+  neighbors of an anchor frame (`mode="temporal_fan"` + frame_indices).
+- **`request_crops(request_text, object_terms=[...])`** — generates
+  a zoomed-in red-bbox crop around each named scene object. Use when
+  the proposal is visible but small / occluded in the existing
+  frames. CLIP-fallback object matching, ~moderate cost.
+- **`switch_or_expand_hypothesis(new_query="...")`** — calls Stage 1
+  again with a refined query string and **appends** new keyframes
+  (1-3 more). Most expensive (LLM hypothesis parse). Use as last
+  resort when the initial keyframes don't cover the right *region*
+  of the scene at all — e.g. Stage 1 mis-parsed the utterance, or
+  the target's category isn't represented in any of the initial
+  frames AND `find_proposals_by_category` returned nothing useful.
+  This is the project's **Stage 2 → Stage 1 callback** loop (mirrors
+  OpenEQA).
 
-Keep iterating with these two tools until you actually see the target
+Keep iterating with these four tools until you actually see the target
 clearly, or until you have proven the referent is not in the proposal
-pool.
+pool. Prefer cheaper paths first.
 
 1. `list_keyframes_with_proposals()` — see which **initial** keyframes
    carry which proposal ids and how many proposals each frame shows.
