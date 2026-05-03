@@ -17,30 +17,49 @@ mark the sample as failed if no proposal in the pool plausibly matches.
 
 ## Decision tree
 
-This is a ReAct loop. The 5 initial keyframes are a *starting point*,
-not the final evidence — `view_keyframe_marked` works on ANY frame in
-the scene where Mask3D has at least one proposal (typically 50-300
-frames per scene), so keep exploring until you actually see the target,
-or until you have proven the referent is not in the proposal pool.
+This is a ReAct loop. The 1-3 initial keyframes are a *starting point*,
+not the final evidence. You have **two independent escape hatches** when
+they don't show the target:
+
+- **`switch_or_expand_hypothesis(new_query="...")`** — calls Stage 1
+  again with a refined query string and **appends** new keyframes to
+  your bundle (1-3 more). Use this when the initial keyframes don't
+  cover the right *region* of the scene — e.g., Stage 1 mis-parsed the
+  utterance, or the target's category isn't represented in any of the
+  initial frames at all. This is the project's **Stage 2 → Stage 1
+  callback** (mirrors OpenEQA); use it freely.
+- **`view_keyframe_marked(frame_id=N)`** for any N in the scene-wide
+  frame index (typically 50-300 frames per scene). Use this when the
+  initial keyframes show the right region but not the specific
+  instance — e.g. you have category candidates from
+  `find_proposals_by_category` and want to verify each in a frame
+  where Mask3D actually marked it.
+
+Keep iterating with these two tools until you actually see the target
+clearly, or until you have proven the referent is not in the proposal
+pool.
 
 1. `list_keyframes_with_proposals()` — see which **initial** keyframes
    carry which proposal ids and how many proposals each frame shows.
 2. **Identify target category and find ALL same-category candidates
    scene-wide** — call `find_proposals_by_category("<category>")`. The
    returned `proposal_ids` cover the whole scene's Mask3D pool, not
-   just the 5 keyframes.
+   just the initial keyframes.
 3. **Decide where to look:**
-   - If the initial 5 keyframes contain ≥ 1 same-category candidate
+   - If the initial keyframes contain ≥ 1 same-category candidate
      (overlap between their `visible_proposal_ids` and step-2 ids):
      `view_keyframe_marked(frame_id=N)` on those frames.
-   - **If the initial 5 keyframes carry NO same-category candidate**
-     (Stage 1 picked frames that don't show your target category at
-     all — common on multi-instance VG queries), do **not** stop. Pick
-     2-3 candidates from step-2's pool, call
-     `inspect_proposal(proposal_id=K)` on each to read its
-     `frames_appeared`, then `view_keyframe_marked(frame_id=M)` on
-     those frames. M can be any frame in the scene where the proposal
-     is visible — you are NOT restricted to the initial keyframes.
+   - If the initial keyframes carry NO same-category candidate but
+     `find_proposals_by_category` returned a non-empty list (the
+     candidates exist in the pool, just not in your initial frames):
+     navigate via `inspect_proposal(K)` → `frames_appeared` →
+     `view_keyframe_marked(frame_id=M)` on those frames.
+   - If `find_proposals_by_category` ALSO returned an empty list (no
+     candidate of that category anywhere in the pool), use
+     `switch_or_expand_hypothesis(new_query="<a more general or
+     synonymous phrasing of the utterance>")` to ask Stage 1 for
+     entirely new keyframes. Stage 1's hypothesis parser may catch a
+     synonym or attribute the original parse missed.
 4. If you have ≥ 2 plausible candidates after looking at the marks,
    call `inspect_proposal(proposal_id=K)` on each to disambiguate by
    category, score, or which other frames the proposal appears in.
@@ -50,8 +69,9 @@ or until you have proven the referent is not in the proposal pool.
 6. `submit_final({"proposal_id": K, "confidence": C}, rationale=...)`
    — the chassis validator will reject any unknown id and FAIL-LOUD.
 7. If the referent genuinely is not in the proposal pool **after**
-   exhausting same-category candidates and viewing 3+ frames, submit
-   the OOD marker (see "OOD handling" below).
+   exhausting same-category candidates, viewing 3+ frames, AND trying
+   at least one `switch_or_expand_hypothesis` rewrite, submit the OOD
+   marker (see "OOD handling" below).
 
 ## tool: list_keyframes_with_proposals
 

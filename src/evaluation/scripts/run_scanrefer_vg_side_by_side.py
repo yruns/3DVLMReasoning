@@ -8,6 +8,7 @@ import hashlib
 import json
 import math
 import statistics
+import threading
 import time
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -21,6 +22,51 @@ from benchmarks.embodiedscan_eval import compute_oriented_iou_3d
 BackendName = Literal["pack_v1"]
 Stage2DeepResearchAgent: Any | None = None
 build_pack_v1_bundle: Any | None = None
+
+# Per-scene KeyframeSelector cache for the Stage 2 → Stage 1 callback loop.
+# Each scene's selector loads pcd + enriched_objects + visibility (~1-3s) and
+# is reused across all workers/samples in the same scene.
+_SELECTOR_CACHE: dict[str, Any] = {}
+_SELECTOR_CACHE_LOCK = threading.Lock()
+_SELECTOR_BUILD_LOCKS: dict[str, threading.Lock] = {}
+
+
+def _get_or_build_keyframe_selector(
+    scene_id: str,
+    phase8_data_root: Path,
+    llm_model: str = "gemini-2.5-pro",
+) -> Any | None:
+    """Return a cached KeyframeSelector for `scene_id`, or build one lazily.
+
+    Returns None when the scene has no enriched_objects.json (callback should
+    be disabled for that scene; gt_target back-compat). Thread-safe via a
+    per-scene build lock so concurrent workers don't double-instantiate.
+    """
+    with _SELECTOR_CACHE_LOCK:
+        if scene_id in _SELECTOR_CACHE:
+            return _SELECTOR_CACHE[scene_id]
+        build_lock = _SELECTOR_BUILD_LOCKS.setdefault(scene_id, threading.Lock())
+
+    with build_lock:
+        # Re-check inside the per-scene lock in case another worker built it
+        with _SELECTOR_CACHE_LOCK:
+            if scene_id in _SELECTOR_CACHE:
+                return _SELECTOR_CACHE[scene_id]
+
+        cg_root = phase8_data_root / scene_id / "conceptgraph"
+        enriched = cg_root / "enriched_objects.json"
+        if not enriched.exists():
+            with _SELECTOR_CACHE_LOCK:
+                _SELECTOR_CACHE[scene_id] = None
+            return None
+
+        from query_scene.keyframe_selector import KeyframeSelector
+        selector = KeyframeSelector.from_scene_path(
+            str(cg_root), stride=10, llm_model=llm_model,
+        )
+        with _SELECTOR_CACHE_LOCK:
+            _SELECTOR_CACHE[scene_id] = selector
+        return selector
 
 
 @dataclass(frozen=True)
@@ -213,6 +259,8 @@ def run_pack_v1_sample(
     config: Stage2DeepAgentConfig,
     *,
     pack_name: str = "pack_scanrefer_v1",
+    phase8_data_root: Path = Path("data/nr3d/scannet"),
+    enable_stage1_callback: bool = True,
 ) -> Any:
     bundle = build_pack_v1_bundle_from_sample(sample, data_root, pack_name=pack_name)
     task = Stage2TaskSpec(
@@ -223,7 +271,25 @@ def run_pack_v1_sample(
     if agent_cls is None:
         from agents.stage2_deep_agent import Stage2DeepResearchAgent as agent_cls
 
-    agent = agent_cls(config=config)
+    # Wire Stage 2 → Stage 1 callback so the agent can request fresh keyframes
+    # when initial evidence is insufficient. Mirrors the OpenEQA pipeline:
+    # switch_or_expand_hypothesis(new_query=...) → KeyframeSelector.select_keyframes_v2.
+    # This iterative retrieval loop is the project's key innovation vs one-shot
+    # Camp-A baselines (Z3D / ZSVG3D / SeeGround / CSVG).
+    hypothesis_callback = None
+    if enable_stage1_callback:
+        scene_id = str(sample["scene_id"])
+        selector = _get_or_build_keyframe_selector(scene_id, phase8_data_root)
+        if selector is not None:
+            from agents.stage1_callbacks import create_hypothesis_callback
+            hypothesis_callback = create_hypothesis_callback(
+                selector, scene_id=scene_id, max_new_keyframes=3,
+            )
+
+    agent = agent_cls(
+        config=config,
+        hypothesis_callback=hypothesis_callback,
+    )
     return agent.run(task=task, bundle=bundle)
 
 

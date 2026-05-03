@@ -256,16 +256,16 @@ def _select_keyframes(
         scene_id=request.scene_id,
         query=sample.query,
         raw_frames_root=raw_frames_root,
-        k=5,
+        k=3,  # OpenEQA-aligned: Stage 1 returns 1-3 KFs; agent calls switch_or_expand_hypothesis to refresh
     )
     if kfs:
         return kfs, False
-    # Fallback: top-5 frames by Mask3D candidate density (proposal-aware, query-blind)
+    # Fallback: top-3 frames by Mask3D candidate density (proposal-aware, query-blind)
     return _fallback_top5_by_mask3d_density(
         scene_id=request.scene_id,
         scene_artifacts=scene_artifacts,
         raw_frames_root=raw_frames_root,
-        k=5,
+        k=3,
     ), True
 
 
