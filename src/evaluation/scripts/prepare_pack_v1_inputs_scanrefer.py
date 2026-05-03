@@ -111,6 +111,23 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--pack-name", default="pack_scanrefer_v1")
     parser.add_argument("--split", default="val", choices=["train", "val"])
     parser.add_argument("--max-samples", type=int, default=None)
+    parser.add_argument(
+        "--keyframe-mode",
+        default="gt_target",
+        choices=["gt_target", "query_driven"],
+        help=(
+            "How to pick the 5 initial RGB keyframes per query. "
+            "'gt_target' (v1/v2 default): top-5 frames where the GT "
+            "target_id is most visible (a GT view oracle). "
+            "'query_driven' (v3): KeyframeSelector.select_keyframes_v2(query, k=5) "
+            "with use_visual_context=False — same hypothesis-driven entry OpenEQA uses."
+        ),
+    )
+    parser.add_argument(
+        "--keyframe-llm-model",
+        default="gemini-2.5-pro",
+        help="LLM for hypothesis parsing in query_driven mode (ignored otherwise).",
+    )
     return parser.parse_args()
 
 
@@ -124,7 +141,14 @@ def prepare_pack_v1_inputs_scanrefer(
     phase8_data_root: Path = Path("data/nr3d/scannet"),
     raw_frames_root: Path = Path("data/nr3d/scannet"),
     max_samples: int | None = None,
+    keyframe_mode: str = "gt_target",
+    keyframe_llm_model: str = "gemini-2.5-pro",
 ) -> list[Path]:
+    if keyframe_mode not in ("gt_target", "query_driven"):
+        raise ValueError(
+            f"keyframe_mode must be 'gt_target' or 'query_driven', got {keyframe_mode!r}"
+        )
+
     requests = load_sample_requests(sample_ids_path)
     if max_samples is not None:
         if max_samples <= 0:
@@ -141,6 +165,8 @@ def prepare_pack_v1_inputs_scanrefer(
     sample_lookup: dict[str, ScanRefVGSample] = {s.sample_id: s for s in ds}
 
     scene_artifacts: dict[str, SceneArtifacts] = {}
+    selector_cache: dict[str, Any] = {}  # scene_id -> KeyframeSelector (lazy)
+    fallback_count = 0
     written: list[Path] = []
     for request in requests:
         sample = sample_lookup.get(request.sample_id)
@@ -155,6 +181,18 @@ def prepare_pack_v1_inputs_scanrefer(
                 raw_frames_root=raw_frames_root,
                 pack_name=pack_name,
             )
+        keyframes, used_fallback = _select_keyframes(
+            request=request,
+            sample=sample,
+            raw_frames_root=raw_frames_root,
+            phase8_data_root=phase8_data_root,
+            scene_artifacts=scene_artifacts[request.scene_id],
+            keyframe_mode=keyframe_mode,
+            keyframe_llm_model=keyframe_llm_model,
+            selector_cache=selector_cache,
+        )
+        if used_fallback:
+            fallback_count += 1
         written.append(
             write_sample_artifact(
                 request=request,
@@ -162,9 +200,73 @@ def prepare_pack_v1_inputs_scanrefer(
                 data_root=data_root,
                 raw_frames_root=raw_frames_root,
                 scene_artifacts=scene_artifacts[request.scene_id],
+                keyframes=keyframes,
+                keyframe_mode=keyframe_mode,
             )
         )
+    if keyframe_mode == "query_driven":
+        from loguru import logger
+        logger.info(
+            "[prepare_pack_v1_inputs_scanrefer] query_driven mode: "
+            "{}/{} samples used Mask3D-density fallback ({:.2%})",
+            fallback_count, len(requests),
+            fallback_count / max(len(requests), 1),
+        )
     return written
+
+
+def _select_keyframes(
+    *,
+    request: SampleRequest,
+    sample: ScanRefVGSample,
+    raw_frames_root: Path,
+    phase8_data_root: Path,
+    scene_artifacts: SceneArtifacts,
+    keyframe_mode: str,
+    keyframe_llm_model: str,
+    selector_cache: dict[str, Any],
+) -> tuple[list[dict[str, Any]], bool]:
+    """Dispatch keyframe selection by mode. Returns (keyframes, used_fallback)."""
+    if keyframe_mode == "gt_target":
+        kfs = select_keyframes_from_phase8_target(
+            scene_id=request.scene_id,
+            target_id=request.target_id,
+            raw_frames_root=phase8_data_root,
+            k=5,
+        )
+        return kfs, False
+
+    # query_driven path
+    selector = selector_cache.get(request.scene_id)
+    if selector is None:
+        from loguru import logger
+        from query_scene.keyframe_selector import KeyframeSelector
+        scene_cg_root = phase8_data_root / request.scene_id / "conceptgraph"
+        logger.info(
+            "[prepare_pack_v1_inputs_scanrefer] building Stage1 KeyframeSelector "
+            "for {} (LLM={})",
+            request.scene_id, keyframe_llm_model,
+        )
+        selector = KeyframeSelector.from_scene_path(
+            str(scene_cg_root), stride=10, llm_model=keyframe_llm_model,
+        )
+        selector_cache[request.scene_id] = selector
+    kfs = select_keyframes_query_driven(
+        selector=selector,
+        scene_id=request.scene_id,
+        query=sample.query,
+        raw_frames_root=raw_frames_root,
+        k=5,
+    )
+    if kfs:
+        return kfs, False
+    # Fallback: top-5 frames by Mask3D candidate density (proposal-aware, query-blind)
+    return _fallback_top5_by_mask3d_density(
+        scene_id=request.scene_id,
+        scene_artifacts=scene_artifacts,
+        raw_frames_root=raw_frames_root,
+        k=5,
+    ), True
 
 
 def prepare_scene_artifacts(
@@ -280,13 +382,17 @@ def build_proposals_from_mask3d_objects(
 def write_sample_artifact(
     *, request: SampleRequest, sample: ScanRefVGSample,
     data_root: Path, raw_frames_root: Path, scene_artifacts: SceneArtifacts,
+    keyframes: list[dict[str, Any]] | None = None,
+    keyframe_mode: str = "gt_target",
 ) -> Path:
-    keyframes = select_keyframes_from_phase8_target(
-        scene_id=request.scene_id,
-        target_id=request.target_id,
-        raw_frames_root=raw_frames_root,
-        k=5,
-    )
+    if keyframes is None:
+        # Back-compat: original signature picks GT-target keyframes inline.
+        keyframes = select_keyframes_from_phase8_target(
+            scene_id=request.scene_id,
+            target_id=request.target_id,
+            raw_frames_root=raw_frames_root,
+            k=5,
+        )
     normalized = normalize_prepared_keyframes(keyframes, scene_artifacts.annotated_dir)
     gt_bbox = validate_bbox_9dof(sample.gt_bbox_3d, f"{request.sample_id}.gt_bbox_3d_9dof")
     payload = {
@@ -301,6 +407,7 @@ def write_sample_artifact(
         "scene_artifacts_dir": str(scene_artifacts.scene_dir),
         "source": "conceptgraph",
         "proposal_provenance": "mask3d",
+        "keyframe_mode": keyframe_mode,
         "keyframes": normalized,
     }
     path = sample_artifact_path(data_root, request,
@@ -315,12 +422,15 @@ def select_keyframes_from_phase8_target(
     *, scene_id: str, target_id: int,
     raw_frames_root: Path, k: int = 5,
 ) -> list[dict[str, Any]]:
-    """Pick top-k frames where the Phase 8 GT target is most visible.
+    """v1/v2 GT-view-oracle path. Pick top-k frames where the Phase 8
+    GT target is most visible.
 
     Uses the Phase 8 visibility index at
     data/nr3d/scannet/<scene>/conceptgraph/indices/visibility_index.pkl
     (note: NOT the Mask3D-CG visibility — keyframe choice is GT-driven so
     the agent sees frames where the target object is actually present).
+    Carries a GT view oracle: see v3 query_driven mode for the apples-to-
+    apples Camp-A path.
     """
     phase8_vis_path = raw_frames_root / scene_id / VIS_REL
     if not phase8_vis_path.exists():
@@ -335,6 +445,68 @@ def select_keyframes_from_phase8_target(
         )
     keyframes = []
     for kfi, (frame_id, _score) in enumerate(views[:k]):
+        keyframes.append({
+            "keyframe_idx": kfi,
+            "image_path": str(_resolve_raw_rgb_path(
+                raw_frames_root / scene_id, int(frame_id)
+            )),
+            "frame_id": int(frame_id),
+        })
+    return keyframes
+
+
+def select_keyframes_query_driven(
+    *, selector: Any, scene_id: str, query: str,
+    raw_frames_root: Path, k: int = 5,
+) -> list[dict[str, Any]]:
+    """v3 query-driven path. Calls KeyframeSelector.select_keyframes_v2
+    with hypothesis-driven retrieval (the same entry OpenEQA pilot uses)
+    and returns frame_ids resolved to raw RGB paths.
+
+    `use_visual_context=False` because ScanNet `_vh_clean.ply` mesh isn't
+    available locally for BEV synthesis — text-only hypothesis parse.
+    Returns [] when Stage 1 finds no executable hypothesis (caller should
+    fall back via _fallback_top5_by_mask3d_density).
+    """
+    from loguru import logger
+    res = selector.select_keyframes_v2(
+        query=query, k=k, use_visual_context=False,
+    )
+    if not res.keyframe_indices:
+        logger.warning(
+            "[select_keyframes_query_driven] empty Stage1 result for {} "
+            "query={!r} (target={!r})",
+            scene_id, query, res.target_term,
+        )
+        return []
+    keyframes = []
+    for kfi, frame_id in enumerate(res.keyframe_indices[:k]):
+        keyframes.append({
+            "keyframe_idx": kfi,
+            "image_path": str(_resolve_raw_rgb_path(
+                raw_frames_root / scene_id, int(frame_id)
+            )),
+            "frame_id": int(frame_id),
+        })
+    return keyframes
+
+
+def _fallback_top5_by_mask3d_density(
+    *, scene_id: str, scene_artifacts: SceneArtifacts,
+    raw_frames_root: Path, k: int = 5,
+) -> list[dict[str, Any]]:
+    """Empty-Stage1 fallback: top-k frames ranked by number of Mask3D
+    candidates visible. Query-blind but proposal-aware — preserves a
+    visual prior without leaking GT.
+    """
+    ranked = sorted(
+        scene_artifacts.frame_visibility.items(),
+        key=lambda kv: -len(kv[1]),
+    )[:k]
+    if not ranked:
+        raise ValueError(f"no Mask3D-visible frames for fallback in {scene_id}")
+    keyframes = []
+    for kfi, (frame_id, _) in enumerate(ranked):
         keyframes.append({
             "keyframe_idx": kfi,
             "image_path": str(_resolve_raw_rgb_path(
@@ -496,9 +668,12 @@ def main() -> None:
         phase8_data_root=args.phase8_data_root,
         raw_frames_root=args.raw_frames_root,
         max_samples=args.max_samples,
+        keyframe_mode=args.keyframe_mode,
+        keyframe_llm_model=args.keyframe_llm_model,
     )
     print(f"wrote {len(written)} sample artifacts under "
-          f"{args.data_root}/<scene>/{args.pack_name}/")
+          f"{args.data_root}/<scene>/{args.pack_name}/  "
+          f"(keyframe_mode={args.keyframe_mode})")
 
 
 if __name__ == "__main__":
