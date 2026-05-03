@@ -2,11 +2,13 @@
 
 ScanRefer detection-mode evaluation on the canonical full val set (9508
 utterances on 141 scenes), Mask3D ScanNet200 pool from ZSVG3D's
-distribution, gpt-5.4-2026-03-05 zero-shot agent. **Camp-A SOTA across
-all 6 columns** (Z3D +10 pp on Acc@0.50). v2 fixed a GT-bbox-source
-bug carried by v1 (see "Audit trail" section below); same agent
-decisions, only the GT side of every IoU was recomputed against
-ScanNet aggregation-derived bboxes.
+distribution, gpt-5.4-2026-03-05 agent. Beats every Camp-A baseline on
+all 6 columns (Z3D +10 pp on Acc@0.50), **but the keyframe selector
+uses a GT view oracle — see § Caveats below; numbers are not directly
+comparable to zero-shot Camp-A methods until v3 query-driven**. v2
+fixed a GT-bbox-source bug carried by v1 (see "Audit trail" section
+below); same agent decisions, only the GT side of every IoU was
+recomputed against ScanNet aggregation-derived bboxes.
 
 ## Headline
 
@@ -18,6 +20,16 @@ ScanNet aggregation-derived bboxes.
 mean IoU (overall) = **0.6022** · n_total = 9508 (Unique = 2582,
 Multiple = 6926) · failed sentinels = 205 / 9508 (2.16 %, counted as
 iou = 0).
+
+> ⚠ **GT view oracle in keyframe selection.** The 5 initial RGB
+> keyframes per query are selected by Phase 8 visibility of the GT
+> `target_id`, not by a query-driven Stage 1 retrieval. The target
+> object is therefore guaranteed to appear in the initial visual
+> evidence. This is GT-assisted evidence selection (a view oracle),
+> not full label leakage — agent still picks the proposal id from the
+> Mask3D pool. The numbers above are best read as a **controlled
+> upper bound on agent picking ability under GT-visible RGB**. The
+> planned v3 query-driven track removes the oracle. See § Caveats.
 
 ## Run Identity
 
@@ -86,6 +98,31 @@ metric improvement is fully attributable to the GT-bbox source change.
 
 ## Caveats
 
+- **GT view oracle in keyframe selection (paper-comparability)** —
+  pack-prep picks the 5 initial RGB keyframes via Phase 8 visibility
+  of the GT `target_id` (`select_keyframes_from_phase8_target` in
+  `src/evaluation/scripts/prepare_pack_v1_inputs_scanrefer.py`,
+  decision #2 in the v1 spec). This bypasses query-driven Stage 1
+  retrieval and guarantees the target object appears in the initial
+  visual evidence. The agent still picks `proposal_id` from the
+  Mask3D pool — `proposal_id` is not leaked. But the ranking of
+  RGB views is GT-driven, which dramatically reduces retrieval
+  difficulty (especially in the Multiple split, where same-category
+  distractors otherwise compete for view-budget).
+  - Z3D / SeeGround / ZSVG3D / CSVG do **not** use a GT view oracle:
+    Z3D and ZSVG3D do proposal-driven multi-view rendering; SeeGround
+    uses query-aligned synthetic rendering; CSVG is pure 3D+text. So
+    v2's per-column wins over those baselines are **not apples-to-
+    apples** as a zero-shot Camp-A comparison.
+  - OpenEQA's pack-prep correctly uses
+    `query_scene.keyframe_selector.select_keyframes_v2(query, ...)`
+    — hypothesis-driven, no GT lookup. The Stage 1 → Stage 2
+    architecture stated in `CLAUDE.md` (`Hypothesis as soft prior`,
+    `Evidence-seeking`) is what v3 will restore.
+  - Treat v2 as a **controlled upper bound** on agent picking ability
+    under GT-visible RGB, useful as an ablation against v3 (planned)
+    to quantify how much of the Multiple-class gain is the agent vs
+    the view oracle.
 - **Mask3D pool quality bound**: oracle ceiling at Acc@0.50 = 84.77 %
   represents Mask3D's segmentation accuracy, not a GT issue. Higher
   numbers would require a better detector (V-DETR / BIP3D / ...).

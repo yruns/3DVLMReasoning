@@ -33,13 +33,16 @@ Source: https://kaldir.vc.in.tum.de/scanrefer_benchmark/benchmark_localization
 | SeeGround / Qwen2-VL-72B | CVPR 2025 | 75.7 | 68.9 | 34.0 | 30.0 | 44.1 | 39.4 |
 | VLM-Grounder (250 sub-sample) | CoRL 2024 | 66.0 | 29.8 | 48.3 | 33.5 | 51.6 | 32.8 |
 | Z3D (Mask3D row) | 2026 arXiv | 82.3 | 74.8 | 51.5 | 45.7 | 58.9 | 52.7 |
-| **Ours v2 (gpt-5.4)** | this work | **83.11** | **76.49** | **65.00** | **57.68** | **69.92** | **62.79** |
-| Ours v1 (gpt-5.4) [†] | this work | 62.97 | 25.41 | 47.43 | 12.79 | 51.65 | 16.22 |
+| **Ours v2 (gpt-5.4) [‡]** | this work | **83.11** | **76.49** | **65.00** | **57.68** | **69.92** | **62.79** |
+| Ours v1 (gpt-5.4) [†][‡] | this work | 62.97 | 25.41 | 47.43 | 12.79 | 51.65 | 16.22 |
 
-**v2 is the paper-comparable headline** — same v1 agent decisions
+**v2's GT bbox source is paper-comparable** — same v1 agent decisions
 re-aggregated against ScanNet aggregation-derived GT (the bbox source
 that Mask3D was trained against and that all other rows in this table
-use). Camp-A SOTA across every column. See
+use). However, the keyframe selector uses a GT view oracle (see [‡]
+below), so v2's wins over zero-shot Camp-A baselines are **not**
+directly comparable. The planned v3 query-driven track will produce
+the apples-to-apples headline. See
 [`v2_aggregation_gt_track_20260503.md`](v2_aggregation_gt_track_20260503.md).
 
 [†] **v1 GT bbox not paper-comparable.** v1 uses Phase 8 GT-CG bbox
@@ -47,3 +50,17 @@ use). Camp-A SOTA across every column. See
 other rows use). Oracle-picker ceiling on v1 is Acc@0.50 = 20.53 %;
 v1 is preserved as audit trail in `runs.sqlite`. Full diagnosis in
 [v2 doc § Audit trail](v2_aggregation_gt_track_20260503.md#audit-trail--why-v2-exists).
+
+[‡] **GT view oracle in keyframe selection.** Both v1 and v2 select
+the 5 initial RGB keyframes via Phase 8 visibility of the GT
+`target_id` (`select_keyframes_from_phase8_target`), not via
+query-driven Stage 1 retrieval. This guarantees the target object
+appears in the initial RGB evidence and is a form of GT-assisted
+evidence selection (a view oracle, not full label leakage — `proposal_id`
+is still picked from the Mask3D pool). Z3D / SeeGround / ZSVG3D / CSVG
+do not use a GT view oracle, so per-column wins above are not
+apples-to-apples as a zero-shot Camp-A comparison. The v3 query-driven
+track will swap the selector for
+`query_scene.keyframe_selector.select_keyframes_v2(query, ...)` — the
+hypothesis-driven entry OpenEQA already uses. Detailed discussion in
+[v2 doc § Caveats](v2_aggregation_gt_track_20260503.md#caveats).
