@@ -33,7 +33,8 @@ CREATE TABLE IF NOT EXISTS runs (
     judge_model     TEXT,
     started_at      REAL,
     ingested_at     REAL NOT NULL,
-    notes           TEXT
+    notes           TEXT,
+    keyframe_mode   TEXT
 );
 
 CREATE TABLE IF NOT EXISTS samples (
@@ -113,6 +114,7 @@ def ingest(
     backend: str = "pack_v1",
     judge_model: str | None = None, notes: str | None = None,
     leaderboard_metrics_path: Path | None = None,
+    keyframe_mode: str | None = None,
 ) -> None:
     side_by_side_path = output_dir / "side_by_side.json"
     if not side_by_side_path.exists():
@@ -140,7 +142,12 @@ def ingest(
     conn = sqlite3.connect(str(db_path))
     try:
         conn.executescript(SCHEMA)
+        # Idempotent migration: add keyframe_mode column to pre-existing dbs.
         cur = conn.cursor()
+        cur.execute("PRAGMA table_info(runs)")
+        existing_cols = {row[1] for row in cur.fetchall()}
+        if "keyframe_mode" not in existing_cols:
+            cur.execute("ALTER TABLE runs ADD COLUMN keyframe_mode TEXT")
         cur.execute(
             """INSERT OR REPLACE INTO runs (
                 run_id, branch, commit_hash, output_dir, backend,
@@ -149,8 +156,8 @@ def ingest(
                 acc25_unique, acc50_unique,
                 acc25_multiple, acc50_multiple,
                 mean_iou_overall,
-                judge_model, started_at, ingested_at, notes
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                judge_model, started_at, ingested_at, notes, keyframe_mode
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 run_id, branch, commit_hash, str(output_dir), backend,
                 leaderboard.get("n_total") if leaderboard else None,
@@ -163,7 +170,7 @@ def ingest(
                 leaderboard.get("acc25_multiple") if leaderboard else None,
                 leaderboard.get("acc50_multiple") if leaderboard else None,
                 leaderboard.get("mean_iou_overall") if leaderboard else None,
-                judge_model, None, time.time(), notes,
+                judge_model, None, time.time(), notes, keyframe_mode,
             ),
         )
         cur.execute("DELETE FROM samples WHERE run_id=?", (run_id,))
@@ -217,12 +224,19 @@ def main() -> None:
     p.add_argument("--notes", default=None)
     p.add_argument("--leaderboard-metrics", default=None, type=Path,
                    help="optional path to leaderboard_metrics.json")
+    p.add_argument(
+        "--keyframe-mode", default=None,
+        choices=["gt_target", "query_driven"],
+        help="How keyframes were selected during pack-prep. v1/v2 used "
+             "gt_target (GT view oracle); v3 uses query_driven.",
+    )
     args = p.parse_args()
     ingest(
         db_path=args.db, output_dir=args.output_dir, run_id=args.run_id,
         branch=args.branch, commit_hash=args.commit_hash, backend=args.backend,
         judge_model=args.judge_model, notes=args.notes,
         leaderboard_metrics_path=args.leaderboard_metrics,
+        keyframe_mode=args.keyframe_mode,
     )
 
 
