@@ -210,6 +210,113 @@ def _read_pack_sample(data_root: Path, pack_name: str, sample_id: str) -> dict:
     return json.loads(p.read_text(encoding="utf-8"))
 
 
+def _extract_cvra_telemetry(
+    tool_trace: list[dict],
+    cvra_addressable_for_sample: dict | None = None,
+) -> dict:
+    """Walk a per-sample tool_trace and extract CVRA telemetry from
+    every find_proposals_by_category call.
+
+    Returns a dict with:
+      - cvra_aug_count: int — total clip_visible_aug entries across all calls
+      - cvra_overflow_count: int — entries with cvra_overflow=True
+      - cvra_aug_pids: list[int] — sorted union of clip_visible_aug pids
+      - cvra_label_hit_pids: list[int] — sorted union of label_hits pids
+      - cvra_find_calls: int — number of find_proposals_by_category calls
+      - cvra_exhausted: bool — any call surfaced cvra_exhausted=True
+      - clip_visible_aug_included_gt_overlap: bool | None — True iff
+        cvra_addressable_for_sample is provided AND any of its
+        gt_overlap_pids appears in cvra_aug_pids ∪ cvra_label_hit_pids.
+        None when addressable record is missing.
+
+    The telemetry is computed independently of CVRA being enabled at
+    runtime: a trace from a CVRA-off run will yield zeros across the
+    board (no `clip_visible_aug` payload). This makes the field safe
+    to emit on every funnel run.
+    """
+    aug_pids: set[int] = set()
+    label_pids: set[int] = set()
+    aug_count = 0
+    overflow_count = 0
+    find_calls = 0
+    cvra_exhausted = False
+    for t in tool_trace or []:
+        if t.get("tool_name") != "find_proposals_by_category":
+            continue
+        find_calls += 1
+        try:
+            payload = json.loads(t.get("response_text") or "{}")
+        except (json.JSONDecodeError, TypeError):
+            continue
+        if not isinstance(payload, dict):
+            continue
+        for entry in payload.get("clip_visible_aug") or []:
+            if not isinstance(entry, dict):
+                continue
+            pid = entry.get("proposal_id")
+            if isinstance(pid, int):
+                aug_pids.add(pid)
+            aug_count += 1
+            if entry.get("cvra_overflow") is True:
+                overflow_count += 1
+        for entry in payload.get("label_hits") or []:
+            if not isinstance(entry, dict):
+                continue
+            pid = entry.get("proposal_id")
+            if isinstance(pid, int):
+                label_pids.add(pid)
+        if payload.get("cvra_exhausted") is True:
+            cvra_exhausted = True
+
+    included: bool | None = None
+    if cvra_addressable_for_sample is not None:
+        gt_pids = set(cvra_addressable_for_sample.get("gt_overlap_pids") or [])
+        if gt_pids:
+            included = bool(gt_pids & (aug_pids | label_pids))
+
+    return {
+        "cvra_find_calls": find_calls,
+        "cvra_aug_count": aug_count,
+        "cvra_overflow_count": overflow_count,
+        "cvra_aug_pids": sorted(aug_pids),
+        "cvra_label_hit_pids": sorted(label_pids),
+        "cvra_exhausted": cvra_exhausted,
+        "clip_visible_aug_included_gt_overlap": included,
+    }
+
+
+def _load_cvra_addressable_audit(path: Path | None) -> dict[str, dict]:
+    """Load a sidecar audit JSON mapping sample_id -> {gt_overlap_pids: [..]}.
+
+    Used to compute clip_visible_aug_included_gt_overlap per sample
+    (spec § L PASS-gate retrieval-recall metric). Format:
+
+        {
+          "sample_id": {
+            "gt_overlap_pids": [int, ...],   # proposal ids whose 3D bbox
+                                              # IoU >= 0.25 with GT bbox
+            ...
+          },
+          ...
+        }
+
+    The format is deliberately minimal so this can be derived from any
+    upstream addressability audit (currently
+    tmp/cvra_addressable_audit_v2.md / .json sidecar). When path is
+    None, the funnel emits None for the included field on every sample.
+    """
+    if path is None:
+        return {}
+    if not path.exists():
+        raise FileNotFoundError(f"CVRA addressable audit JSON missing: {path}")
+    raw = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(raw, dict):
+        raise ValueError(
+            f"CVRA addressable audit JSON must be a dict[sample_id -> ...]: {path}"
+        )
+    return raw
+
+
 # ---------------------------------------------------------------------
 # F0 — query-parser fidelity (optional, --run-parser)
 # ---------------------------------------------------------------------
@@ -346,6 +453,7 @@ def _parse_batch_concurrent(
     Cache hits are skipped (so re-runs after a crash are cheap).
     """
     from concurrent.futures import ThreadPoolExecutor, as_completed
+
     from loguru import logger as _flog
 
     pending = []
@@ -425,6 +533,7 @@ def evaluate(
     parser_model: str = "gemini-2.5-pro",
     parser_max_workers: int = 8,
     quiet_parser_logging: bool = True,
+    cvra_addressable_audit_path: Path | None = None,
 ) -> dict:
     fold = json.loads(sample_ids_path.read_text(encoding="utf-8"))
     if not isinstance(fold, list):
@@ -441,6 +550,14 @@ def evaluate(
         _load_parser_cache(parser_cache_path) if run_parser else {}
     )
     parser_by_scene: dict[str, Any] = {}
+
+    # CVRA addressable audit sidecar (optional). Maps sample_id ->
+    # {gt_overlap_pids: [int]} so we can compute the spec § L
+    # `clip_visible_aug_included_gt_overlap` PASS-gate metric per sample.
+    # When path is None or sample missing from the audit, the field is None.
+    cvra_addressable_audit = _load_cvra_addressable_audit(
+        cvra_addressable_audit_path
+    )
 
     # Optional pre-pass: parse all queries concurrently against the gemini
     # pool, then look up results in the per-sample loop below. This avoids
@@ -541,7 +658,6 @@ def evaluate(
             )
         proposals = mask3d_proposals[scene_id]
         view_to_objects = mask3d_view_to_objects[scene_id]
-        target_cat_tokens = _category_tokens(target_category)
         mask3d_pool_has_match = any(
             _category_match(p["label"], [target_category]) for p in proposals
         )
@@ -604,6 +720,15 @@ def evaluate(
                         _category_match(target_category, parser_categories)
                     )
 
+        # CVRA telemetry per spec § L. Always extracted (zero-cost when
+        # `clip_visible_aug` is absent, e.g. CVRA-off runs or pre-CVRA
+        # packs). When a CVRA addressable audit sidecar is provided,
+        # `clip_visible_aug_included_gt_overlap` is computed; otherwise None.
+        cvra = _extract_cvra_telemetry(
+            tool_trace,
+            cvra_addressable_for_sample=cvra_addressable_audit.get(sample_id),
+        )
+
         per_sample.append(
             {
                 "sample_id": sample_id,
@@ -640,6 +765,16 @@ def evaluate(
                 "parser_categories": parser_categories,
                 "parser_runtime_ms": parser_runtime_ms,
                 "parser_error": parser_error,
+                # CVRA telemetry (spec § L). Always emitted; zero when CVRA off.
+                "cvra_find_calls": cvra["cvra_find_calls"],
+                "cvra_aug_count": cvra["cvra_aug_count"],
+                "cvra_overflow_count": cvra["cvra_overflow_count"],
+                "cvra_aug_pids": cvra["cvra_aug_pids"],
+                "cvra_label_hit_pids": cvra["cvra_label_hit_pids"],
+                "cvra_exhausted": cvra["cvra_exhausted"],
+                "clip_visible_aug_included_gt_overlap": (
+                    cvra["clip_visible_aug_included_gt_overlap"]
+                ),
             }
         )
 
@@ -683,6 +818,35 @@ def evaluate(
         summary["n_F0_parser_target_matches_gt_category"] = f0_yes
         summary["n_F0_parser_evaluated"] = f0_evaluated
         summary["n_F0_parser_errors"] = f0_errors
+
+    # CVRA aggregate telemetry (always emitted)
+    summary["cvra_total_aug_emissions"] = sum(
+        r["cvra_aug_count"] for r in per_sample
+    )
+    summary["cvra_total_overflow_emissions"] = sum(
+        r["cvra_overflow_count"] for r in per_sample
+    )
+    summary["cvra_total_find_calls"] = sum(r["cvra_find_calls"] for r in per_sample)
+    summary["n_samples_with_cvra_aug"] = sum(
+        1 for r in per_sample if r["cvra_aug_count"] > 0
+    )
+    summary["n_samples_with_cvra_exhausted"] = sum(
+        1 for r in per_sample if r.get("cvra_exhausted")
+    )
+    if cvra_addressable_audit:
+        n_evaluated = sum(
+            1
+            for r in per_sample
+            if r.get("clip_visible_aug_included_gt_overlap") is not None
+        )
+        n_included = sum(
+            1
+            for r in per_sample
+            if r.get("clip_visible_aug_included_gt_overlap") is True
+        )
+        summary["n_clip_visible_aug_included_gt_overlap"] = n_included
+        summary["n_clip_visible_aug_evaluated"] = n_evaluated
+
     summary["pct"] = {k: f"{(v / n) * 100:.1f}%" for k, v in summary.items() if k.startswith("n_")}
 
     output = {
@@ -694,6 +858,9 @@ def evaluate(
         "run_parser": run_parser,
         "parser_model": parser_model if run_parser else None,
         "parser_cache_path": str(parser_cache_path) if (run_parser and parser_cache_path) else None,
+        "cvra_addressable_audit_path": (
+            str(cvra_addressable_audit_path) if cvra_addressable_audit_path else None
+        ),
         "summary": summary,
         "per_sample": per_sample,
     }
@@ -736,6 +903,40 @@ def _print_summary(report: dict) -> None:
             print(f"  (parser errors: {f0_err} / {n})")
         print(f"  (parser model: {report.get('parser_model')})")
         print(f"  (parser cache: {report.get('parser_cache_path')})")
+
+    # CVRA telemetry block (always emitted; values 0 when CVRA off)
+    cvra_total_aug = s.get("cvra_total_aug_emissions", 0)
+    cvra_total_overflow = s.get("cvra_total_overflow_emissions", 0)
+    n_with_aug = s.get("n_samples_with_cvra_aug", 0)
+    n_exhausted = s.get("n_samples_with_cvra_exhausted", 0)
+    if cvra_total_aug or report.get("cvra_addressable_audit_path"):
+        print()
+        print("  CVRA telemetry (find_proposals_by_category):")
+        print(
+            f"    samples with any clip_visible_aug:        "
+            f"{n_with_aug:3d} / {n:<3d} ({n_with_aug / n * 100:5.1f}%)"
+        )
+        print(
+            f"    total clip_visible_aug emissions:         {cvra_total_aug:5d}"
+        )
+        print(
+            f"    total cvra_overflow=True emissions:       {cvra_total_overflow:5d}"
+        )
+        print(
+            f"    samples with cvra_exhausted=True:         "
+            f"{n_exhausted:3d} / {n:<3d} ({n_exhausted / n * 100:5.1f}%)"
+        )
+        if report.get("cvra_addressable_audit_path"):
+            n_eval = s.get("n_clip_visible_aug_evaluated", 0)
+            n_inc = s.get("n_clip_visible_aug_included_gt_overlap", 0)
+            denom = n_eval if n_eval else 1
+            print(
+                f"    clip_visible_aug_included_gt_overlap:    "
+                f" {n_inc:3d} / {n_eval:<3d} ({n_inc / denom * 100:5.1f}%)"
+            )
+            print(
+                f"    (audit: {report['cvra_addressable_audit_path']})"
+            )
 
 
 def main() -> None:
@@ -791,6 +992,15 @@ def main() -> None:
         help="If set, do NOT silence QueryParser's INFO logging "
         "(default: suppress to keep funnel output tight).",
     )
+    p.add_argument(
+        "--cvra-addressable-audit",
+        type=Path,
+        default=None,
+        help="Optional sidecar JSON mapping sample_id -> "
+        "{gt_overlap_pids: [int]} so the funnel can compute "
+        "clip_visible_aug_included_gt_overlap (spec § L PASS metric). "
+        "When omitted, the field is None per sample.",
+    )
     args = p.parse_args()
     parser_cache = args.parser_cache
     if args.run_parser and parser_cache is None:
@@ -807,6 +1017,7 @@ def main() -> None:
         parser_model=args.parser_model,
         parser_max_workers=args.parser_max_workers,
         quiet_parser_logging=not args.parser_verbose,
+        cvra_addressable_audit_path=args.cvra_addressable_audit,
     )
     _print_summary(report)
 
@@ -818,6 +1029,8 @@ if __name__ == "__main__":
 __all__ = [
     "evaluate",
     "_extract_cumulative_frame_ids",
+    "_extract_cvra_telemetry",
+    "_load_cvra_addressable_audit",
     "_category_match",
     "_category_tokens",
     "_extract_rank1_categories",

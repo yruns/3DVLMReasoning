@@ -105,9 +105,34 @@ class BatchedClipProvider:
             ) from exc
 
         model_name, pretrained = _split_backbone(self.backbone)
-        resolved_device = self.device or (
-            "cuda" if torch.cuda.is_available() else "cpu"
-        )
+        cuda_available = torch.cuda.is_available()
+        resolved_device = self.device or ("cuda" if cuda_available else "cpu")
+
+        # Explicit WARN when CUDA is requested-or-default but unavailable.
+        # M4 fix (CDX C5): the spec allows CPU fallback for the macOS
+        # ViT-B-32 dev backbone, but production (Linux) running ViT-H-14
+        # on CPU is a 30-60x slowdown — flag it loudly so the operator
+        # notices instead of silently waiting for hours.
+        if not cuda_available and resolved_device.startswith("cpu"):
+            is_dev_fallback_backbone = "ViT-B-32" in model_name
+            if is_dev_fallback_backbone:
+                logger.info(
+                    "[BatchedClipProvider] CUDA unavailable; running on CPU "
+                    f"with dev fallback backbone {model_name!r}. This is the "
+                    "documented macOS path; production should pin "
+                    "ViT-H-14 + GPU."
+                )
+            else:
+                logger.warning(
+                    "[BatchedClipProvider] CUDA unavailable; falling back to "
+                    f"CPU with backbone {model_name!r} ({pretrained!r}). "
+                    "This may be 30-60x slower than the GPU path. If this is "
+                    "a production run, set CUDA_VISIBLE_DEVICES to a working "
+                    "GPU (CLAUDE.md says skip GPU 1) or set "
+                    "CVRA_BACKBONE_OVERRIDE=ViT-B-32 for the dev path. "
+                    "Continuing on CPU."
+                )
+
         model, _, preprocess = open_clip.create_model_and_transforms(
             model_name,
             pretrained=pretrained,

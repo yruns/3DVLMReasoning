@@ -156,7 +156,8 @@ Errors: `"ERROR: proposal_id={N} not in pool; available count={K}"`.
 
 Inputs: `category: str` (case-insensitive, whitespace stripped).
 
-Returns JSON:
+Returns JSON. The base shape is always present:
+
 ```
 {"category": str (echoed),
  "proposal_ids": list[int],
@@ -166,6 +167,68 @@ Returns JSON:
 Unknown categories return an empty `proposal_ids` plus the available
 list — use that to retry with a closer category guess instead of
 giving up.
+
+### CVRA fields (when `use_clip_visible_aug=True`)
+
+When the runtime has CVRA (CLIP-Visible Retrieval Augmentation) enabled,
+the response carries four additional fields that surface visible
+proposals whose Mask3D label disagrees with the query category but
+whose visual content matches:
+
+```
+{"category": str,
+ "proposal_ids": list[int],         # ordered union of label_hits + clip_visible_aug
+ "available_categories": list[str],
+ "label_hits": [
+   {"proposal_id": int, "source": "label_exact"}
+ ],
+ "clip_visible_aug": [
+   {"proposal_id": int,
+    "clip_score": float,            # cosine vs CLIP-text(category) on the proposal crop
+    "rank_used": int,               # 1, 2, or 3 (parser hypothesis rank that triggered the lookup)
+    "via_category": str,            # the category string that was searched
+    "source_frame_id": str,         # frame whose crop was scored
+    "source": "clip_visible",
+    "cvra_category_source": str,    # 'rank1' | 'rank2' | 'rank3'
+    "cvra_overflow": bool}          # True for the always-on label-mismatch tier
+ ],
+ "rank_fallback_used": bool,        # rank-2 or rank-3 fired
+ "n_visible_set": int,              # |cumulative seen frames|
+ "cvra_exhausted": bool}            # all 3 ranks dry — consider switch_or_expand_hypothesis
+```
+
+**How to treat `clip_visible_aug` entries** (these are the rule the
+agent must internalize — the spec § H promise to the reviewer):
+
+1. `clip_visible_aug` candidates have **unreliable Mask3D labels but
+   plausible visual match** to the query category. Mask3D may have
+   tagged the GT-overlap bbox with an unrelated category (e.g. a
+   pillow labeled `ball`, a desk labeled `monitor`); CVRA flags such
+   bboxes by visual similarity. **Do not trust the Mask3D label** for
+   these proposals — the reason they appear in `clip_visible_aug` is
+   because that label is suspected wrong.
+2. **Always inspect the crop before submitting** a `clip_visible_aug`
+   id. Use `view_keyframe_marked(frame_id=<source_frame_id>)` or
+   `request_crops(...)` to verify the visual content matches the query.
+   A high `clip_score` is necessary but not sufficient.
+3. Prefer `label_hits` candidates first; treat `clip_visible_aug` as
+   a **fallback or augmentation** when label_hits is empty, when label
+   hits don't match the spatial/attribute constraints, or when crop
+   inspection of the label hit shows it visually disagrees with the
+   query (e.g. a "cabinet" label_hit that is at floor level when the
+   query says "above the refrigerator").
+4. `cvra_overflow=True` entries belong to the always-on label-mismatch
+   tier (3 extra candidates per call beyond the standard cap). Treat
+   them with the same caution as ordinary `clip_visible_aug` — verify
+   via crop inspection before trusting.
+5. If `cvra_exhausted=True`, the parser tried all 3 hypothesis ranks
+   and got no label hits + no augmented hits at any rank. Consider
+   `switch_or_expand_hypothesis(new_query="<reworded>")` rather than
+   submitting OOD prematurely.
+
+The CVRA fields are added; the legacy `proposal_ids` /
+`available_categories` shape is preserved for backward compatibility
+and for runs with `use_clip_visible_aug=False` (the default).
 
 ## tool: compare_proposals_spatial
 

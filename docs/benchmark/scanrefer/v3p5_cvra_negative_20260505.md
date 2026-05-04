@@ -15,30 +15,63 @@ default; v3.3 (`48.0 / 42.0`) remains the development-fold headline.
 CVRA-addressable subset, frozen 6 samples (bbox-IoU v2 audit selection),
 ViT-B-32 macOS dev backbone:
 
-| Metric                                      | Value | PASS gate         | Status   |
-|---------------------------------------------|------:|-------------------|----------|
-| Retrieval recall (target pid in label_hits ∪ clip_visible_aug) | 6/6 | ≥ 5/6 | **PASS** |
-| F5a No → Yes flips (Acc@0.25)               | 0/6   | ≥ 4/6             | **FAIL** |
-| `cvra_overflow_count` triggers              | 0/6   | (informational)   | —        |
-| Mean IoU (smoke6 aggregate)                 | 0.067 | (informational)   | —        |
+| Metric                                                       | Value | PASS gate       | Status   |
+|--------------------------------------------------------------|------:|-----------------|----------|
+| Retrieval recall (target pid in label_hits ∪ clip_visible_aug) | 6/6   | ≥ 5/6           | **PASS** |
+| F5a No → Yes flips (Acc@0.25)                                | 0/6   | ≥ 4/6           | **FAIL** |
+| Total `clip_visible_aug` emissions across 6 samples           | 165   | (informational) | —        |
+| Total `cvra_overflow=True` emissions across 6 samples         | 45    | (informational) | —        |
+| Mean IoU (smoke6 aggregate)                                  | 0.067 | (informational) | —        |
 
-Per-sample, smoke6 (`v3p5 + CVRA on`) vs v3.3 baseline (`pack_scanrefer_v3p_iterative`):
+Per-sample, smoke6 (`pack_scanrefer_v3p5_cvra_iterative` + CVRA on, ViT-B-32)
+vs v3.3 baseline (`pack_scanrefer_v3p_iterative` + CVRA off; agg-GT side_by_side):
 
-| sample_id                       | baseline IoU | v3.5 IoU | Δ      | flip | recall | agent pick (base → v3.5) |
-|---------------------------------|-------------:|---------:|-------:|------|--------|--------------------------|
-| `scene0011_00::20::2` (cabinet) | 0.000        | 0.000    | +0.000 | No   | label  | 41 → 41 (identical)      |
-| `scene0030_00::5::4` (chair)    | 0.000        | 0.000    | +0.000 | No   | aug+lbl| 59 → 14                  |
-| `scene0203_00::25::4` (pillow)  | 0.128        | 0.128    | +0.000 | No   | aug    | 71 → 71 (identical)      |
-| `scene0203_00::26::4` (couch)   | 0.096        | 0.096    | +0.000 | No   | aug    | 5 → 5 (identical)        |
-| `scene0343_00::16::3` (table)   | 0.000        | 0.000    | +0.000 | No   | aug+lbl| 24 → 24 (identical)      |
-| `scene0550_00::3::1` (door)     | 0.178        | 0.178    | +0.000 | No   | aug+lbl| 14 → 14 (identical)      |
+| sample_id                       | baseline IoU | v3.5 IoU | Δ        | flip | retrieval recall  | agent pick (base → v3.5)              |
+|---------------------------------|-------------:|---------:|---------:|------|-------------------|---------------------------------------|
+| `scene0011_00::20::2` (cabinet) | 0.0000       | 0.0000   | +0.0000  | No   | label_hits        | 41 → 41 (identical)                   |
+| `scene0030_00::5::4` (chair)    | 0.0000       | 0.0000   | +0.0000  | No   | label_hits + aug  | 59 → 14 (different pick, both IoU=0)  |
+| `scene0203_00::25::4` (pillow)  | 0.0765       | 0.1282   | **+0.0517** | No   | aug             | 71 → 71 (same pick, IoU shifts)       |
+| `scene0203_00::26::4` (couch)   | 0.0476       | 0.0964   | **+0.0488** | No   | aug             | 5 → 5 (same pick, IoU shifts)         |
+| `scene0343_00::16::3` (table)   | 0.0000       | 0.0000   | +0.0000  | No   | label_hits + aug  | 24 → 24 (identical)                   |
+| `scene0550_00::3::1` (door)     | 0.0657       | 0.1785   | **+0.1128** | No   | label_hits + aug  | 14 → 14 (same pick, IoU shifts)       |
 
-5 of 6 samples produce **identical agent picks** with CVRA on vs off; only
-0030 differs and its IoU stays at 0.0. Net random100 Acc@0.25 lift is
-**+0pp (projected)** — the full random100 run was deliberately skipped
-because the smoke result extrapolates to ~0–1 flip on the addressable
-subset and ~0pp on the fold; running the full ~3-4h evaluation was not
-worth the wall time given the negative smoke.
+5 of 6 samples select the same `proposal_id` under v3.5 as under v3.3
+(only `scene0030_00::5::4` flips its pick, and its IoU stays at 0). On
+3 of those 5 same-pick samples (0203/25, 0203/26, 0550/3), IoU still
+shifts by `+0.05–+0.11` even though the pick is unchanged — this is
+because v3.5 evaluates against a *different pack*
+(`pack_scanrefer_v3p5_cvra_iterative`, regenerated with `frame_views`
+metadata) so per-sample IoU computation is not strictly identical to
+the v3.3 pack. None of these per-sample shifts cross the `Acc@0.25`
+threshold, so the 0/6 flip headline is robust; the per-sample IoU
+deltas are **not zero** as the previous draft claimed (M4 H2 fix).
+Net random100 Acc@0.25 lift is **+0pp (projected)** — the full
+random100 run was deliberately skipped because the smoke result
+extrapolates to ~0–1 flip on the addressable subset and ~0pp on the
+fold; running the full ~3-4h evaluation was not worth the wall time
+given the negative smoke.
+
+Per-sample CVRA telemetry (M4 H1 fix — the previous draft incorrectly
+claimed `cvra_overflow_count = 0` everywhere; it is non-zero on every
+sample):
+
+| sample_id                       | `find_proposals_by_category` calls | Σ `clip_visible_aug` | Σ `cvra_overflow=True` |
+|---------------------------------|-------------------------------------:|----------------------:|------------------------:|
+| `scene0011_00::20::2`           | 2                                    | 22                    | 6                       |
+| `scene0030_00::5::4`            | 4                                    | 44                    | 12                      |
+| `scene0203_00::25::4`           | 3                                    | 33                    | 9                       |
+| `scene0203_00::26::4`           | 2                                    | 22                    | 6                       |
+| `scene0343_00::16::3`           | 1                                    | 11                    | 3                       |
+| `scene0550_00::3::1`            | 3                                    | 33                    | 9                       |
+| **total**                       | **15**                               | **165**               | **45**                  |
+
+Each call emits 11 entries (8 standard `clip_visible_aug` from the
+top-K cap + 3 `cvra_overflow=True` from the always-on label-mismatch
+overflow tier). The implementation gates the overflow tier on
+`proposal.category != search_category`, **not** on `label_hits == []`,
+so overflow fires whenever ≥ 3 visible label-mismatch candidates score
+above TAU regardless of label-hit presence — see § "What CVRA does"
+for the spec-vs-implementation drift notes (M4 H3 fix).
 
 ## What CVRA does
 
@@ -61,9 +94,14 @@ Key configuration (canonical: `tmp/cvra_spec_canonical.md`):
   padding around the pre-projected `bbox_2d` persisted by pack-prep into
   `proposal_pool[*].frame_views[frame_id]`.
 - **TAU**: 0.18 default with `gt_score_floor` calibration recipe; floor 0.13.
-- **K_AUG**: dynamic 8/10 (post-M3b-prep — raised from 5/5 to widen the
-  augmented set), plus a label-mismatch overflow tier of +3 candidates with
-  `clip_score >= TAU` and `cvra_overflow=True` metadata when label_hits = [].
+- **K_AUG (drifted from spec)**: implementation uses a **flat** cap (default 8,
+  hard ceiling 10) regardless of `label_hits` state, plus an **always-on**
+  label-mismatch overflow tier of +3 candidates with `clip_score >= TAU` and
+  `cvra_overflow=True` metadata. Total per-call emission ceiling is therefore
+  13. Canonical spec § C originally specified dynamic `3 / 5` with hard
+  ceiling 5 only when `label_hits == []`; M3b-prep raised the cap and made
+  overflow unconditional, and the spec was retroactively aligned to match
+  the implementation in the canonical doc. See M4 H3.
 - **Feature flag**: `Stage2DeepAgentConfig.use_clip_visible_aug = False`
   default. ScanRefer runner: `--use-clip-visible-aug` (off by default).
   Env: `CVRA_DISABLE=1` forces off.
@@ -89,9 +127,10 @@ Query: "this is a brown cabinet. it is above a refrigerator."
 
 Trace:
 1. `find_proposals_by_category(category='cabinet')` →
-   `label_hits=[41, 46]`, `clip_visible_aug=[27, 68, 17, 20, 51, ...]`
-   (11 entries; pid 67 not in aug because not visible at first call's
-   cumulative seen).
+   `label_hits=[41, 46]`, `clip_visible_aug` 11 entries
+   (8 standard + 3 with `cvra_overflow=True`; entries are
+   `[27, 68, 17, 20, 51, ...]` — pid 67 not in aug because not visible
+   at first call's cumulative seen).
 2. `compare_proposals_spatial(candidate_ids=[41, 46], anchor_id=43,
    relation='above')` → `ranked_ids=[41, 46]` with
    `vertical_offset(41)=+0.628 m`, `vertical_offset(46)=+0.008 m`.
@@ -196,9 +235,11 @@ CVRA infrastructure stays in tree, gated off by default:
   (regression test `test_proposal_pool.py`, the immediate cause of the
   M3a smoke `aug=0` failure).
 - `src/agents/packs/vg_embodiedscan/tools.py` — `find_proposals_by_category`
-  CVRA path, K_AUG default 8 (ceiling 10), label-mismatch overflow tier
-  (+3 candidates above TAU when `label_hits = []`), `cvra_overflow=True`
-  metadata for funnel / telemetry.
+  CVRA path, flat K_AUG cap (default 8, hard ceiling 10) + always-on
+  label-mismatch overflow tier (+3 candidates above TAU, gated on
+  `proposal.category != search_category` rather than `label_hits == []`,
+  yielding a 13-entry per-call ceiling), `cvra_overflow=True` metadata
+  for funnel / telemetry.
 - `src/agents/packs/vg_embodiedscan/clip_provider.py` —
   `BatchedClipProvider` with batch=16, fp16, `(scene_id, proposal_id,
   frame_id, crop_hash)` cache, `ViT-B-32` macOS fallback gated by
@@ -304,23 +345,42 @@ SQLite table is reserved for canonical paper-comparable rows).
   variance check on the addressable subset. The 1st run's 0/6 flips is
   far enough below the ≥ 4/6 PASS gate that a 2nd run cannot rescue
   the result; skipped.
-- **M4 fresh peer review pending.** Per the user's directive, M4 will
-  spawn a fresh CC + fresh Codex to review CVRA code in tree (gated off)
-  before the project moves on. This doc does NOT pre-empt M4's findings.
+- **M4 fresh peer review completed (`tmp/m4_review_cc.md`,
+  `tmp/m4_review_cdx.md`).** Two fresh-eyes cross-blind reviews
+  converged on five HIGH issues, all addressed in the M4-fixes follow-up
+  commit. The corrections are reflected in this doc revision: real
+  per-sample overflow telemetry replaces the previous "0 everywhere"
+  claim (H1); per-sample IoU table updated against the agg-GT
+  side_by_side (H2); K_AUG description updated to match the actual
+  flat-cap-8-+-always-on-overflow-3 implementation (H3); the playbook
+  was updated with `clip_visible_aug` semantics (H4); and the funnel
+  evaluator gained `clip_visible_aug_included_gt_overlap` /
+  `cvra_aug_count` / `cvra_overflow_count` per-sample fields (H5).
 - **Acc@0.25 / Acc@0.50 unchanged.** The development-fold headline
   remains v3.3's 48.0 / 42.0 (`v3p3_vertical_spatial_random100_20260504`
   in `runs.sqlite`). v3.5 contributes no SQLite row.
-- **`cvra_overflow_count = 0` everywhere.** All 6 addressables had
-  `label_hits ≥ 1` after the proposal_pool bridge fix, so the
-  `label_hits = []` precondition for the overflow tier was never met.
-  Whether overflow would have helped on a different sample slice is
-  not exercised by this smoke.
-- **CVRA aug count is 11, not the K_AUG = 8 ceiling.** Likely the
-  overflow tier emits +3 even when label_hits exists (i.e. the gating
-  condition is not exactly `label_hits == []`); flagged for M4 review.
-  Since `cvra_overflow_count` reads as 0, the metadata path is
-  inconsistent with the actual emission count. Does not affect this
-  doc's verdict; flagged for cleanup.
+- **Pack regen confounds per-sample IoU comparison.** The smoke
+  evaluates `pack_scanrefer_v3p5_cvra_iterative` (regenerated to
+  persist `frame_views`) against the original v3.3 pack
+  `pack_scanrefer_v3p_iterative`. On 3 of 6 samples (0203/25, 0203/26,
+  0550/3) the agent picks the same `proposal_id` but IoU shifts by
+  `+0.05–+0.11` because the v3.5 pack scores those picks slightly
+  differently. None of the shifts cross 0.25, so the 0/6 flip headline
+  survives, but the per-sample comparison is not a clean A/B
+  isolating the `--use-clip-visible-aug` flag (M4 M1). A cleaner
+  protocol would re-run the v3.5 pack with the flag off and compare
+  against itself.
+- **Overflow tier fires unconditionally, contradicting the original
+  spec.** The implementation gates the +3 overflow tier on
+  `proposal.category != search_category` rather than `label_hits == []`
+  (`tools.py:217-228`). All 6 smoke samples had `label_hits ≥ 1` and
+  the overflow tier still fired on every call (45 total
+  emissions). The original canonical spec § C said overflow should
+  only emit when `label_hits == []`; the canonical spec has been
+  updated to match the implementation (drift note in
+  `tmp/cvra_spec_canonical.md` § C). Whether the always-on overflow
+  helps or hurts vs the original gated design is not exercised by
+  this smoke (M4 H3).
 
 ## Interpretation
 
