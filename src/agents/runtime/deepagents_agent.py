@@ -93,9 +93,6 @@ class DeepAgentsStage2Runtime(BaseStage2Runtime):
         Returns:
             List of LangChain tools for the agent
         """
-        # Wire VLM-judge + image-encoder closures so pack tools can fire
-        # one-shot multimodal sub-calls (e.g., select_among_proposals).
-        self.attach_vlm_hooks(runtime)
 
         @tool
         def inspect_stage1_metadata() -> str:

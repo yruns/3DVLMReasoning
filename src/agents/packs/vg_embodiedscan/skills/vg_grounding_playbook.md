@@ -79,21 +79,9 @@ pool. Prefer cheaper paths first.
 5. If the query has a spatial constraint ("next to the desk", "closest
    to the wall"), load the `vg-spatial-disambiguation` skill and apply
    its workflow before submitting.
-6. **Multi-distractor forced choice (MANDATORY when applicable).**
-   Whenever `find_proposals_by_category(target_category).proposal_ids`
-   has length ≥ 2 AND you cannot uniquely eliminate all but one via
-   spatial filters alone, you MUST call
-   `select_among_proposals(candidate_ids=<remaining ids>,
-   description=<the user's query verbatim>)` BEFORE `submit_final`.
-   The tool runs a single multimodal VLM call with one marked frame
-   per candidate and returns the verdict id. Use that id (unless you
-   have just-acquired contradictory evidence). This step exists
-   because turn-1 ranking on multi-distractor utterances is the main
-   failure mode of this pipeline; the forced 1-of-K call is a
-   discipline you cannot skip with "I'm pretty sure it's K".
-7. `submit_final({"proposal_id": K, "confidence": C}, rationale=...)`
+6. `submit_final({"proposal_id": K, "confidence": C}, rationale=...)`
    — the chassis validator will reject any unknown id and FAIL-LOUD.
-8. If the referent genuinely is not in the proposal pool **after**
+7. If the referent genuinely is not in the proposal pool **after**
    exhausting same-category candidates, viewing 3+ frames, AND trying
    at least one `switch_or_expand_hypothesis` rewrite, submit the OOD
    marker (see "OOD handling" below).
@@ -202,48 +190,6 @@ instead of forcing those cases through `closest_to`. Errors: bad
 relation, missing anchor, or any candidate not in the pool all FAIL-LOUD
 with explicit error strings. See the `vg_spatial_disambiguation` skill
 for the full workflow.
-
-## tool: select_among_proposals (forced 1-of-K disambiguation)
-
-Inputs:
-- `candidate_ids: list[int]` — the same-category Mask3D candidates that
-  remain after geometric/visibility filtering. MUST have length >= 2.
-- `description: str` — the natural-language description of the target
-  (typically the user's original query verbatim).
-
-Returns JSON:
-```
-{"selected_proposal_id": int,    # one of candidate_ids
- "reasoning": str,                # one short visual cue
- "candidate_ids": list[int]}      # echo of input
-```
-
-What it does internally: composes one marked frame per candidate
-(the most-visible annotated PNG, with the proposal_id labeled), bundles
-them with the description into a SINGLE multimodal VLM call, and asks
-"which proposal_id matches?". The judge VLM sees all candidates side
-by side and picks one. This is a forcing function: the agent cannot
-talk itself into a confident wrong answer when 3+ same-category
-proposals exist — it must compare them visually in one shot.
-
-When to call:
-- BEFORE `submit_final` whenever the target category has >= 2 viable
-  proposals after `find_proposals_by_category` + spatial filtering.
-  Skip only when `find_proposals_by_category(target).proposal_ids`
-  has length 1.
-- AFTER you have read the marked frames yourself, so the candidate
-  list is already pruned. Don't pass all 7 same-category proposals
-  if 4 of them are clearly disqualified (e.g., wrong wall in a
-  spatial relation) — pass the 2-3 still in contention.
-
-The returned `selected_proposal_id` is the VLM judge's verdict; you
-should usually `submit_final(proposal_id=selected_proposal_id)` next
-unless you have new contradictory evidence to inspect.
-
-Errors: candidate_ids length < 2, candidate not in pool, candidate
-invisible in any current frame, missing annotated PNG, malformed VLM
-JSON, or VLM picking an id outside `candidate_ids` all FAIL-LOUD with
-explicit error strings.
 
 ## tool: switch_or_expand_hypothesis (chassis tool, Stage 2 → Stage 1 callback)
 

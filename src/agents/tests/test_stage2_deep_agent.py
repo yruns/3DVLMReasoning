@@ -1389,7 +1389,7 @@ def test_wrapper_build_agent_supports_pack_v1(tmp_path) -> None:
         tool_names = sorted(t.name for t in kwargs["tools"])
 
     # Same expected tool list as the runtime-level pack_v1 snapshot:
-    # 5 shared + 6 pack + 3 chassis = 14.
+    # 5 shared + 5 pack + 3 chassis = 13.
     assert tool_names == sorted(
         [
             "inspect_stage1_metadata",
@@ -1402,7 +1402,6 @@ def test_wrapper_build_agent_supports_pack_v1(tmp_path) -> None:
             "inspect_proposal",
             "find_proposals_by_category",
             "compare_proposals_spatial",
-            "select_among_proposals",
             "list_skills",
             "load_skill",
             "submit_final",
@@ -1505,7 +1504,6 @@ def test_pack_v1_vg_tool_list_snapshot(tmp_path) -> None:
             "inspect_proposal",
             "find_proposals_by_category",
             "compare_proposals_spatial",
-            "select_among_proposals",
             # chassis
             "list_skills",
             "load_skill",
