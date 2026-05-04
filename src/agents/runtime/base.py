@@ -48,6 +48,12 @@ class Stage2RuntimeState:
     # Pack-v1 chassis terminal signal (set by submit_final on success).
     final_submission: dict | None = None
 
+    # Optional VLM hooks injected by the framework runtime so pack tools can
+    # run multimodal sub-calls (e.g., select_among_proposals 1-of-K choice).
+    # Both must be set together; tools that need them check both for None.
+    vlm_judge: Callable[[Any], str] | None = None
+    image_to_data_url: Callable[[Any], str] | None = None
+
     def record(
         self, tool_name: str, tool_input: dict[str, Any], response_text: str
     ) -> None:
@@ -154,6 +160,35 @@ class BaseStage2Runtime(ABC):
             extra_body["thinking"] = thinking
         extra_body["session_id"] = self._session_id
         return extra_body
+
+    def make_vlm_judge(self) -> Callable[[Any], str]:
+        """Return a callable that wraps the framework LLM for sub-calls.
+
+        Concrete subclasses must implement ``get_llm()``. The returned
+        callable accepts a ``messages`` list (list of LangChain
+        BaseMessage or dict-shaped messages) and returns the response
+        text. Used by pack tools that need to fire a one-shot
+        multimodal sub-call (e.g., ``select_among_proposals``).
+        """
+
+        def _judge(messages: Any) -> str:
+            llm = self.get_llm()
+            response = llm.invoke(messages)
+            content = getattr(response, "content", response)
+            if isinstance(content, str):
+                return content
+            return str(content)
+
+        return _judge
+
+    def attach_vlm_hooks(self, runtime: Stage2RuntimeState) -> None:
+        """Wire VLM-judge + image-encoder closures onto a per-run state.
+
+        Tools that need multimodal sub-calls read these from the state
+        instead of holding a reference to the framework runtime.
+        """
+        runtime.vlm_judge = self.make_vlm_judge()
+        runtime.image_to_data_url = self.image_to_data_url
 
     def image_to_data_url(self, image_path: str | Path) -> str:
         """Convert an image file into a data URL for multimodal chat models."""

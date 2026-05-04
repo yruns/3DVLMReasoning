@@ -197,12 +197,173 @@ def build_vg_tools(runtime: Any) -> list[BaseTool]:
         runtime.record("compare_proposals_spatial", request, text)
         return text
 
+    @tool
+    def select_among_proposals(
+        candidate_ids: list[int],
+        description: str,
+    ) -> str:
+        """VG tool. Detailed usage in skill 'vg-grounding-playbook'."""
+        request = {"candidate_ids": candidate_ids, "description": description}
+        gate = _gate(runtime)
+        if gate is not None:
+            runtime.record("select_among_proposals", request, gate)
+            return gate
+        if not isinstance(candidate_ids, list) or len(candidate_ids) < 2:
+            err = "ERROR: select_among_proposals requires candidate_ids with length >= 2"
+            runtime.record("select_among_proposals", request, err)
+            return err
+        if not isinstance(description, str) or not description.strip():
+            err = "ERROR: description must be a non-empty string"
+            runtime.record("select_among_proposals", request, err)
+            return err
+
+        pool_by_id = {p.id: p for p in ctx.proposals}
+        missing = sorted(set(candidate_ids) - set(pool_by_id))
+        if missing:
+            err = f"ERROR: candidate ids not in pool: {missing}"
+            runtime.record("select_among_proposals", request, err)
+            return err
+
+        if runtime.vlm_judge is None or runtime.image_to_data_url is None:
+            err = (
+                "ERROR: select_among_proposals requires VLM hooks; "
+                "framework runtime did not attach_vlm_hooks before tool build."
+            )
+            runtime.record("select_among_proposals", request, err)
+            return err
+
+        # For each candidate, pick the most-visible annotated frame.
+        # ctx.proposal_index is ordered by the visibility index already.
+        candidate_frames: list[tuple[int, int]] = []
+        for cid in candidate_ids:
+            frames = ctx.proposal_index.get(cid, [])
+            if not frames:
+                err = (
+                    f"ERROR: proposal_id={cid} has no frames in proposal_index; "
+                    "the candidate is invisible in all current keyframes."
+                )
+                runtime.record("select_among_proposals", request, err)
+                return err
+            best_frame = int(frames[0])
+            annotated = ctx.annotated_image_dir / f"frame_{best_frame}.png"
+            if not annotated.exists():
+                err = (
+                    f"ERROR: annotated image missing for frame_{best_frame}: "
+                    f"{annotated}"
+                )
+                runtime.record("select_among_proposals", request, err)
+                return err
+            candidate_frames.append((cid, best_frame))
+
+        from langchain_core.messages import HumanMessage, SystemMessage
+
+        common_category = pool_by_id[candidate_ids[0]].category
+        system_text = (
+            "You are a multi-distractor visual grounding referee. The user "
+            "describes ONE specific object from a Mask3D candidate pool. "
+            "Several same-category candidates are listed below; each is "
+            "shown in a marked frame where its proposal_id is drawn as a "
+            "labeled bounding box. Pick the single proposal_id that best "
+            "matches the user's description. "
+            'Output STRICT JSON: {"selected_proposal_id": <int>, '
+            '"reasoning": "<one short sentence citing the visual cue>"}. '
+            "The id MUST be one of the candidate_ids listed."
+        )
+
+        user_content: list[dict[str, Any]] = [
+            {
+                "type": "text",
+                "text": (
+                    f"Description: {description!r}\n"
+                    f"Candidate proposal_ids: {candidate_ids}\n"
+                    f"Common category: {common_category!r}\n\n"
+                    "For each candidate, the next image is its marked frame; "
+                    "find the labeled box matching that proposal_id and apply "
+                    "the description's spatial cues to disambiguate."
+                ),
+            }
+        ]
+        for cid, frame_id in candidate_frames:
+            annotated = ctx.annotated_image_dir / f"frame_{frame_id}.png"
+            user_content.append(
+                {
+                    "type": "text",
+                    "text": f"Candidate proposal_id={cid} (frame_{frame_id}):",
+                }
+            )
+            user_content.append(
+                {
+                    "type": "image_url",
+                    "image_url": {"url": runtime.image_to_data_url(annotated)},
+                }
+            )
+        user_content.append(
+            {
+                "type": "text",
+                "text": (
+                    "Reply with STRICT JSON only. selected_proposal_id MUST be "
+                    f"one of: {candidate_ids}."
+                ),
+            }
+        )
+
+        try:
+            raw = runtime.vlm_judge(
+                [
+                    SystemMessage(content=system_text),
+                    HumanMessage(content=user_content),
+                ]
+            )
+        except Exception as exc:  # noqa: BLE001 — FAIL-LOUD via tool error string
+            err = f"ERROR: VLM call failed: {type(exc).__name__}: {exc}"
+            runtime.record("select_among_proposals", request, err)
+            return err
+
+        text = (raw or "").strip()
+        if text.startswith("```"):
+            lines = text.splitlines()
+            if lines and lines[0].startswith("```"):
+                lines = lines[1:]
+            if lines and lines[-1].startswith("```"):
+                lines = lines[:-1]
+            text = "\n".join(lines).strip()
+
+        try:
+            parsed = json.loads(text)
+            chosen_id = int(parsed["selected_proposal_id"])
+            reasoning = str(parsed.get("reasoning", ""))
+        except (json.JSONDecodeError, KeyError, TypeError, ValueError) as exc:
+            err = (
+                f"ERROR: could not parse VLM JSON ({type(exc).__name__}: {exc}); "
+                f"raw={raw[:240]!r}"
+            )
+            runtime.record("select_among_proposals", request, err)
+            return err
+
+        if chosen_id not in candidate_ids:
+            err = (
+                f"ERROR: VLM chose {chosen_id} not in candidate_ids "
+                f"{candidate_ids}; raw={raw[:240]!r}"
+            )
+            runtime.record("select_among_proposals", request, err)
+            return err
+
+        payload = {
+            "selected_proposal_id": chosen_id,
+            "reasoning": reasoning,
+            "candidate_ids": candidate_ids,
+        }
+        text_out = json.dumps(payload, ensure_ascii=False)
+        runtime.record("select_among_proposals", request, text_out)
+        return text_out
+
     return [
         list_keyframes_with_proposals,
         view_keyframe_marked,
         inspect_proposal,
         find_proposals_by_category,
         compare_proposals_spatial,
+        select_among_proposals,
     ]
 
 
