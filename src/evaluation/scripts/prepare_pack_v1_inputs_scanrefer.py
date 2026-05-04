@@ -378,14 +378,53 @@ def prepare_scene_artifacts(
 
     scene_dir = data_root / scene_id / pack_name
     scene_dir.mkdir(parents=True, exist_ok=True)
+
+    # CVRA M2 contract: when pack_name opts in via the substring 'cvra'
+    # (e.g. pack_scanrefer_v3p5_cvra_iterative), augment proposals.jsonl
+    # with per-(proposal, frame) bbox_2d + raw_rgb_path + visibility_weight
+    # so the runtime CVRA tool can crop on-the-fly without re-projecting.
+    # Schema contract per the M2 supervisor merge:
+    #   proposals[i].frame_views[<frame_id_str>] = {
+    #       bbox_2d: [x1, y1, x2, y2],   # int pixels, x1<=x2, y1<=y2
+    #       raw_rgb_path: str,            # project-root-relative
+    #       visibility_weight: float,     # from Mask3D-CG view_to_objects
+    #   }
+    proposals_for_jsonl: list[dict[str, Any]] = proposals
+    if "cvra" in pack_name.lower():
+        # Need scene frames + intrinsic up-front to compute the projection.
+        raw_scene_root = raw_frames_root / scene_id
+        cvra_frames = scene_frames(raw_scene_root, sorted(frame_visibility))
+        if not cvra_frames:
+            raise ValueError(
+                f"CVRA pack-prep requires at least one visible frame: {scene_id}"
+            )
+        cvra_frame_by_id = {f.frame_id: f for f in cvra_frames}
+        cvra_intrinsic = scene_intrinsic(raw_scene_root)
+        cvra_image_size = load_image_size(cvra_frames[0].rgb_path)
+        cvra_frame_views = compute_proposal_frame_views(
+            proposal_by_id={int(p["id"]): p for p in proposals},
+            frame_visibility=frame_visibility,
+            frame_by_id=cvra_frame_by_id,
+            intrinsic=cvra_intrinsic,
+            image_size=cvra_image_size,
+            view_to_objects=visibility.view_to_objects,
+            raw_frames_root=raw_frames_root,
+            scene_id=scene_id,
+        )
+        proposals_for_jsonl = [
+            {**p, "frame_views": cvra_frame_views.get(int(p["id"]), {})}
+            for p in proposals
+        ]
+
     (scene_dir / "proposals.jsonl").write_text(
         json.dumps(
             {
                 "source": "conceptgraph",
                 "scene_id": scene_id,
                 "axis_align_matrix": None,
-                "proposals": proposals,
+                "proposals": proposals_for_jsonl,
                 "proposal_provenance": "mask3d",
+                "cvra_metadata_emitted": "cvra" in pack_name.lower(),
             },
             ensure_ascii=False,
             indent=2,
@@ -834,6 +873,83 @@ def _fallback_top5_by_mask3d_density(
     return keyframes
 
 
+def compute_proposal_frame_views(
+    *,
+    proposal_by_id: dict[int, dict[str, Any]],
+    frame_visibility: dict[int, list[int]],
+    frame_by_id: dict[int, SceneFrame],
+    intrinsic: np.ndarray,
+    image_size: tuple[int, int],
+    view_to_objects: dict[int, list[tuple[int, float]]],
+    raw_frames_root: Path,
+    scene_id: str,
+) -> dict[int, dict[str, dict[str, Any]]]:
+    """For each (proposal, frame) where the proposal is visible, project
+    the proposal's 9-DOF bbox to a 2D rect, look up the visibility weight
+    from the Mask3D-CG ``view_to_objects`` index, and resolve the raw
+    RGB path. Returns a per-proposal dict suitable for embedding into
+    ``proposals.jsonl`` as ``proposal["frame_views"]``.
+
+    Schema per the M2a canonical spec § H + the M2b worker contract:
+
+        {
+          <proposal_id_int>: {
+            <frame_id_str>: {
+              "bbox_2d": [x1, y1, x2, y2]      # int pixels, x1<=x2, y1<=y2
+              "raw_rgb_path": "<project-root-relative path>"
+              "visibility_weight": <float from view_to_objects>
+            }
+          }
+        }
+
+    Frames where the projection collapses (returns None — out-of-frustum
+    or zero-area) are omitted. Proposals with no visible frame after
+    projection get an empty dict.
+    """
+    weight_lookup: dict[tuple[int, int], float] = {}
+    for fid_, entries in view_to_objects.items():
+        for oid_, score_ in entries:
+            weight_lookup[(int(oid_), int(fid_))] = float(score_)
+
+    raw_scene_root = raw_frames_root / scene_id
+    out: dict[int, dict[str, dict[str, Any]]] = {
+        int(pid): {} for pid in proposal_by_id
+    }
+    for frame_id, visible_ids in frame_visibility.items():
+        if frame_id not in frame_by_id:
+            raise ValueError(f"visibility references missing frame_id={frame_id}")
+        frame = frame_by_id[frame_id]
+        for prop_id in visible_ids:
+            prop = proposal_by_id.get(int(prop_id))
+            if prop is None:
+                raise ValueError(f"unknown proposal_id={prop_id}")
+            rect = project_bbox_3d_to_2d(
+                prop["bbox_3d"],
+                intrinsic,
+                frame.extrinsic_world_to_cam,
+                image_size,
+            )
+            if rect is None:
+                continue
+            x1, y1, x2, y2 = (int(v) for v in rect)
+            if x2 < x1:
+                x1, x2 = x2, x1
+            if y2 < y1:
+                y1, y2 = y2, y1
+            if x2 == x1 or y2 == y1:
+                continue
+            raw_rgb = _resolve_raw_rgb_path(raw_scene_root, int(frame_id))
+            visibility_weight = weight_lookup.get((int(prop_id), int(frame_id)))
+            entry: dict[str, Any] = {
+                "bbox_2d": [int(x1), int(y1), int(x2), int(y2)],
+                "raw_rgb_path": str(raw_rgb),
+            }
+            if visibility_weight is not None:
+                entry["visibility_weight"] = float(visibility_weight)
+            out[int(prop_id)][str(int(frame_id))] = entry
+    return out
+
+
 def render_annotated_frames(
     *,
     proposal_by_id: dict[int, dict[str, Any]],
@@ -1025,6 +1141,7 @@ __all__ = [
     "SampleRequest",
     "SceneArtifacts",
     "build_proposals_from_mask3d_objects",
+    "compute_proposal_frame_views",
     "load_sample_requests",
     "parse_sample_id",
     "prepare_pack_v1_inputs_scanrefer",

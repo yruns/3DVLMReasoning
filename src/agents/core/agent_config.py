@@ -99,6 +99,31 @@ class Stage2DeepAgentConfig(BaseModel):
         description="Bump when chassis tool surface changes; folded into "
         "derive_eval_session_id so prompt-cache invalidates correctly.",
     )
+    use_clip_visible_aug: bool = Field(
+        default=False,
+        description="Enable CVRA label-agnostic visible-proposal CLIP augmentation "
+        "for VG category lookup.",
+    )
+    clip_visible_tau: float = Field(
+        default=0.18,
+        ge=0.13,
+        le=1.0,
+        description="Minimum CLIP cosine score for CVRA visible-proposal augmentation.",
+    )
+    clip_visible_k_aug: int = Field(
+        default=5,
+        ge=1,
+        le=5,
+        description="Hard cap for CVRA augmented visible proposals.",
+    )
+    clip_visible_backbone: str = Field(
+        default="ViT-H-14/laion2b_s32b_b79k",
+        description="open_clip backbone/pretrained pair for CVRA crops.",
+    )
+    clip_visible_cache_dir: str | None = Field(
+        default=None,
+        description="Optional on-disk cache for CVRA crop embeddings.",
+    )
 
     @property
     def api_key(self) -> str:
@@ -121,7 +146,9 @@ def _default_modelhub_api_keys() -> list[str]:
 def _default_modelhub_api_key_weights() -> list[float]:
     env_weights = os.environ.get("MODELHUB_AK_WEIGHTS")
     if env_weights:
-        return [float(weight.strip()) for weight in env_weights.split(",") if weight.strip()]
+        return [
+            float(weight.strip()) for weight in env_weights.split(",") if weight.strip()
+        ]
 
     env_keys = os.environ.get("MODELHUB_AKS") or os.environ.get("AZURE_API_KEYS")
     if env_keys:

@@ -93,6 +93,7 @@ class DeepAgentsStage2Runtime(BaseStage2Runtime):
         Returns:
             List of LangChain tools for the agent
         """
+        self.configure_runtime_state(runtime)
 
         @tool
         def inspect_stage1_metadata() -> str:

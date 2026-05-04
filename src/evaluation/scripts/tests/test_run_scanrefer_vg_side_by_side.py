@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sys
 from types import SimpleNamespace
 
 import pytest
@@ -141,3 +142,36 @@ def test_extract_pack_v1_prediction_resolves_structured_proposal_payload():
     assert prediction["selected_object_id"] == 7
     assert prediction["bbox_3d"] == [1, 2, 3, 4, 5, 6, 0, 0, 0]
     assert prediction["confidence"] == 0.8
+
+
+def test_main_wires_use_clip_visible_aug_flag(tmp_path, monkeypatch) -> None:
+    from evaluation.scripts import run_scanrefer_vg_side_by_side as mod
+
+    sample_ids = tmp_path / "samples.json"
+    sample_ids.write_text("[]", encoding="utf-8")
+    output_dir = tmp_path / "out"
+    captured = {}
+
+    def fake_compare_backends(**kwargs):
+        captured.update(kwargs)
+        return {}
+
+    monkeypatch.setattr(mod, "compare_backends", fake_compare_backends)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "run_scanrefer_vg_side_by_side",
+            "--sample-ids",
+            str(sample_ids),
+            "--output-dir",
+            str(output_dir),
+            "--data-root",
+            str(tmp_path),
+            "--use-clip-visible-aug",
+        ],
+    )
+
+    mod.main()
+
+    assert captured["config"].use_clip_visible_aug is True

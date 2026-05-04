@@ -7,6 +7,8 @@ from typing import Any
 
 from langchain_core.tools import BaseTool, tool
 
+from agents.packs.vg_embodiedscan.ctx import cumulative_seen_frame_ids
+
 PRIMARY_SKILL = "vg-grounding-playbook"
 
 
@@ -15,6 +17,288 @@ def _gate(runtime: Any) -> str | None:
     if PRIMARY_SKILL not in runtime.skills_loaded:
         return f"ERROR: load_skill({PRIMARY_SKILL!r}) before calling this tool."
     return None
+
+
+def _norm_category(category: str) -> str:
+    return " ".join(str(category).strip().lower().split())
+
+
+def _coerce_category_list(value: Any) -> list[str]:
+    if value is None:
+        return []
+    if isinstance(value, str):
+        return [value] if value.strip() else []
+    if isinstance(value, dict):
+        for key in ("categories", "target_categories", "parser_categories"):
+            if key in value:
+                return _coerce_category_list(value[key])
+        return []
+    if isinstance(value, (list, tuple, set)):
+        items: list[str] = []
+        for item in value:
+            items.extend(_coerce_category_list(item))
+        return items
+    return []
+
+
+def _dedupe_categories(categories: list[str]) -> list[str]:
+    seen: set[str] = set()
+    out: list[str] = []
+    for category in categories:
+        norm = _norm_category(category)
+        if not norm or norm in seen:
+            continue
+        seen.add(norm)
+        out.append(str(category).strip())
+    return out
+
+
+def _extract_ranked_categories(
+    runtime: Any,
+    requested_category: str,
+) -> list[tuple[int, list[str]]]:
+    """Return parser target categories by rank, with the tool argument as rank-1."""
+    ranks: dict[int, list[str]] = {}
+    extra = getattr(getattr(runtime, "bundle", None), "extra_metadata", {}) or {}
+
+    raw_ranked = extra.get("parser_categories_by_rank") or extra.get(
+        "target_categories_by_rank"
+    )
+    if isinstance(raw_ranked, dict):
+        for rank_raw, value in raw_ranked.items():
+            try:
+                rank = int(rank_raw)
+            except (TypeError, ValueError):
+                continue
+            ranks.setdefault(rank, []).extend(_coerce_category_list(value))
+    elif isinstance(raw_ranked, list):
+        for idx, item in enumerate(raw_ranked, start=1):
+            rank = idx
+            if isinstance(item, dict):
+                try:
+                    rank = int(item.get("rank", idx))
+                except (TypeError, ValueError):
+                    rank = idx
+            ranks.setdefault(rank, []).extend(_coerce_category_list(item))
+
+    hypothesis_output = extra.get("hypothesis_output") or {}
+    for item in hypothesis_output.get("hypotheses", []) or []:
+        if not isinstance(item, dict):
+            continue
+        try:
+            rank = int(item.get("rank", len(ranks) + 1))
+        except (TypeError, ValueError):
+            continue
+        root = ((item.get("grounding_query") or {}).get("root")) or {}
+        ranks.setdefault(rank, []).extend(_coerce_category_list(root))
+
+    hypothesis = getattr(getattr(runtime, "bundle", None), "hypothesis", None)
+    if hypothesis is not None:
+        ranks.setdefault(1, []).extend(
+            _coerce_category_list(getattr(hypothesis, "target_categories", []))
+        )
+
+    requested = str(requested_category).strip()
+    if requested:
+        ranks.setdefault(1, [])
+        ranks[1] = [requested, *ranks[1]]
+
+    ranked = [
+        (rank, _dedupe_categories(categories))
+        for rank, categories in sorted(ranks.items())
+        if 1 <= rank <= 3
+    ]
+    ranked = [(rank, categories) for rank, categories in ranked if categories]
+    if ranked:
+        return ranked
+    if requested:
+        return [(1, [requested])]
+    return []
+
+
+def _label_hits_for_categories(
+    ctx: Any,
+    categories: list[str],
+) -> tuple[list[int], list[dict[str, Any]]]:
+    wanted = {_norm_category(category) for category in categories}
+    ids: list[int] = []
+    seen: set[int] = set()
+    for proposal in ctx.proposals:
+        if proposal.id in seen:
+            continue
+        if _norm_category(proposal.category) in wanted:
+            seen.add(proposal.id)
+            ids.append(proposal.id)
+    return ids, [{"proposal_id": pid, "source": "label_exact"} for pid in ids]
+
+
+def _get_clip_provider(runtime: Any) -> Any:
+    provider = getattr(runtime, "clip_visible_provider", None)
+    if provider is not None:
+        return provider
+
+    from agents.packs.vg_embodiedscan.clip_provider import BatchedClipProvider
+
+    provider = BatchedClipProvider(
+        backbone=runtime.clip_visible_backbone,
+        cache_dir=runtime.clip_visible_cache_dir,
+        batch_size=16,
+    )
+    runtime.clip_visible_provider = provider
+    return provider
+
+
+def _clip_visible_aug_for_rank(
+    *,
+    runtime: Any,
+    ctx: Any,
+    rank: int,
+    categories: list[str],
+    label_hit_ids: list[int],
+    seen_frame_ids: set[int],
+    visible_ids: set[int],
+    max_aug: int,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    from agents.packs.vg_embodiedscan.clip_provider import ClipImageRequest
+
+    excluded_ids = set(label_hit_ids)
+    requests: list[ClipImageRequest] = []
+    for proposal_id in sorted(visible_ids):
+        if proposal_id in excluded_ids:
+            continue
+        views = ctx.frame_views_for(proposal_id, seen_frame_ids)
+        if not views:
+            continue
+        view = views[0]
+        requests.append(
+            ClipImageRequest(
+                scene_id=str(getattr(runtime.bundle, "scene_id", "")),
+                proposal_id=proposal_id,
+                frame_id=view.frame_id,
+                raw_rgb_path=view.raw_rgb_path,
+                bbox_2d=view.bbox_2d,
+                visibility_weight=view.visibility_weight,
+            )
+        )
+    if not requests:
+        return [], []
+
+    tau = float(getattr(runtime, "clip_visible_tau", 0.18))
+    provider = _get_clip_provider(runtime)
+    best_by_id: dict[int, dict[str, Any]] = {}
+    failures: list[dict[str, Any]] = []
+    for category in categories:
+        for score in provider.score(category, requests):
+            if score.clip_score < tau:
+                continue
+            current = best_by_id.get(score.proposal_id)
+            if current is not None and current["clip_score"] >= score.clip_score:
+                continue
+            best_by_id[score.proposal_id] = {
+                "proposal_id": score.proposal_id,
+                "clip_score": round(score.clip_score, 6),
+                "rank_used": rank,
+                "via_category": category,
+                "source_frame_id": str(score.frame_id),
+                "source": "clip_visible",
+                "cvra_category_source": f"rank{rank}",
+            }
+        failures.extend(getattr(provider, "last_failures", []) or [])
+
+    aug = sorted(
+        best_by_id.values(),
+        key=lambda item: (-float(item["clip_score"]), int(item["proposal_id"])),
+    )
+    return aug[:max_aug], _dedupe_clip_failures(failures)
+
+
+def _dedupe_clip_failures(failures: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    seen: set[tuple[int, int, str]] = set()
+    out: list[dict[str, Any]] = []
+    for failure in failures:
+        key = (
+            int(failure.get("proposal_id", -1)),
+            int(failure.get("frame_id", -1)),
+            str(failure.get("raw_rgb_path", "")),
+        )
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(failure)
+    return out
+
+
+def _find_proposals_by_category_with_cvra(
+    *,
+    runtime: Any,
+    ctx: Any,
+    category: str,
+) -> dict[str, Any]:
+    ranked_categories = _extract_ranked_categories(runtime, category)
+    seen_frame_ids = cumulative_seen_frame_ids(runtime)
+    visible_ids = ctx.visible_proposal_ids(seen_frame_ids)
+    available_categories = sorted({p.category for p in ctx.proposals if p.category})
+
+    rank_fallback_used = False
+    tried_any = False
+    last_payload: dict[str, Any] | None = None
+    hard_cap = min(int(getattr(runtime, "clip_visible_k_aug", 5)), 5)
+
+    for rank, categories in ranked_categories:
+        tried_any = True
+        if rank > 1:
+            rank_fallback_used = True
+        label_hit_ids, label_hits = _label_hits_for_categories(ctx, categories)
+        dynamic_cap = min(hard_cap, 3 if label_hit_ids else 5)
+        clip_visible_aug, clip_visible_failures = _clip_visible_aug_for_rank(
+            runtime=runtime,
+            ctx=ctx,
+            rank=rank,
+            categories=categories,
+            label_hit_ids=label_hit_ids,
+            seen_frame_ids=seen_frame_ids,
+            visible_ids=visible_ids,
+            max_aug=dynamic_cap,
+        )
+        label_hit_id_set = set(label_hit_ids)
+        proposal_ids = [
+            *label_hit_ids,
+            *[
+                int(item["proposal_id"])
+                for item in clip_visible_aug
+                if int(item["proposal_id"]) not in label_hit_id_set
+            ],
+        ]
+        payload = {
+            "category": category,
+            "proposal_ids": proposal_ids,
+            "available_categories": available_categories,
+            "label_hits": label_hits,
+            "clip_visible_aug": clip_visible_aug,
+            "clip_visible_failures": clip_visible_failures,
+            "rank_fallback_used": rank_fallback_used,
+            "n_visible_set": len(visible_ids),
+            "cvra_exhausted": False,
+        }
+        last_payload = payload
+        if label_hits or clip_visible_aug:
+            return payload
+
+    if last_payload is not None:
+        last_payload["cvra_exhausted"] = True
+        return last_payload
+
+    return {
+        "category": category,
+        "proposal_ids": [],
+        "available_categories": available_categories,
+        "label_hits": [],
+        "clip_visible_aug": [],
+        "clip_visible_failures": [],
+        "rank_fallback_used": False,
+        "n_visible_set": len(visible_ids),
+        "cvra_exhausted": not tried_any,
+    }
 
 
 def build_vg_tools(runtime: Any) -> list[BaseTool]:
@@ -114,6 +398,26 @@ def build_vg_tools(runtime: Any) -> list[BaseTool]:
         if gate is not None:
             runtime.record("find_proposals_by_category", {"category": category}, gate)
             return gate
+        if getattr(runtime, "use_clip_visible_aug", False):
+            try:
+                payload = _find_proposals_by_category_with_cvra(
+                    runtime=runtime,
+                    ctx=ctx,
+                    category=category,
+                )
+            except Exception as exc:
+                err = (
+                    "ERROR: clip_visible augmentation failed: "
+                    f"{type(exc).__name__}: {exc}"
+                )
+                runtime.record(
+                    "find_proposals_by_category", {"category": category}, err
+                )
+                return err
+            text = json.dumps(payload, ensure_ascii=False)
+            runtime.record("find_proposals_by_category", {"category": category}, text)
+            return text
+
         ids = [
             p.id
             for p in ctx.proposals

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import base64
 import json
+import os
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
@@ -48,6 +49,14 @@ class Stage2RuntimeState:
     # Pack-v1 chassis terminal signal (set by submit_final on success).
     final_submission: dict | None = None
 
+    # CVRA visible-proposal CLIP augmentation config. Copied from
+    # Stage2DeepAgentConfig before pack tools are built.
+    use_clip_visible_aug: bool = False
+    clip_visible_tau: float = 0.18
+    clip_visible_k_aug: int = 5
+    clip_visible_backbone: str = "ViT-H-14/laion2b_s32b_b79k"
+    clip_visible_cache_dir: str | None = None
+    clip_visible_provider: Any | None = None
 
     def record(
         self, tool_name: str, tool_input: dict[str, Any], response_text: str
@@ -155,6 +164,20 @@ class BaseStage2Runtime(ABC):
             extra_body["thinking"] = thinking
         extra_body["session_id"] = self._session_id
         return extra_body
+
+    def configure_runtime_state(self, runtime: Stage2RuntimeState) -> None:
+        """Copy config-backed feature flags onto one mutable runtime state."""
+        runtime.use_clip_visible_aug = self.config.use_clip_visible_aug
+        runtime.clip_visible_tau = self.config.clip_visible_tau
+        runtime.clip_visible_k_aug = self.config.clip_visible_k_aug
+        runtime.clip_visible_backbone = self.config.clip_visible_backbone
+        runtime.clip_visible_cache_dir = self.config.clip_visible_cache_dir
+
+        if os.environ.get("CVRA_DISABLE") == "1":
+            runtime.use_clip_visible_aug = False
+        backbone_override = os.environ.get("CVRA_BACKBONE_OVERRIDE")
+        if backbone_override:
+            runtime.clip_visible_backbone = backbone_override
 
     def image_to_data_url(self, image_path: str | Path) -> str:
         """Convert an image file into a data URL for multimodal chat models."""
@@ -281,7 +304,7 @@ class BaseStage2Runtime(ABC):
             "and the `submit_final` payload schema. The 5 VG tools refuse to run "
             "until that skill is loaded.\n"
             "3. Follow the playbook's decision tree, then call "
-            "`submit_final({\"proposal_id\": int, \"confidence\": float}, "
+            '`submit_final({"proposal_id": int, "confidence": float}, '
             "rationale=...)` to terminate.\n\n"
             "### MANDATORY rules\n"
             "- Do NOT invent a `proposal_id` outside the pool; the chassis "

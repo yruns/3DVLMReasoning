@@ -753,17 +753,30 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--pack-name", default="pack_scanrefer_v1")
     parser.add_argument("--sample-retries", type=int, default=2)
     parser.add_argument("--workers", type=int, default=1)
+    parser.add_argument(
+        "--use-clip-visible-aug",
+        action="store_true",
+        default=False,
+        help=(
+            "Enable v3.5 CVRA visible-proposal CLIP augmentation in "
+            "find_proposals_by_category."
+        ),
+    )
     return parser.parse_args()
 
 
 def main() -> None:
     args = parse_args()
     sample_ids = load_sample_ids(args.sample_ids)
+    config = Stage2DeepAgentConfig(
+        use_clip_visible_aug=args.use_clip_visible_aug,
+    )
     compare_backends(
         sample_ids=sample_ids,
         output_dir=args.output_dir,
         data_root=args.data_root,
         pack_name=args.pack_name,
+        config=config,
         sample_retries=args.sample_retries,
         workers=args.workers,
     )
