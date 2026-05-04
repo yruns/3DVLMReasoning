@@ -4,16 +4,20 @@ For each sample in a frozen fold (e.g. random100), measures the
 calibration funnel of the Stage 1 -> Stage 2 keyframe pipeline:
 
     100 samples
-    └── F1: Phase 8 has target_id visible somewhere
-        └── F2: pack-prep initial KFs cover at least one frame where the
-                Phase 8 GT target_id is visible
-            └── F3: pack-prep initial KFs cover at least one Mask3D
-                    candidate whose label fuzzy-matches the GT category
-                └── F4: cumulative KFs (initial + view_keyframe_marked +
-                        callback-added) cover Phase 8 target_id
-                    └── F5: agent submitted a proposal with IoU >= 0.25
-                            (Phase 8 GT bbox, the same eval the pack
-                             ran under)
+    └── F0 (optional, --run-parser): the LLM query parser maps the
+            description to a target category that fuzzy-matches the
+            pack-prep GT category (i.e. the parser stage is correct
+            independently of retrieval).
+        └── F1: Phase 8 has target_id visible somewhere
+            └── F2: pack-prep initial KFs cover at least one frame where
+                    the Phase 8 GT target_id is visible
+                └── F3: pack-prep initial KFs cover at least one Mask3D
+                        candidate whose label fuzzy-matches the GT category
+                    └── F4: cumulative KFs (initial + view_keyframe_marked
+                            + callback-added) cover Phase 8 target_id
+                        └── F5: agent submitted a proposal with IoU >= 0.25
+                                (Phase 8 GT bbox, the same eval the pack
+                                 ran under)
 
 The funnel pinpoints where samples fall off:
 
@@ -206,6 +210,193 @@ def _read_pack_sample(data_root: Path, pack_name: str, sample_id: str) -> dict:
     return json.loads(p.read_text(encoding="utf-8"))
 
 
+# ---------------------------------------------------------------------
+# F0 — query-parser fidelity (optional, --run-parser)
+# ---------------------------------------------------------------------
+
+
+def _scene_categories_from_proposals(proposals: list[dict]) -> list[str]:
+    """Mirror the pack-prep convention: scene_categories = sorted set of
+    Mask3D-CG proposal labels (the parser's allowed vocab)."""
+    return sorted({str(p.get("label", "")).lower().strip() for p in proposals if p.get("label")})
+
+
+def _hypothesis_output_to_dict(output: Any) -> dict:
+    """Normalize HypothesisOutputV1 (or any pydantic model) to a dict."""
+    if hasattr(output, "model_dump"):
+        return output.model_dump()
+    if hasattr(output, "dict"):
+        return output.dict()
+    return dict(output)  # last resort
+
+
+def _extract_rank1_categories(output: Any) -> list[str]:
+    """Pull the rank-1 hypothesis's top-level categories. Returns [] on
+    any unexpected shape (so the caller can record a parse-fail case)."""
+    try:
+        ordered = output.ordered_hypotheses()
+        if not ordered:
+            return []
+        rank1 = ordered[0]
+        cats = list(rank1.grounding_query.root.categories or [])
+        return [str(c) for c in cats if isinstance(c, str)]
+    except Exception:
+        return []
+
+
+def _load_parser_cache(path: Path) -> dict[str, dict]:
+    if path is None or not path.exists():
+        return {}
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return {}
+    if not isinstance(raw, dict):
+        return {}
+    return {str(k): v for k, v in raw.items() if isinstance(v, dict)}
+
+
+def _save_parser_cache(path: Path, cache: dict[str, dict]) -> None:
+    if path is None:
+        return
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(cache, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def _parse_query_with_cache(
+    *,
+    sample_id: str,
+    query: str,
+    parser: Any,
+    cache: dict[str, dict],
+    parser_model: str,
+    scene_categories: list[str],
+) -> dict:
+    """Parse `query` (with caching keyed by sample_id) and return a
+    dict with categories, raw output, and runtime in ms. Cache hit is
+    a 3-key match (sample_id, query, parser_model). Errors are recorded.
+    """
+    import time
+
+    hit = cache.get(sample_id)
+    if (
+        isinstance(hit, dict)
+        and hit.get("query") == query
+        and hit.get("parser_model") == parser_model
+        and "categories" in hit
+    ):
+        return hit
+
+    t0 = time.perf_counter()
+    try:
+        output = parser.parse(query)
+        runtime_ms = (time.perf_counter() - t0) * 1000.0
+        rank1_categories = _extract_rank1_categories(output)
+        all_cats: list[str] = []
+        seen: set[str] = set()
+        try:
+            for h in output.ordered_hypotheses():
+                for c in h.grounding_query.get_all_categories():
+                    if isinstance(c, str) and c not in seen:
+                        seen.add(c)
+                        all_cats.append(c)
+        except Exception:
+            all_cats = list(rank1_categories)
+        entry = {
+            "query": query,
+            "parser_model": parser_model,
+            "scene_categories_count": len(scene_categories),
+            "categories": rank1_categories,
+            "all_categories": all_cats,
+            "raw_hypothesis_output": _hypothesis_output_to_dict(output),
+            "parser_runtime_ms": runtime_ms,
+            "error": None,
+        }
+    except Exception as exc:  # noqa: BLE001 — record error per-sample
+        runtime_ms = (time.perf_counter() - t0) * 1000.0
+        entry = {
+            "query": query,
+            "parser_model": parser_model,
+            "scene_categories_count": len(scene_categories),
+            "categories": [],
+            "all_categories": [],
+            "raw_hypothesis_output": None,
+            "parser_runtime_ms": runtime_ms,
+            "error": f"{type(exc).__name__}: {exc}",
+        }
+
+    cache[sample_id] = entry
+    return entry
+
+
+def _parse_batch_concurrent(
+    *,
+    requests: list[dict],
+    parser_by_scene: dict[str, Any],
+    cache: dict[str, dict],
+    parser_model: str,
+    parser_cache_path: Path | None,
+    max_workers: int,
+) -> None:
+    """Parse a batch of (sample_id, scene_id, query, scene_categories)
+    requests in parallel against the gemini pool. The QueryParser
+    instances are pre-built per scene; we reuse them across samples.
+
+    Mutates `cache` in-place. Flushes cache every 10 completions.
+    Cache hits are skipped (so re-runs after a crash are cheap).
+    """
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    from loguru import logger as _flog
+
+    pending = []
+    for r in requests:
+        hit = cache.get(r["sample_id"])
+        if (
+            isinstance(hit, dict)
+            and hit.get("query") == r["query"]
+            and hit.get("parser_model") == parser_model
+            and "categories" in hit
+        ):
+            continue
+        pending.append(r)
+    if not pending:
+        _flog.info("[funnel] parser cache covers all {} samples; nothing to parse", len(requests))
+        return
+
+    _flog.info(
+        "[funnel] parsing {}/{} sample queries (max_workers={}, model={})",
+        len(pending), len(requests), max_workers, parser_model,
+    )
+
+    def _do(req: dict) -> tuple[str, dict]:
+        parser = parser_by_scene[req["scene_id"]]
+        entry = _parse_query_with_cache(
+            sample_id=req["sample_id"],
+            query=req["query"],
+            parser=parser,
+            cache={},  # per-call cache; result is then merged into shared cache below
+            parser_model=parser_model,
+            scene_categories=req["scene_categories"],
+        )
+        return req["sample_id"], entry
+
+    completed = 0
+    with ThreadPoolExecutor(max_workers=max_workers) as ex:
+        futures = [ex.submit(_do, r) for r in pending]
+        for fut in as_completed(futures):
+            sample_id, entry = fut.result()
+            cache[sample_id] = entry
+            completed += 1
+            if parser_cache_path is not None and (completed % 10 == 0):
+                _save_parser_cache(parser_cache_path, cache)
+            if completed % 20 == 0:
+                _flog.info(
+                    "[funnel] parser progress: {}/{} done", completed, len(pending)
+                )
+    if parser_cache_path is not None:
+        _save_parser_cache(parser_cache_path, cache)
+
+
 def _read_per_sample_checkpoint(
     per_sample_dir: Path, sample_id: str
 ) -> dict | None:
@@ -229,6 +420,11 @@ def evaluate(
     phase8_data_root: Path,
     per_sample_dir: Path,
     output_path: Path,
+    run_parser: bool = False,
+    parser_cache_path: Path | None = None,
+    parser_model: str = "gemini-2.5-pro",
+    parser_max_workers: int = 8,
+    quiet_parser_logging: bool = True,
 ) -> dict:
     fold = json.loads(sample_ids_path.read_text(encoding="utf-8"))
     if not isinstance(fold, list):
@@ -240,6 +436,73 @@ def evaluate(
     mask3d_view_to_objects: dict[
         str, dict[int, list[tuple[int, float]]]
     ] = {}
+    # F0 parser state (only populated when run_parser=True)
+    parser_cache: dict[str, dict] = (
+        _load_parser_cache(parser_cache_path) if run_parser else {}
+    )
+    parser_by_scene: dict[str, Any] = {}
+
+    # Optional pre-pass: parse all queries concurrently against the gemini
+    # pool, then look up results in the per-sample loop below. This avoids
+    # the multi-minute serial latency that QueryParser.parse() incurs per
+    # call when run sequentially.
+    if run_parser:
+        from loguru import logger as _flog
+        if quiet_parser_logging:
+            # QueryParser uses loguru INFO heavily; suppress unless user
+            # sets LOGURU_LEVEL explicitly.
+            _flog.disable("query_scene.query_parser")
+
+        # Pre-load Mask3D pool per scene so we have scene_categories ready
+        # for the parser pre-pass.
+        scene_ids = sorted({row["scene_id"] for row in fold})
+        for sid in scene_ids:
+            if sid not in mask3d_proposals:
+                proposals_, _ = _load_mask3d_pool(data_root / sid)
+                mask3d_proposals[sid] = proposals_
+                mask3d_view_to_objects[sid] = (
+                    _load_mask3d_visibility_view_to_objects(data_root / sid)
+                )
+
+        from query_scene.query_parser import QueryParser
+        for sid in scene_ids:
+            scene_cats = _scene_categories_from_proposals(mask3d_proposals[sid])
+            parser_by_scene[sid] = QueryParser(
+                llm_model=parser_model,
+                scene_categories=scene_cats,
+            )
+
+        # Build parse requests
+        parse_requests: list[dict] = []
+        for row in fold:
+            sample_id = row["sample_id"]
+            scene_id = row["scene_id"]
+            try:
+                pack_sample_ = _read_pack_sample(data_root, pack_name, sample_id)
+            except FileNotFoundError:
+                continue
+            query_text = pack_sample_.get("query") or ""
+            if not query_text.strip():
+                continue
+            parse_requests.append(
+                {
+                    "sample_id": sample_id,
+                    "scene_id": scene_id,
+                    "query": query_text,
+                    "scene_categories": _scene_categories_from_proposals(
+                        mask3d_proposals[scene_id]
+                    ),
+                }
+            )
+
+        _parse_batch_concurrent(
+            requests=parse_requests,
+            parser_by_scene=parser_by_scene,
+            cache=parser_cache,
+            parser_model=parser_model,
+            parser_cache_path=parser_cache_path,
+            max_workers=parser_max_workers,
+        )
 
     per_sample: list[dict] = []
     for row in fold:
@@ -322,6 +585,25 @@ def evaluate(
         f5_agent_correct_25 = agent_iou >= 0.25
         f5_agent_correct_50 = agent_iou >= 0.50
 
+        # F0 (optional) — query-parser fidelity vs GT category. The
+        # parse pre-pass populated parser_cache; we only read here.
+        f0_parser_match: bool | None = None
+        parser_categories: list[str] = []
+        parser_runtime_ms: float | None = None
+        parser_error: str | None = None
+        if run_parser:
+            entry = parser_cache.get(sample_id)
+            if isinstance(entry, dict):
+                parser_categories = list(entry.get("categories") or [])
+                parser_runtime_ms = float(entry.get("parser_runtime_ms") or 0.0)
+                parser_error = entry.get("error")
+                if parser_error:
+                    f0_parser_match = None  # parse failed; do not count as no
+                else:
+                    f0_parser_match = bool(
+                        _category_match(target_category, parser_categories)
+                    )
+
         per_sample.append(
             {
                 "sample_id": sample_id,
@@ -353,8 +635,17 @@ def evaluate(
                 "F5a_agent_iou_ge_025": f5_agent_correct_25,
                 "F5b_agent_iou_ge_050": f5_agent_correct_50,
                 "checkpoint_present": per_chk is not None,
+                # F0 (only populated when run_parser=True; otherwise None)
+                "F0_parser_target_matches_gt_category": f0_parser_match,
+                "parser_categories": parser_categories,
+                "parser_runtime_ms": parser_runtime_ms,
+                "parser_error": parser_error,
             }
         )
+
+    # final cache flush
+    if run_parser and parser_cache_path is not None:
+        _save_parser_cache(parser_cache_path, parser_cache)
 
     n = len(per_sample)
     summary = {
@@ -381,6 +672,17 @@ def evaluate(
         ),
         "n_checkpoint_present": sum(r["checkpoint_present"] for r in per_sample),
     }
+    if run_parser:
+        f0_yes = sum(
+            1 for r in per_sample if r.get("F0_parser_target_matches_gt_category") is True
+        )
+        f0_evaluated = sum(
+            1 for r in per_sample if r.get("F0_parser_target_matches_gt_category") is not None
+        )
+        f0_errors = sum(1 for r in per_sample if r.get("parser_error"))
+        summary["n_F0_parser_target_matches_gt_category"] = f0_yes
+        summary["n_F0_parser_evaluated"] = f0_evaluated
+        summary["n_F0_parser_errors"] = f0_errors
     summary["pct"] = {k: f"{(v / n) * 100:.1f}%" for k, v in summary.items() if k.startswith("n_")}
 
     output = {
@@ -389,6 +691,9 @@ def evaluate(
         "data_root": str(data_root),
         "phase8_data_root": str(phase8_data_root),
         "per_sample_dir": str(per_sample_dir),
+        "run_parser": run_parser,
+        "parser_model": parser_model if run_parser else None,
+        "parser_cache_path": str(parser_cache_path) if (run_parser and parser_cache_path) else None,
         "summary": summary,
         "per_sample": per_sample,
     }
@@ -402,19 +707,35 @@ def _print_summary(report: dict) -> None:
     n = s["n_total"]
     print(f"\nFunnel report (n={n}, pack={report['pack_name']})")
     print(f"  per_sample_dir: {report['per_sample_dir']}")
-    rows = [
-        ("F1: Phase 8 has visible frames for target_id", s["n_F1_phase8_has_visible_frames"]),
-        ("F2: initial KFs cover Phase 8 target frame", s["n_F2_initial_kf_covers_phase8_target"]),
-        ("F3: initial KFs carry Mask3D candidate of GT category", s["n_F3_initial_kf_carries_mask3d_category_match"]),
-        ("F4: cumulative KFs cover Phase 8 target frame", s["n_F4_cumulative_kf_covers_phase8_target"]),
-        ("F4b: cumulative KFs carry Mask3D candidate of GT category", s["n_F4b_cumulative_mask3d_category_match"]),
-        ("F5a: agent IoU >= 0.25 (Phase 8 eval)", s["n_F5a_agent_iou_ge_025"]),
-        ("F5b: agent IoU >= 0.50 (Phase 8 eval)", s["n_F5b_agent_iou_ge_050"]),
-        ("(ref) Mask3D pool has same-category candidate", s["n_mask3d_pool_has_category_match"]),
-        ("(ref) per-sample checkpoint present", s["n_checkpoint_present"]),
-    ]
+    rows: list[tuple[str, int]] = []
+    if report.get("run_parser"):
+        rows.append(
+            (
+                "F0: parser_target_matches_gt_category",
+                s.get("n_F0_parser_target_matches_gt_category", 0),
+            )
+        )
+    rows.extend(
+        [
+            ("F1: Phase 8 has visible frames for target_id", s["n_F1_phase8_has_visible_frames"]),
+            ("F2: initial KFs cover Phase 8 target frame", s["n_F2_initial_kf_covers_phase8_target"]),
+            ("F3: initial KFs carry Mask3D candidate of GT category", s["n_F3_initial_kf_carries_mask3d_category_match"]),
+            ("F4: cumulative KFs cover Phase 8 target frame", s["n_F4_cumulative_kf_covers_phase8_target"]),
+            ("F4b: cumulative KFs carry Mask3D candidate of GT category", s["n_F4b_cumulative_mask3d_category_match"]),
+            ("F5a: agent IoU >= 0.25 (Phase 8 eval)", s["n_F5a_agent_iou_ge_025"]),
+            ("F5b: agent IoU >= 0.50 (Phase 8 eval)", s["n_F5b_agent_iou_ge_050"]),
+            ("(ref) Mask3D pool has same-category candidate", s["n_mask3d_pool_has_category_match"]),
+            ("(ref) per-sample checkpoint present", s["n_checkpoint_present"]),
+        ]
+    )
     for label, k in rows:
         print(f"  {label:<60s} {k:3d} / {n:<3d} ({k / n * 100:5.1f}%)")
+    if report.get("run_parser"):
+        f0_err = s.get("n_F0_parser_errors", 0)
+        if f0_err:
+            print(f"  (parser errors: {f0_err} / {n})")
+        print(f"  (parser model: {report.get('parser_model')})")
+        print(f"  (parser cache: {report.get('parser_cache_path')})")
 
 
 def main() -> None:
@@ -437,7 +758,43 @@ def main() -> None:
         "tmp/<run>/per_sample/<pack-name>/",
     )
     p.add_argument("--output", required=True, type=Path)
+    p.add_argument(
+        "--run-parser",
+        action="store_true",
+        default=False,
+        help="If set, run the LLM query parser per sample to compute F0 "
+        "(parser-target ↔ GT-category match). Default off; F0 is None when off.",
+    )
+    p.add_argument(
+        "--parser-cache",
+        type=Path,
+        default=None,
+        help="Path to parser-cache JSON. Defaults to sibling of --output: "
+        "<output_stem>_parser_cache.json. Re-runs reuse cached parses.",
+    )
+    p.add_argument(
+        "--parser-model",
+        default="gemini-2.5-pro",
+        help="LLM model for the F0 parser. Default gemini-2.5-pro (pool-enabled).",
+    )
+    p.add_argument(
+        "--parser-max-workers",
+        type=int,
+        default=8,
+        help="Concurrent worker count for the F0 parse pre-pass (gemini "
+        "pool is auto-enabled). Default 8; 16 is safe per pool docs.",
+    )
+    p.add_argument(
+        "--parser-verbose",
+        action="store_true",
+        default=False,
+        help="If set, do NOT silence QueryParser's INFO logging "
+        "(default: suppress to keep funnel output tight).",
+    )
     args = p.parse_args()
+    parser_cache = args.parser_cache
+    if args.run_parser and parser_cache is None:
+        parser_cache = args.output.with_name(args.output.stem + "_parser_cache.json")
     report = evaluate(
         sample_ids_path=args.sample_ids,
         pack_name=args.pack_name,
@@ -445,6 +802,11 @@ def main() -> None:
         phase8_data_root=args.phase8_data_root,
         per_sample_dir=args.per_sample_dir,
         output_path=args.output,
+        run_parser=args.run_parser,
+        parser_cache_path=parser_cache,
+        parser_model=args.parser_model,
+        parser_max_workers=args.parser_max_workers,
+        quiet_parser_logging=not args.parser_verbose,
     )
     _print_summary(report)
 
@@ -458,4 +820,8 @@ __all__ = [
     "_extract_cumulative_frame_ids",
     "_category_match",
     "_category_tokens",
+    "_extract_rank1_categories",
+    "_parse_query_with_cache",
+    "_load_parser_cache",
+    "_save_parser_cache",
 ]
