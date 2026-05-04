@@ -111,10 +111,10 @@ class Stage2DeepAgentConfig(BaseModel):
         description="Minimum CLIP cosine score for CVRA visible-proposal augmentation.",
     )
     clip_visible_k_aug: int = Field(
-        default=5,
+        default=8,
         ge=1,
-        le=5,
-        description="Hard cap for CVRA augmented visible proposals.",
+        le=10,
+        description="Hard cap for standard CVRA augmented visible proposals.",
     )
     clip_visible_backbone: str = Field(
         default="ViT-H-14/laion2b_s32b_b79k",

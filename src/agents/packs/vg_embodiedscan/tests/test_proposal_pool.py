@@ -54,6 +54,52 @@ def test_build_vg_proposal_pool_with_visibility(tmp_path: Path) -> None:
     assert len(pool["axis_align_matrix"]) == 4
 
 
+def test_build_vg_proposal_pool_preserves_cvra_frame_views(tmp_path: Path) -> None:
+    proposals_path = tmp_path / "props.json"
+    _write_proposals_json(
+        proposals_path,
+        [
+            {
+                "id": 7,
+                "bbox_3d": [0, 0, 0, 1, 1, 1, 0, 0, 0],
+                "score": 0.9,
+                "label": "mat",
+                "frame_views": {
+                    "61": {
+                        "proposal_id": 7,
+                        "frame_id": 61,
+                        "bbox_2d": [10, 20, 30, 40],
+                        "raw_rgb_path": "data/scanrefer/raw/000610-rgb.png",
+                        "visibility_weight": 0.42,
+                    }
+                },
+            }
+        ],
+    )
+    annotated = tmp_path / "ann"
+    annotated.mkdir()
+
+    pool = build_vg_proposal_pool(
+        proposals_jsonl=proposals_path,
+        source="conceptgraph",
+        annotated_image_dir=annotated,
+        frame_visibility={61: [7]},
+        axis_align_matrix=None,
+    )
+
+    proposal = pool["proposals"][0]
+    assert proposal["id"] == 7
+    assert proposal["frame_views"] == {
+        "61": {
+            "proposal_id": 7,
+            "frame_id": 61,
+            "bbox_2d": [10, 20, 30, 40],
+            "raw_rgb_path": "data/scanrefer/raw/000610-rgb.png",
+            "visibility_weight": 0.42,
+        }
+    }
+
+
 def test_build_vg_proposal_pool_raises_on_missing_top_level_proposals(tmp_path: Path) -> None:
     proposals_path = tmp_path / "props.json"
     proposals_path.write_text(json.dumps({}), encoding="utf-8")

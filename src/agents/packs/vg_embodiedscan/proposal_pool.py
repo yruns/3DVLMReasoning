@@ -50,14 +50,15 @@ def build_vg_proposal_pool(
                     f"proposal[{idx}].{required_key} is required in {proposals_jsonl}"
                 )
         pid = int(p["id"]) if "id" in p else idx
-        proposals_out.append(
-            {
-                "id": pid,
-                "bbox_3d_9dof": [float(x) for x in p["bbox_3d"]],
-                "category": str(p["label"]),
-                "score": float(p["score"]),
-            }
-        )
+        proposal_out = {
+            "id": pid,
+            "bbox_3d_9dof": [float(x) for x in p["bbox_3d"]],
+            "category": str(p["label"]),
+            "score": float(p["score"]),
+        }
+        if "frame_views" in p:
+            proposal_out["frame_views"] = p["frame_views"]
+        proposals_out.append(proposal_out)
 
     proposal_index: dict[int, list[int]] = defaultdict(list)
     frame_index: dict[int, list[int]] = {}

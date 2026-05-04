@@ -10,6 +10,7 @@ from langchain_core.tools import BaseTool, tool
 from agents.packs.vg_embodiedscan.ctx import cumulative_seen_frame_ids
 
 PRIMARY_SKILL = "vg-grounding-playbook"
+CLIP_VISIBLE_OVERFLOW_K = 3
 
 
 def _gate(runtime: Any) -> str | None:
@@ -153,6 +154,7 @@ def _clip_visible_aug_for_rank(
     runtime: Any,
     ctx: Any,
     rank: int,
+    search_category: str,
     categories: list[str],
     label_hit_ids: list[int],
     seen_frame_ids: set[int],
@@ -205,11 +207,26 @@ def _clip_visible_aug_for_rank(
             }
         failures.extend(getattr(provider, "last_failures", []) or [])
 
+    proposal_by_id = {int(p.id): p for p in ctx.proposals}
     aug = sorted(
         best_by_id.values(),
         key=lambda item: (-float(item["clip_score"]), int(item["proposal_id"])),
     )
-    return aug[:max_aug], _dedupe_clip_failures(failures)
+    standard_aug = aug[:max_aug]
+    search_norm = _norm_category(search_category)
+    overflow_aug: list[dict[str, Any]] = []
+    for item in aug[max_aug:]:
+        proposal = proposal_by_id.get(int(item["proposal_id"]))
+        if proposal is None:
+            continue
+        if search_norm and _norm_category(proposal.category) == search_norm:
+            continue
+        overflow_item = dict(item)
+        overflow_item["cvra_overflow"] = True
+        overflow_aug.append(overflow_item)
+        if len(overflow_aug) >= CLIP_VISIBLE_OVERFLOW_K:
+            break
+    return [*standard_aug, *overflow_aug], _dedupe_clip_failures(failures)
 
 
 def _dedupe_clip_failures(failures: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -242,23 +259,23 @@ def _find_proposals_by_category_with_cvra(
     rank_fallback_used = False
     tried_any = False
     last_payload: dict[str, Any] | None = None
-    hard_cap = min(int(getattr(runtime, "clip_visible_k_aug", 5)), 5)
+    hard_cap = max(1, min(int(getattr(runtime, "clip_visible_k_aug", 8)), 10))
 
     for rank, categories in ranked_categories:
         tried_any = True
         if rank > 1:
             rank_fallback_used = True
         label_hit_ids, label_hits = _label_hits_for_categories(ctx, categories)
-        dynamic_cap = min(hard_cap, 3 if label_hit_ids else 5)
         clip_visible_aug, clip_visible_failures = _clip_visible_aug_for_rank(
             runtime=runtime,
             ctx=ctx,
             rank=rank,
+            search_category=category,
             categories=categories,
             label_hit_ids=label_hit_ids,
             seen_frame_ids=seen_frame_ids,
             visible_ids=visible_ids,
-            max_aug=dynamic_cap,
+            max_aug=hard_cap,
         )
         label_hit_id_set = set(label_hit_ids)
         proposal_ids = [

@@ -40,6 +40,7 @@ Source: https://kaldir.vc.in.tum.de/scanrefer_benchmark/benchmark_localization
 | Ours v3.2 callback-durable (gpt-5.4) [§] | this work | 71.43 | 71.43 | 36.11 | 27.78 | 46.00 | 40.00 |
 | Ours v3.3 vertical-spatial (gpt-5.4) [§] | this work | 75.00 | 75.00 | 37.50 | 29.17 | 48.00 | 42.00 |
 | Ours v3.4 select-among-proposals (gpt-5.4) [§][¶] | this work | 78.57 | 78.57 | 30.56 | 22.22 | 44.00 | 38.00 |
+| Ours v3.5 CVRA (gpt-5.4) [§][♦] | this work | 75.00 | 75.00 | 37.50 | 29.17 | 48.00 | 42.00 |
 
 **v2's GT bbox source is paper-comparable** — same v1 agent decisions
 re-aggregated against ScanNet aggregation-derived GT (the bbox source
@@ -90,8 +91,33 @@ headline. v3.4 stays in the table as audit trail and to motivate
 the next iteration (co-visible-anchor frame selection). See
 [`v3p4_select_among_proposals_20260504.md`](v3p4_select_among_proposals_20260504.md).
 
-[§] **100-utt random fold, not full 9508 val.** v3 / v3.1 / v3.2 / v3.3
-numbers above are reported on a frozen 100-utt random sub-fold
+[♦] **v3.5 CVRA is a NEGATIVE result, smoke only — quoted numbers are
+v3.3's, not a v3.5 full-fold run.** CVRA (CLIP-Visible Retrieval
+Augmentation) extends `find_proposals_by_category` with a CLIP-text
+rerank over Mask3D proposals visible in the agent's cumulative seen
+frames; the augmented set is appended (not replacing) label-based
+retrieval, with K_AUG=8/10 and a label-mismatch overflow tier. The
+6-utt addressable smoke (`tmp/scanrefer_artifacts/cvra_addressable6_sample_ids.json`,
+selected from the bbox-IoU v2 audit) gave **6/6 retrieval recall but
+0/6 F5a flips** — 5 of 6 samples produce identical agent picks vs the
+v3.3 baseline, so the projected random100 lift is ~0pp. The full
+random100 run was deliberately skipped to avoid spending 3-4 h
+producing a 0pp number. CVRA infrastructure (proposal_pool bridge fix,
+`BatchedClipProvider`, pack-prep `frame_views`, runner
+`--use-clip-visible-aug`) ships behind `use_clip_visible_aug=False`
+default; the row above is reproduced from v3.3 for table continuity,
+not a fresh run. The bottleneck identified by the smoke is
+agent-side spatial reasoning correctly rejecting audit-tagged
+candidates whose 3D position contradicts the description's spatial
+referent (e.g. `scene0011_00::20::2`: CVRA-aug pid is at refrigerator
+level, query says "above the refrigerator"). The bbox-IoU v2
+"addressability" definition therefore over-counts retrieval-side
+reachable surface; future audits need a spatial-referent verifier.
+See [`v3p5_cvra_negative_20260505.md`](v3p5_cvra_negative_20260505.md).
+
+[§] **100-utt random fold, not full 9508 val.** v3 / v3.1 / v3.2 /
+v3.3 / v3.4 / v3.5 numbers above are reported on a frozen 100-utt
+random sub-fold
 (seed=20260503, file `tmp/scanrefer_artifacts/random100_sample_ids.json`)
 per the project's iteration-on-100-first methodology. v2 on the same
 fold is 67.0 / 59.0 (vs 69.92 / 62.79 on full val), so fold

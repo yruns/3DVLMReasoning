@@ -6,7 +6,9 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
-from agents.core.agent_config import Stage2TaskType
+import pytest
+
+from agents.core.agent_config import Stage2DeepAgentConfig, Stage2TaskType
 from agents.core.task_types import KeyframeEvidence, Stage2EvidenceBundle
 from agents.packs.vg_embodiedscan.ctx import (
     Proposal,
@@ -337,12 +339,12 @@ class _StubClipProvider:
         self.calls: list[tuple[str, list[int]]] = []
 
     def score(self, category, requests):  # noqa: ANN001 — duck type
-        self.calls.append(
-            (category, [int(r.proposal_id) for r in requests])
-        )
+        self.calls.append((category, [int(r.proposal_id) for r in requests]))
         out = []
         for r in requests:
-            s = float(self._scores.get((category.strip().lower(), int(r.proposal_id)), 0.0))
+            s = float(
+                self._scores.get((category.strip().lower(), int(r.proposal_id)), 0.0)
+            )
             out.append(
                 _StubClipScore(
                     proposal_id=int(r.proposal_id),
@@ -407,19 +409,31 @@ def _cvra_runtime(
         proposal_pool_source="conceptgraph",
         proposals=[
             Proposal(
-                id=0, bbox_3d_9dof=[0] * 9, category="monitor", score=0.9,
+                id=0,
+                bbox_3d_9dof=[0] * 9,
+                category="monitor",
+                score=0.9,
                 frame_views={10: fv(0, 10)},
             ),
             Proposal(
-                id=1, bbox_3d_9dof=[1] * 9, category="desk", score=0.8,
+                id=1,
+                bbox_3d_9dof=[1] * 9,
+                category="desk",
+                score=0.8,
                 frame_views={10: fv(1, 10), 11: fv(1, 11)},
             ),
             Proposal(
-                id=2, bbox_3d_9dof=[2] * 9, category="lamp", score=0.7,
+                id=2,
+                bbox_3d_9dof=[2] * 9,
+                category="lamp",
+                score=0.7,
                 frame_views={11: fv(2, 11)},
             ),
             Proposal(
-                id=3, bbox_3d_9dof=[3] * 9, category="doorframe", score=0.6,
+                id=3,
+                bbox_3d_9dof=[3] * 9,
+                category="doorframe",
+                score=0.6,
                 frame_views={12: fv(3, 12)},  # frame 12 NOT in seen-set
             ),
         ],
@@ -431,11 +445,61 @@ def _cvra_runtime(
 
 
 def _invoke_find(rs: Stage2RuntimeState, category: str) -> dict:
-    tool = next(
-        t for t in build_vg_tools(rs) if t.name == "find_proposals_by_category"
-    )
+    tool = next(t for t in build_vg_tools(rs) if t.name == "find_proposals_by_category")
     response = tool.invoke({"category": category})
     return json.loads(response)
+
+
+def _replace_cvra_pool(
+    rs: Stage2RuntimeState,
+    *,
+    n_visible: int,
+    query_category: str,
+    k_aug: int = 8,
+    same_label_ids: set[int] | None = None,
+) -> None:
+    """Replace the default tiny CVRA pool with a ranked visible candidate pool."""
+    same_label_ids = same_label_ids or set()
+    frame_id = 10
+    proposals: list[Proposal] = []
+    frame_index: dict[int, list[int]] = {frame_id: []}
+    proposal_index: dict[int, list[int]] = {}
+    scores: dict[tuple[str, int], float] = {}
+    for pid in range(n_visible):
+        category = query_category if pid in same_label_ids else f"mismatch-{pid}"
+        view = ProposalFrameView(
+            proposal_id=pid,
+            frame_id=frame_id,
+            bbox_2d=(pid, pid + 1, pid + 20, pid + 21),
+            raw_rgb_path=Path(f"data/nr3d/scannet/scene_test/raw/{pid:06d}.png"),
+            visibility_weight=1.0,
+        )
+        proposals.append(
+            Proposal(
+                id=pid,
+                bbox_3d_9dof=[float(pid)] * 9,
+                category=category,
+                score=1.0,
+                frame_views={frame_id: view},
+            )
+        )
+        frame_index[frame_id].append(pid)
+        proposal_index[pid] = [frame_id]
+        scores[(query_category.strip().lower(), pid)] = 1.0 - pid * 0.01
+
+    rs.task_ctx.proposals = proposals
+    rs.task_ctx.frame_index = frame_index
+    rs.task_ctx.proposal_index = proposal_index
+    rs.clip_visible_k_aug = k_aug
+    rs.clip_visible_provider = _StubClipProvider(scores)
+
+
+def test_cvra_default_k_aug_is_8_with_ceiling_10() -> None:
+    cfg = Stage2DeepAgentConfig()
+    assert cfg.clip_visible_k_aug == 8
+    assert Stage2DeepAgentConfig(clip_visible_k_aug=10).clip_visible_k_aug == 10
+    with pytest.raises(ValueError):
+        Stage2DeepAgentConfig(clip_visible_k_aug=11)
 
 
 def test_cvra_disabled_default(tmp_path: Path) -> None:
@@ -504,10 +568,7 @@ def test_cvra_tau_filters_below_threshold(tmp_path: Path) -> None:
 
 
 def test_cvra_k_aug_dynamic_fill(tmp_path: Path) -> None:
-    """When label_hits exists, dynamic cap = 3. Otherwise cap = 5
-    (or k_aug, whichever is smaller)."""
-    # label_hits-present case: 'desk' exists in pool, proposals 0, 2 are
-    # CLIP-visible; cap should be 3 — both fit, but no overflow tested
+    """CVRA keeps label hits primary and fills up to the configured K_AUG."""
     rs = _cvra_runtime(
         tmp_path,
         scores={
@@ -516,11 +577,11 @@ def test_cvra_k_aug_dynamic_fill(tmp_path: Path) -> None:
         },
     )
     payload = _invoke_find(rs, "desk")
-    assert len(payload["clip_visible_aug"]) <= 3
+    assert len(payload["clip_visible_aug"]) <= rs.clip_visible_k_aug
     assert payload["label_hits"][0]["proposal_id"] == 1
 
     # no-label-hits case: 'fridge' not in pool; CLIP scores high on 0,1,2
-    # (3 visible) — cap 5 lets all 3 through.
+    # (3 visible) — default K_AUG lets all 3 through.
     rs2 = _cvra_runtime(
         tmp_path,
         scores={
@@ -533,6 +594,57 @@ def test_cvra_k_aug_dynamic_fill(tmp_path: Path) -> None:
     assert payload2["label_hits"] == []
     aug_ids = sorted(item["proposal_id"] for item in payload2["clip_visible_aug"])
     assert aug_ids == [0, 1, 2]
+
+
+def test_cvra_label_mismatch_overflow_appends_after_top_k(
+    tmp_path: Path,
+) -> None:
+    rs = _cvra_runtime(tmp_path, scores={})
+    _replace_cvra_pool(rs, n_visible=12, query_category="chair", k_aug=8)
+
+    payload = _invoke_find(rs, "chair")
+
+    aug = payload["clip_visible_aug"]
+    assert [item["proposal_id"] for item in aug[:8]] == list(range(8))
+    assert [item["proposal_id"] for item in aug[8:]] == [8, 9, 10]
+    assert all(not item.get("cvra_overflow", False) for item in aug[:8])
+    assert all(item.get("cvra_overflow") is True for item in aug[8:])
+
+
+def test_cvra_overflow_only_uses_label_mismatch(tmp_path: Path) -> None:
+    rs = _cvra_runtime(tmp_path, scores={})
+    _replace_cvra_pool(
+        rs,
+        n_visible=14,
+        query_category="chair",
+        k_aug=8,
+        same_label_ids={8, 9, 10},
+    )
+
+    payload = _invoke_find(rs, "chair")
+
+    label_hit_ids = [item["proposal_id"] for item in payload["label_hits"]]
+    overflow_ids = [
+        item["proposal_id"]
+        for item in payload["clip_visible_aug"]
+        if item.get("cvra_overflow")
+    ]
+    assert label_hit_ids == [8, 9, 10]
+    assert overflow_ids == [11, 12, 13]
+
+
+def test_cvra_total_augmented_candidates_capped_at_k_plus_overflow(
+    tmp_path: Path,
+) -> None:
+    rs = _cvra_runtime(tmp_path, scores={})
+    _replace_cvra_pool(rs, n_visible=20, query_category="chair", k_aug=8)
+
+    payload = _invoke_find(rs, "chair")
+
+    assert len(payload["clip_visible_aug"]) == 11
+    assert (
+        sum(1 for item in payload["clip_visible_aug"] if item.get("cvra_overflow")) == 3
+    )
 
 
 def test_cvra_dedup_label_and_aug(tmp_path: Path) -> None:
@@ -559,7 +671,9 @@ def test_cvra_rank_fallback_fires(tmp_path: Path) -> None:
         parser_categories_by_rank={1: ["fridge"], 2: ["lamp"]},
         scores={
             # rank-1 'fridge' has no signal
-            ("fridge", 0): 0.0, ("fridge", 1): 0.0, ("fridge", 2): 0.0,
+            ("fridge", 0): 0.0,
+            ("fridge", 1): 0.0,
+            ("fridge", 2): 0.0,
             # rank-2 'lamp' label-matches proposal 2
         },
     )
@@ -605,8 +719,13 @@ def test_cvra_metadata_schema_full(tmp_path: Path) -> None:
     assert len(payload2["clip_visible_aug"]) == 1
     item = payload2["clip_visible_aug"][0]
     expected_keys = {
-        "proposal_id", "clip_score", "rank_used", "via_category",
-        "source_frame_id", "source", "cvra_category_source",
+        "proposal_id",
+        "clip_score",
+        "rank_used",
+        "via_category",
+        "source_frame_id",
+        "source",
+        "cvra_category_source",
     }
     assert expected_keys.issubset(item.keys())
     assert item["proposal_id"] == 0
@@ -644,15 +763,14 @@ def test_cvra_integration_synthetic_label_mismatched_gt_overlap(
     payload = _invoke_find(rs, "desk")
     label_pids = [h["proposal_id"] for h in payload["label_hits"]]
     aug_pids = [item["proposal_id"] for item in payload["clip_visible_aug"]]
-    assert 1 in label_pids                   # true desk picked up by label
-    assert 0 in aug_pids                      # GT-overlap proposal augmented
-    assert 2 not in aug_pids                  # lamp dropped by TAU
+    assert 1 in label_pids  # true desk picked up by label
+    assert 0 in aug_pids  # GT-overlap proposal augmented
+    assert 2 not in aug_pids  # lamp dropped by TAU
     # The union (label + aug) is what the agent sees as candidates
     assert payload["proposal_ids"][0] == 1
     assert 0 in payload["proposal_ids"]
     # The retrieval-recall flag for the funnel to read
     assert any(
-        item["proposal_id"] == 0
-        and item["clip_score"] >= 0.18
+        item["proposal_id"] == 0 and item["clip_score"] >= 0.18
         for item in payload["clip_visible_aug"]
     )
