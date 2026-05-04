@@ -61,8 +61,13 @@ def _get_or_build_keyframe_selector(
             return None
 
         from query_scene.keyframe_selector import KeyframeSelector
+
+        # ScanRefer Phase-8 visibility indices are saved at stride=1. Using a
+        # different stride makes callback view IDs fail path resolution.
         selector = KeyframeSelector.from_scene_path(
-            str(cg_root), stride=10, llm_model=llm_model,
+            str(cg_root),
+            stride=1,
+            llm_model=llm_model,
         )
         with _SELECTOR_CACHE_LOCK:
             _SELECTOR_CACHE[scene_id] = selector
@@ -126,6 +131,7 @@ def _run_one_sample_once(
     cfg = config_for_backend(backend, config)
     raw_result = run_pack_v1_sample(sample, data_root, cfg, pack_name=pack_name)
     prediction = extract_pack_v1_prediction(raw_result)
+    tool_trace = extract_result_tool_trace(raw_result)
 
     status = prediction.get("status")
     if status is None:
@@ -145,6 +151,7 @@ def _run_one_sample_once(
             "selected_object_id": selected_id,
             "confidence": prediction.get("confidence"),
             "query": sample.get("query"),
+            "tool_trace": tool_trace,
         }
     if pred_bbox_raw is None:
         raise ValueError(
@@ -166,6 +173,7 @@ def _run_one_sample_once(
         "selected_object_id": selected_id,
         "confidence": prediction.get("confidence"),
         "query": sample.get("query"),
+        "tool_trace": tool_trace,
     }
 
 
@@ -296,14 +304,21 @@ def run_pack_v1_sample(
                 create_hypothesis_callback,
                 create_more_views_callback,
             )
+
             more_views_callback = create_more_views_callback(
-                selector, scene_id=scene_id, max_additional_views=3,
+                selector,
+                scene_id=scene_id,
+                max_additional_views=3,
             )
             crop_callback = create_crop_callback(
-                selector, scene_id=scene_id, crop_scale=2.0,
+                selector,
+                scene_id=scene_id,
+                crop_scale=2.0,
             )
             hypothesis_callback = create_hypothesis_callback(
-                selector, scene_id=scene_id, max_new_keyframes=3,
+                selector,
+                scene_id=scene_id,
+                max_new_keyframes=3,
             )
 
     agent = agent_cls(
@@ -567,8 +582,17 @@ def config_for_backend(
 def extract_pack_v1_prediction(result: Any) -> dict[str, Any]:
     payload = extract_result_payload(result)
     bbox_3d = payload.get("bbox_3d")
-    selected_id = payload.get("selected_object_id")
+    selected_id = payload.get("selected_object_id", payload.get("proposal_id"))
     status = payload.get("status")
+    if _is_failed_marker(selected_id, status) or selected_id == -1:
+        return {
+            "status": "failed",
+            "selected_object_id": None,
+            "bbox_3d": None,
+            "confidence": payload.get("confidence", extract_result_confidence(result)),
+        }
+    if bbox_3d is None and selected_id is not None:
+        bbox_3d = resolve_pack_v1_bbox_from_result(result, selected_id)
     if status is None and bbox_3d is not None:
         status = "completed"
     return {
@@ -588,12 +612,65 @@ def extract_result_payload(result: Any) -> dict[str, Any]:
     raise ValueError("pack_v1 result must expose result.payload as a dict")
 
 
+def resolve_pack_v1_bbox_from_result(
+    result: Any, proposal_id: Any
+) -> list[float] | None:
+    """Resolve a structured-response proposal_id to a pack-v1 bbox."""
+    try:
+        pid = int(proposal_id)
+    except (TypeError, ValueError):
+        return None
+    final_bundle = getattr(result, "final_bundle", None)
+    extra = (
+        getattr(final_bundle, "extra_metadata", None)
+        if final_bundle is not None
+        else None
+    )
+    if not isinstance(extra, dict):
+        return None
+    pool = extra.get("vg_proposal_pool")
+    if not isinstance(pool, dict):
+        return None
+    proposals = pool.get("proposals")
+    if not isinstance(proposals, list):
+        return None
+    for proposal in proposals:
+        if not isinstance(proposal, dict):
+            continue
+        try:
+            candidate_id = int(proposal.get("id", -999999))
+        except (TypeError, ValueError):
+            continue
+        if candidate_id != pid:
+            continue
+        bbox = proposal.get("bbox_3d_9dof")
+        if isinstance(bbox, list) and len(bbox) == 9:
+            return [float(x) for x in bbox]
+    return None
+
+
 def extract_result_confidence(result: Any) -> float | None:
     if result is None:
         return None
     result_obj = getattr(result, "result", result)
     value = getattr(result_obj, "confidence", None)
     return float(value) if value is not None else None
+
+
+def extract_result_tool_trace(result: Any) -> list[dict[str, Any]]:
+    """Return JSON-serializable tool observations from a Stage2AgentResult."""
+    trace = getattr(result, "tool_trace", None)
+    if not trace:
+        return []
+    out: list[dict[str, Any]] = []
+    for item in trace:
+        if hasattr(item, "model_dump"):
+            out.append(item.model_dump())
+        elif isinstance(item, dict):
+            out.append(dict(item))
+        else:
+            out.append({"response_text": str(item)})
+    return out
 
 
 def coerce_bbox_9dof(raw: Any, *, field_name: str) -> list[float]:

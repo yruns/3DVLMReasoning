@@ -172,7 +172,8 @@ giving up.
 Inputs:
 - `candidate_ids: list[int]`
 - `anchor_id: int`
-- `relation: "closest_to" | "farthest_from"` (any other value FAIL-LOUDs)
+- `relation: "closest_to" | "farthest_from" | "above" | "below"`
+  (any other value FAIL-LOUDs)
 
 Returns JSON:
 ```
@@ -182,9 +183,13 @@ Returns JSON:
  "distances": list[float]}    # parallel list, Euclidean over bbox centers
 ```
 
-Errors: bad relation, missing anchor, or any candidate not in the pool
-all FAIL-LOUD with explicit error strings. See the
-`vg_spatial_disambiguation` skill for the full workflow.
+For `above` / `below`, the tool ranks by bbox-center z offset relative
+to the anchor and also returns `vertical_offsets`; use this for vertical
+relations like "cabinet above the refrigerator" or "box below the table"
+instead of forcing those cases through `closest_to`. Errors: bad
+relation, missing anchor, or any candidate not in the pool all FAIL-LOUD
+with explicit error strings. See the `vg_spatial_disambiguation` skill
+for the full workflow.
 
 ## tool: switch_or_expand_hypothesis (chassis tool, Stage 2 → Stage 1 callback)
 

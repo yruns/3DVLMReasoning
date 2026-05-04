@@ -31,6 +31,7 @@ RUN_ID="v3_query_driven_track_${DATE}"
 SAMPLE_IDS="tmp/scanrefer_artifacts/full_val_sample_ids.json"
 PACK_NAME="pack_scanrefer_v3_query_driven"
 EVAL_DIR="tmp/scanrefer_eval_${RUN_ID}"
+AGG_EVAL_DIR="${EVAL_DIR}_aggregation_gt"
 LOG_DIR="${EVAL_DIR}/logs"
 mkdir -p "$LOG_DIR"
 
@@ -89,32 +90,44 @@ PYTHONPATH=src python -m evaluation.scripts.run_scanrefer_vg_side_by_side \
     2>&1 | tee "${LOG_DIR}/02_agent_run.log"
 
 #-----------------------------------------------------------------------
-# Stage 3: aggregator (Unique/Multiple slicing × Acc@0.25/0.50)
+# Stage 3: paper-comparable GT rescan
 #-----------------------------------------------------------------------
 echo
-echo "[v3 stage 3] leaderboard metrics aggregator"
-PYTHONPATH=src python -m evaluation.scripts.scanrefer_leaderboard_metrics \
+echo "[v3 stage 3] rescan IoU against ScanNet aggregation GT → $AGG_EVAL_DIR"
+PYTHONPATH=src python -m evaluation.scripts.rescan_with_aggregation_gt \
     --side-by-side "${EVAL_DIR}/side_by_side.json" \
-    --scanrefer-data-root data/scanrefer \
-    --phase8-data-root data/nr3d/scannet \
-    --output "${EVAL_DIR}/leaderboard_metrics.json" \
-    2>&1 | tee "${LOG_DIR}/03_aggregator.log"
+    --output-dir "$AGG_EVAL_DIR" \
+    --scannet-aux-root data/nr3d/scannet_aux \
+    --mesh-root data/nr3d/scannet_aux_meshes \
+    2>&1 | tee "${LOG_DIR}/03_rescan_aggregation_gt.log"
 
 #-----------------------------------------------------------------------
-# Stage 4: SQLite ingest with keyframe_mode=query_driven
+# Stage 4: aggregator (Unique/Multiple slicing × Acc@0.25/0.50)
 #-----------------------------------------------------------------------
 echo
-echo "[v3 stage 4] SQLite ingest"
+echo "[v3 stage 4] leaderboard metrics aggregator"
+PYTHONPATH=src python -m evaluation.scripts.scanrefer_leaderboard_metrics \
+    --side-by-side "${AGG_EVAL_DIR}/side_by_side.json" \
+    --scanrefer-data-root data/scanrefer \
+    --phase8-data-root data/nr3d/scannet \
+    --output "${AGG_EVAL_DIR}/leaderboard_metrics.json" \
+    2>&1 | tee "${LOG_DIR}/04_aggregator.log"
+
+#-----------------------------------------------------------------------
+# Stage 5: SQLite ingest with keyframe_mode=query_driven
+#-----------------------------------------------------------------------
+echo
+echo "[v3 stage 5] SQLite ingest"
 python scripts/ingest_scanrefer_run.py \
-    --output-dir "$EVAL_DIR" \
+    --output-dir "$AGG_EVAL_DIR" \
     --run-id "$RUN_ID" \
     --branch "$BRANCH" \
     --commit "$COMMIT" \
     --backend pack_v1 \
     --keyframe-mode query_driven \
-    --leaderboard-metrics "${EVAL_DIR}/leaderboard_metrics.json" \
-    --notes "v3 query-driven keyframe selection (KeyframeSelector.select_keyframes_v2 with use_visual_context=False); Mask3D pool unchanged; aggregation GT unchanged. Compare to v2_aggregation_gt_track_$(date -v-1d +%Y%m%d) which used GT view oracle keyframes." \
-    2>&1 | tee "${LOG_DIR}/04_ingest.log"
+    --leaderboard-metrics "${AGG_EVAL_DIR}/leaderboard_metrics.json" \
+    --notes "v3 query-driven keyframe selection (KeyframeSelector.select_keyframes_v2 with use_visual_context=False); Mask3D pool unchanged; IoU rescanned against ScanNet aggregation GT. Compare to v2_aggregation_gt_track_$(date -v-1d +%Y%m%d) which used GT view oracle keyframes." \
+    2>&1 | tee "${LOG_DIR}/05_ingest.log"
 
 #-----------------------------------------------------------------------
 # Quick metrics dump

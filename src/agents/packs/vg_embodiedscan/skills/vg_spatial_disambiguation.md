@@ -46,7 +46,8 @@ For a query "find the X relation Y":
 3. If `len(anchor_candidates) > 1`, the anchor itself is ambiguous
    (see "Ambiguous anchor" below). Otherwise pick the single anchor.
 4. `compare_proposals_spatial(candidate_ids=target_candidates,
-   anchor_id=picked_anchor, relation="closest_to" | "farthest_from")`
+   anchor_id=picked_anchor, relation="closest_to" | "farthest_from" |
+   "above" | "below")`
    returns `{"anchor_id": int, "relation": str, "ranked_ids": [...],
    "distances": [...]}`. Read `["ranked_ids"]`.
 5. The first id in `ranked_ids` is your best guess. Cross-check by
@@ -79,10 +80,14 @@ narrowing context exists, and budget allows multiple
 - Do NOT call `compare_proposals_spatial` with a single-element
   `candidate_ids` — the ranking is trivially that one id, and you
   haven't used the spatial information.
-- Do NOT use `compare_proposals_spatial` with `relation="left_of"`
-  or any unsupported relation — the tool FAIL-LOUDs immediately. Use
-  `closest_to` over a re-projected coordinate axis if you genuinely
-  need an axis-aligned filter (out of scope for pack v1).
+- Do NOT use `compare_proposals_spatial` with `relation="left_of"` or
+  `relation="right_of"` — camera-relative left/right is not stable in
+  world coordinates and the tool FAIL-LOUDs immediately. Use visual
+  marked frames for left/right, front/behind, row, and ordinal language.
+- Do use `relation="above"` / `"below"` for vertical relations. These
+  rank by bbox-center z offset and return `vertical_offsets`; they are
+  more appropriate than `closest_to` for phrases like "cabinet above the
+  refrigerator" or "box below the table".
 - Do NOT rely on `compare_proposals_spatial` for "between A and B"
   without explicitly intersecting two `closest_to` calls; bbox-center
   Euclidean distance ranks single-anchor relations only.
@@ -151,7 +156,8 @@ Query: "find the picture above the bed."
    `{"category": "picture", "proposal_ids": [3, 7, 12], "available_categories": [...]}`.
 2. `find_proposals_by_category("bed")` returns `["proposal_ids": [1], ...]`.
 3. `compare_proposals_spatial([3, 7, 12], anchor_id=1,
-   relation="closest_to")` returns `["ranked_ids": [7, 3, 12], "distances": [...]]`.
+   relation="above")` returns `["ranked_ids": [7, 3, 12],
+   "vertical_offsets": [...], "distances": [...]]`.
 4. `inspect_proposal(proposal_id=7)` and `inspect_proposal(proposal_id=1)`
    to compare bbox centers' z values; pick the picture whose z > bed's z.
 5. If id 7's z is below the bed's z (e.g. picture on the side wall),

@@ -102,15 +102,31 @@ def safe_sample_id(sample_id: str) -> str:
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--sample-ids", required=True, type=Path)
-    parser.add_argument("--data-root", required=True, type=Path,
-                        help="ScanRefer scannet root, e.g. data/scanrefer/scannet")
-    parser.add_argument("--phase8-data-root", default=Path("data/nr3d/scannet"),
-                        type=Path, help="Phase 8 GT-CG root for GT bbox lookup")
-    parser.add_argument("--scanrefer-root", default=Path("data/scanrefer"),
-                        type=Path, help="Root containing raw/ScanRefer_filtered_*.json")
-    parser.add_argument("--raw-frames-root", default=Path("data/nr3d/scannet"),
-                        type=Path, help="Root with <scene>/raw/ frames; ScanRefer "
-                        "scenes are a superset of NR3D scenes so this is shared.")
+    parser.add_argument(
+        "--data-root",
+        required=True,
+        type=Path,
+        help="ScanRefer scannet root, e.g. data/scanrefer/scannet",
+    )
+    parser.add_argument(
+        "--phase8-data-root",
+        default=Path("data/nr3d/scannet"),
+        type=Path,
+        help="Phase 8 GT-CG root for GT bbox lookup",
+    )
+    parser.add_argument(
+        "--scanrefer-root",
+        default=Path("data/scanrefer"),
+        type=Path,
+        help="Root containing raw/ScanRefer_filtered_*.json",
+    )
+    parser.add_argument(
+        "--raw-frames-root",
+        default=Path("data/nr3d/scannet"),
+        type=Path,
+        help="Root with <scene>/raw/ frames; ScanRefer "
+        "scenes are a superset of NR3D scenes so this is shared.",
+    )
     parser.add_argument("--pack-name", default="pack_scanrefer_v1")
     parser.add_argument("--split", default="val", choices=["train", "val"])
     parser.add_argument("--max-samples", type=int, default=None)
@@ -173,15 +189,13 @@ def prepare_pack_v1_inputs_scanrefer(
 
     scene_artifacts: dict[str, SceneArtifacts] = {}
     selector_cache: dict[str, Any] = {}  # scene_id -> KeyframeSelector (lazy)
-    parser_cache: dict[str, Any] = {}    # scene_id -> QueryParser (lazy)
+    parser_cache: dict[str, Any] = {}  # scene_id -> QueryParser (lazy)
     fallback_count = 0
     written: list[Path] = []
     for request in requests:
         sample = sample_lookup.get(request.sample_id)
         if sample is None:
-            raise ValueError(
-                f"No ScanRefer sample for sample_id={request.sample_id!r}"
-            )
+            raise ValueError(f"No ScanRefer sample for sample_id={request.sample_id!r}")
         if request.scene_id not in scene_artifacts:
             scene_artifacts[request.scene_id] = prepare_scene_artifacts(
                 scene_id=request.scene_id,
@@ -215,10 +229,13 @@ def prepare_pack_v1_inputs_scanrefer(
         )
     if keyframe_mode in ("query_driven", "mask3d_query_driven"):
         from loguru import logger
+
         logger.info(
             "[prepare_pack_v1_inputs_scanrefer] {} mode: "
             "{}/{} samples used Mask3D-density fallback ({:.2%})",
-            keyframe_mode, fallback_count, len(requests),
+            keyframe_mode,
+            fallback_count,
+            len(requests),
             fallback_count / max(len(requests), 1),
         )
     return written
@@ -250,11 +267,14 @@ def _select_keyframes(
         parser = parser_cache.get(request.scene_id)
         if parser is None:
             from loguru import logger
+
             from query_scene.query_parser import QueryParser
+
             logger.info(
                 "[prepare_pack_v1_inputs_scanrefer] building QueryParser for {} "
                 "(LLM={}, n_categories={})",
-                request.scene_id, keyframe_llm_model,
+                request.scene_id,
+                keyframe_llm_model,
                 len(scene_artifacts.scene_categories),
             )
             parser = QueryParser(
@@ -272,26 +292,37 @@ def _select_keyframes(
         )
         if kfs:
             return kfs, False
-        return _fallback_top5_by_mask3d_density(
-            scene_id=request.scene_id,
-            scene_artifacts=scene_artifacts,
-            raw_frames_root=raw_frames_root,
-            k=3,
-        ), True
+        return (
+            _fallback_top5_by_mask3d_density(
+                scene_id=request.scene_id,
+                scene_artifacts=scene_artifacts,
+                raw_frames_root=raw_frames_root,
+                k=3,
+            ),
+            True,
+        )
 
     # query_driven path
     selector = selector_cache.get(request.scene_id)
     if selector is None:
         from loguru import logger
+
         from query_scene.keyframe_selector import KeyframeSelector
+
         scene_cg_root = phase8_data_root / request.scene_id / "conceptgraph"
         logger.info(
             "[prepare_pack_v1_inputs_scanrefer] building Stage1 KeyframeSelector "
             "for {} (LLM={})",
-            request.scene_id, keyframe_llm_model,
+            request.scene_id,
+            keyframe_llm_model,
         )
+        # Phase-8 visibility indices for the ScanRefer/NR3D shared scenes are
+        # saved at stride=1; keep the selector stride aligned so view IDs map
+        # back to existing raw frames.
         selector = KeyframeSelector.from_scene_path(
-            str(scene_cg_root), stride=10, llm_model=keyframe_llm_model,
+            str(scene_cg_root),
+            stride=1,
+            llm_model=keyframe_llm_model,
         )
         selector_cache[request.scene_id] = selector
     kfs = select_keyframes_query_driven(
@@ -304,12 +335,15 @@ def _select_keyframes(
     if kfs:
         return kfs, False
     # Fallback: top-3 frames by Mask3D candidate density (proposal-aware, query-blind)
-    return _fallback_top5_by_mask3d_density(
-        scene_id=request.scene_id,
-        scene_artifacts=scene_artifacts,
-        raw_frames_root=raw_frames_root,
-        k=3,
-    ), True
+    return (
+        _fallback_top5_by_mask3d_density(
+            scene_id=request.scene_id,
+            scene_artifacts=scene_artifacts,
+            raw_frames_root=raw_frames_root,
+            k=3,
+        ),
+        True,
+    )
 
 
 def prepare_scene_artifacts(
@@ -345,19 +379,24 @@ def prepare_scene_artifacts(
     scene_dir = data_root / scene_id / pack_name
     scene_dir.mkdir(parents=True, exist_ok=True)
     (scene_dir / "proposals.jsonl").write_text(
-        json.dumps({
-            "source": "conceptgraph",
-            "scene_id": scene_id,
-            "axis_align_matrix": None,
-            "proposals": proposals,
-            "proposal_provenance": "mask3d",
-        }, ensure_ascii=False, indent=2),
+        json.dumps(
+            {
+                "source": "conceptgraph",
+                "scene_id": scene_id,
+                "axis_align_matrix": None,
+                "proposals": proposals,
+                "proposal_provenance": "mask3d",
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
         encoding="utf-8",
     )
     (scene_dir / "visibility.json").write_text(
         json.dumps(
             {str(k): v for k, v in sorted(frame_visibility.items())},
-            ensure_ascii=False, indent=2,
+            ensure_ascii=False,
+            indent=2,
         ),
         encoding="utf-8",
     )
@@ -392,15 +431,19 @@ def prepare_scene_artifacts(
 
 
 def build_proposals_from_mask3d_objects(
-    *, objects: list[dict[str, Any]], scene_id: str,
+    *,
+    objects: list[dict[str, Any]],
+    scene_id: str,
 ) -> list[dict[str, Any]]:
     """Convert Mask3D-CG object list to proposals.jsonl shape."""
     proposals: list[dict[str, Any]] = []
     for obj_id, obj in enumerate(objects):
         names = obj.get("class_name")
-        if not (isinstance(names, list) and names and all(
-            isinstance(n, str) and n for n in names
-        )):
+        if not (
+            isinstance(names, list)
+            and names
+            and all(isinstance(n, str) and n for n in names)
+        ):
             continue
         if "bbox_np" not in obj:
             raise ValueError(f"{scene_id}.objects[{obj_id}] missing bbox_np")
@@ -412,26 +455,34 @@ def build_proposals_from_mask3d_objects(
         mn = corners.min(axis=0)
         mx = corners.max(axis=0)
         bbox_9dof = [
-            *((mn + mx) / 2.0).tolist(),    # cx, cy, cz
-            *(mx - mn).tolist(),            # dx, dy, dz
-            0.0, 0.0, 0.0,                  # Euler=0
+            *((mn + mx) / 2.0).tolist(),  # cx, cy, cz
+            *(mx - mn).tolist(),  # dx, dy, dz
+            0.0,
+            0.0,
+            0.0,  # Euler=0
         ]
         label = Counter(names).most_common(1)[0][0]
         ids = obj.get("class_id") or [-1]
         label_idx = int(Counter(int(v) for v in ids).most_common(1)[0][0])
-        proposals.append({
-            "id": obj_id,
-            "bbox_3d": bbox_9dof,
-            "score": 1.0,                   # uniform per Decision 4
-            "label": label,
-            "label_idx": label_idx,
-        })
+        proposals.append(
+            {
+                "id": obj_id,
+                "bbox_3d": bbox_9dof,
+                "score": 1.0,  # uniform per Decision 4
+                "label": label,
+                "label_idx": label_idx,
+            }
+        )
     return proposals
 
 
 def write_sample_artifact(
-    *, request: SampleRequest, sample: ScanRefVGSample,
-    data_root: Path, raw_frames_root: Path, scene_artifacts: SceneArtifacts,
+    *,
+    request: SampleRequest,
+    sample: ScanRefVGSample,
+    data_root: Path,
+    raw_frames_root: Path,
+    scene_artifacts: SceneArtifacts,
     keyframes: list[dict[str, Any]] | None = None,
     keyframe_mode: str = "gt_target",
 ) -> Path:
@@ -444,7 +495,9 @@ def write_sample_artifact(
             k=5,
         )
     normalized = normalize_prepared_keyframes(keyframes, scene_artifacts.annotated_dir)
-    gt_bbox = validate_bbox_9dof(sample.gt_bbox_3d, f"{request.sample_id}.gt_bbox_3d_9dof")
+    gt_bbox = validate_bbox_9dof(
+        sample.gt_bbox_3d, f"{request.sample_id}.gt_bbox_3d_9dof"
+    )
     payload = {
         "sample_id": request.sample_id,
         "scene_id": request.scene_id,
@@ -460,17 +513,20 @@ def write_sample_artifact(
         "keyframe_mode": keyframe_mode,
         "keyframes": normalized,
     }
-    path = sample_artifact_path(data_root, request,
-                                pack_name=scene_artifacts.scene_dir.name)
+    path = sample_artifact_path(
+        data_root, request, pack_name=scene_artifacts.scene_dir.name
+    )
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2),
-                    encoding="utf-8")
+    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
     return path
 
 
 def select_keyframes_from_phase8_target(
-    *, scene_id: str, target_id: int,
-    raw_frames_root: Path, k: int = 5,
+    *,
+    scene_id: str,
+    target_id: int,
+    raw_frames_root: Path,
+    k: int = 5,
 ) -> list[dict[str, Any]]:
     """v1/v2 GT-view-oracle path. Pick top-k frames where the Phase 8
     GT target is most visible.
@@ -495,19 +551,25 @@ def select_keyframes_from_phase8_target(
         )
     keyframes = []
     for kfi, (frame_id, _score) in enumerate(views[:k]):
-        keyframes.append({
-            "keyframe_idx": kfi,
-            "image_path": str(_resolve_raw_rgb_path(
-                raw_frames_root / scene_id, int(frame_id)
-            )),
-            "frame_id": int(frame_id),
-        })
+        keyframes.append(
+            {
+                "keyframe_idx": kfi,
+                "image_path": str(
+                    _resolve_raw_rgb_path(raw_frames_root / scene_id, int(frame_id))
+                ),
+                "frame_id": int(frame_id),
+            }
+        )
     return keyframes
 
 
 def select_keyframes_query_driven(
-    *, selector: Any, scene_id: str, query: str,
-    raw_frames_root: Path, k: int = 5,
+    *,
+    selector: Any,
+    scene_id: str,
+    query: str,
+    raw_frames_root: Path,
+    k: int = 5,
 ) -> list[dict[str, Any]]:
     """v3 query-driven path. Calls KeyframeSelector.select_keyframes_v2
     with hypothesis-driven retrieval (the same entry OpenEQA pilot uses)
@@ -519,34 +581,52 @@ def select_keyframes_query_driven(
     fall back via _fallback_top5_by_mask3d_density).
     """
     from loguru import logger
+
     res = selector.select_keyframes_v2(
-        query=query, k=k, use_visual_context=False,
+        query=query,
+        k=k,
+        use_visual_context=False,
     )
     if not res.keyframe_indices:
         logger.warning(
             "[select_keyframes_query_driven] empty Stage1 result for {} "
             "query={!r} (target={!r})",
-            scene_id, query, res.target_term,
+            scene_id,
+            query,
+            res.target_term,
         )
         return []
     keyframes = []
     for kfi, frame_id in enumerate(res.keyframe_indices[:k]):
-        keyframes.append({
-            "keyframe_idx": kfi,
-            "image_path": str(_resolve_raw_rgb_path(
-                raw_frames_root / scene_id, int(frame_id)
-            )),
-            "frame_id": int(frame_id),
-        })
+        keyframes.append(
+            {
+                "keyframe_idx": kfi,
+                "image_path": str(
+                    _resolve_raw_rgb_path(raw_frames_root / scene_id, int(frame_id))
+                ),
+                "frame_id": int(frame_id),
+            }
+        )
     return keyframes
 
 
 # Stopwords stripped from category tokens before fuzzy matching against
 # Mask3D ScanNet200 labels. Keep narrow — the goal is to drop articles, not
 # prune useful nouns ("table" should still match "coffee table").
-_CATEGORY_STOPWORDS: frozenset[str] = frozenset({
-    "the", "a", "an", "of", "and", "or", "in", "on", "at", "to",
-})
+_CATEGORY_STOPWORDS: frozenset[str] = frozenset(
+    {
+        "the",
+        "a",
+        "an",
+        "of",
+        "and",
+        "or",
+        "in",
+        "on",
+        "at",
+        "to",
+    }
+)
 
 
 def _normalize_category_tokens(category: str) -> set[str]:
@@ -563,7 +643,8 @@ def _normalize_category_tokens(category: str) -> set[str]:
 
 
 def _matching_proposal_ids(
-    target_categories: list[str], proposal_labels: dict[int, str],
+    target_categories: list[str],
+    proposal_labels: dict[int, str],
 ) -> set[int]:
     """Fuzzy-match LLM-parsed categories against Mask3D-CG label vocab.
 
@@ -638,7 +719,9 @@ def select_keyframes_mask3d_query_driven(
         logger.warning(
             "[select_keyframes_mask3d_query_driven] parse failed for {} "
             "query={!r} err={}",
-            scene_id, query, exc,
+            scene_id,
+            query,
+            exc,
         )
         return []
 
@@ -657,18 +740,22 @@ def select_keyframes_mask3d_query_driven(
         logger.warning(
             "[select_keyframes_mask3d_query_driven] no categories parsed "
             "for {} query={!r}",
-            scene_id, query,
+            scene_id,
+            query,
         )
         return []
 
     matching_pids = _matching_proposal_ids(
-        target_categories, scene_artifacts.proposal_labels,
+        target_categories,
+        scene_artifacts.proposal_labels,
     )
     if not matching_pids:
         logger.warning(
             "[select_keyframes_mask3d_query_driven] no Mask3D candidates match "
             "categories={} for {} (query={!r})",
-            target_categories, scene_id, query,
+            target_categories,
+            scene_id,
+            query,
         )
         return []
 
@@ -683,33 +770,45 @@ def select_keyframes_mask3d_query_driven(
         logger.warning(
             "[select_keyframes_mask3d_query_driven] matching candidates {} "
             "have no Mask3D-visible frames in {}",
-            sorted(matching_pids), scene_id,
+            sorted(matching_pids),
+            scene_id,
         )
         return []
 
     top = sorted(frame_scores.items(), key=lambda kv: -kv[1])[:k]
     keyframes = []
     for kfi, (frame_id, _) in enumerate(top):
-        keyframes.append({
-            "keyframe_idx": kfi,
-            "image_path": str(_resolve_raw_rgb_path(
-                raw_frames_root / scene_id, int(frame_id),
-            )),
-            "frame_id": int(frame_id),
-        })
+        keyframes.append(
+            {
+                "keyframe_idx": kfi,
+                "image_path": str(
+                    _resolve_raw_rgb_path(
+                        raw_frames_root / scene_id,
+                        int(frame_id),
+                    )
+                ),
+                "frame_id": int(frame_id),
+            }
+        )
     logger.info(
         "[select_keyframes_mask3d_query_driven] {} q={!r} cats={} "
         "matching_pids={} -> {} frames (top weights {})",
-        scene_id, query, target_categories,
-        len(matching_pids), len(top),
+        scene_id,
+        query,
+        target_categories,
+        len(matching_pids),
+        len(top),
         [round(s, 2) for _, s in top],
     )
     return keyframes
 
 
 def _fallback_top5_by_mask3d_density(
-    *, scene_id: str, scene_artifacts: SceneArtifacts,
-    raw_frames_root: Path, k: int = 5,
+    *,
+    scene_id: str,
+    scene_artifacts: SceneArtifacts,
+    raw_frames_root: Path,
+    k: int = 5,
 ) -> list[dict[str, Any]]:
     """Empty-Stage1 fallback: top-k frames ranked by number of Mask3D
     candidates visible. Query-blind but proposal-aware — preserves a
@@ -723,21 +822,25 @@ def _fallback_top5_by_mask3d_density(
         raise ValueError(f"no Mask3D-visible frames for fallback in {scene_id}")
     keyframes = []
     for kfi, (frame_id, _) in enumerate(ranked):
-        keyframes.append({
-            "keyframe_idx": kfi,
-            "image_path": str(_resolve_raw_rgb_path(
-                raw_frames_root / scene_id, int(frame_id)
-            )),
-            "frame_id": int(frame_id),
-        })
+        keyframes.append(
+            {
+                "keyframe_idx": kfi,
+                "image_path": str(
+                    _resolve_raw_rgb_path(raw_frames_root / scene_id, int(frame_id))
+                ),
+                "frame_id": int(frame_id),
+            }
+        )
     return keyframes
 
 
 def render_annotated_frames(
-    *, proposal_by_id: dict[int, dict[str, Any]],
+    *,
+    proposal_by_id: dict[int, dict[str, Any]],
     frame_visibility: dict[int, list[int]],
     frame_by_id: dict[int, SceneFrame],
-    intrinsic: np.ndarray, image_size: tuple[int, int],
+    intrinsic: np.ndarray,
+    image_size: tuple[int, int],
     annotated_dir: Path,
 ) -> None:
     for frame_id, visible_ids in frame_visibility.items():
@@ -750,15 +853,20 @@ def render_annotated_frames(
             if prop is None:
                 raise ValueError(f"unknown proposal_id={prop_id}")
             rect = project_bbox_3d_to_2d(
-                prop["bbox_3d"], intrinsic, frame.extrinsic_world_to_cam, image_size,
+                prop["bbox_3d"],
+                intrinsic,
+                frame.extrinsic_world_to_cam,
+                image_size,
             )
             if rect is None:
                 continue
-            marks.append({
-                "proposal_id": int(prop_id),
-                "label": prop["label"],
-                "bbox_2d": rect,
-            })
+            marks.append(
+                {
+                    "proposal_id": int(prop_id),
+                    "label": prop["label"],
+                    "bbox_2d": rect,
+                }
+            )
         render_marked_keyframe(
             rgb_path=frame.rgb_path,
             out_path=annotated_dir / f"frame_{frame_id}.png",
@@ -773,12 +881,17 @@ def scene_frames(scene_root: Path, frame_ids: Sequence[int]) -> list[SceneFrame]
         pose_path = scene_root / "raw" / f"{raw_id:06d}.txt"
         if not pose_path.exists():
             raise FileNotFoundError(f"Missing pose: {pose_path}")
-        cam_to_world = validate_matrix_4x4(np.loadtxt(pose_path), field_name=str(pose_path))
-        frames.append(SceneFrame(
-            frame_id=int(frame_id), raw_frame_id=raw_id,
-            rgb_path=_resolve_raw_rgb_path(scene_root, int(frame_id)),
-            extrinsic_world_to_cam=np.linalg.inv(cam_to_world),
-        ))
+        cam_to_world = validate_matrix_4x4(
+            np.loadtxt(pose_path), field_name=str(pose_path)
+        )
+        frames.append(
+            SceneFrame(
+                frame_id=int(frame_id),
+                raw_frame_id=raw_id,
+                rgb_path=_resolve_raw_rgb_path(scene_root, int(frame_id)),
+                extrinsic_world_to_cam=np.linalg.inv(cam_to_world),
+            )
+        )
     return frames
 
 
@@ -835,8 +948,9 @@ def load_mask3d_visibility_index(scene_root: Path) -> Mask3dVisibility:
     )
 
 
-def _coerce_visibility(raw: dict[Any, Any] | None,
-                       path: Path) -> dict[int, list[tuple[int, float]]]:
+def _coerce_visibility(
+    raw: dict[Any, Any] | None, path: Path
+) -> dict[int, list[tuple[int, float]]]:
     if not isinstance(raw, dict):
         raise ValueError(f"{path} missing visibility map")
     out: dict[int, list[tuple[int, float]]] = {}
@@ -857,20 +971,28 @@ def load_sample_requests(path: Path) -> list[SampleRequest]:
         if not isinstance(sid, str):
             raise ValueError(f"row {i} missing sample_id")
         scene, tid, ann_id = parse_sample_id(sid)
-        out.append(SampleRequest(
-            sample_id=sid,
-            scene_id=row.get("scene_id") or scene,
-            target_id=int(row.get("target_id", tid)),
-            ann_id=str(row.get("ann_id", ann_id)),
-            category=str(row.get("category") or ""),
-        ))
+        out.append(
+            SampleRequest(
+                sample_id=sid,
+                scene_id=row.get("scene_id") or scene,
+                target_id=int(row.get("target_id", tid)),
+                ann_id=str(row.get("ann_id", ann_id)),
+                category=str(row.get("category") or ""),
+            )
+        )
     return out
 
 
-def sample_artifact_path(data_root: Path, request: SampleRequest, *,
-                         pack_name: str = "pack_scanrefer_v1") -> Path:
-    return (data_root / request.scene_id / pack_name / "samples"
-            / f"{safe_sample_id(request.sample_id)}.json")
+def sample_artifact_path(
+    data_root: Path, request: SampleRequest, *, pack_name: str = "pack_scanrefer_v1"
+) -> Path:
+    return (
+        data_root
+        / request.scene_id
+        / pack_name
+        / "samples"
+        / f"{safe_sample_id(request.sample_id)}.json"
+    )
 
 
 def main() -> None:
@@ -887,9 +1009,11 @@ def main() -> None:
         keyframe_mode=args.keyframe_mode,
         keyframe_llm_model=args.keyframe_llm_model,
     )
-    print(f"wrote {len(written)} sample artifacts under "
-          f"{args.data_root}/<scene>/{args.pack_name}/  "
-          f"(keyframe_mode={args.keyframe_mode})")
+    print(
+        f"wrote {len(written)} sample artifacts under "
+        f"{args.data_root}/<scene>/{args.pack_name}/  "
+        f"(keyframe_mode={args.keyframe_mode})"
+    )
 
 
 if __name__ == "__main__":

@@ -1,4 +1,5 @@
 """EmbodiedScan VG tools. All bodies FAIL-LOUD on missing primary skill."""
+
 from __future__ import annotations
 
 import json
@@ -36,7 +37,9 @@ def build_vg_tools(runtime: Any) -> list[BaseTool]:
                     "frame_id": fid,
                     "visible_proposal_ids": visible,
                     "n_proposals": len(visible),
-                    "annotated_image": str(ctx.annotated_image_dir / f"frame_{fid}.png"),
+                    "annotated_image": str(
+                        ctx.annotated_image_dir / f"frame_{fid}.png"
+                    ),
                 }
             )
         text = json.dumps(items, ensure_ascii=False)
@@ -65,7 +68,9 @@ def build_vg_tools(runtime: Any) -> list[BaseTool]:
         visible = ctx.frame_index[frame_id]
         # Mark the path as a fresh image to inject into the next user message
         runtime.bundle.extra_metadata = dict(runtime.bundle.extra_metadata or {})
-        runtime.bundle.extra_metadata.setdefault("vg_pending_images", []).append(str(marked_path))
+        runtime.bundle.extra_metadata.setdefault("vg_pending_images", []).append(
+            str(marked_path)
+        )
         runtime.mark_evidence_updated()
         body = (
             f"frame_id={frame_id} marked image at {marked_path}; "
@@ -109,11 +114,17 @@ def build_vg_tools(runtime: Any) -> list[BaseTool]:
         if gate is not None:
             runtime.record("find_proposals_by_category", {"category": category}, gate)
             return gate
-        ids = [p.id for p in ctx.proposals if p.category.strip().lower() == category.strip().lower()]
+        ids = [
+            p.id
+            for p in ctx.proposals
+            if p.category.strip().lower() == category.strip().lower()
+        ]
         payload = {
             "category": category,
             "proposal_ids": ids,
-            "available_categories": sorted({p.category for p in ctx.proposals if p.category}),
+            "available_categories": sorted(
+                {p.category for p in ctx.proposals if p.category}
+            ),
         }
         text = json.dumps(payload, ensure_ascii=False)
         runtime.record("find_proposals_by_category", {"category": category}, text)
@@ -127,16 +138,24 @@ def build_vg_tools(runtime: Any) -> list[BaseTool]:
     ) -> str:
         """VG tool. Detailed usage in skill 'vg-grounding-playbook'."""
         gate = _gate(runtime)
-        request = {"candidate_ids": candidate_ids, "anchor_id": anchor_id, "relation": relation}
+        request = {
+            "candidate_ids": candidate_ids,
+            "anchor_id": anchor_id,
+            "relation": relation,
+        }
         if gate is not None:
             runtime.record("compare_proposals_spatial", request, gate)
             return gate
-        if relation not in ("closest_to", "farthest_from"):
-            err = f"ERROR: unsupported relation {relation!r}; allowed: closest_to | farthest_from"
+        allowed_relations = ("closest_to", "farthest_from", "above", "below")
+        if relation not in allowed_relations:
+            err = f"ERROR: unsupported relation {relation!r}; allowed: " + " | ".join(
+                allowed_relations
+            )
             runtime.record("compare_proposals_spatial", request, err)
             return err
 
         import numpy as np
+
         anchor = next((p for p in ctx.proposals if p.id == anchor_id), None)
         if anchor is None:
             err = f"ERROR: anchor_id={anchor_id} not in pool"
@@ -149,18 +168,30 @@ def build_vg_tools(runtime: Any) -> list[BaseTool]:
             runtime.record("compare_proposals_spatial", request, err)
             return err
 
-        anchor_center = np.array(anchor.bbox_3d_9dof[:3])
-        scored = [
-            (p.id, float(np.linalg.norm(np.array(p.bbox_3d_9dof[:3]) - anchor_center)))
-            for p in candidates
-        ]
-        reverse = (relation == "farthest_from")
-        scored.sort(key=lambda x: x[1], reverse=reverse)
+        anchor_center = np.array(anchor.bbox_3d_9dof[:3], dtype=float)
+        scored = []
+        for p in candidates:
+            center = np.array(p.bbox_3d_9dof[:3], dtype=float)
+            delta = center - anchor_center
+            distance = float(np.linalg.norm(delta))
+            horizontal_distance = float(np.linalg.norm(delta[:2]))
+            vertical_offset = float(delta[2])
+            scored.append((p.id, distance, horizontal_distance, vertical_offset))
+        if relation == "closest_to":
+            scored.sort(key=lambda x: x[1])
+        elif relation == "farthest_from":
+            scored.sort(key=lambda x: x[1], reverse=True)
+        elif relation == "above":
+            scored.sort(key=lambda x: (x[3] <= 0.0, -x[3], x[2]))
+        else:  # below
+            scored.sort(key=lambda x: (x[3] >= 0.0, x[3], x[2]))
         payload = {
             "anchor_id": anchor_id,
             "relation": relation,
-            "ranked_ids": [pid for pid, _ in scored],
-            "distances": [d for _, d in scored],
+            "ranked_ids": [pid for pid, _, _, _ in scored],
+            "distances": [d for _, d, _, _ in scored],
+            "horizontal_distances": [d for _, _, d, _ in scored],
+            "vertical_offsets": [z for _, _, _, z in scored],
         }
         text = json.dumps(payload, ensure_ascii=False)
         runtime.record("compare_proposals_spatial", request, text)

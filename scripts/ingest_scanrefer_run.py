@@ -109,10 +109,15 @@ def _json_or_none(value: Any) -> str | None:
 
 
 def ingest(
-    *, db_path: Path, output_dir: Path, run_id: str,
-    branch: str | None, commit_hash: str | None,
+    *,
+    db_path: Path,
+    output_dir: Path,
+    run_id: str,
+    branch: str | None,
+    commit_hash: str | None,
     backend: str = "pack_v1",
-    judge_model: str | None = None, notes: str | None = None,
+    judge_model: str | None = None,
+    notes: str | None = None,
     leaderboard_metrics_path: Path | None = None,
     keyframe_mode: str | None = None,
 ) -> None:
@@ -159,7 +164,11 @@ def ingest(
                 judge_model, started_at, ingested_at, notes, keyframe_mode
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
-                run_id, branch, commit_hash, str(output_dir), backend,
+                run_id,
+                branch,
+                commit_hash,
+                str(output_dir),
+                backend,
                 leaderboard.get("n_total") if leaderboard else None,
                 leaderboard.get("n_unique") if leaderboard else None,
                 leaderboard.get("n_multiple") if leaderboard else None,
@@ -170,7 +179,11 @@ def ingest(
                 leaderboard.get("acc25_multiple") if leaderboard else None,
                 leaderboard.get("acc50_multiple") if leaderboard else None,
                 leaderboard.get("mean_iou_overall") if leaderboard else None,
-                judge_model, None, time.time(), notes, keyframe_mode,
+                judge_model,
+                None,
+                time.time(),
+                notes,
+                keyframe_mode,
             ),
         )
         cur.execute("DELETE FROM samples WHERE run_id=?", (run_id,))
@@ -193,7 +206,11 @@ def ingest(
                     predicted_bbox_3d_9dof, gt_bbox_3d_9dof
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
-                    run_id, sample_id, scene_id, target_id, ann_id,
+                    run_id,
+                    sample_id,
+                    scene_id,
+                    target_id,
+                    ann_id,
                     item.get("query"),
                     item.get("status"),
                     item.get("selected_object_id"),
@@ -201,11 +218,32 @@ def ingest(
                     iou,
                     int(iou is not None and iou >= 0.25),
                     int(iou is not None and iou >= 0.50),
-                    int(extra["is_unique"]) if extra and extra.get("is_unique") is not None else None,
+                    (
+                        int(extra["is_unique"])
+                        if extra and extra.get("is_unique") is not None
+                        else None
+                    ),
                     _json_or_none(item.get("predicted_bbox_3d_9dof")),
                     _json_or_none(item.get("gt_bbox_3d_9dof")),
                 ),
             )
+            for turn_idx, tool_call in enumerate(item.get("tool_trace") or []):
+                if not isinstance(tool_call, dict):
+                    continue
+                cur.execute(
+                    """INSERT INTO tool_calls (
+                        run_id, question_id, turn_idx, tool_name,
+                        tool_input, response_text
+                    ) VALUES (?, ?, ?, ?, ?, ?)""",
+                    (
+                        run_id,
+                        sample_id,
+                        turn_idx,
+                        str(tool_call.get("tool_name") or ""),
+                        _json_or_none(tool_call.get("tool_input")),
+                        str(tool_call.get("response_text") or ""),
+                    ),
+                )
         conn.commit()
     finally:
         conn.close()
@@ -220,23 +258,35 @@ def main() -> None:
     p.add_argument("--commit", default=None, dest="commit_hash")
     p.add_argument("--backend", default="pack_v1")
     p.add_argument("--judge-model", default=None)
-    p.add_argument("--db", default=Path("docs/benchmark/scanrefer/runs.sqlite"), type=Path)
-    p.add_argument("--notes", default=None)
-    p.add_argument("--leaderboard-metrics", default=None, type=Path,
-                   help="optional path to leaderboard_metrics.json")
     p.add_argument(
-        "--keyframe-mode", default=None,
+        "--db", default=Path("docs/benchmark/scanrefer/runs.sqlite"), type=Path
+    )
+    p.add_argument("--notes", default=None)
+    p.add_argument(
+        "--leaderboard-metrics",
+        default=None,
+        type=Path,
+        help="optional path to leaderboard_metrics.json",
+    )
+    p.add_argument(
+        "--keyframe-mode",
+        default=None,
         choices=["gt_target", "query_driven", "mask3d_query_driven"],
         help="How keyframes were selected during pack-prep. v1/v2 used "
-             "gt_target (GT view oracle); v3 uses query_driven via Phase 8 "
-             "GT visibility; v3.1 uses mask3d_query_driven via Mask3D-CG "
-             "candidate visibility (same index that renders annotated PNGs).",
+        "gt_target (GT view oracle); v3 uses query_driven via Phase 8 "
+        "GT visibility; v3.1 uses mask3d_query_driven via Mask3D-CG "
+        "candidate visibility (same index that renders annotated PNGs).",
     )
     args = p.parse_args()
     ingest(
-        db_path=args.db, output_dir=args.output_dir, run_id=args.run_id,
-        branch=args.branch, commit_hash=args.commit_hash, backend=args.backend,
-        judge_model=args.judge_model, notes=args.notes,
+        db_path=args.db,
+        output_dir=args.output_dir,
+        run_id=args.run_id,
+        branch=args.branch,
+        commit_hash=args.commit_hash,
+        backend=args.backend,
+        judge_model=args.judge_model,
+        notes=args.notes,
         leaderboard_metrics_path=args.leaderboard_metrics,
         keyframe_mode=args.keyframe_mode,
     )

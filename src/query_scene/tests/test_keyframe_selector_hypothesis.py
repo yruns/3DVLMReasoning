@@ -177,6 +177,22 @@ class TestKeyframeSelectorHypothesis(unittest.TestCase):
             self.assertEqual(path, img)
             self.assertEqual(resolved_view, 0)
 
+    def test_set_image_paths_accepts_raw_rgb_png_layout(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            scene_root = Path(tmp)
+            cg_root = scene_root / "conceptgraph"
+            raw_dir = scene_root / "raw"
+            raw_dir.mkdir(parents=True)
+            selector = _minimal_selector(cg_root)
+            selector.stride = 1
+
+            rgb = raw_dir / "000001-rgb.png"
+            rgb.write_text("x", encoding="utf-8")
+
+            selector._set_image_paths()
+
+            self.assertEqual(selector.image_paths, [rgb])
+
 
 if __name__ == "__main__":
     unittest.main()

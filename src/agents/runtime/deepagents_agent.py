@@ -523,6 +523,9 @@ class DeepAgentsStage2Runtime(BaseStage2Runtime):
         prompt = (
             "New visual evidence has been acquired:\n\n"
             f"Newly added keyframes:\n{chr(10).join(keyframe_lines) if keyframe_lines else '- BEV or crop images'}\n\n"
+            "If you already called submit_final before seeing these newly injected images, "
+            "that submission was premature and was not accepted. Re-examine the visual "
+            "evidence and submit again only after using it.\n\n"
             "Please examine these new images and continue your analysis. "
             "If the evidence is now sufficient, produce your final answer."
         )
@@ -572,6 +575,7 @@ class DeepAgentsStage2Runtime(BaseStage2Runtime):
             runtime.task_ctx = build_ctx_from_bundle(runtime.bundle)
 
         from agents.skills.validate import validate_packs
+
         validate_packs(
             task.task_type,
             bundle,
@@ -582,7 +586,9 @@ class DeepAgentsStage2Runtime(BaseStage2Runtime):
         graph = create_deep_agent(
             model=self.get_llm(),
             tools=tools,
-            system_prompt=self.build_system_prompt(task, object_context=bundle.object_context),
+            system_prompt=self.build_system_prompt(
+                task, object_context=bundle.object_context
+            ),
             subagents=self.build_subagents(task),
             response_format=Stage2StructuredResponse,
             name="query_scene_stage2_agent",
@@ -676,6 +682,19 @@ class DeepAgentsStage2Runtime(BaseStage2Runtime):
 
             # Pack-v1 terminal: chassis submit_final populates runtime.final_submission.
             if runtime.final_submission is not None:
+                if runtime.consume_evidence_update():
+                    evidence_message = self.build_evidence_update_message(runtime)
+                    if evidence_message is not None:
+                        if "messages" in raw_state:
+                            messages = raw_state["messages"]
+                        messages.append(evidence_message)
+                        runtime.final_submission = None
+                        logger.info(
+                            "[DeepAgentsStage2Runtime] turn {}: deferring submit_final "
+                            "until newly queued visual evidence is injected",
+                            turns_used,
+                        )
+                        continue
                 logger.info(
                     "[DeepAgentsStage2Runtime] terminated at turn {} via chassis submit_final",
                     turns_used,
@@ -711,10 +730,7 @@ class DeepAgentsStage2Runtime(BaseStage2Runtime):
             # If agent reported insufficient/needs-more evidence and we have
             # remaining turns, nudge it to actively seek evidence or
             # re-examine the existing frames instead of giving up.
-            if (
-                structured is not None
-                and turns_used < task.max_reasoning_turns
-            ):
+            if structured is not None and turns_used < task.max_reasoning_turns:
                 response = Stage2StructuredResponse.model_validate(structured)
                 if response.status in (
                     Stage2Status.INSUFFICIENT_EVIDENCE,

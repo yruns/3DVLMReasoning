@@ -7,6 +7,14 @@ the v3 query_driven track described in `docs/superpowers/specs/2026-05-04-scanre
 **Run ID** (SQLite): `v3p_smoke_random100_20260503`
 **Date**: 2026-05-03 21:57 GMT+8
 
+> Correction, 2026-05-04: this document's headline table used the old Phase8
+> GT-CG bbox evaluator. Re-running the same v3.1 predictions through the
+> ScanNet aggregation-GT rescorer gives Acc@0.25 **45.0%** / Acc@0.50 **39.0%**
+> / mean IoU **0.3820** (`v3p_agg_gt_random100_20260503` in SQLite). Treat the
+> 39/15 values below as audit trail only. The follow-up runtime-correctness run
+> is documented in
+> [`v3p2_callbacks_durable_20260504.md`](v3p2_callbacks_durable_20260504.md).
+
 ## Headline
 
 **Random100 fold** (frozen seed=20260503,

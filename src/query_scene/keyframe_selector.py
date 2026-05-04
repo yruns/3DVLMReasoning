@@ -684,9 +684,7 @@ class KeyframeSelector:
                     "treating as zero turn",
                     pose_index,
                 )
-                forward_vectors.append(
-                    np.array([0.0, 0.0, -1.0], dtype=np.float64)
-                )
+                forward_vectors.append(np.array([0.0, 0.0, -1.0], dtype=np.float64))
         forward_vectors = np.asarray(forward_vectors, dtype=np.float64)
         cos_turn = np.sum(
             forward_vectors[:-1] * forward_vectors[1:],
@@ -788,10 +786,13 @@ class KeyframeSelector:
         # Fallback: EmbodiedScan raw/ layout (*-rgb.jpg)
         if not all_images and raw_dir.is_dir():
             all_images = sorted(raw_dir.glob("*-rgb.jpg"))
+            if not all_images:
+                all_images = sorted(raw_dir.glob("*-rgb.png"))
             if all_images:
                 logger.info(
                     "Using raw/ layout ({} images from {})",
-                    len(all_images), raw_dir,
+                    len(all_images),
+                    raw_dir,
                 )
 
         # Apply stride
@@ -1717,8 +1718,14 @@ class KeyframeSelector:
         ):
             # Skip open_ended for comparative relations that ask about anchor properties
             comparative_relations = {
-                "side_of", "part_of", "section_of", "half_of",
-                "top_of", "bottom_of", "left_of", "right_of",
+                "side_of",
+                "part_of",
+                "section_of",
+                "half_of",
+                "top_of",
+                "bottom_of",
+                "left_of",
+                "right_of",
             }
             is_comparative = any(
                 sc.relation.lower().replace(" ", "_") in comparative_relations

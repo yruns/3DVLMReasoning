@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import base64
+import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -273,7 +275,10 @@ class TestStage2DeepAgent(unittest.TestCase):
         self.assertEqual(kwargs["subagents"], [])
         self.assertIn("qa-answering-playbook", kwargs["system_prompt"])
         self.assertIn("evidence-scouting", kwargs["system_prompt"])
-        self.assertIn("Skill-based decomposition replaces DeepAgents subagents", kwargs["system_prompt"])
+        self.assertIn(
+            "Skill-based decomposition replaces DeepAgents subagents",
+            kwargs["system_prompt"],
+        )
         self.assertIn("LangChain v1 and DeepAgents", kwargs["system_prompt"])
 
     def test_run_returns_structured_stage2_result(self) -> None:
@@ -412,6 +417,60 @@ class TestStage2DeepAgent(unittest.TestCase):
         # images were injected yet.
         self.assertEqual(call_count[0], 2)
         self.assertEqual(result.result.status, Stage2Status.NEEDS_MORE_EVIDENCE)
+
+    def test_run_defers_submit_final_until_pending_images_are_injected(self) -> None:
+        """A same-turn view_keyframe_marked + submit_final must not skip pixels."""
+        agent = Stage2DeepResearchAgent(
+            config=Stage2DeepAgentConfig(enable_uncertainty_stopping=False)
+        )
+        task = Stage2TaskSpec(
+            task_type=Stage2TaskType.VISUAL_GROUNDING,
+            user_query="find the chair",
+            max_reasoning_turns=2,
+        )
+        bundle = Stage2EvidenceBundle(scene_id="room0", keyframes=[])
+        runtime = Stage2RuntimeState(bundle=bundle)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            pending_image = Path(tmpdir) / "frame_1.png"
+            pending_image.write_bytes(
+                base64.b64decode(
+                    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII="
+                )
+            )
+
+            call_count = [0]
+
+            class _PrematureFinalGraph:
+                def invoke(self, payload: dict) -> dict:
+                    call_count[0] += 1
+                    if call_count[0] == 1:
+                        runtime.bundle.extra_metadata = {
+                            "vg_pending_images": [str(pending_image)]
+                        }
+                        runtime.mark_evidence_updated()
+                        runtime.final_submission = {
+                            "status": "completed",
+                            "selected_object_id": 1,
+                            "bbox_3d": [0] * 9,
+                            "confidence": 0.9,
+                        }
+                        return {"messages": []}
+                    runtime.final_submission = {
+                        "status": "completed",
+                        "selected_object_id": 2,
+                        "bbox_3d": [1] * 9,
+                        "confidence": 0.8,
+                    }
+                    return {"messages": []}
+
+            with patch.object(
+                agent, "build_agent", return_value=(_PrematureFinalGraph(), runtime)
+            ):
+                result = agent.run(task, bundle)
+
+        self.assertEqual(call_count[0], 2)
+        self.assertEqual(result.result.payload["selected_object_id"], 2)
 
     def test_runtime_marks_evidence_updated_when_callback_returns_bundle(self) -> None:
         """Verify tools mark evidence_updated when callbacks return new bundles."""
@@ -1175,24 +1234,31 @@ def test_qa_tool_list_snapshot() -> None:
     bundle = Stage2EvidenceBundle()
     task = Stage2TaskSpec(task_type=Stage2TaskType.QA, user_query="?")
 
-    state = runtime._make_runtime_state(task, bundle) if hasattr(runtime, "_make_runtime_state") else None
+    state = (
+        runtime._make_runtime_state(task, bundle)
+        if hasattr(runtime, "_make_runtime_state")
+        else None
+    )
     if state is None:
         # Fallback for current API: build_runtime_tools takes a runtime obj
         from agents.runtime.base import Stage2RuntimeState
+
         state = Stage2RuntimeState(bundle=bundle)
         state.task_type = Stage2TaskType.QA
 
     tool_names = sorted(t.name for t in runtime.build_runtime_tools(state))
-    assert tool_names == sorted([
-        "inspect_stage1_metadata",
-        "retrieve_object_context",
-        "request_more_views",
-        "request_crops",
-        "switch_or_expand_hypothesis",
-        "list_skills",
-        "load_skill",
-        "submit_final",
-    ]), f"QA tool list drifted: {tool_names}"
+    assert tool_names == sorted(
+        [
+            "inspect_stage1_metadata",
+            "retrieve_object_context",
+            "request_more_views",
+            "request_crops",
+            "switch_or_expand_hypothesis",
+            "list_skills",
+            "load_skill",
+            "submit_final",
+        ]
+    ), f"QA tool list drifted: {tool_names}"
 
 
 def test_qa_with_enable_chassis_tools_true_gets_chassis_trio() -> None:
@@ -1218,17 +1284,19 @@ def test_qa_with_enable_chassis_tools_true_gets_chassis_trio() -> None:
     state.task_type = Stage2TaskType.QA
 
     tool_names = sorted(t.name for t in runtime.build_runtime_tools(state))
-    assert tool_names == sorted([
-        "inspect_stage1_metadata",
-        "retrieve_object_context",
-        "request_more_views",
-        "request_crops",
-        "switch_or_expand_hypothesis",
-        # chassis trio
-        "list_skills",
-        "load_skill",
-        "submit_final",
-    ]), f"QA + enable_chassis_tools tool list drifted: {tool_names}"
+    assert tool_names == sorted(
+        [
+            "inspect_stage1_metadata",
+            "retrieve_object_context",
+            "request_more_views",
+            "request_crops",
+            "switch_or_expand_hypothesis",
+            # chassis trio
+            "list_skills",
+            "load_skill",
+            "submit_final",
+        ]
+    ), f"QA + enable_chassis_tools tool list drifted: {tool_names}"
 
 
 def test_wrapper_build_agent_qa_auto_registers_default_pack() -> None:
@@ -1252,16 +1320,18 @@ def test_wrapper_build_agent_qa_auto_registers_default_pack() -> None:
         tool_names = sorted(t.name for t in mock_create.call_args.kwargs["tools"])
 
     assert Stage2TaskType.QA in PACKS
-    assert tool_names == sorted([
-        "inspect_stage1_metadata",
-        "retrieve_object_context",
-        "request_more_views",
-        "request_crops",
-        "switch_or_expand_hypothesis",
-        "list_skills",
-        "load_skill",
-        "submit_final",
-    ])
+    assert tool_names == sorted(
+        [
+            "inspect_stage1_metadata",
+            "retrieve_object_context",
+            "request_more_views",
+            "request_crops",
+            "switch_or_expand_hypothesis",
+            "list_skills",
+            "load_skill",
+            "submit_final",
+        ]
+    )
 
 
 def test_wrapper_build_agent_supports_pack_v1(tmp_path) -> None:
@@ -1288,15 +1358,22 @@ def test_wrapper_build_agent_supports_pack_v1(tmp_path) -> None:
 
     bundle = Stage2EvidenceBundle(
         keyframes=[KeyframeEvidence(keyframe_idx=0, image_path="a.png", frame_id=10)],
-        extra_metadata={"vg_proposal_pool": {
-            "source": "vdetr",
-            "proposals": [
-                {"id": 0, "bbox_3d_9dof": [0]*9, "category": "chair", "score": 0.5},
-            ],
-            "frame_index": {10: [0]},
-            "proposal_index": {0: [10]},
-            "annotated_image_dir": str(annotated),
-        }},
+        extra_metadata={
+            "vg_proposal_pool": {
+                "source": "vdetr",
+                "proposals": [
+                    {
+                        "id": 0,
+                        "bbox_3d_9dof": [0] * 9,
+                        "category": "chair",
+                        "score": 0.5,
+                    },
+                ],
+                "frame_index": {10: [0]},
+                "proposal_index": {0: [10]},
+                "annotated_image_dir": str(annotated),
+            }
+        },
     )
     task = Stage2TaskSpec(task_type=Stage2TaskType.VISUAL_GROUNDING, user_query="?")
 
@@ -1313,15 +1390,23 @@ def test_wrapper_build_agent_supports_pack_v1(tmp_path) -> None:
 
     # Same expected tool list as the runtime-level pack_v1 snapshot:
     # 5 shared + 5 pack + 3 chassis = 13.
-    assert tool_names == sorted([
-        "inspect_stage1_metadata", "retrieve_object_context",
-        "request_more_views", "request_crops",
-        "switch_or_expand_hypothesis",
-        "list_keyframes_with_proposals", "view_keyframe_marked",
-        "inspect_proposal", "find_proposals_by_category",
-        "compare_proposals_spatial",
-        "list_skills", "load_skill", "submit_final",
-    ]), f"wrapper pack_v1 tool list drifted: {tool_names}"
+    assert tool_names == sorted(
+        [
+            "inspect_stage1_metadata",
+            "retrieve_object_context",
+            "request_more_views",
+            "request_crops",
+            "switch_or_expand_hypothesis",
+            "list_keyframes_with_proposals",
+            "view_keyframe_marked",
+            "inspect_proposal",
+            "find_proposals_by_category",
+            "compare_proposals_spatial",
+            "list_skills",
+            "load_skill",
+            "submit_final",
+        ]
+    ), f"wrapper pack_v1 tool list drifted: {tool_names}"
 
     # Wrapper must have populated task_ctx for pack_v1.
     assert isinstance(runtime.task_ctx, VgEmbodiedScanCtx)
@@ -1384,13 +1469,15 @@ def test_pack_v1_vg_tool_list_snapshot(tmp_path) -> None:
     runtime = DeepAgentsStage2Runtime(config=Stage2DeepAgentConfig())
     bundle = Stage2EvidenceBundle(
         keyframes=[KeyframeEvidence(keyframe_idx=0, image_path="a.png", frame_id=10)],
-        extra_metadata={"vg_proposal_pool": {
-            "source": "vdetr",
-            "proposals": [],
-            "frame_index": {},
-            "proposal_index": {},
-            "annotated_image_dir": str(annotated),
-        }},
+        extra_metadata={
+            "vg_proposal_pool": {
+                "source": "vdetr",
+                "proposals": [],
+                "frame_index": {},
+                "proposal_index": {},
+                "annotated_image_dir": str(annotated),
+            }
+        },
     )
     state = Stage2RuntimeState(bundle=bundle)
     state.task_type = Stage2TaskType.VISUAL_GROUNDING
@@ -1403,15 +1490,23 @@ def test_pack_v1_vg_tool_list_snapshot(tmp_path) -> None:
     )
 
     tool_names = sorted(t.name for t in runtime.build_runtime_tools(state))
-    assert tool_names == sorted([
-        # shared
-        "inspect_stage1_metadata", "retrieve_object_context",
-        "request_more_views", "request_crops",
-        "switch_or_expand_hypothesis",
-        # VG-pack new
-        "list_keyframes_with_proposals", "view_keyframe_marked",
-        "inspect_proposal", "find_proposals_by_category",
-        "compare_proposals_spatial",
-        # chassis
-        "list_skills", "load_skill", "submit_final",
-    ]), f"pack-v1 VG tool list drifted: {tool_names}"
+    assert tool_names == sorted(
+        [
+            # shared
+            "inspect_stage1_metadata",
+            "retrieve_object_context",
+            "request_more_views",
+            "request_crops",
+            "switch_or_expand_hypothesis",
+            # VG-pack new
+            "list_keyframes_with_proposals",
+            "view_keyframe_marked",
+            "inspect_proposal",
+            "find_proposals_by_category",
+            "compare_proposals_spatial",
+            # chassis
+            "list_skills",
+            "load_skill",
+            "submit_final",
+        ]
+    ), f"pack-v1 VG tool list drifted: {tool_names}"

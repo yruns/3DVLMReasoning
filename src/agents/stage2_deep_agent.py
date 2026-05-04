@@ -167,6 +167,7 @@ class Stage2DeepResearchAgent:
             runtime.task_ctx = build_ctx_from_bundle(runtime.bundle)
 
         from agents.skills.validate import validate_packs
+
         validate_packs(
             task.task_type,
             bundle,
@@ -220,6 +221,19 @@ class Stage2DeepResearchAgent:
 
             # Pack-v1 terminal: chassis submit_final populates runtime.final_submission.
             if runtime.final_submission is not None:
+                if runtime.consume_evidence_update():
+                    evidence_message = self._build_evidence_update_message(runtime)
+                    if evidence_message is not None:
+                        if "messages" in raw_state:
+                            messages = raw_state["messages"]
+                        messages.append(evidence_message)
+                        runtime.final_submission = None
+                        logger.info(
+                            "[Stage2DeepResearchAgent] turn {}: deferring submit_final "
+                            "until newly queued visual evidence is injected",
+                            turns_used,
+                        )
+                        continue
                 logger.info(
                     "[Stage2DeepResearchAgent] terminated at turn {} via chassis submit_final",
                     turns_used,
