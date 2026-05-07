@@ -12,6 +12,7 @@ from langchain_core.tools import BaseTool, tool
 from pydantic import ValidationError
 
 from agents.skills.registry import PACKS, skills_for
+from agents.skills.tadg import evaluate_tadg
 
 
 def build_chassis_tools(runtime: Any) -> tuple[BaseTool, BaseTool, BaseTool]:
@@ -58,12 +59,47 @@ def build_chassis_tools(runtime: Any) -> tuple[BaseTool, BaseTool, BaseTool]:
         payload: dict,
         rationale: str,
         evidence_refs: list[dict] | None = None,
+        tool_override_reason: str | None = None,
     ) -> str:
         """Submit the final task answer. Payload must match this task's
         FinalizerSpec.schema. The chassis validates payload + preconditions
         and stashes the adapted result on the bundle for the run loop to
         consume. (Run termination is wired by the active pack's runtime
-        integration; without that, this tool is a no-op.)"""
+        integration; without that, this tool is a no-op.)
+
+        When TADG (`runtime.use_tool_answer_disagreement_gate`) is enabled
+        and the submitted `proposal_id` disagrees with the most recent
+        matched-relation `compare_proposals_spatial` rank-1, this tool
+        returns a soft-block message instead of finalizing. Pass a
+        non-empty `tool_override_reason` (≥ `tadg_override_min_chars`
+        characters after strip) to record an explicit divergence and
+        proceed.
+        """
+        # TADG (Tool-Answer Disagreement Gate) — runs BEFORE chassis
+        # validator so a blocked submission never produces a final
+        # adapted result. Spec: tmp/tadg_spec.md, src/agents/skills/tadg.py.
+        decision = evaluate_tadg(
+            runtime, payload, tool_override_reason=tool_override_reason,
+        )
+        if decision.blocked:
+            runtime.record(
+                "submit_final",
+                {
+                    "payload": payload,
+                    "rationale": rationale,
+                    "evidence_refs": evidence_refs or [],
+                    "tool_override_reason": tool_override_reason,
+                    "tadg_blocked": True,
+                    "tadg_top1_pid": decision.top1_pid,
+                    "tadg_relation": decision.relation,
+                    "tadg_anchor_id": decision.anchor_id,
+                    "tadg_subcase": decision.subcase,
+                    "tadg_ranked_ids": list(decision.ranked_ids),
+                },
+                f"TADG_BLOCK: {decision.message}",
+            )
+            return f"TADG_BLOCK: {decision.message}"
+
         pack = PACKS.get(runtime.task_type)
         if pack is None:
             err = f"ERROR: no pack registered for {runtime.task_type}; cannot submit_final"
@@ -115,11 +151,23 @@ def build_chassis_tools(runtime: Any) -> tuple[BaseTool, BaseTool, BaseTool]:
             f"submitted; rationale={rationale!r}; "
             f"evidence_refs={len(evidence_refs or [])}"
         )
-        runtime.record(
-            "submit_final",
-            {"payload": payload, "rationale": rationale, "evidence_refs": evidence_refs or []},
-            msg,
-        )
+        record_payload = {
+            "payload": payload,
+            "rationale": rationale,
+            "evidence_refs": evidence_refs or [],
+        }
+        # If TADG accepted an explicit override or force-passed, surface
+        # the disagreement in the trace alongside the success record.
+        if decision.message:
+            record_payload["tadg_message"] = decision.message
+            record_payload["tadg_top1_pid"] = decision.top1_pid
+            record_payload["tadg_relation"] = decision.relation
+            record_payload["tadg_anchor_id"] = decision.anchor_id
+            record_payload["tadg_subcase"] = decision.subcase
+            record_payload["tadg_force_passed"] = decision.force_passed
+            if tool_override_reason:
+                record_payload["tool_override_reason"] = tool_override_reason
+        runtime.record("submit_final", record_payload, msg)
         return msg
 
     return list_skills, load_skill, submit_final

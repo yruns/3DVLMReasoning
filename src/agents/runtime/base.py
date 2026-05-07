@@ -58,6 +58,18 @@ class Stage2RuntimeState:
     clip_visible_cache_dir: str | None = None
     clip_visible_provider: Any | None = None
 
+    # TADG (Tool-Answer Disagreement Gate) config + sticky run state.
+    # The config fields are copied from Stage2DeepAgentConfig before
+    # pack tools are built. The run-state fields below are mutated by
+    # `evaluate_tadg` during submit_final.
+    use_tool_answer_disagreement_gate: bool = False
+    tadg_window: int = 16
+    tadg_max_repeats: int = 3
+    tadg_override_min_chars: int = 6
+    tadg_triggered: bool = False                  # ≥1 block fired this run
+    tool_override_reason: str | None = None       # last accepted override
+    tadg_block_count: dict[int, int] = field(default_factory=dict)
+
     def record(
         self, tool_name: str, tool_input: dict[str, Any], response_text: str
     ) -> None:
@@ -178,6 +190,16 @@ class BaseStage2Runtime(ABC):
         backbone_override = os.environ.get("CVRA_BACKBONE_OVERRIDE")
         if backbone_override:
             runtime.clip_visible_backbone = backbone_override
+
+        runtime.use_tool_answer_disagreement_gate = (
+            self.config.use_tool_answer_disagreement_gate
+        )
+        runtime.tadg_window = self.config.tadg_window
+        runtime.tadg_max_repeats = self.config.tadg_max_repeats
+        runtime.tadg_override_min_chars = self.config.tadg_override_min_chars
+
+        if os.environ.get("TADG_DISABLE") == "1":
+            runtime.use_tool_answer_disagreement_gate = False
 
     def image_to_data_url(self, image_path: str | Path) -> str:
         """Convert an image file into a data URL for multimodal chat models."""

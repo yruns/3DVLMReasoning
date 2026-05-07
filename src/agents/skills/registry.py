@@ -1,9 +1,10 @@
 """SkillSpec / TaskPack registry shared across Stage-2 packs."""
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 from langchain_core.tools import BaseTool
 

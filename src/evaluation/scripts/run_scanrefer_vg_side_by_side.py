@@ -372,6 +372,7 @@ def build_pack_v1_bundle_from_sample(
         frame_visibility=frame_visibility,
         keyframes=keyframes,
         scene_id=str(sample["scene_id"]),
+        query=sample.get("query"),
     )
 
 
@@ -762,6 +763,16 @@ def parse_args() -> argparse.Namespace:
             "find_proposals_by_category."
         ),
     )
+    parser.add_argument(
+        "--use-tool-answer-disagreement-gate",
+        action="store_true",
+        default=False,
+        help=(
+            "Enable TADG: soft-block submit_final when the submitted "
+            "proposal_id disagrees with the most recent matched-relation "
+            "compare_proposals_spatial rank-1. Default off."
+        ),
+    )
     return parser.parse_args()
 
 
@@ -770,6 +781,7 @@ def main() -> None:
     sample_ids = load_sample_ids(args.sample_ids)
     config = Stage2DeepAgentConfig(
         use_clip_visible_aug=args.use_clip_visible_aug,
+        use_tool_answer_disagreement_gate=args.use_tool_answer_disagreement_gate,
     )
     compare_backends(
         sample_ids=sample_ids,

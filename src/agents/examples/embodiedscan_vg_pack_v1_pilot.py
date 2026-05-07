@@ -40,6 +40,7 @@ def build_pack_v1_bundle(
     keyframes: Sequence[tuple[int, str, int]],
     scene_id: str,
     axis_align_matrix: np.ndarray | None = None,
+    query: str | None = None,
 ) -> Stage2EvidenceBundle:
     pool = build_vg_proposal_pool(
         proposals_jsonl=proposals_jsonl,
@@ -50,6 +51,11 @@ def build_pack_v1_bundle(
     )
     return Stage2EvidenceBundle(
         scene_id=scene_id,
+        # Mirror the convention used by the OpenEQA / SQA3D / etc.
+        # benchmark adapters at `agents/benchmark_adapters.py:305`. TADG
+        # (and any future submit-time tool) reads `bundle.stage1_query`
+        # to identify the user's spatial relations.
+        stage1_query=str(query or ""),
         keyframes=[
             KeyframeEvidence(keyframe_idx=idx, image_path=path, frame_id=fid)
             for idx, path, fid in keyframes

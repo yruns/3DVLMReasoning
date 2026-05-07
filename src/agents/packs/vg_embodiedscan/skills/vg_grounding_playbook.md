@@ -300,7 +300,7 @@ Total keyframes now: 5.`
 
 ## VgPayload schema
 
-`submit_final(payload, rationale, evidence_refs=[])`:
+`submit_final(payload, rationale, evidence_refs=[], tool_override_reason=None)`:
 
 ```
 class VgPayload(BaseModel):
@@ -312,6 +312,63 @@ The chassis validates `proposal_id` against the pool. Any int that is
 neither in the pool nor `-1` raises `ValueError("proposal_id N not in
 pool")`, which `submit_final` returns to you as a tool ERROR string.
 Do not invent ids.
+
+### When TADG (Tool-Answer Disagreement Gate) fires
+
+When the runtime has TADG enabled
+(`runtime.use_tool_answer_disagreement_gate=True`) and you call
+`submit_final` with a `proposal_id` that disagrees with the most recent
+matched-relation `compare_proposals_spatial` rank-1, the chassis returns
+a soft-block message of the form:
+
+```
+TADG: compare_proposals_spatial ranked proposal X as rank-1 for
+relation 'closest_to' against proposal A; you are submitting proposal Y
+(<subcase>).
+
+Either:
+  (a) Resubmit with `tool_override_reason='<one-sentence reason>'`
+      to record the explicit divergence, OR
+  (b) Revise to proposal X (or another id from ranked_ids=[...])
+      and resubmit.
+```
+
+This is **not** an error — it's a forced moment of reflection. Three
+ways to respond, in order of preference:
+
+1. **Revise** to the ranked rank-1 if the spatial tool's verdict is
+   correct (most common — the agent miscounted distance or had a
+   stale reading). Just call `submit_final` again with that pid.
+2. **Override with a reason** if you have evidence the spatial tool's
+   rank-1 is wrong (e.g. you just inspected its crop and it is a
+   different category than the query asks for, or it is the anchor
+   itself, or its bbox is occluded). Pass
+   `tool_override_reason="<one short sentence>"` (≥6 chars) when you
+   resubmit. The reason is recorded in the audit trail.
+3. **Inspect more before deciding**: call `view_keyframe_marked` or
+   `inspect_proposal` on the spatial tool's rank-1 candidate, then
+   submit either rank-1 (if it now looks right) or your original pick
+   with `tool_override_reason`.
+
+Anti-loop guard: if you resubmit the same `proposal_id` 3 times
+without a `tool_override_reason`, the gate auto-passes the
+submission to avoid sample crashes. Use the override path
+proactively rather than relying on the force-pass.
+
+Subcases of the soft-block message:
+
+- **"the anchor itself"** — you are submitting the same proposal_id
+  you used as `anchor_id`. This is structurally suspicious for queries
+  with a single relation; reconsider whether the query is symmetric
+  ("X next to another X"), in which case enumerate same-category pairs
+  rather than locking the anchor.
+- **"not in the spatial-tool's candidate set"** — your submitted
+  proposal_id was never passed as a candidate to the spatial tool.
+  Either the spatial tool was called with the wrong candidate list,
+  or you switched targets without re-running the spatial check.
+- **"ranked below position 1"** — your submission is in the candidate
+  list but not rank-1. Either the rank-1 is genuinely better and you
+  should revise, or you have specific evidence (provide an override).
 
 ## OOD handling
 

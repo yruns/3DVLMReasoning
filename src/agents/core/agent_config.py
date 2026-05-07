@@ -124,6 +124,36 @@ class Stage2DeepAgentConfig(BaseModel):
         default=None,
         description="Optional on-disk cache for CVRA crop embeddings.",
     )
+    use_tool_answer_disagreement_gate: bool = Field(
+        default=False,
+        description="Enable TADG: soft-block submit_final when the submitted "
+        "proposal_id disagrees with the most recent matched-relation "
+        "compare_proposals_spatial rank-1.",
+    )
+    tadg_window: int = Field(
+        default=16,
+        ge=1,
+        le=64,
+        description="Maximum tool_trace lookback (entries) when TADG searches "
+        "for a recent compare_proposals_spatial call. Calibrated against the "
+        "v3.5 tool surface (~10+ inspect_proposal calls between compare and "
+        "submit); v1 spec used 8 against v3.3 traces but Step 3 smoke showed "
+        "the gate missed S6 with that bound.",
+    )
+    tadg_max_repeats: int = Field(
+        default=3,
+        ge=1,
+        le=10,
+        description="Number of identical TADG-blocked submits before the gate "
+        "force-passes (anti-loop guard, supersedes handoff §6.2 risk #3 default).",
+    )
+    tadg_override_min_chars: int = Field(
+        default=6,
+        ge=1,
+        le=200,
+        description="Minimum non-whitespace length for tool_override_reason to "
+        "bypass a TADG block.",
+    )
 
     @property
     def api_key(self) -> str:
