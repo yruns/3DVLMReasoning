@@ -319,6 +319,7 @@ def run_pack_v1_sample(
                 selector,
                 scene_id=scene_id,
                 max_new_keyframes=3,
+                use_visual_context=False,
             )
 
     agent = agent_cls(

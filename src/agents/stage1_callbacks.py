@@ -9,10 +9,8 @@ This module provides real implementations for:
 from __future__ import annotations
 
 from collections.abc import Callable
-from pathlib import Path
 from typing import Any
 
-import numpy as np
 from loguru import logger
 from PIL import Image, ImageDraw
 
@@ -21,7 +19,6 @@ from .models import (
     Stage2EvidenceBundle,
     Stage2ToolResult,
 )
-
 
 # ---------------------------------------------------------------------------
 # request_more_views
@@ -692,6 +689,7 @@ def create_hypothesis_callback(
     keyframe_selector: Any,
     scene_id: str = "",
     max_new_keyframes: int = 3,
+    use_visual_context: bool = True,
 ) -> Callable[[Stage2EvidenceBundle, dict[str, Any]], Stage2ToolResult]:
     """Create a callback that re-runs Stage 1 with a new query.
 
@@ -730,7 +728,11 @@ def create_hypothesis_callback(
             k,
         )
 
-        result = keyframe_selector.select_keyframes_v2(new_query, k=k)
+        result = keyframe_selector.select_keyframes_v2(
+            new_query,
+            k=k,
+            use_visual_context=use_visual_context,
+        )
 
         if not result.keyframe_paths:
             return Stage2ToolResult(

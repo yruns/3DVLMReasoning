@@ -118,6 +118,55 @@ def test_callback_keyframe_selector_uses_scanrefer_visibility_stride(
     assert captured["llm_model"] == "test-model"
 
 
+def test_scanrefer_hypothesis_callback_disables_visual_context(monkeypatch):
+    import agents.stage1_callbacks as callbacks
+    from evaluation.scripts import run_scanrefer_vg_side_by_side as mod
+
+    selector = object()
+    captured = {}
+
+    class FakeAgent:
+        def __init__(self, **kwargs):
+            captured["agent_kwargs"] = kwargs
+
+        def run(self, *, task, bundle):
+            captured["task"] = task
+            captured["bundle"] = bundle
+            return "ok"
+
+    monkeypatch.setattr(mod, "Stage2DeepResearchAgent", FakeAgent)
+    monkeypatch.setattr(mod, "_get_or_build_keyframe_selector", lambda *a, **kw: selector)
+    monkeypatch.setattr(
+        mod,
+        "build_pack_v1_bundle_from_sample",
+        lambda *a, **kw: SimpleNamespace(),
+    )
+    monkeypatch.setattr(callbacks, "create_more_views_callback", lambda *a, **kw: "more")
+    monkeypatch.setattr(callbacks, "create_crop_callback", lambda *a, **kw: "crop")
+
+    def fake_create_hypothesis_callback(*args, **kwargs):
+        captured["hypothesis_args"] = args
+        captured["hypothesis_kwargs"] = kwargs
+        return "hypothesis"
+
+    monkeypatch.setattr(
+        callbacks,
+        "create_hypothesis_callback",
+        fake_create_hypothesis_callback,
+    )
+
+    result = mod.run_pack_v1_sample(
+        {"scene_id": "scene0558_00", "query": "the chair"},
+        data_root=SimpleNamespace(),
+        config=SimpleNamespace(),
+    )
+
+    assert result == "ok"
+    assert captured["hypothesis_args"][0] is selector
+    assert captured["hypothesis_kwargs"]["use_visual_context"] is False
+    assert captured["agent_kwargs"]["hypothesis_callback"] == "hypothesis"
+
+
 def test_extract_pack_v1_prediction_resolves_structured_proposal_payload():
     from evaluation.scripts.run_scanrefer_vg_side_by_side import (
         extract_pack_v1_prediction,
