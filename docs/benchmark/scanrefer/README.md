@@ -23,6 +23,8 @@ External-method comparison table: [leaderboard.md](leaderboard.md).
 Current honest query-driven development result: v3.3 on the frozen random100
 fold is Acc@0.25 **48.0** / Acc@0.50 **42.0** after aggregation-GT rescoring;
 see [v3p3_vertical_spatial_20260504.md](v3p3_vertical_spatial_20260504.md).
+Canonical current goal/problem statement:
+[scanrefer-date-goal.md](scanrefer-date-goal.md).
 
 ## Version timeline
 
@@ -104,4 +106,6 @@ FROM runs ORDER BY ingested_at;
 
 ## Investigation Summaries
 
-- [final_investigation_summary_20260504.md](final_investigation_summary_20260504.md)
+- [scanrefer-date-goal.md](scanrefer-date-goal.md) — current canonical
+  goal/problem statement; supersedes the old final investigation, keyframe
+  funnel, and picking-error process notes.
