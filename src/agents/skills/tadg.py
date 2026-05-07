@@ -14,6 +14,14 @@ The gate is opt-in via `Stage2DeepAgentConfig.use_tool_answer_disagreement_gate`
 mirrors the config. Force-PASS triggers at
 `tadg_max_repeats` repeated identical no-override submits to avoid
 sample-level eval crashes (supersedes handoff §6.2 risk #3 default).
+
+Relation matching is **keyword-only** in v1 (per spec §3 + §12 Q1
+revision after M4-TADG H3 review): the parser-first path that walked
+`extra_metadata["hypothesis_output"]` was deleted because no production
+ScanRefer pack-prep populates that field, and the unit test that
+exercised it created a false sense of coverage. The path can be
+re-enabled by editing `_query_relation_set` once Stage-1 pack-prep
+persists `HypothesisOutputV1` onto the bundle.
 """
 
 from __future__ import annotations
@@ -33,8 +41,9 @@ _SUPPORTED_TOOL_RELATIONS = ("closest_to", "farthest_from", "above", "below")
 # and (b) keyword-scan the raw query string when parser data is missing.
 _TOOL_RELATION_ALIASES: dict[str, frozenset[str]] = {
     "closest_to": frozenset({
-        "closest_to", "closest", "near", "next_to", "nextto", "next-to",
-        "beside", "adjacent_to", "adjacent", "by", "between",
+        "closest_to", "closest", "near", "nearest", "nearest_to",
+        "next_to", "nextto", "next-to", "beside", "adjacent_to",
+        "adjacent", "by", "between",
     }),
     "farthest_from": frozenset({
         "farthest_from", "farthest", "far_from", "far",
@@ -79,58 +88,34 @@ def _norm(token: str) -> str:
 
 
 def _query_relation_set(runtime: Any) -> set[str]:
-    """Return the set of *tool* relations the parsed query (or raw text)
-    asks about. Used to filter which compare_proposals_spatial calls
-    count as "matching" the user's question.
+    """Return the set of *tool* relations the user's query asks about.
 
-    Strategy (per spec §3, two-stage):
-    1. Parser-first: read `extra_metadata["hypothesis_output"]` (populated
-       by Stage 1 keyframe selector via `HypothesisOutputV1.model_dump()`)
-       and walk every hypothesis's `grounding_query.root.spatial_constraints[*].relation`.
-    2. Keyword fallback: scan the raw query string for tokens in
-       `_TOOL_RELATION_ALIASES` values.
+    Used to filter which `compare_proposals_spatial` calls count as
+    "matching" the user's question.
 
-    Both sources contribute to the final set (union). Returns a subset
-    of `_SUPPORTED_TOOL_RELATIONS`.
+    v1 baseline: keyword scan over `bundle.stage1_query` (canonical,
+    populated by `agents.benchmark_adapters.build_stage2_evidence_bundle`
+    and by the VG pack-v1 builder via the `query` kwarg). Falls back to
+    `extra_metadata["query"]` for legacy test scaffolds.
+
+    Parser-first matching (walking
+    `extra_metadata["hypothesis_output"]["hypotheses"][*].grounding_query.root.spatial_constraints`)
+    is **deferred** until Stage-1 pack-prep persists `HypothesisOutputV1`
+    onto the bundle. The dispatch shape is reserved (the `bundle` is
+    inspected for both surfaces below) so that the parser path can be
+    re-enabled without touching this function — see `tmp/tadg_spec.md`
+    §3 + §12 Q1 for the v1 baseline contract and the deferred
+    parser-first plan.
     """
     bundle = getattr(runtime, "bundle", None)
     extra = getattr(bundle, "extra_metadata", {}) or {}
     matched: set[str] = set()
 
-    # Walk parser output, including nested anchors.
-    hypothesis_output = extra.get("hypothesis_output") or {}
-
-    def _walk_node(node: Any) -> None:
-        if not isinstance(node, dict):
-            return
-        for constraint in node.get("spatial_constraints") or []:
-            if not isinstance(constraint, dict):
-                continue
-            rel = _norm(constraint.get("relation", ""))
-            if not rel:
-                continue
-            for tool_rel, aliases in _TOOL_RELATION_ALIASES.items():
-                if rel in aliases:
-                    matched.add(tool_rel)
-            for anchor in constraint.get("anchors") or []:
-                _walk_node(anchor)
-
-    for item in hypothesis_output.get("hypotheses") or []:
-        if not isinstance(item, dict):
-            continue
-        root = (item.get("grounding_query") or {}).get("root") or {}
-        _walk_node(root)
-
-    # Keyword fallback over raw query string. Stage 2 bundles persist
-    # the query under `stage1_query` (canonical, set by adapters at
-    # `src/agents/benchmark_adapters.py:305`); some test scaffolds and
-    # legacy paths drop the same string into `extra_metadata["query"]`.
+    # Keyword scan over the raw query string.
     query_text = ""
     if bundle is not None:
         query_text = (
             getattr(bundle, "stage1_query", "")
-            or getattr(bundle, "query", "")
-            or getattr(getattr(bundle, "task_spec", None), "query", "")
             or extra.get("query", "")
             or ""
         )
@@ -157,7 +142,7 @@ def _last_matching_compare(
     if not relevant_relations:
         return None
     trace = list(getattr(runtime, "tool_trace", []) or [])
-    window = max(int(getattr(runtime, "tadg_window", 8)), 1)
+    window = max(int(getattr(runtime, "tadg_window", 16)), 1)
     if window > len(trace):
         window = len(trace)
     for entry in reversed(trace[-window:]):
@@ -218,6 +203,29 @@ def _format_block_message(
         f"This block is recorded; if you resubmit identically several times "
         f"in a row the gate auto-escalates and accepts the submission."
     )
+
+
+def tadg_record_fields(decision: TADGDecision) -> dict[str, Any]:
+    """Canonical telemetry fields written into `tool_trace` for any
+    TADG-touching submit_final invocation.
+
+    Both the BLOCK path and the override / force-pass / silent-allow
+    paths in `chassis_tools.submit_final` emit the same shape so a
+    downstream funnel-evaluator extension can collate counts uniformly.
+    Fields are populated from the decision; absent values are recorded
+    as None so consumers can rely on the keys being present.
+    """
+    return {
+        "tadg_blocked": bool(decision.blocked),
+        "tadg_force_passed": bool(decision.force_passed),
+        "tadg_top1_pid": decision.top1_pid,
+        "tadg_submitted_pid": decision.submitted_pid,
+        "tadg_relation": decision.relation,
+        "tadg_anchor_id": decision.anchor_id,
+        "tadg_subcase": decision.subcase or None,
+        "tadg_ranked_ids": list(decision.ranked_ids) if decision.ranked_ids else None,
+        "tadg_message": decision.message or None,
+    }
 
 
 def evaluate_tadg(
@@ -352,6 +360,7 @@ def evaluate_tadg(
 __all__ = [
     "TADGDecision",
     "evaluate_tadg",
+    "tadg_record_fields",
     "_TOOL_RELATION_ALIASES",
     "_SUPPORTED_TOOL_RELATIONS",
 ]

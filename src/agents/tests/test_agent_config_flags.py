@@ -19,7 +19,9 @@ def test_vg_backend_defaults_pack_v1() -> None:
 def test_chassis_tools_version_default_is_int() -> None:
     cfg = Stage2DeepAgentConfig()
     assert isinstance(cfg.chassis_tools_version, int)
-    assert cfg.chassis_tools_version == 3
+    # Bumped to 4 for the TADG `tool_override_reason` kwarg on submit_final
+    # (changes the chassis surface, must invalidate prompt cache).
+    assert cfg.chassis_tools_version == 4
 
 
 def test_default_modelhub_pool_uses_three_weighted_gpt54_keys() -> None:

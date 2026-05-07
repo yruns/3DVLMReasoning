@@ -94,10 +94,12 @@ class Stage2DeepAgentConfig(BaseModel):
         description="VG backend. Only 'pack_v1' is supported after Plan C.",
     )
     chassis_tools_version: int = Field(
-        default=3,
+        default=4,
         ge=1,
         description="Bump when chassis tool surface changes; folded into "
-        "derive_eval_session_id so prompt-cache invalidates correctly.",
+        "derive_eval_session_id so prompt-cache invalidates correctly. "
+        "v4 added the optional `tool_override_reason` kwarg on submit_final "
+        "(TADG bypass path).",
     )
     use_clip_visible_aug: bool = Field(
         default=False,

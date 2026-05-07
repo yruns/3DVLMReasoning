@@ -36,38 +36,10 @@ def _reset_registry():
     PACKS.clear()
 
 
-def _bundle_with_query(query: str, *, parser_relation: str | None = None) -> Stage2EvidenceBundle:
-    """Build a minimal Stage2EvidenceBundle that mimics what the
-    ScanRefer pack-prep populates: the raw query string for keyword
-    fallback, and an optional `hypothesis_output` shaped like
-    HypothesisOutputV1.model_dump() so the parser-first path can fire."""
-    extra: dict = {}
-    if parser_relation is not None:
-        extra["hypothesis_output"] = {
-            "hypotheses": [
-                {
-                    "rank": 1,
-                    "grounding_query": {
-                        "root": {
-                            "categories": ["chair"],
-                            "spatial_constraints": [
-                                {"relation": parser_relation, "anchors": []}
-                            ],
-                        },
-                    },
-                }
-            ],
-            "parse_mode": "test",
-        }
-    bundle = Stage2EvidenceBundle(extra_metadata=extra)
-    # Stage2EvidenceBundle does not always carry a `query` field, but
-    # the gate reads it via getattr so we attach via model_copy when
-    # the helper does, otherwise we set on extra.
-    if hasattr(bundle, "query"):
-        bundle = bundle.model_copy(update={"query": query})
-    else:
-        bundle.extra_metadata["query"] = query
-    return bundle
+def _bundle_with_query(query: str) -> Stage2EvidenceBundle:
+    """Build a minimal Stage2EvidenceBundle with the raw query in the
+    canonical bundle field for keyword scanning."""
+    return Stage2EvidenceBundle(stage1_query=query, extra_metadata={})
 
 
 def _runtime(
@@ -80,9 +52,9 @@ def _runtime(
     rs = Stage2RuntimeState(bundle=bundle)
     rs.task_type = Stage2TaskType.VISUAL_GROUNDING
     rs.use_tool_answer_disagreement_gate = flag_on
-    rs.tadg_window = 8
-    rs.tadg_max_repeats = 3
-    rs.tadg_override_min_chars = 6
+    # Leave window/max_repeats/override_min_chars at their dataclass
+    # defaults (16/3/6) so tests exercise the production-default values.
+    # Tests that need a different bound override explicitly.
     return rs
 
 
@@ -276,28 +248,11 @@ def test_tadg_repeat_force_pass() -> None:
     assert d_other.force_passed is False
 
 
-def test_tadg_relation_alias_match_via_parser() -> None:
-    """Parser said `next_to`; tool was called with `closest_to`. Alias
-    map should bridge them and trigger the gate."""
-    bundle = _bundle_with_query(
-        "ignored — parser relation drives match", parser_relation="next_to",
-    )
-    rs = _runtime(bundle=bundle)
-    _record_compare(
-        rs, relation="closest_to", anchor_id=10,
-        candidate_ids=[33, 14], ranked_ids=[33, 14],
-    )
-    decision = evaluate_tadg(rs, {"proposal_id": 14, "confidence": 0.7})
-    assert decision.blocked is True
-
-
 def test_tadg_relation_no_match() -> None:
-    """Parser says `inside`; tool was called with `above`. Alias map
-    has no overlap → gate stays silent."""
-    bundle = _bundle_with_query("a thing inside a box", parser_relation="inside")
+    """Query has no spatial relation in the keyword alias set; the gate
+    should never fire even with a recent compare call."""
+    bundle = _bundle_with_query("a thing somewhere")
     rs = _runtime(bundle=bundle)
-    # Strip the keyword fallback by removing trigger words from the query.
-    bundle.extra_metadata["query"] = "a thing somewhere"
     _record_compare(
         rs, relation="above", anchor_id=10,
         candidate_ids=[33, 14], ranked_ids=[33, 14],
@@ -326,6 +281,65 @@ def test_tadg_alias_map_covers_supported_relations() -> None:
         assert rel in aliases
         for token in aliases:
             assert token == token.lower()
+
+
+def test_tadg_alias_nearest_to_closest_to() -> None:
+    """P1.1 (CDX): `nearest` and `nearest_to` must alias to closest_to."""
+    assert "nearest" in _TOOL_RELATION_ALIASES["closest_to"]
+    assert "nearest_to" in _TOOL_RELATION_ALIASES["closest_to"]
+    bundle = _bundle_with_query("the cabinet nearest the window")
+    rs = _runtime(bundle=bundle)
+    _record_compare(
+        rs, relation="closest_to", anchor_id=10,
+        candidate_ids=[33, 14], ranked_ids=[33, 14],
+    )
+    decision = evaluate_tadg(rs, {"proposal_id": 14, "confidence": 0.7})
+    assert decision.blocked is True
+    assert decision.top1_pid == 33
+
+
+def test_tadg_alias_between_aliases_to_closest_to() -> None:
+    """M5: `between` is in the closest_to family — agent uses closest_to
+    as a proxy when the query says BETWEEN. Documents the known semantic
+    looseness of the v1 keyword baseline (multi-relation enforcement is
+    out of v1 scope, see spec §10)."""
+    bundle = _bundle_with_query("the cabinet between the wall and the stove")
+    rs = _runtime(bundle=bundle)
+    _record_compare(
+        rs, relation="closest_to", anchor_id=10,
+        candidate_ids=[33, 14], ranked_ids=[33, 14],
+    )
+    decision = evaluate_tadg(rs, {"proposal_id": 14, "confidence": 0.7})
+    assert decision.blocked is True
+
+
+def test_tadg_window_default_boundary_at_runtime_default() -> None:
+    """M6: production-default window (Stage2RuntimeState.tadg_window=16)
+    boundary check. Push 17 fillers between compare and submit → silent;
+    push 15 fillers → blocks."""
+    rs = _runtime()
+    # Don't override tadg_window — exercise the runtime dataclass default (16).
+    assert rs.tadg_window == 16
+    _record_compare(
+        rs, relation="closest_to", anchor_id=10,
+        candidate_ids=[2, 3, 33], ranked_ids=[33, 14, 43],
+    )
+    # 17 fillers → compare at index 0 of last-(window+1) = outside window=16.
+    for fid in range(100, 117):
+        _record_view(rs, fid)
+    d_silent = evaluate_tadg(rs, {"proposal_id": 14, "confidence": 0.7})
+    assert d_silent.blocked is False, "compare buried beyond window=16 should not trigger"
+    # Reset and try 15 fillers → still inside window.
+    rs2 = _runtime()
+    assert rs2.tadg_window == 16
+    _record_compare(
+        rs2, relation="closest_to", anchor_id=10,
+        candidate_ids=[2, 3, 33], ranked_ids=[33, 14, 43],
+    )
+    for fid in range(100, 115):
+        _record_view(rs2, fid)
+    d_block = evaluate_tadg(rs2, {"proposal_id": 14, "confidence": 0.7})
+    assert d_block.blocked is True, "compare within window=16 should trigger"
 
 
 # ------------------------------------------------------------------
@@ -434,6 +448,85 @@ def test_submit_final_unblocked_when_flag_off(tmp_path: Path) -> None:
     assert "submitted" in response.lower()
     assert rs.tadg_triggered is False
     assert rs.final_submission is not None
+
+
+def test_submit_final_block_then_override_succeeds(tmp_path: Path) -> None:
+    """M4: end-to-end BLOCK-then-OVERRIDE round trip on the same runtime.
+    First call (no override) → TADG_BLOCK + no final_submission; second
+    call (with override) → success + final_submission + both records
+    preserved in the trace."""
+    _register_vg_stub_pack(tmp_path)
+    rs = _runtime()
+    _record_compare(
+        rs, relation="closest_to", anchor_id=10,
+        candidate_ids=[2, 3, 33], ranked_ids=[33, 14, 43],
+    )
+    _, _, submit_final = build_chassis_tools(rs)
+
+    response_block = submit_final.invoke(
+        {
+            "payload": {"proposal_id": 14, "confidence": 0.7},
+            "rationale": "first attempt",
+            "evidence_refs": [],
+        }
+    )
+    assert response_block.startswith("TADG_BLOCK:")
+    assert rs.final_submission is None
+
+    response_ok = submit_final.invoke(
+        {
+            "payload": {"proposal_id": 14, "confidence": 0.85},
+            "rationale": "second attempt with override",
+            "evidence_refs": [],
+            "tool_override_reason": "rank-1 was visually a different category",
+        }
+    )
+    assert "submitted" in response_ok.lower()
+    assert rs.final_submission is not None
+    assert rs.tool_override_reason == "rank-1 was visually a different category"
+
+    # Both records preserved.
+    submit_records = [t for t in rs.tool_trace if t.tool_name == "submit_final"]
+    assert len(submit_records) == 2
+    assert submit_records[0].response_text.startswith("TADG_BLOCK:")
+    assert submit_records[1].response_text.startswith("submitted")
+    # Unified trace schema (M2): both records carry tadg_blocked field.
+    assert submit_records[0].tool_input.get("tadg_blocked") is True
+    assert submit_records[1].tool_input.get("tadg_blocked") is False
+
+
+def test_submit_final_nested_payload_does_not_bypass_tadg(tmp_path: Path) -> None:
+    """P1.2 (CDX): nested {payload: {payload: {...}}} payloads must be
+    unwrapped BEFORE TADG so the gate sees the same proposal_id the
+    chassis validator will consume. Without the chassis-side unwrap,
+    `payload.get('proposal_id')` on the outer dict returns None → TADG
+    silently allows → bypass."""
+    _register_vg_stub_pack(tmp_path)
+    rs = _runtime()
+    _record_compare(
+        rs, relation="closest_to", anchor_id=10,
+        candidate_ids=[2, 3, 33], ranked_ids=[33, 14, 43],
+    )
+    _, _, submit_final = build_chassis_tools(rs)
+
+    response = submit_final.invoke(
+        {
+            "payload": {
+                # Outer wrapper (e.g. Stage2StructuredResponse-shaped).
+                "task_type": "visual_grounding",
+                "status": "completed",
+                # Inner payload — what the chassis validator unwraps to.
+                "payload": {"proposal_id": 14, "confidence": 0.7},
+            },
+            "rationale": "nested payload disagreement",
+            "evidence_refs": [],
+        }
+    )
+    assert response.startswith("TADG_BLOCK:"), (
+        "Nested payload bypassed TADG — the gate did not unwrap to find "
+        "proposal_id=14 in the inner dict."
+    )
+    assert rs.final_submission is None
 
 
 __all__ = ["TADGDecision"]

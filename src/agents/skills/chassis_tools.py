@@ -12,7 +12,7 @@ from langchain_core.tools import BaseTool, tool
 from pydantic import ValidationError
 
 from agents.skills.registry import PACKS, skills_for
-from agents.skills.tadg import evaluate_tadg
+from agents.skills.tadg import evaluate_tadg, tadg_record_fields
 
 
 def build_chassis_tools(runtime: Any) -> tuple[BaseTool, BaseTool, BaseTool]:
@@ -78,8 +78,20 @@ def build_chassis_tools(runtime: Any) -> tuple[BaseTool, BaseTool, BaseTool]:
         # TADG (Tool-Answer Disagreement Gate) — runs BEFORE chassis
         # validator so a blocked submission never produces a final
         # adapted result. Spec: tmp/tadg_spec.md, src/agents/skills/tadg.py.
+        #
+        # Unwrap nested {payload: {payload: ...}} BEFORE the gate so
+        # TADG sees the same proposal_id the chassis validator will
+        # consume. Without this unwrap, an agent that nests its payload
+        # (a real shape — see test_submit_final_unwraps_structured_response_payload_for_qa)
+        # would have proposal_id read from the outer dict (None) and
+        # bypass the gate entirely.
+        gate_payload: Any = payload
+        if isinstance(payload, dict):
+            inner = payload.get("payload")
+            if isinstance(inner, dict) and "proposal_id" in inner:
+                gate_payload = inner
         decision = evaluate_tadg(
-            runtime, payload, tool_override_reason=tool_override_reason,
+            runtime, gate_payload, tool_override_reason=tool_override_reason,
         )
         if decision.blocked:
             runtime.record(
@@ -89,12 +101,7 @@ def build_chassis_tools(runtime: Any) -> tuple[BaseTool, BaseTool, BaseTool]:
                     "rationale": rationale,
                     "evidence_refs": evidence_refs or [],
                     "tool_override_reason": tool_override_reason,
-                    "tadg_blocked": True,
-                    "tadg_top1_pid": decision.top1_pid,
-                    "tadg_relation": decision.relation,
-                    "tadg_anchor_id": decision.anchor_id,
-                    "tadg_subcase": decision.subcase,
-                    "tadg_ranked_ids": list(decision.ranked_ids),
+                    **tadg_record_fields(decision),
                 },
                 f"TADG_BLOCK: {decision.message}",
             )
@@ -151,22 +158,18 @@ def build_chassis_tools(runtime: Any) -> tuple[BaseTool, BaseTool, BaseTool]:
             f"submitted; rationale={rationale!r}; "
             f"evidence_refs={len(evidence_refs or [])}"
         )
+        # Always emit the canonical TADG record fields (None values when
+        # the gate was silent). This keeps BLOCK and SUCCESS records on
+        # the same shape so downstream telemetry can collate without
+        # schema gymnastics. See tadg.tadg_record_fields docstring.
         record_payload = {
             "payload": payload,
             "rationale": rationale,
             "evidence_refs": evidence_refs or [],
+            **tadg_record_fields(decision),
         }
-        # If TADG accepted an explicit override or force-passed, surface
-        # the disagreement in the trace alongside the success record.
-        if decision.message:
-            record_payload["tadg_message"] = decision.message
-            record_payload["tadg_top1_pid"] = decision.top1_pid
-            record_payload["tadg_relation"] = decision.relation
-            record_payload["tadg_anchor_id"] = decision.anchor_id
-            record_payload["tadg_subcase"] = decision.subcase
-            record_payload["tadg_force_passed"] = decision.force_passed
-            if tool_override_reason:
-                record_payload["tool_override_reason"] = tool_override_reason
+        if tool_override_reason:
+            record_payload["tool_override_reason"] = tool_override_reason
         runtime.record("submit_final", record_payload, msg)
         return msg
 
