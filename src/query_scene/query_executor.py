@@ -37,6 +37,10 @@ from .retrieval.spatial_checker import SpatialRelationChecker
 if TYPE_CHECKING:
     from .retrieval import SceneObject
 
+UNKNOWN_CATEGORY_SENTINELS = frozenset(
+    {"", "unknow", "unknown", "none", "null", "n/a", "na"}
+)
+
 
 @dataclass
 class ExecutionResult:
@@ -287,8 +291,18 @@ class QueryExecutor:
         """
         matches = []
         seen_ids = set()
+        search_categories = [
+            category
+            for category in categories
+            if category.strip().lower() not in UNKNOWN_CATEGORY_SENTINELS
+        ]
+        if not search_categories:
+            logger.warning(
+                f"[QueryExecutor] No searchable category in sentinel-only categories {categories}"
+            )
+            return []
 
-        for category in categories:
+        for category in search_categories:
             category_lower = category.lower()
 
             # Exact match
@@ -306,7 +320,7 @@ class QueryExecutor:
             return matches
 
         # Fallback 1: substring matching on primary categories
-        for category in categories:
+        for category in search_categories:
             category_lower = category.lower()
             for cat, objs in self._category_index.items():
                 if category_lower in cat or cat in category_lower:
@@ -322,7 +336,7 @@ class QueryExecutor:
             return matches
 
         # Fallback 2: multi-label exact match (minority detection classes)
-        for category in categories:
+        for category in search_categories:
             category_lower = category.lower()
             if category_lower in self._multilabel_index:
                 for obj in self._multilabel_index[category_lower]:
@@ -340,9 +354,9 @@ class QueryExecutor:
         if (
             self.clip_features is not None
             and self.clip_encoder is not None
-            and categories
+            and search_categories
         ):
-            return self._find_by_clip_similarity(categories[0])
+            return self._find_by_clip_similarity(search_categories[0])
 
         # No matches found
         logger.warning(f"[QueryExecutor] No match for categories {categories}")
