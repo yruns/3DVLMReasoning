@@ -218,6 +218,40 @@ def test_run_one_sample_preserves_tool_trace(monkeypatch, tmp_path) -> None:
     ]
 
 
+def test_extract_result_tool_trace_accepts_raw_dict() -> None:
+    from evaluation.scripts import run_nr3d_vg_side_by_side as runner
+
+    trace = runner.extract_result_tool_trace(
+        {
+            "tool_trace": [
+                {
+                    "tool_name": "view_keyframe_marked",
+                    "tool_input": {"frame_id": 10},
+                    "response_text": "ok",
+                },
+                {
+                    "tool_name": "submit_final",
+                    "tool_input": {"selected_object_id": SimpleNamespace(value=72)},
+                    "response_text": "accepted",
+                },
+            ]
+        }
+    )
+
+    assert trace == [
+        {
+            "tool_name": "view_keyframe_marked",
+            "tool_input": {"frame_id": 10},
+            "response_text": "ok",
+        },
+        {
+            "tool_name": "submit_final",
+            "tool_input": {"selected_object_id": "namespace(value=72)"},
+            "response_text": "accepted",
+        },
+    ]
+
+
 def test_compare_backends_writes_side_by_side_and_checkpoints(
     monkeypatch, tmp_path
 ) -> None:
@@ -293,6 +327,107 @@ def test_compare_backends_checkpoint_only_respects_max_new_samples(
     assert result is None
     assert calls == [sample_ids[0]]
     assert not (tmp_path / "out" / "side_by_side.json").exists()
+
+
+def test_build_backend_payload_from_checkpoints_preserves_requested_order(
+    tmp_path,
+) -> None:
+    from evaluation.scripts import run_nr3d_vg_side_by_side as runner
+
+    output_dir = tmp_path / "out"
+    first = "scannet/scene0001_00::72::A1"
+    second = "scannet/scene0001_00::73::A2"
+    for sample_id, iou in [(second, 0.1), (first, 0.6)]:
+        runner.write_sample_result_checkpoint(
+            output_dir,
+            "pack_v1",
+            {
+                "sample_id": sample_id,
+                "backend": "pack_v1",
+                "status": "completed",
+                "iou": iou,
+            },
+        )
+
+    payload = runner.build_backend_payload_from_checkpoints(
+        [first, second],
+        output_dir,
+        "pack_v1",
+    )
+    summary_only = runner.build_backend_payload_from_checkpoints(
+        [first, second],
+        output_dir,
+        "pack_v1",
+        include_per_sample=False,
+    )
+
+    assert [row["sample_id"] for row in payload["per_sample"]] == [first, second]
+    assert payload["n"] == 2
+    assert payload["mean_iou"] == pytest.approx(0.35)
+    assert payload["Acc@0.25"] == pytest.approx(0.5)
+    assert payload["Acc@0.50"] == pytest.approx(0.5)
+    assert "per_sample" not in summary_only
+
+
+def test_build_backend_payload_from_checkpoints_requires_all_requested(
+    tmp_path,
+) -> None:
+    from evaluation.scripts import run_nr3d_vg_side_by_side as runner
+
+    sample_id = "scannet/scene0001_00::72::A1"
+
+    with pytest.raises(FileNotFoundError, match="Missing per-sample checkpoint"):
+        runner.build_backend_payload_from_checkpoints(
+            [sample_id],
+            tmp_path / "out",
+            "pack_v1",
+        )
+
+
+def test_compare_backends_streams_side_by_side_from_existing_checkpoints(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    from evaluation.scripts import run_nr3d_vg_side_by_side as runner
+
+    sample_ids = [
+        "scannet/scene0001_00::72::A1",
+        "scannet/scene0001_00::73::A2",
+    ]
+    output_dir = tmp_path / "out"
+    for sample_id, iou in [(sample_ids[1], 0.1), (sample_ids[0], 0.6)]:
+        runner.write_sample_result_checkpoint(
+            output_dir,
+            "pack_v1",
+            {
+                "sample_id": sample_id,
+                "backend": "pack_v1",
+                "status": "completed",
+                "iou": iou,
+            },
+        )
+
+    def fail_run_one(*_args, **_kwargs):
+        raise AssertionError("run_one_sample should not be called")
+
+    monkeypatch.setattr(runner, "run_one_sample", fail_run_one)
+    monkeypatch.setattr(runner, "preflight_pack_sample_exists", lambda *a, **kw: None)
+
+    result = runner.compare_backends(
+        sample_ids=sample_ids,
+        output_dir=output_dir,
+        data_root=tmp_path,
+        workers=1,
+        return_results=False,
+        write_side_by_side=True,
+        max_new_samples=0,
+    )
+
+    assert result is None
+    payload = json.loads((output_dir / "side_by_side.json").read_text(encoding="utf-8"))
+    per_sample = payload["pack_v1"]["per_sample"]
+    assert [row["sample_id"] for row in per_sample] == sample_ids
+    assert [row["iou"] for row in per_sample] == [0.6, 0.1]
 
 
 def test_compare_backends_persists_failed_sentinel_on_sample_exception(

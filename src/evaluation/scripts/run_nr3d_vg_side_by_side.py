@@ -636,7 +636,12 @@ def extract_result_confidence(result: Any) -> float | None:
 
 def extract_result_tool_trace(result: Any) -> list[dict[str, Any]]:
     """Return JSON-serializable tool observations from a Stage2AgentResult."""
-    trace = getattr(result, "tool_trace", None)
+    if isinstance(result, dict):
+        trace = result.get("tool_trace")
+    else:
+        trace = getattr(result, "tool_trace", None)
+        if trace is None:
+            trace = getattr(getattr(result, "result", None), "tool_trace", None)
     if not trace:
         return []
     out: list[dict[str, Any]] = []
