@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import argparse
+import gc
 import gzip
 import json
 import pickle
-from collections import Counter
+from collections import Counter, OrderedDict
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -101,6 +102,26 @@ def parse_args() -> argparse.Namespace:
         default="gemini-2.5-pro",
         help="LLM for query_driven keyframe selection.",
     )
+    parser.add_argument(
+        "--max-selector-cache-size",
+        type=int,
+        default=1,
+        help=(
+            "Maximum number of per-scene KeyframeSelector instances to keep in "
+            "memory. Full NR3D prep is scene-heavy; keep this small to avoid "
+            "retaining point clouds/features for completed scenes."
+        ),
+    )
+    parser.add_argument(
+        "--max-scene-artifact-cache-size",
+        type=int,
+        default=1,
+        help=(
+            "Maximum number of per-scene prepared-artifact handles to keep in "
+            "memory. Requests are grouped by scene before processing, so 1 is "
+            "normally sufficient."
+        ),
+    )
     return parser.parse_args()
 
 
@@ -114,6 +135,8 @@ def prepare_pack_v1_inputs_nr3d(
     nr3d_root: Path | None = None,
     keyframe_mode: str = "gt_target",
     keyframe_llm_model: str = "gemini-2.5-pro",
+    max_selector_cache_size: int = 1,
+    max_scene_artifact_cache_size: int = 1,
 ) -> list[Path]:
     if keyframe_mode not in ("gt_target", "query_driven"):
         raise ValueError(
@@ -125,6 +148,16 @@ def prepare_pack_v1_inputs_nr3d(
         if max_samples <= 0:
             raise ValueError("max_samples must be positive when provided")
         requests = requests[:max_samples]
+    if max_selector_cache_size <= 0:
+        raise ValueError("max_selector_cache_size must be positive")
+    if max_scene_artifact_cache_size <= 0:
+        raise ValueError("max_scene_artifact_cache_size must be positive")
+
+    # Full NR3D contains many scenes. Grouping prevents alternation between
+    # scenes from defeating the one-scene LRU caches below.
+    requests = sorted(
+        requests, key=lambda request: (request.scene_id, request.sample_id)
+    )
 
     nr3d_root = nr3d_root or data_root.parent
     _adapter, sample_lookup = load_sample_lookup(
@@ -134,8 +167,8 @@ def prepare_pack_v1_inputs_nr3d(
         sample_ids={request.sample_id for request in requests},
     )
 
-    scene_artifacts: dict[str, SceneArtifacts] = {}
-    selector_cache: dict[str, Any] = {}
+    scene_artifacts: OrderedDict[str, SceneArtifacts] = OrderedDict()
+    selector_cache: OrderedDict[str, Any] = OrderedDict()
     written_samples: list[Path] = []
     for request in requests:
         sample = sample_lookup.get(request.sample_id)
@@ -150,6 +183,9 @@ def prepare_pack_v1_inputs_nr3d(
                 data_root=data_root,
                 pack_name=pack_name,
             )
+            evict_lru_cache(scene_artifacts, max_scene_artifact_cache_size)
+        else:
+            scene_artifacts.move_to_end(request.scene_id)
         written_samples.append(
             write_sample_artifact(
                 request=request,
@@ -159,9 +195,19 @@ def prepare_pack_v1_inputs_nr3d(
                 keyframe_mode=keyframe_mode,
                 keyframe_llm_model=keyframe_llm_model,
                 selector_cache=selector_cache,
+                max_selector_cache_size=max_selector_cache_size,
             )
         )
     return written_samples
+
+
+def evict_lru_cache(cache: OrderedDict[str, Any], max_size: int) -> None:
+    evicted = False
+    while len(cache) > max_size:
+        cache.popitem(last=False)
+        evicted = True
+    if evicted:
+        gc.collect()
 
 
 def load_sample_lookup(
@@ -327,7 +373,11 @@ def build_proposals_from_phase8_objects(
                 "expected (8,3)"
             )
         names = obj.get("class_name")
-        if not (isinstance(names, list) and names and all(isinstance(n, str) and n for n in names)):
+        if not (
+            isinstance(names, list)
+            and names
+            and all(isinstance(n, str) and n for n in names)
+        ):
             # Phase 8 producer occasionally leaks a background-only object into
             # ``objects`` with empty class_name/class_id/n_points (observed once
             # in 130 scenes: scene0496_00.objects[28], is_background=1,
@@ -362,7 +412,8 @@ def write_sample_artifact(
     scene_artifacts: SceneArtifacts,
     keyframe_mode: str = "gt_target",
     keyframe_llm_model: str = "gemini-2.5-pro",
-    selector_cache: dict[str, Any] | None = None,
+    selector_cache: OrderedDict[str, Any] | None = None,
+    max_selector_cache_size: int = 1,
 ) -> Path:
     visibility = load_phase8_visibility_index(data_root / request.scene_id)
     query = getattr(sample, "query", "") or getattr(sample, "text", "")
@@ -381,7 +432,7 @@ def write_sample_artifact(
         from query_scene.keyframe_selector import KeyframeSelector
 
         if selector_cache is None:
-            selector_cache = {}
+            selector_cache = OrderedDict()
         selector = selector_cache.get(request.scene_id)
         if selector is None:
             selector = KeyframeSelector.from_scene_path(
@@ -390,6 +441,9 @@ def write_sample_artifact(
                 llm_model=keyframe_llm_model,
             )
             selector_cache[request.scene_id] = selector
+            evict_lru_cache(selector_cache, max_selector_cache_size)
+        else:
+            selector_cache.move_to_end(request.scene_id)
         keyframes, used_fallback = select_keyframes_query_driven(
             selector=selector,
             scene_id=request.scene_id,
@@ -759,6 +813,8 @@ def main() -> None:
         nr3d_root=args.nr3d_root,
         keyframe_mode=args.keyframe_mode,
         keyframe_llm_model=args.keyframe_llm_model,
+        max_selector_cache_size=args.max_selector_cache_size,
+        max_scene_artifact_cache_size=args.max_scene_artifact_cache_size,
     )
     print(
         f"wrote {len(written)} sample artifacts under "

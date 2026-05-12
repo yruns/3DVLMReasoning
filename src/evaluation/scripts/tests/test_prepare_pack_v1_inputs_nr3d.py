@@ -5,6 +5,7 @@ from __future__ import annotations
 import gzip
 import json
 import pickle
+from collections import OrderedDict
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -329,6 +330,109 @@ def test_query_driven_helper_falls_back_to_density(tmp_path) -> None:
 
     assert [item["frame_id"] for item in keyframes] == [1, 0]
     assert used_fallback is True
+
+
+def test_prepare_query_driven_groups_by_scene_and_bounds_selector_cache(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    import query_scene.keyframe_selector as keyframe_selector_mod
+    from evaluation.scripts import prepare_pack_v1_inputs_nr3d as prep
+
+    data_root = tmp_path / "scannet"
+    for scene_id in ("scene0001_00", "scene0002_00"):
+        _write_phase8_tree(data_root, scene_id=scene_id)
+
+    rows = [
+        {
+            "sample_id": "scannet/scene0002_00::0::B1",
+            "scene_id": "scene0002_00",
+            "target_id": 0,
+            "category": "chair",
+        },
+        {
+            "sample_id": "scannet/scene0001_00::0::A2",
+            "scene_id": "scene0001_00",
+            "target_id": 0,
+            "category": "chair",
+        },
+        {
+            "sample_id": "scannet/scene0001_00::0::A1",
+            "scene_id": "scene0001_00",
+            "target_id": 0,
+            "category": "chair",
+        },
+    ]
+    sample_ids = tmp_path / "sample_ids.json"
+    sample_ids.write_text(json.dumps(rows), encoding="utf-8")
+
+    samples = {
+        row["sample_id"]: SimpleNamespace(
+            sample_id=row["sample_id"],
+            scene_id=row["scene_id"],
+            scan_id=f"scannet/{row['scene_id']}",
+            target_id=0,
+            target="chair",
+            query=f"chair in {row['scene_id']}",
+            gt_bbox_3d=[0.0, 0.0, 5.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0],
+        )
+        for row in rows
+    }
+    monkeypatch.setattr(
+        prep,
+        "load_sample_lookup",
+        lambda *, nr3d_root, phase8_data_root, split, sample_ids=None: (
+            SimpleNamespace(),
+            samples,
+        ),
+    )
+
+    built_scenes: list[str] = []
+
+    class FakeSelector:
+        def select_keyframes_v2(self, **kwargs: Any) -> SimpleNamespace:
+            return SimpleNamespace(keyframe_indices=[0])
+
+    class FakeKeyframeSelector:
+        @staticmethod
+        def from_scene_path(path: str, *, stride: int, llm_model: str) -> FakeSelector:
+            built_scenes.append(Path(path).parent.name)
+            return FakeSelector()
+
+    monkeypatch.setattr(
+        keyframe_selector_mod,
+        "KeyframeSelector",
+        FakeKeyframeSelector,
+    )
+
+    written = prep.prepare_pack_v1_inputs_nr3d(
+        sample_ids_path=sample_ids,
+        data_root=data_root,
+        pack_name="pack_nr3d_v1",
+        split="test",
+        keyframe_mode="query_driven",
+        max_selector_cache_size=1,
+        max_scene_artifact_cache_size=1,
+    )
+
+    assert [path.name for path in written] == [
+        "scannet__scene0001_00__0__A1.json",
+        "scannet__scene0001_00__0__A2.json",
+        "scannet__scene0002_00__0__B1.json",
+    ]
+    assert built_scenes == ["scene0001_00", "scene0002_00"]
+
+
+def test_evict_lru_cache_removes_oldest_entry() -> None:
+    from evaluation.scripts import prepare_pack_v1_inputs_nr3d as prep
+
+    cache: OrderedDict[str, object] = OrderedDict(
+        [("scene_a", object()), ("scene_b", object()), ("scene_c", object())]
+    )
+
+    prep.evict_lru_cache(cache, 2)
+
+    assert list(cache) == ["scene_b", "scene_c"]
 
 
 def test_prepare_raises_for_unknown_requested_sample(tmp_path, monkeypatch) -> None:
