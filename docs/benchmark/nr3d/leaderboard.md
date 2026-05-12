@@ -26,3 +26,13 @@ Reference table for the separate detection-mode track (NR3D Det Acc@0.25 /
 Acc@0.50 — distinct from the classification leaderboard above): see
 [paper_crosscheck_20260501.md](paper_crosscheck_20260501.md) §Q7 for
 UniVLG / MCLN / 3D-VisTA-reeval / BUTD-DETR-reeval / PQ3D numbers.
+
+## Internal Partial Pilots (not leaderboard rows)
+
+These rows use fixed internal subsets and are tracked for ablation/debugging
+only. They must not be quoted as public NR3D leaderboard results.
+
+| Run | Setup | Fold | Overall | Easy | Hard | View-dep | View-indep | Notes |
+|---|---|---:|---:|---:|---:|---:|---:|---|
+| Same-fold v1/v3 baseline | GT-visible keyframes + GT-pool classification | 100 | 80.00 | 85.37 | 76.27 | 61.76 | 89.39 | Post-aggregated from `tmp/nr3d_eval_v1_full/side_by_side.json` restricted to v4 random100. |
+| [v4 fair-view + guards](v4_agent_guards_fair_views_20260512.md) | query-driven keyframes + TADG/no-match/evidence-frame guards | 100 | 71.00 | 82.93 | 62.71 | 67.65 | 72.73 | Partial diagnostic: -9.00 pp overall vs same-fold baseline; no LLM/service failures. |

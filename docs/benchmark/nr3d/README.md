@@ -15,10 +15,12 @@ task-pack pipeline.
 | [v1_phase8_smoke20_mac](v1_phase8_smoke20_mac_20260430.md) | 2026-04-30 | Acc@0.25=0.7000, Acc@0.50=0.6500, mean IoU=0.6701 | 20Q smoke | First green pack_v1 numbers on Mac (PCA-aligned 9-DoF, endpoint reachable). 13/20 IoU=1.0 (GT-pool inflation). Linux side of same fold had hit SSL EOF on every retry — failure mode summarized in the `What Changed vs Prior Smoke` section of the Mac doc. |
 | [v2_phase8_full](v2_phase8_full_20260501.md) | 2026-05-01 | Acc@0.25=**0.7767**, Acc@0.50=**0.7762**, mean IoU=**0.7800** | 8584Q full test | First full NR3D test sweep — 130/130 scenes, gpt-5.4 backend, 32 workers. 5150/8584 IoU=1.0 (60%, GT-pool). 287 failed (3.3%, mostly upstream image-500). Bug fixes: bg-skip in pack prep + failed-sentinel in runner. |
 | [v3_referit3d_track](v3_referit3d_track_20260501.md) | 2026-05-01 | Overall=**0.8079**, Easy=**0.8606**, Hard=**0.7587**, V-Dep=**0.7246**, V-Indep=**0.8534** | 8584Q (n_filtered=7805) | **First leaderboard-comparable NR3D run** — canonical filter chain (`mentions_target_class_only=True`), classification accuracy as headline, 5-column SOTA-aligned table. Post-aggregated from v2 outputs (no agent re-run). Pool / fold equivalence empirically verified (see `pool_equivalence_log_20260501.md`). |
+| [v4_agent_guards_fair_views](v4_agent_guards_fair_views_20260512.md) | 2026-05-12 | Overall=**0.7100**, Easy=**0.8293**, Hard=**0.6271**, V-Dep=**0.6765**, V-Indep=**0.7273** | 100Q partial pilot | Query-driven fair keyframes plus TADG / no-match / evidence-frame guards. Same-fold baseline was Overall=0.8000, so v4 is -9.00 pp overall; no LLM/service failures while ramping workers 30 -> 60 -> 100. **Partial diagnostic, not a public leaderboard replacement.** |
 
 ## Current Interpretation
 
-**Latest (v3_referit3d_track, 2026-05-01)**: post-aggregation of v2
+**Latest full-test leaderboard row (v3_referit3d_track, 2026-05-01)**:
+post-aggregation of v2
 predictions under the canonical ReferIt3D leaderboard protocol — the
 **first apples-to-apples NR3D number** for our pipeline. Headline:
 **classification_acc = 80.79 %** (Easy=86.06, Hard=75.87, V-Dep=72.46,
@@ -28,6 +30,14 @@ View-Dep/View-Indep breakdown. Pool / fold equivalence to canonical is
 verified empirically in `pool_equivalence_log_20260501.md`. See
 `v3_referit3d_track_20260501.md` for the full SOTA comparison table
 against ReferIt3DNet, BUTD-DETR, MVT, 3D-VisTA, MiKASA, and UniVLG GT-track.
+
+**Latest diagnostic pilot (v4_agent_guards_fair_views, 2026-05-12)**:
+100-sample fixed fold with fair query-driven keyframes and the ScanRefer guard
+stack. Overall classification accuracy is **71.00 %** on the 100Q fold, while
+the same-fold v1/v3 baseline is **80.00 %**. This is intentionally not a public
+leaderboard replacement: it measures the cost of removing GT-target-visible
+keyframe selection and running the guarded agent on NR3D. All 100 samples
+completed with zero LLM/service failures while ramping workers from 30 to 100.
 
 The v2 numbers (Acc@0.25/0.50 = 77.67/77.62) remain valid as the IoU-on-GT-pool
 proxy of classification accuracy, but they are **superseded by v3** as the
@@ -128,6 +138,8 @@ Canonical DB: `docs/benchmark/nr3d/runs.sqlite`
 
 ```sql
 SELECT run_id, n,
+       printf('%.4f', classification_acc_filtered) AS acc_filtered,
+       n_filtered,
        printf('%.4f', mean_iou) AS mean_iou,
        printf('%.4f', acc25) AS acc25,
        printf('%.4f', acc50) AS acc50
