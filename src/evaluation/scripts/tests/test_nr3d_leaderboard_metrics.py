@@ -273,6 +273,22 @@ def test_load_requested_sample_ids_accepts_object_list(tmp_path):
     assert load_requested_sample_ids(path) == {"a", "b"}
 
 
+def test_load_requested_sample_ids_rejects_duplicate_string_entries(tmp_path):
+    path = tmp_path / "sample_ids.json"
+    path.write_text('["a", "b", "a"]', encoding="utf-8")
+
+    with pytest.raises(ValueError, match="duplicate sample_id.*a.*0.*2"):
+        load_requested_sample_ids(path)
+
+
+def test_load_requested_sample_ids_rejects_duplicate_mixed_entries(tmp_path):
+    path = tmp_path / "sample_ids.json"
+    path.write_text('["a", {"sample_id": "b"}, {"sample_id": "a"}]', encoding="utf-8")
+
+    with pytest.raises(ValueError, match="duplicate sample_id.*a.*0.*2"):
+        load_requested_sample_ids(path)
+
+
 @pytest.mark.parametrize("raw", ['{"sample_id": "a"}', "[]", '[""]', "[{}]", "[1]"])
 def test_load_requested_sample_ids_rejects_invalid_json_shapes(tmp_path, raw):
     path = tmp_path / "sample_ids.json"

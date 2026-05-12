@@ -163,6 +163,7 @@ def load_requested_sample_ids(path: Path) -> set[str]:
         raise ValueError(f"sample ids JSON must be a list: {path}")
 
     out: set[str] = set()
+    first_index_by_id: dict[str, int] = {}
     for index, item in enumerate(raw):
         if isinstance(item, str):
             sample_id = item
@@ -172,6 +173,13 @@ def load_requested_sample_ids(path: Path) -> set[str]:
             raise ValueError(f"sample_ids[{index}] must be string or object")
         if not isinstance(sample_id, str) or not sample_id:
             raise ValueError(f"sample_ids[{index}] missing non-empty sample_id")
+        if sample_id in first_index_by_id:
+            raise ValueError(
+                f"duplicate sample_id {sample_id!r} at "
+                f"sample_ids[{first_index_by_id[sample_id]}] and "
+                f"sample_ids[{index}]"
+            )
+        first_index_by_id[sample_id] = index
         out.add(sample_id)
 
     if not out:
