@@ -1,13 +1,14 @@
 """VG pack registration: assemble TaskPack and register it."""
+
 from __future__ import annotations
 
 from pathlib import Path
 
 from agents.core.agent_config import Stage2TaskType
-from agents.skills import SkillSpec, TaskPack, register_pack
 from agents.packs.vg_embodiedscan.ctx import build_ctx_from_bundle
 from agents.packs.vg_embodiedscan.finalizer import VG_FINALIZER
 from agents.packs.vg_embodiedscan.tools import build_vg_tools
+from agents.skills import SkillSpec, TaskPack, register_pack
 
 _PACK_DIR = Path(__file__).resolve().parent
 _SKILLS_DIR = _PACK_DIR / "skills"
@@ -24,7 +25,10 @@ VG_PACK = TaskPack(
         ),
         SkillSpec(
             name="vg-spatial-disambiguation",
-            description="Use when the query contains spatial relations like 'next to' or 'closest to'.",
+            description=(
+                "Use when the query contains spatial relations like "
+                "'next to', 'left of', 'above', or 'closest to'."
+            ),
             body_path=_SKILLS_DIR / "vg_spatial_disambiguation.md",
             task_types={Stage2TaskType.VISUAL_GROUNDING},
         ),

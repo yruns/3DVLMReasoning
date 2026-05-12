@@ -1,9 +1,13 @@
 from __future__ import annotations
 
 import tempfile
+import threading
+import time
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
+import query_scene.keyframe_selector as keyframe_selector_module
 from query_scene.core import HypothesisKind
 from query_scene.query_executor import ExecutionResult
 from query_scene.retrieval import KeyframeSelector
@@ -192,6 +196,54 @@ class TestKeyframeSelectorHypothesis(unittest.TestCase):
             selector._set_image_paths()
 
             self.assertEqual(selector.image_paths, [rgb])
+
+    def test_load_clip_model_is_serialized_across_threads(self) -> None:
+        selector = KeyframeSelector.__new__(KeyframeSelector)
+        selector._clip_model = None
+        selector._clip_tokenizer = None
+        selector._clip_model_lock = threading.Lock()
+        calls: list[int] = []
+        calls_lock = threading.Lock()
+
+        class FakeModel:
+            def eval(self):
+                return self
+
+        class FakeOpenClip:
+            @staticmethod
+            def create_model_and_transforms(*args, **kwargs):
+                with calls_lock:
+                    calls.append(1)
+                time.sleep(0.05)
+                return FakeModel(), None, None
+
+            @staticmethod
+            def get_tokenizer(*args, **kwargs):
+                return object()
+
+        class FakeCuda:
+            @staticmethod
+            def is_available() -> bool:
+                return False
+
+        class FakeTorch:
+            cuda = FakeCuda()
+
+        with (
+            patch.object(keyframe_selector_module, "HAS_CLIP", True),
+            patch.object(keyframe_selector_module, "open_clip", FakeOpenClip),
+            patch.object(keyframe_selector_module, "torch", FakeTorch, create=True),
+        ):
+            threads = [
+                threading.Thread(target=selector._load_clip_model) for _ in range(2)
+            ]
+            for thread in threads:
+                thread.start()
+            for thread in threads:
+                thread.join(timeout=1.0)
+
+        self.assertEqual(len(calls), 1)
+        self.assertIsNotNone(selector._clip_model)
 
 
 if __name__ == "__main__":

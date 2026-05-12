@@ -244,6 +244,61 @@ class Stage2DeepResearchAgent:
             if structured is not None:
                 response = Stage2StructuredResponse.model_validate(structured)
                 if response.status in (Stage2Status.COMPLETED, Stage2Status.FAILED):
+                    if (
+                        turns_used < task.max_reasoning_turns
+                        and self._runtime.should_continue_after_guarded_no_match(
+                            task, response, runtime
+                        )
+                    ):
+                        if "messages" in raw_state:
+                            messages = raw_state["messages"]
+                        messages.append(
+                            self._runtime.build_no_match_guard_nudge(response, runtime)
+                        )
+                        logger.info(
+                            "[Stage2DeepResearchAgent] turn {}: continuing after "
+                            "guarded direct no-match response",
+                            turns_used,
+                        )
+                        continue
+                    if (
+                        turns_used < task.max_reasoning_turns
+                        and self._runtime.should_continue_after_guarded_evidence_frame(
+                            task, response, runtime
+                        )
+                    ):
+                        if "messages" in raw_state:
+                            messages = raw_state["messages"]
+                        messages.append(
+                            self._runtime.build_evidence_frame_guard_nudge(
+                                response, runtime
+                            )
+                        )
+                        logger.info(
+                            "[Stage2DeepResearchAgent] turn {}: continuing after "
+                            "guarded direct final response",
+                            turns_used,
+                        )
+                        continue
+                    if (
+                        turns_used < task.max_reasoning_turns
+                        and self._runtime.should_continue_after_direct_vg_response(
+                            task, response, runtime
+                        )
+                    ):
+                        if "messages" in raw_state:
+                            messages = raw_state["messages"]
+                        messages.append(
+                            self._runtime.build_direct_vg_response_nudge(
+                                response, runtime
+                            )
+                        )
+                        logger.info(
+                            "[Stage2DeepResearchAgent] turn {}: continuing after "
+                            "direct VG structured response",
+                            turns_used,
+                        )
+                        continue
                     logger.info(
                         "[Stage2DeepResearchAgent] completed at turn {} with status={}",
                         turns_used,

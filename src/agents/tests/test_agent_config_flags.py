@@ -1,4 +1,5 @@
 """New chassis-related flags on Stage2DeepAgentConfig."""
+
 from __future__ import annotations
 
 import pytest
@@ -19,9 +20,9 @@ def test_vg_backend_defaults_pack_v1() -> None:
 def test_chassis_tools_version_default_is_int() -> None:
     cfg = Stage2DeepAgentConfig()
     assert isinstance(cfg.chassis_tools_version, int)
-    # Bumped to 4 for the TADG `tool_override_reason` kwarg on submit_final
+    # Bumped to 18 for relation-rationale frame citation anchor checks.
     # (changes the chassis surface, must invalidate prompt cache).
-    assert cfg.chassis_tools_version == 4
+    assert cfg.chassis_tools_version == 18
 
 
 def test_default_modelhub_pool_uses_three_weighted_gpt54_keys() -> None:
@@ -52,3 +53,11 @@ def test_modelhub_pool_initial_offset_treats_empty_env_as_zero(monkeypatch) -> N
 def test_vg_backend_rejects_unknown_value() -> None:
     with pytest.raises(ValueError):
         Stage2DeepAgentConfig(vg_backend="bogus")
+
+
+def test_no_match_candidate_guard_defaults_off() -> None:
+    cfg = Stage2DeepAgentConfig()
+    assert cfg.use_no_match_candidate_guard is False
+    assert cfg.use_evidence_frame_guard is False
+    assert cfg.no_match_guard_max_repeats == 3
+    assert cfg.no_match_guard_max_viewed == 12

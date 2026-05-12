@@ -33,9 +33,54 @@ def _runtime(tmp_path: Path) -> Stage2RuntimeState:
     rs.task_ctx = VgEmbodiedScanCtx(
         proposal_pool_source="vdetr",
         proposals=[
-            Proposal(id=0, bbox_3d_9dof=[0] * 9, category="chair", score=0.9),
-            Proposal(id=1, bbox_3d_9dof=[1] * 9, category="desk", score=0.8),
-            Proposal(id=2, bbox_3d_9dof=[2] * 9, category="chair", score=0.7),
+            Proposal(
+                id=0,
+                bbox_3d_9dof=[0] * 9,
+                category="chair",
+                score=0.9,
+                frame_views={
+                    10: ProposalFrameView(
+                        proposal_id=0,
+                        frame_id=10,
+                        bbox_2d=(10, 20, 30, 40),
+                        raw_rgb_path=tmp_path / "raw10.png",
+                    )
+                },
+            ),
+            Proposal(
+                id=1,
+                bbox_3d_9dof=[1] * 9,
+                category="desk",
+                score=0.8,
+                frame_views={
+                    10: ProposalFrameView(
+                        proposal_id=1,
+                        frame_id=10,
+                        bbox_2d=(80, 20, 120, 40),
+                        raw_rgb_path=tmp_path / "raw10.png",
+                    ),
+                    11: ProposalFrameView(
+                        proposal_id=1,
+                        frame_id=11,
+                        bbox_2d=(30, 20, 60, 40),
+                        raw_rgb_path=tmp_path / "raw11.png",
+                    ),
+                },
+            ),
+            Proposal(
+                id=2,
+                bbox_3d_9dof=[2] * 9,
+                category="chair",
+                score=0.7,
+                frame_views={
+                    11: ProposalFrameView(
+                        proposal_id=2,
+                        frame_id=11,
+                        bbox_2d=(90, 20, 120, 40),
+                        raw_rgb_path=tmp_path / "raw11.png",
+                    )
+                },
+            ),
         ],
         frame_index={10: [0, 1], 11: [1, 2]},
         proposal_index={0: [10], 1: [10, 11], 2: [11]},
@@ -79,6 +124,10 @@ def test_view_keyframe_marked_returns_image_content(tmp_path: Path) -> None:
     assert "frame_10.png" in response
     assert "visible_proposals" in response
     assert "[0, 1]" in response or "0, 1" in response
+    assert "left_to_right" in response
+    assert "0:chair@x=20.0" in response
+    assert "1:desk@x=100.0" in response
+    assert "boxes_2d={0: [10, 20, 30, 40], 1: [80, 20, 120, 40]}" in response
 
 
 def test_view_keyframe_marked_unknown_frame_errors(tmp_path: Path) -> None:
@@ -296,6 +345,82 @@ def test_compare_proposals_spatial_below_uses_z_axis(tmp_path: Path) -> None:
     assert payload["vertical_offsets"] == [-2.0, 2.0]
 
 
+def test_compare_proposals_spatial_left_right_use_coviewed_2d_geometry(
+    tmp_path: Path,
+) -> None:
+    rs = _runtime(tmp_path)
+    rs.skills_loaded.add("vg-grounding-playbook")
+    tool = next(t for t in build_vg_tools(rs) if t.name == "compare_proposals_spatial")
+    left_payload = json.loads(
+        tool.invoke(
+            {
+                "candidate_ids": [0, 2],
+                "anchor_id": 1,
+                "relation": "left_of",
+            }
+        )
+    )
+    right_payload = json.loads(
+        tool.invoke(
+            {
+                "candidate_ids": [0, 2],
+                "anchor_id": 1,
+                "relation": "right_of",
+            }
+        )
+    )
+
+    assert left_payload["ranked_ids"] == [0, 2]
+    assert left_payload["mean_2d_center_offsets_x"] == [-80.0, 60.0]
+    assert left_payload["supporting_frame_counts"] == [1, 0]
+    assert left_payload["contradicting_frame_counts"] == [0, 1]
+
+    assert right_payload["ranked_ids"] == [2, 0]
+    assert right_payload["mean_2d_center_offsets_x"] == [60.0, -80.0]
+    assert right_payload["supporting_frame_counts"] == [1, 0]
+    assert right_payload["contradicting_frame_counts"] == [0, 1]
+
+
+def test_compare_proposals_spatial_next_to_and_near_use_floor_distance(
+    tmp_path: Path,
+) -> None:
+    rs = _runtime(tmp_path)
+    rs.skills_loaded.add("vg-grounding-playbook")
+    rs.task_ctx.proposals = [
+        Proposal(
+            id=0,
+            bbox_3d_9dof=[0.5, 0, 5, 1, 1, 1, 0, 0, 0],
+            category="box",
+            score=0.9,
+        ),
+        Proposal(
+            id=1,
+            bbox_3d_9dof=[2, 0, 0, 1, 1, 1, 0, 0, 0],
+            category="box",
+            score=0.7,
+        ),
+        Proposal(
+            id=2,
+            bbox_3d_9dof=[0, 0, 0, 1, 1, 1, 0, 0, 0],
+            category="table",
+            score=0.8,
+        ),
+    ]
+    tool = next(t for t in build_vg_tools(rs) if t.name == "compare_proposals_spatial")
+    for relation in ("next_to", "near"):
+        payload = json.loads(
+            tool.invoke(
+                {
+                    "candidate_ids": [0, 1],
+                    "anchor_id": 2,
+                    "relation": relation,
+                }
+            )
+        )
+        assert payload["ranked_ids"] == [0, 1]
+        assert payload["horizontal_distances"] == [0.5, 2.0]
+
+
 def test_compare_proposals_spatial_unknown_relation_errors(tmp_path: Path) -> None:
     rs = _runtime(tmp_path)
     rs.skills_loaded.add("vg-grounding-playbook")
@@ -304,7 +429,7 @@ def test_compare_proposals_spatial_unknown_relation_errors(tmp_path: Path) -> No
         {
             "candidate_ids": [0, 1],
             "anchor_id": 2,
-            "relation": "left_of",
+            "relation": "diagonal_to",
         }
     )
     assert response.startswith("ERROR")

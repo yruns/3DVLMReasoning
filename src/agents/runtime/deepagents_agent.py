@@ -462,6 +462,230 @@ class DeepAgentsStage2Runtime(BaseStage2Runtime):
         )
         return HumanMessage(content=[{"type": "text", "text": prompt}])
 
+    @staticmethod
+    def _payload_proposal_id(response: Stage2StructuredResponse) -> int | None:
+        value = response.payload.get(
+            "proposal_id", response.payload.get("selected_object_id")
+        )
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return None
+
+    def should_continue_after_guarded_no_match(
+        self,
+        task: Stage2TaskSpec,
+        response: Stage2StructuredResponse,
+        runtime: Stage2RuntimeState,
+    ) -> bool:
+        """Return true when a blocked `submit_final(-1)` was bypassed directly.
+
+        The pack-v1 chassis treats `submit_final` as the terminal path. If the
+        no-match guard blocks `proposal_id=-1`, the same DeepAgents invocation
+        can still emit a terminal structured response. That response has not
+        passed through the chassis, so the outer loop must continue.
+        """
+        if task.task_type != Stage2TaskType.VISUAL_GROUNDING:
+            return False
+        if runtime.final_submission is not None:
+            return False
+        if (
+            not runtime.use_no_match_candidate_guard
+            or not runtime.no_match_guard_triggered
+            or runtime.no_match_guard_block_count <= 0
+        ):
+            return False
+        if response.status not in (Stage2Status.COMPLETED, Stage2Status.FAILED):
+            return False
+        return (
+            self._payload_proposal_id(response) == -1
+            or response.status == Stage2Status.FAILED
+        )
+
+    def build_no_match_guard_nudge(
+        self,
+        response: Stage2StructuredResponse,
+        runtime: Stage2RuntimeState,
+    ) -> HumanMessage:
+        latest_guard_message = ""
+        for entry in reversed(runtime.tool_trace):
+            if entry.tool_name != "submit_final":
+                continue
+            value = entry.tool_input.get("no_match_guard_message")
+            if isinstance(value, str) and value:
+                latest_guard_message = value
+            elif entry.response_text.startswith("NO_MATCH_GUARD"):
+                latest_guard_message = entry.response_text
+            break
+
+        checklist = ""
+        if latest_guard_message:
+            checklist = f"\n\nLatest guard checklist:\n{latest_guard_message}"
+
+        prompt = (
+            "Your previous `submit_final(proposal_id=-1)` was blocked by "
+            "NO_MATCH_GUARD, so a direct structured no-match response in the "
+            "same turn is not accepted. Continue the visual-grounding task. "
+            "Inspect or choose among the unresolved candidates, then terminate "
+            "through `submit_final` with a concrete proposal_id if any candidate "
+            "is plausible. Only submit `proposal_id=-1` after explicitly closing "
+            "the guard checklist. Treat Mask3D labels as weak priors: if the "
+            "pixels show the referent, submit the proposal that covers it even "
+            "when its label mismatches the query."
+            f"{checklist}\n\n"
+            "Do not finish by returning a direct structured `proposal_id=-1`."
+        )
+        return HumanMessage(content=[{"type": "text", "text": prompt}])
+
+    def should_continue_after_guarded_evidence_frame(
+        self,
+        task: Stage2TaskSpec,
+        response: Stage2StructuredResponse,
+        runtime: Stage2RuntimeState,
+    ) -> bool:
+        """Return true when an evidence-frame block was bypassed directly."""
+        if task.task_type != Stage2TaskType.VISUAL_GROUNDING:
+            return False
+        if runtime.final_submission is not None:
+            return False
+        if (
+            not runtime.use_evidence_frame_guard
+            or not runtime.evidence_frame_guard_triggered
+            or runtime.evidence_frame_guard_block_count <= 0
+        ):
+            return False
+        return response.status in (Stage2Status.COMPLETED, Stage2Status.FAILED)
+
+    def build_evidence_frame_guard_nudge(
+        self,
+        response: Stage2StructuredResponse,
+        runtime: Stage2RuntimeState,
+    ) -> HumanMessage:
+        latest_guard_message = ""
+        for entry in reversed(runtime.tool_trace):
+            if entry.tool_name != "submit_final":
+                continue
+            value = entry.tool_input.get("evidence_frame_guard_message")
+            if isinstance(value, str) and value:
+                latest_guard_message = value
+            elif entry.response_text.startswith("EVIDENCE_FRAME_GUARD"):
+                latest_guard_message = entry.response_text
+            break
+
+        checklist = ""
+        if latest_guard_message:
+            checklist = f"\n\nLatest guard message:\n{latest_guard_message}"
+
+        prompt = (
+            "Your previous `submit_final` was blocked by EVIDENCE_FRAME_GUARD, "
+            "so a direct structured final response in the same turn is not "
+            "accepted. Continue the visual-grounding task and align the final "
+            "proposal id with the marked frame you cite. If the cited marked "
+            "frame shows the target, submit the proposal id whose mark directly "
+            "covers it, even if that proposal label is a weak or wrong detector "
+            "class."
+            f"{checklist}\n\n"
+            "Terminate through `submit_final` after revising the proposal id or "
+            "the cited evidence."
+        )
+        return HumanMessage(content=[{"type": "text", "text": prompt}])
+
+    def should_continue_after_direct_vg_response(
+        self,
+        task: Stage2TaskSpec,
+        response: Stage2StructuredResponse,
+        runtime: Stage2RuntimeState,
+    ) -> bool:
+        """Return true when a VG answer bypassed the pack finalizer."""
+        if task.task_type != Stage2TaskType.VISUAL_GROUNDING:
+            return False
+        if runtime.final_submission is not None:
+            return False
+        return response.status in (Stage2Status.COMPLETED, Stage2Status.FAILED)
+
+    def build_direct_vg_response_nudge(
+        self,
+        response: Stage2StructuredResponse,
+        runtime: Stage2RuntimeState,
+    ) -> HumanMessage:
+        del runtime
+        proposal_id = self._payload_proposal_id(response)
+        if proposal_id is None:
+            proposal_text = (
+                "Your direct structured response did not contain a proposal_id."
+            )
+        else:
+            proposal_text = (
+                f"Your direct structured response selected proposal_id={proposal_id}."
+            )
+
+        prompt = (
+            "Direct structured final responses are not accepted for visual grounding. "
+            "The VG task must terminate through the `submit_final` tool so the "
+            "pack validator, TADG, no-match guard, evidence-frame guard, and bbox "
+            "adapter all run on the final proposal.\n\n"
+            f"{proposal_text} If that choice is still correct, call "
+            "`submit_final` with the same proposal_id, confidence, rationale, "
+            "and evidence references. If the new evidence changes your decision, "
+            "call `submit_final` with the revised proposal_id. Do not finish with "
+            "another direct structured response."
+        )
+        return HumanMessage(content=[{"type": "text", "text": prompt}])
+
+    @staticmethod
+    def _response_from_submission(
+        task: Stage2TaskSpec,
+        submission: dict[str, Any],
+        *,
+        summary: str = "Submitted via chassis submit_final.",
+    ) -> Stage2StructuredResponse:
+        status_str = str(submission.get("status", "completed")).lower()
+        try:
+            status = Stage2Status(status_str)
+        except ValueError:
+            status = Stage2Status.COMPLETED
+        return Stage2StructuredResponse(
+            task_type=task.task_type,
+            status=status,
+            summary=summary,
+            confidence=float(submission.get("confidence", 0.0)),
+            payload=dict(submission),
+        )
+
+    def _prefer_deferred_submission_over_direct_vg_response(
+        self,
+        task: Stage2TaskSpec,
+        response: Stage2StructuredResponse,
+        runtime: Stage2RuntimeState | None,
+    ) -> Stage2StructuredResponse | None:
+        if task.task_type != Stage2TaskType.VISUAL_GROUNDING or runtime is None:
+            return None
+        extra = runtime.bundle.extra_metadata or {}
+        submission = extra.get("stage2_submission")
+        if not isinstance(submission, dict):
+            return None
+        submitted_pid = submission.get(
+            "proposal_id", submission.get("selected_object_id")
+        )
+        try:
+            submitted_pid_int = int(submitted_pid)
+        except (TypeError, ValueError):
+            return None
+        response_pid = self._payload_proposal_id(response)
+        if response_pid is None or response_pid == submitted_pid_int:
+            return None
+        submitted_conf = float(submission.get("confidence", 0.0) or 0.0)
+        if submitted_conf <= float(response.confidence):
+            return None
+        return self._response_from_submission(
+            task,
+            submission,
+            summary=(
+                "Kept earlier chassis submit_final because a lower-confidence "
+                "direct VG structured response tried to replace it."
+            ),
+        )
+
     def build_evidence_update_message(
         self,
         runtime: Stage2RuntimeState,
@@ -615,25 +839,18 @@ class DeepAgentsStage2Runtime(BaseStage2Runtime):
             Normalized structured response
         """
         if runtime is not None and runtime.final_submission is not None:
-            sub = runtime.final_submission
-            status_str = str(sub.get("status", "completed")).lower()
-            try:
-                status = Stage2Status(status_str)
-            except ValueError:
-                status = Stage2Status.COMPLETED
-            return Stage2StructuredResponse(
-                task_type=task.task_type,
-                status=status,
-                summary="Submitted via chassis submit_final.",
-                confidence=float(sub.get("confidence", 0.0)),
-                payload=dict(sub),
-            )
+            return self._response_from_submission(task, runtime.final_submission)
 
         structured = raw_state.get("structured_response")
         if structured is not None:
             response = Stage2StructuredResponse.model_validate(structured)
             if response.task_type != task.task_type:
                 response.task_type = task.task_type
+            preferred = self._prefer_deferred_submission_over_direct_vg_response(
+                task, response, runtime
+            )
+            if preferred is not None:
+                return preferred
             return response
 
         return Stage2StructuredResponse(
@@ -707,6 +924,57 @@ class DeepAgentsStage2Runtime(BaseStage2Runtime):
             if structured is not None:
                 response = Stage2StructuredResponse.model_validate(structured)
                 if response.status in (Stage2Status.COMPLETED, Stage2Status.FAILED):
+                    if (
+                        turns_used < task.max_reasoning_turns
+                        and self.should_continue_after_guarded_no_match(
+                            task, response, runtime
+                        )
+                    ):
+                        if "messages" in raw_state:
+                            messages = raw_state["messages"]
+                        messages.append(
+                            self.build_no_match_guard_nudge(response, runtime)
+                        )
+                        logger.info(
+                            "[DeepAgentsStage2Runtime] turn {}: continuing after "
+                            "guarded direct no-match response",
+                            turns_used,
+                        )
+                        continue
+                    if (
+                        turns_used < task.max_reasoning_turns
+                        and self.should_continue_after_guarded_evidence_frame(
+                            task, response, runtime
+                        )
+                    ):
+                        if "messages" in raw_state:
+                            messages = raw_state["messages"]
+                        messages.append(
+                            self.build_evidence_frame_guard_nudge(response, runtime)
+                        )
+                        logger.info(
+                            "[DeepAgentsStage2Runtime] turn {}: continuing after "
+                            "guarded direct final response",
+                            turns_used,
+                        )
+                        continue
+                    if (
+                        turns_used < task.max_reasoning_turns
+                        and self.should_continue_after_direct_vg_response(
+                            task, response, runtime
+                        )
+                    ):
+                        if "messages" in raw_state:
+                            messages = raw_state["messages"]
+                        messages.append(
+                            self.build_direct_vg_response_nudge(response, runtime)
+                        )
+                        logger.info(
+                            "[DeepAgentsStage2Runtime] turn {}: continuing after "
+                            "direct VG structured response",
+                            turns_used,
+                        )
+                        continue
                     logger.info(
                         "[DeepAgentsStage2Runtime] completed at turn {} with status={}",
                         turns_used,

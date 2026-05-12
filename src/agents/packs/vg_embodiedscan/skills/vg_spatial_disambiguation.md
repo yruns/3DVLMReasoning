@@ -6,15 +6,16 @@ Load this skill in addition to `vg-grounding-playbook` whenever the
 visual-grounding query contains an explicit spatial relation between
 two object referents. Telltale phrases:
 
-- "next to ...", "closest to ...", "nearest to ..." → `closest_to`
+- "next to ...", "beside ...", "adjacent to ..." → `next_to`
+- "near ...", "nearby ..." → `near`
+- "closest to ...", "nearest to ..." → `closest_to`
 - "farthest from ...", "on the opposite side of ..." → `farthest_from`
 - "between A and B", "in the middle of ..." → reduces to two
-  `closest_to` calls (one against each anchor)
+  `near` or `closest_to` calls (one against each anchor)
 - "above ...", "below ...", "on top of ..." → height-axis variants;
-  these still resolve to `closest_to` over the (x, y, z) center, but
-  the agent should sanity-check by viewing a marked keyframe before
-  submitting (the proposal ranking is symmetric in 3-D, so two
-  proposals at the same xy distance will tie regardless of z).
+- "left of ...", "right of ..." → camera-frame variants; the tool uses
+  co-viewed 2D marked-frame geometry when candidate and anchor share
+  frames.
 
 This skill assumes you have already loaded `vg-grounding-playbook` and
 you understand the 5 VG tools. It only adds disambiguation patterns;
@@ -26,13 +27,31 @@ A spatial query decomposes into:
 
 1. **target** — the object the user wants found (returned in
    `submit_final`).
-2. **relation** — one of `closest_to | farthest_from`. Compound
-   relations (between, opposite) reduce to multiple calls.
+2. **relation** — one of `closest_to | near | next_to | farthest_from |
+   above | below | left_of | right_of`. Compound relations (between,
+   opposite) reduce to multiple calls.
 3. **anchor** — the reference object the relation is measured against.
 
 Resolve target candidates and the anchor independently first; combine
 with `compare_proposals_spatial` last. Do NOT use spatial reasoning to
 filter candidates before you have a candidate list.
+
+## Pronoun and secondary-clue relations
+
+Be careful when the query describes the target first and then gives a
+relation from an anchor back to the target:
+
+- "find X. Y is to the left of it" means the target X should be
+  `relation="right_of"` anchor Y.
+- "find X. Y is to the right of it" means the target X should be
+  `relation="left_of"` anchor Y.
+
+For example, "the window is near a desk. there is a shelving unit to
+the left of it" has target `window` and anchor `shelving unit`; compare
+the window candidates with `relation="right_of"` against the shelf
+candidate. Do not let a weaker "near the desk" clue override the
+explicit left/right anchor clue when both window candidates are near the
+desk.
 
 ## Tool sequence
 
@@ -46,8 +65,9 @@ For a query "find the X relation Y":
 3. If `len(anchor_candidates) > 1`, the anchor itself is ambiguous
    (see "Ambiguous anchor" below). Otherwise pick the single anchor.
 4. `compare_proposals_spatial(candidate_ids=target_candidates,
-   anchor_id=picked_anchor, relation="closest_to" | "farthest_from" |
-   "above" | "below")`
+   anchor_id=picked_anchor, relation="closest_to" | "near" |
+   "next_to" | "farthest_from" | "above" | "below" | "left_of" |
+   "right_of")`
    returns `{"anchor_id": int, "relation": str, "ranked_ids": [...],
    "distances": [...]}`. Read `["ranked_ids"]`.
 5. The first id in `ranked_ids` is your best guess. Cross-check by
@@ -75,15 +95,45 @@ In practice (a) covers most cases. Only resort to (b) when no
 narrowing context exists, and budget allows multiple
 `compare_proposals_spatial` calls.
 
+When you resort to (b), compare every plausible anchor candidate before
+submitting. Prefer the target/anchor pair with the strongest relation
+evidence: for `left_of` / `right_of`, higher
+`supporting_frame_counts`, lower `contradicting_frame_counts`, and a
+non-null `mean_2d_center_offsets_x`; for `near` / `next_to`, a lower
+floor-plane `horizontal_distances` value after category sanity-checking.
+Do not override a stronger relation result solely because a different
+anchor was in the current frame. Example: if "office chair left of the
+keyboard" has two keyboard proposals and chair A is left of keyboard 1
+while chair B is left of keyboard 2, inspect both pairs or pick the pair
+with stronger shared-frame support instead of assuming the visible
+keyboard is the one intended.
+
+## Same-category adjacency
+
+For queries such as "a chair next to another same chair", the target and
+anchor have the same category. Do not use the submitted target as its
+own anchor. Build a candidate list for the target category, then
+evaluate each plausible "other same chair" as the anchor while keeping
+the submitted target candidates separate from that anchor. If
+`submit_final` returns an anchor-self / `anchor_self` / `anchor-self`
+TADG block, treat it as a real reasoning error: re-run the comparison
+with a different anchor or submit the relation-ranked target. Do not
+override an anchor-self block just because the anchor candidate looks
+tighter in one marked frame.
+
 ## Anti-patterns
 
 - Do NOT call `compare_proposals_spatial` with a single-element
   `candidate_ids` — the ranking is trivially that one id, and you
   haven't used the spatial information.
-- Do NOT use `compare_proposals_spatial` with `relation="left_of"` or
-  `relation="right_of"` — camera-relative left/right is not stable in
-  world coordinates and the tool FAIL-LOUDs immediately. Use visual
-  marked frames for left/right, front/behind, row, and ordinal language.
+- Do use `relation="left_of"` / `"right_of"` for phrases like "left of
+  the sink" only after you have candidate and anchor lists. The tool
+  uses shared marked-frame 2D boxes; if `shared_frame_counts` is zero or
+  `contradicting_frame_counts` is high, inspect shared frames before
+  trusting the rank.
+- Do use `relation="next_to"` or `"near"` for adjacency language. These
+  rank by floor-plane distance and are usually better than full 3D
+  `closest_to` when object heights differ.
 - Do use `relation="above"` / `"below"` for vertical relations. These
   rank by bbox-center z offset and return `vertical_offsets`; they are
   more appropriate than `closest_to` for phrases like "cabinet above the

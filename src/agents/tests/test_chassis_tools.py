@@ -124,6 +124,29 @@ def test_submit_final_sets_final_submission_on_success(tmp_path: Path) -> None:
     assert rs.final_submission == {"answer": {"value": 7}}
 
 
+def test_submit_final_does_not_overwrite_accepted_submission(
+    tmp_path: Path,
+) -> None:
+    """DeepAgents may execute more tools before the outer loop sees the
+    terminal signal. Once a final is accepted, later same-turn submissions must
+    not replace it."""
+    _register_vg_pack(tmp_path)
+    rs = _runtime(Stage2TaskType.VISUAL_GROUNDING)
+    _, _, submit_final = build_chassis_tools(rs)
+
+    first = submit_final.invoke(
+        {"payload": {"value": 7}, "rationale": "first", "evidence_refs": []}
+    )
+    second = submit_final.invoke(
+        {"payload": {"value": 99}, "rationale": "second", "evidence_refs": []}
+    )
+
+    assert "submitted" in first.lower()
+    assert "already_submitted" in second.lower()
+    assert rs.final_submission == {"answer": {"value": 7}}
+    assert rs.tool_trace[-1].response_text.startswith("ALREADY_SUBMITTED")
+
+
 def test_submit_final_does_not_set_final_submission_on_no_pack(tmp_path: Path) -> None:
     """When no pack is registered, submit_final returns ERROR and must NOT
     set the terminal signal — the run loop should keep going."""

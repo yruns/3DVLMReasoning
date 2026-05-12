@@ -63,12 +63,28 @@ class Stage2RuntimeState:
     # pack tools are built. The run-state fields below are mutated by
     # `evaluate_tadg` during submit_final.
     use_tool_answer_disagreement_gate: bool = False
-    tadg_window: int = 16
+    tadg_window: int = 32
     tadg_max_repeats: int = 3
     tadg_override_min_chars: int = 6
-    tadg_triggered: bool = False                  # ≥1 block fired this run
-    tool_override_reason: str | None = None       # last accepted override
+    tadg_triggered: bool = False  # ≥1 block fired this run
+    tool_override_reason: str | None = None  # last accepted override
     tadg_block_count: dict[int, int] = field(default_factory=dict)
+
+    # No-match candidate guard config + sticky state. This prevents VG
+    # agents from prematurely finalizing `proposal_id=-1` while their own
+    # tool trace still contains unresolved candidates.
+    use_no_match_candidate_guard: bool = False
+    no_match_guard_max_repeats: int = 3
+    no_match_guard_max_viewed: int = 12
+    no_match_guard_triggered: bool = False
+    no_match_guard_block_count: int = 0
+
+    # Final evidence-frame guard config + sticky state. This catches VG
+    # submissions whose rationale cites a marked frame that does not
+    # actually contain the submitted proposal id.
+    use_evidence_frame_guard: bool = False
+    evidence_frame_guard_triggered: bool = False
+    evidence_frame_guard_block_count: int = 0
 
     def record(
         self, tool_name: str, tool_input: dict[str, Any], response_text: str
@@ -197,9 +213,17 @@ class BaseStage2Runtime(ABC):
         runtime.tadg_window = self.config.tadg_window
         runtime.tadg_max_repeats = self.config.tadg_max_repeats
         runtime.tadg_override_min_chars = self.config.tadg_override_min_chars
+        runtime.use_no_match_candidate_guard = self.config.use_no_match_candidate_guard
+        runtime.no_match_guard_max_repeats = self.config.no_match_guard_max_repeats
+        runtime.no_match_guard_max_viewed = self.config.no_match_guard_max_viewed
+        runtime.use_evidence_frame_guard = self.config.use_evidence_frame_guard
 
         if os.environ.get("TADG_DISABLE") == "1":
             runtime.use_tool_answer_disagreement_gate = False
+        if os.environ.get("NO_MATCH_GUARD_DISABLE") == "1":
+            runtime.use_no_match_candidate_guard = False
+        if os.environ.get("EVIDENCE_FRAME_GUARD_DISABLE") == "1":
+            runtime.use_evidence_frame_guard = False
 
     def image_to_data_url(self, image_path: str | Path) -> str:
         """Convert an image file into a data URL for multimodal chat models."""
@@ -333,6 +357,23 @@ class BaseStage2Runtime(ABC):
             "validator will reject it.\n"
             "- If the referent genuinely is not in the pool, submit "
             "`proposal_id=-1, confidence=0.0` with a rationale (see playbook).\n\n"
+            "- If the no-match candidate guard is enabled, `proposal_id=-1` "
+            "will be soft-blocked when your own tool trace still has unresolved "
+            "category candidates or viewed-but-uninspected marked proposals. "
+            "Use the block message as a compact candidate checklist, inspect or "
+            "choose the best remaining proposal, and only repeat `-1` after "
+            "explicitly closing those candidates. Treat proposal labels as weak "
+            "priors: if the pixels show the referent, choose the proposal that "
+            "covers it even when the Mask3D label mismatches the query.\n\n"
+            "- If the evidence-frame guard is enabled, a final answer whose "
+            "rationale cites a marked frame must submit a proposal id visible "
+            "in that cited frame. When a marked frame shows the target, choose "
+            "the mark covering the target; a large mislabeled proposal in that "
+            "frame is better evidence than a semantically named proposal from "
+            "a different frame.\n\n"
+            "- For left/right referring expressions, use the `left_to_right` "
+            "ordering returned by `view_keyframe_marked` to align proposal ids "
+            "with the marked frame before submitting.\n\n"
         )
 
     def _format_skill_catalog(self, task_type: Stage2TaskType) -> str:

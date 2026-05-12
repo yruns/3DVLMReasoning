@@ -20,6 +20,93 @@ def _gate(runtime: Any) -> str | None:
     return None
 
 
+def _marked_frame_geometry(ctx: Any, frame_id: int, visible: list[int]) -> str:
+    """Compact 2D mark geometry for a viewed annotated frame."""
+    proposal_by_id = {p.id: p for p in ctx.proposals}
+    rows: list[tuple[float, int, str, tuple[int, int, int, int]]] = []
+    for proposal_id in visible:
+        proposal = proposal_by_id.get(proposal_id)
+        if proposal is None:
+            continue
+        view = proposal.frame_views.get(frame_id)
+        if view is None:
+            continue
+        x1, y1, x2, y2 = view.bbox_2d
+        center_x = (float(x1) + float(x2)) / 2.0
+        rows.append((center_x, proposal_id, proposal.category, (x1, y1, x2, y2)))
+    if not rows:
+        return ""
+
+    rows.sort(key=lambda item: item[0])
+    left_to_right = [
+        f"{proposal_id}:{category}@x={center_x:.1f}"
+        for center_x, proposal_id, category, _ in rows
+    ]
+    boxes = {
+        proposal_id: [int(x1), int(y1), int(x2), int(y2)]
+        for _, proposal_id, _, (x1, y1, x2, y2) in rows
+    }
+    return f"; left_to_right={left_to_right}; boxes_2d={boxes}"
+
+
+def _box_center_x(box: tuple[int, int, int, int]) -> float:
+    x1, _, x2, _ = box
+    return (float(x1) + float(x2)) / 2.0
+
+
+def _coviewed_horizontal_votes(candidate: Any, anchor: Any) -> dict[str, Any]:
+    """Return 2D left/right evidence from frames where both proposals appear."""
+    shared_frame_ids = sorted(
+        set(getattr(candidate, "frame_views", {}) or {})
+        & set(getattr(anchor, "frame_views", {}) or {})
+    )
+    offsets: list[float] = []
+    for frame_id in shared_frame_ids:
+        candidate_view = candidate.frame_views.get(frame_id)
+        anchor_view = anchor.frame_views.get(frame_id)
+        if candidate_view is None or anchor_view is None:
+            continue
+        offsets.append(
+            _box_center_x(candidate_view.bbox_2d) - _box_center_x(anchor_view.bbox_2d)
+        )
+    return {
+        "shared_frame_count": len(offsets),
+        "mean_2d_center_offset_x": (
+            round(sum(offsets) / len(offsets), 6) if offsets else None
+        ),
+        "left_frame_count": sum(1 for offset in offsets if offset < 0.0),
+        "right_frame_count": sum(1 for offset in offsets if offset > 0.0),
+    }
+
+
+def _supporting_frame_count(coview: dict[str, Any], relation: str) -> int:
+    if relation == "left_of":
+        return int(coview["left_frame_count"])
+    if relation == "right_of":
+        return int(coview["right_frame_count"])
+    return 0
+
+
+def _contradicting_frame_count(coview: dict[str, Any], relation: str) -> int:
+    if relation == "left_of":
+        return int(coview["right_frame_count"])
+    if relation == "right_of":
+        return int(coview["left_frame_count"])
+    return 0
+
+
+def _left_right_bucket(coview: dict[str, Any], *, direction: str) -> int:
+    """Sort confirmed relation first, unknown second, contradicted last."""
+    relation = "left_of" if direction == "left" else "right_of"
+    supporting = _supporting_frame_count(coview, relation)
+    contradicting = _contradicting_frame_count(coview, relation)
+    if supporting > contradicting and supporting > 0:
+        return 0
+    if int(coview["shared_frame_count"]) == 0:
+        return 1
+    return 2
+
+
 def _norm_category(category: str) -> str:
     return " ".join(str(category).strip().lower().split())
 
@@ -377,6 +464,7 @@ def build_vg_tools(runtime: Any) -> list[BaseTool]:
             f"frame_id={frame_id} marked image at {marked_path}; "
             f"visible_proposals={visible}; "
             f"categories={[next((p.category for p in ctx.proposals if p.id == pid), '?') for pid in visible]}"
+            f"{_marked_frame_geometry(ctx, frame_id, visible)}"
         )
         runtime.record("view_keyframe_marked", {"frame_id": frame_id}, body)
         return body
@@ -467,7 +555,16 @@ def build_vg_tools(runtime: Any) -> list[BaseTool]:
         if gate is not None:
             runtime.record("compare_proposals_spatial", request, gate)
             return gate
-        allowed_relations = ("closest_to", "farthest_from", "above", "below")
+        allowed_relations = (
+            "closest_to",
+            "near",
+            "next_to",
+            "farthest_from",
+            "above",
+            "below",
+            "left_of",
+            "right_of",
+        )
         if relation not in allowed_relations:
             err = f"ERROR: unsupported relation {relation!r}; allowed: " + " | ".join(
                 allowed_relations
@@ -497,22 +594,78 @@ def build_vg_tools(runtime: Any) -> list[BaseTool]:
             distance = float(np.linalg.norm(delta))
             horizontal_distance = float(np.linalg.norm(delta[:2]))
             vertical_offset = float(delta[2])
-            scored.append((p.id, distance, horizontal_distance, vertical_offset))
+            horizontal_offset = float(delta[0])
+            coview = _coviewed_horizontal_votes(p, anchor)
+            scored.append(
+                (
+                    p.id,
+                    distance,
+                    horizontal_distance,
+                    vertical_offset,
+                    horizontal_offset,
+                    coview,
+                )
+            )
         if relation == "closest_to":
             scored.sort(key=lambda x: x[1])
+        elif relation in ("near", "next_to"):
+            scored.sort(key=lambda x: (x[2], x[1]))
         elif relation == "farthest_from":
             scored.sort(key=lambda x: x[1], reverse=True)
         elif relation == "above":
             scored.sort(key=lambda x: (x[3] <= 0.0, -x[3], x[2]))
-        else:  # below
+        elif relation == "below":
             scored.sort(key=lambda x: (x[3] >= 0.0, x[3], x[2]))
+        elif relation == "left_of":
+            scored.sort(
+                key=lambda x: (
+                    _left_right_bucket(x[5], direction="left"),
+                    -int(x[5]["left_frame_count"]),
+                    int(x[5]["right_frame_count"]),
+                    (
+                        abs(float(x[5]["mean_2d_center_offset_x"]))
+                        if x[5]["mean_2d_center_offset_x"] is not None
+                        else float("inf")
+                    ),
+                    x[2],
+                )
+            )
+        else:  # right_of
+            scored.sort(
+                key=lambda x: (
+                    _left_right_bucket(x[5], direction="right"),
+                    -int(x[5]["right_frame_count"]),
+                    int(x[5]["left_frame_count"]),
+                    (
+                        abs(float(x[5]["mean_2d_center_offset_x"]))
+                        if x[5]["mean_2d_center_offset_x"] is not None
+                        else float("inf")
+                    ),
+                    x[2],
+                )
+            )
         payload = {
             "anchor_id": anchor_id,
             "relation": relation,
-            "ranked_ids": [pid for pid, _, _, _ in scored],
-            "distances": [d for _, d, _, _ in scored],
-            "horizontal_distances": [d for _, _, d, _ in scored],
-            "vertical_offsets": [z for _, _, _, z in scored],
+            "ranked_ids": [pid for pid, _, _, _, _, _ in scored],
+            "distances": [d for _, d, _, _, _, _ in scored],
+            "horizontal_distances": [d for _, _, d, _, _, _ in scored],
+            "vertical_offsets": [z for _, _, _, z, _, _ in scored],
+            "x_offsets": [x for _, _, _, _, x, _ in scored],
+            "shared_frame_counts": [
+                int(coview["shared_frame_count"]) for _, _, _, _, _, coview in scored
+            ],
+            "mean_2d_center_offsets_x": [
+                coview["mean_2d_center_offset_x"] for _, _, _, _, _, coview in scored
+            ],
+            "supporting_frame_counts": [
+                _supporting_frame_count(coview, relation)
+                for _, _, _, _, _, coview in scored
+            ],
+            "contradicting_frame_counts": [
+                _contradicting_frame_count(coview, relation)
+                for _, _, _, _, _, coview in scored
+            ],
         }
         text = json.dumps(payload, ensure_ascii=False)
         runtime.record("compare_proposals_spatial", request, text)

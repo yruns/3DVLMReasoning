@@ -472,6 +472,243 @@ class TestStage2DeepAgent(unittest.TestCase):
         self.assertEqual(call_count[0], 2)
         self.assertEqual(result.result.payload["selected_object_id"], 2)
 
+    def test_run_does_not_accept_guarded_direct_no_match_response(self) -> None:
+        """A blocked submit_final(-1) must not be bypassed by structured_response."""
+        agent = Stage2DeepResearchAgent(
+            config=Stage2DeepAgentConfig(enable_uncertainty_stopping=False)
+        )
+        task = Stage2TaskSpec(
+            task_type=Stage2TaskType.VISUAL_GROUNDING,
+            user_query="find the chair",
+            max_reasoning_turns=2,
+        )
+        bundle = Stage2EvidenceBundle(scene_id="room0", keyframes=[])
+        runtime = Stage2RuntimeState(bundle=bundle)
+        runtime.use_no_match_candidate_guard = True
+
+        call_count = [0]
+
+        class _GuardBypassGraph:
+            def invoke(self, payload: dict) -> dict:
+                call_count[0] += 1
+                if call_count[0] == 1:
+                    runtime.no_match_guard_triggered = True
+                    runtime.no_match_guard_block_count = 1
+                    return {
+                        "messages": [],
+                        "structured_response": {
+                            "task_type": "visual_grounding",
+                            "status": "completed",
+                            "summary": "No matching proposal.",
+                            "confidence": 0.0,
+                            "uncertainties": [],
+                            "cited_frame_indices": [],
+                            "evidence_items": [],
+                            "plan": [],
+                            "payload": {
+                                "proposal_id": -1,
+                                "confidence": 0.0,
+                            },
+                        },
+                    }
+                runtime.final_submission = {
+                    "status": "completed",
+                    "selected_object_id": 6,
+                    "proposal_id": 6,
+                    "bbox_3d": [1] * 9,
+                    "confidence": 0.75,
+                }
+                return {"messages": []}
+
+        with patch.object(
+            agent, "build_agent", return_value=(_GuardBypassGraph(), runtime)
+        ):
+            result = agent.run(task, bundle)
+
+        self.assertEqual(call_count[0], 2)
+        self.assertEqual(result.result.payload["proposal_id"], 6)
+
+    def test_run_does_not_accept_guarded_direct_frame_inconsistent_response(
+        self,
+    ) -> None:
+        """A frame-guard block must not be bypassed by structured_response."""
+        agent = Stage2DeepResearchAgent(
+            config=Stage2DeepAgentConfig(enable_uncertainty_stopping=False)
+        )
+        task = Stage2TaskSpec(
+            task_type=Stage2TaskType.VISUAL_GROUNDING,
+            user_query="find the snack machine",
+            max_reasoning_turns=2,
+        )
+        bundle = Stage2EvidenceBundle(scene_id="room0", keyframes=[])
+        runtime = Stage2RuntimeState(bundle=bundle)
+        runtime.use_evidence_frame_guard = True
+
+        call_count = [0]
+
+        class _FrameGuardBypassGraph:
+            def invoke(self, payload: dict) -> dict:
+                call_count[0] += 1
+                if call_count[0] == 1:
+                    runtime.evidence_frame_guard_triggered = True
+                    runtime.evidence_frame_guard_block_count = 1
+                    return {
+                        "messages": [],
+                        "structured_response": {
+                            "task_type": "visual_grounding",
+                            "status": "completed",
+                            "summary": "Proposal 26 is the target.",
+                            "confidence": 0.62,
+                            "uncertainties": [],
+                            "cited_frame_indices": [],
+                            "evidence_items": [],
+                            "plan": [],
+                            "payload": {
+                                "proposal_id": 26,
+                                "confidence": 0.62,
+                            },
+                        },
+                    }
+                runtime.final_submission = {
+                    "status": "completed",
+                    "selected_object_id": 10,
+                    "proposal_id": 10,
+                    "bbox_3d": [1] * 9,
+                    "confidence": 0.75,
+                }
+                return {"messages": []}
+
+        with patch.object(
+            agent, "build_agent", return_value=(_FrameGuardBypassGraph(), runtime)
+        ):
+            result = agent.run(task, bundle)
+
+        self.assertEqual(call_count[0], 2)
+        self.assertEqual(result.result.payload["proposal_id"], 10)
+
+    def test_run_does_not_accept_direct_vg_structured_response(self) -> None:
+        """VG pack-v1 finals must pass through submit_final validators."""
+        agent = Stage2DeepResearchAgent(
+            config=Stage2DeepAgentConfig(enable_uncertainty_stopping=False)
+        )
+        task = Stage2TaskSpec(
+            task_type=Stage2TaskType.VISUAL_GROUNDING,
+            user_query="find the chair",
+            max_reasoning_turns=2,
+        )
+        bundle = Stage2EvidenceBundle(scene_id="room0", keyframes=[])
+        runtime = Stage2RuntimeState(bundle=bundle)
+
+        call_count = [0]
+
+        class _DirectFinalGraph:
+            def invoke(self, payload: dict) -> dict:
+                call_count[0] += 1
+                if call_count[0] == 1:
+                    return {
+                        "messages": [],
+                        "structured_response": {
+                            "task_type": "visual_grounding",
+                            "status": "completed",
+                            "summary": "Proposal 7 is the target.",
+                            "confidence": 0.62,
+                            "uncertainties": [],
+                            "cited_frame_indices": [],
+                            "evidence_items": [],
+                            "plan": [],
+                            "payload": {
+                                "proposal_id": 7,
+                                "confidence": 0.62,
+                            },
+                        },
+                    }
+                runtime.final_submission = {
+                    "status": "completed",
+                    "selected_object_id": 3,
+                    "proposal_id": 3,
+                    "bbox_3d": [1] * 9,
+                    "confidence": 0.75,
+                }
+                return {"messages": []}
+
+        with patch.object(
+            agent, "build_agent", return_value=(_DirectFinalGraph(), runtime)
+        ):
+            result = agent.run(task, bundle)
+
+        self.assertEqual(call_count[0], 2)
+        self.assertEqual(result.result.payload["proposal_id"], 3)
+
+    def test_lower_confidence_direct_vg_response_does_not_replace_deferred_submit(
+        self,
+    ) -> None:
+        """Keep a prior chassis submit over a weaker direct final at max turns."""
+        agent = Stage2DeepResearchAgent(
+            config=Stage2DeepAgentConfig(enable_uncertainty_stopping=False)
+        )
+        task = Stage2TaskSpec(
+            task_type=Stage2TaskType.VISUAL_GROUNDING,
+            user_query="find the bucket",
+            max_reasoning_turns=2,
+        )
+        bundle = Stage2EvidenceBundle(scene_id="room0", keyframes=[])
+        runtime = Stage2RuntimeState(bundle=bundle)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            pending_image = Path(tmpdir) / "frame_1.png"
+            pending_image.write_bytes(
+                base64.b64decode(
+                    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII="
+                )
+            )
+
+            call_count = [0]
+
+            class _DeferredThenDirectGraph:
+                def invoke(self, payload: dict) -> dict:
+                    call_count[0] += 1
+                    if call_count[0] == 1:
+                        submission = {
+                            "status": "completed",
+                            "selected_object_id": 27,
+                            "proposal_id": 27,
+                            "bbox_3d": [1] * 9,
+                            "confidence": 0.74,
+                        }
+                        runtime.bundle.extra_metadata = {
+                            "vg_pending_images": [str(pending_image)],
+                            "stage2_submission": submission,
+                        }
+                        runtime.mark_evidence_updated()
+                        runtime.final_submission = submission
+                        return {"messages": []}
+                    return {
+                        "messages": [],
+                        "structured_response": {
+                            "task_type": "visual_grounding",
+                            "status": "completed",
+                            "summary": "Proposal 15 is the target.",
+                            "confidence": 0.56,
+                            "uncertainties": [],
+                            "cited_frame_indices": [],
+                            "evidence_items": [],
+                            "plan": [],
+                            "payload": {
+                                "proposal_id": 15,
+                                "confidence": 0.56,
+                            },
+                        },
+                    }
+
+            with patch.object(
+                agent, "build_agent", return_value=(_DeferredThenDirectGraph(), runtime)
+            ):
+                result = agent.run(task, bundle)
+
+        self.assertEqual(call_count[0], 2)
+        self.assertEqual(result.result.payload["proposal_id"], 27)
+        self.assertEqual(result.result.payload["selected_object_id"], 27)
+
     def test_runtime_marks_evidence_updated_when_callback_returns_bundle(self) -> None:
         """Verify tools mark evidence_updated when callbacks return new bundles."""
         original_bundle = Stage2EvidenceBundle(

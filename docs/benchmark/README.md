@@ -33,7 +33,7 @@ benchmark's version). Always include:
 | **OpenEQA ScanNet EM-EQA** | live | [`openeqa/`](openeqa/) | v15 stage2 MNAS **74.33** (`s1_l1`, frozen 1050Q, Gemini 2.5 Pro) |
 | **EmbodiedScan VG** | smoke | [`embodiedscan/`](embodiedscan/) | v3 GT-pool pack_v1 2k smoke: 2000Q, Acc@0.25/0.50 **89.15** |
 | **NR3D VG** | live | [`nr3d/`](nr3d/) | v3 leaderboard-track 8584Q (n_filtered=7805): classification_acc=**80.79**, Easy=**86.06**, Hard=**75.87**, V-Dep=**72.46**, V-Indep=**85.34** (gpt-5.4, zero-shot) |
-| **ScanRefer VG** | live | [`scanrefer/`](scanrefer/) | **v2** aggregation-GT track 9508Q val: Overall@0.25 **69.92**, Overall@0.50 **62.79**, but with a GT-view-oracle keyframe selector. Honest query-driven dev fold is **v3.3** random100: Overall@0.25 **48.00**, Overall@0.50 **42.00** with durable tool traces. v1/v3 Phase8-GT smoke rows retained as audit trail with caveats. |
+| **ScanRefer VG** | live | [`scanrefer/`](scanrefer/) | v3.20 full-val no-GT consensus3: Overall@0.25 **55.36**, Overall@0.50 **49.57** (`9508`Q, `mask3d_query_driven`; consensus caveat). Historical v2 remains **69.92 / 62.79** but used a GT-view-oracle keyframe selector. |
 
 ## Pending Migrations
 

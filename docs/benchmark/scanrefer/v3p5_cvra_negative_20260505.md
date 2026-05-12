@@ -274,10 +274,10 @@ or a Linux ViT-H-14 retry on a different bottleneck).
 
 ## Next milestone: TADG (Tool-Answer Disagreement Gate)
 
-Per the original handoff `docs/handoff_2026-05-04_1803.md` § 6.2,
-TADG addresses **meta-bug 4.4**: the agent ignores the verdict of its
-own deterministic `compare_proposals_spatial` call at submit time. The
-audit caught two cases on this fold:
+Per the consolidated ScanRefer goal doc
+[`scanrefer-date-goal.md`](scanrefer-date-goal.md), TADG addresses the agent
+ignoring the verdict of its own deterministic `compare_proposals_spatial` call
+at submit time. The audit caught two cases on this fold:
 
 - `scene0149_00::2::3` direct: agent ran
   `compare_proposals_spatial(candidate_ids=[2,3,12,14,27,33,36,43],
@@ -441,7 +441,8 @@ as currently understood. Three takeaways:
   - `tmp/m3a_review_cc.md` (CC1 PUSHBACK on CDX1's M3a diagnosis)
   - `tmp/m2b_review_cc.md` (CC1 peer review of CDX1 M2b slice)
   - `tmp/picking_error_audit_consolidated.md`
-- Handoff context:
-  - `docs/handoff_2026-05-04_1803.md` § 6.1 (CVRA spec) and § 6.2 (TADG)
-  - `tmp/cc1_handoff_to_cc2.md` (predecessor handoff)
+- Consolidated context:
+  - [`scanrefer-date-goal.md`](scanrefer-date-goal.md) for the CVRA/TADG
+    diagnosis and current protocol boundaries.
+  - `tmp/cc1_handoff_to_cc2.md` (predecessor temporary handoff, not durable).
 - SQLite: `docs/benchmark/scanrefer/runs.sqlite` — no row added for v3.5.

@@ -76,15 +76,20 @@ pool. Prefer cheaper paths first.
 4. If you have ≥ 2 plausible candidates after looking at the marks,
    call `inspect_proposal(proposal_id=K)` on each to disambiguate by
    category, score, or which other frames the proposal appears in.
-5. If the query has a spatial constraint ("next to the desk", "closest
-   to the wall"), load the `vg-spatial-disambiguation` skill and apply
-   its workflow before submitting.
+5. If the query has a spatial constraint ("next to the desk", "left of
+   the sink", "above the refrigerator"), load the
+   `vg-spatial-disambiguation` skill and apply its workflow before
+   submitting.
 6. `submit_final({"proposal_id": K, "confidence": C}, rationale=...)`
    — the chassis validator will reject any unknown id and FAIL-LOUD.
 7. If the referent genuinely is not in the proposal pool **after**
    exhausting same-category candidates, viewing 3+ frames, AND trying
    at least one `switch_or_expand_hypothesis` rewrite, submit the OOD
-   marker (see "OOD handling" below).
+   marker (see "OOD handling" below). If the no-match candidate guard
+   returns `NO_MATCH_GUARD`, do not treat that as a crash: it is a
+   compact checklist of unresolved candidates from your own trace.
+   Inspect or choose the best remaining proposal before trying `-1`
+   again.
 
 ## tool: list_keyframes_with_proposals
 
@@ -113,7 +118,15 @@ frame in the scene where at least one Mask3D proposal is visible,
 typically 50-300 frames per scene).
 
 Returns a text body summarizing the chosen frame:
-`frame_id=N marked image at <path>; visible_proposals=[...]; categories=[...]`.
+`frame_id=N marked image at <path>; visible_proposals=[...]; categories=[...];
+left_to_right=[...]; boxes_2d={...}`.
+
+For left/right referring expressions, use `left_to_right` before
+submitting. It sorts the visible marked proposal ids by 2D image center
+from left to right. If the query says the target is "to the left of"
+another object and a marked frame shows both, the target should be the
+visible proposal earlier in `left_to_right`, even when its detector
+label is weak or wrong.
 
 Side effect: appends the annotated image path to
 `runtime.bundle.extra_metadata["vg_pending_images"]` and marks evidence
@@ -235,7 +248,8 @@ and for runs with `use_clip_visible_aug=False` (the default).
 Inputs:
 - `candidate_ids: list[int]`
 - `anchor_id: int`
-- `relation: "closest_to" | "farthest_from" | "above" | "below"`
+- `relation: "closest_to" | "near" | "next_to" | "farthest_from" |
+  "above" | "below" | "left_of" | "right_of"`
   (any other value FAIL-LOUDs)
 
 Returns JSON:
@@ -243,16 +257,34 @@ Returns JSON:
 {"anchor_id": int,
  "relation": str,
  "ranked_ids": list[int],     # candidates ordered by relation
- "distances": list[float]}    # parallel list, Euclidean over bbox centers
+ "distances": list[float],
+ "horizontal_distances": list[float],
+ "vertical_offsets": list[float],
+ "shared_frame_counts": list[int],
+ "mean_2d_center_offsets_x": list[float|null],
+ "supporting_frame_counts": list[int],
+ "contradicting_frame_counts": list[int]}
 ```
+
+For `near` / `next_to`, the tool ranks by floor-plane bbox-center
+distance (`horizontal_distances`), not full 3D distance. This is usually
+the right proxy for ScanRefer "next to" language.
 
 For `above` / `below`, the tool ranks by bbox-center z offset relative
 to the anchor and also returns `vertical_offsets`; use this for vertical
 relations like "cabinet above the refrigerator" or "box below the table"
-instead of forcing those cases through `closest_to`. Errors: bad
-relation, missing anchor, or any candidate not in the pool all FAIL-LOUD
-with explicit error strings. See the `vg_spatial_disambiguation` skill
-for the full workflow.
+instead of forcing those cases through `closest_to`.
+
+For `left_of` / `right_of`, the tool uses co-viewed 2D marked-frame
+geometry when a candidate and anchor share visible frames. Confirmed
+left/right evidence ranks before candidates with no shared frame, and
+known contradictory frame evidence ranks last. Read
+`supporting_frame_counts`, `contradicting_frame_counts`, and
+`mean_2d_center_offsets_x` before submitting.
+
+Errors: bad relation, missing anchor, or any candidate not in the pool
+all FAIL-LOUD with explicit error strings. See the
+`vg_spatial_disambiguation` skill for the full workflow.
 
 ## tool: switch_or_expand_hypothesis (chassis tool, Stage 2 → Stage 1 callback)
 
@@ -386,6 +418,44 @@ adapter will emit `{"status": "failed", "selected_object_id": null,
 "bbox_3d": null, ...}` so downstream evaluation knows this is a
 proposal-pool miss, not a model bug.
 
+### When `NO_MATCH_GUARD` fires
+
+When the runtime has the no-match candidate guard enabled and you call
+`submit_final` with `proposal_id=-1`, the chassis checks only your own
+tool trace:
+
+- non-empty `find_proposals_by_category(...)` results;
+- marked-frame proposal ids you have viewed but not yet inspected.
+
+If either set is still open, the tool returns a soft block beginning
+with `NO_MATCH_GUARD:` and does not finalize the sample. Use the listed
+proposal ids as a compact to-do list. Inspect the remaining candidates,
+view their frames, choose the best proposal if any match the reference,
+or repeat `-1` only after your rationale explicitly explains why the
+listed candidates do not match. The guard never uses GT target id, GT
+bbox, GT visibility, or IoU.
+
+Mask3D labels are weak priors in this step. If the target is visible in
+pixels and a marked proposal covers it, submit that proposal even when
+the proposal category says `shelf`, `cabinet`, `object`, or another
+nearby class. Do not reject a visually correct proposal solely because
+its detector label mismatches the reference phrase.
+
+### When `EVIDENCE_FRAME_GUARD` fires
+
+When the runtime has the evidence-frame guard enabled, a final rationale
+that cites a marked frame must submit a proposal id visible in that
+marked frame. If you say "frame 57 shows the target" but submit a
+proposal that is not in frame 57's `visible_proposals`, the chassis
+returns `EVIDENCE_FRAME_GUARD:` and does not finalize.
+
+Use the guard message as an alignment check between words and marks:
+look at the cited marked frame, find the colored box that directly
+covers the referent, and submit that proposal id even if its Mask3D
+label is a weak synonym or wrong detector class. A large mislabeled
+proposal that covers the target in the cited frame beats a semantically
+named proposal from another frame.
+
 ## Anti-patterns
 
 - Do NOT call `submit_final` before viewing at least one annotated
@@ -406,10 +476,19 @@ proposal-pool miss, not a model bug.
   → `view_keyframe_marked(frame_id=M)` to a frame that actually
   shows your target. The initial keyframes are a starting point, not
   a constraint.
+- Do NOT cite a marked frame as target evidence and then submit an id
+  that is absent from that frame. Submit the id whose mark covers the
+  target in the cited frame, or change the rationale to cite the frame
+  where your submitted id is actually visible.
 - **Do NOT submit `proposal_id=-1` if `find_proposals_by_category`
   returned a non-empty list.** OOD only applies when no same-category
   candidate exists in the entire pool — exploring frames beyond the
   initial 5 first is mandatory.
+- **Do NOT ignore `NO_MATCH_GUARD`.** It means your trace still has
+  unresolved candidate ids, often from label-noisy cases where the
+  Mask3D category is a weak prior rather than a hard truth.
+- **Do NOT use label mismatch alone as proof of OOD.** For visible
+  referents, the marked proposal mask/box coverage beats the text label.
 
 ## Examples
 

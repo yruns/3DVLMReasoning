@@ -26,6 +26,7 @@ from __future__ import annotations
 import gzip
 import json
 import pickle
+import threading
 from collections import Counter
 from collections.abc import Iterable
 from dataclasses import dataclass, field
@@ -292,6 +293,7 @@ class KeyframeSelector:
         # CLIP model (lazy loaded)
         self._clip_model = None
         self._clip_tokenizer = None
+        self._clip_model_lock = threading.Lock()
 
         # Query parsing components (lazy loaded)
         self._query_parser: QueryParser | None = None
@@ -1083,18 +1085,27 @@ class KeyframeSelector:
             # open_clip not installed — CLIP features unavailable (acceptable on macOS)
             return
 
-        logger.info("Loading CLIP model...")
+        lock = getattr(self, "_clip_model_lock", None)
+        if lock is None:
+            lock = threading.Lock()
+            self._clip_model_lock = lock
 
-        model, _, _ = open_clip.create_model_and_transforms(
-            "ViT-H-14", "laion2b_s32b_b79k"
-        )
-        self._clip_model = model.eval()
-        self._clip_tokenizer = open_clip.get_tokenizer("ViT-H-14")
+        with lock:
+            if self._clip_model is not None:
+                return
 
-        if torch.cuda.is_available():
-            self._clip_model = self._clip_model.cuda()
+            logger.info("Loading CLIP model...")
 
-        logger.success("CLIP model loaded")
+            model, _, _ = open_clip.create_model_and_transforms(
+                "ViT-H-14", "laion2b_s32b_b79k"
+            )
+            self._clip_model = model.eval()
+            self._clip_tokenizer = open_clip.get_tokenizer("ViT-H-14")
+
+            if torch.cuda.is_available():
+                self._clip_model = self._clip_model.cuda()
+
+            logger.success("CLIP model loaded")
 
     def _encode_text(self, text: str) -> np.ndarray | None:
         """Encode text to CLIP feature.

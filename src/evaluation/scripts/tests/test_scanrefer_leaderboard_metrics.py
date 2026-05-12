@@ -2,11 +2,20 @@
 
 from __future__ import annotations
 
+import json
+import gzip
+import pickle
+import sys
+from pathlib import Path
+from types import SimpleNamespace
+
 import pytest
 
 from evaluation.scripts.scanrefer_leaderboard_metrics import (
     aggregate,
+    compute_leaderboard_metrics,
     load_sample_id_filter,
+    load_side_by_side_predictions,
 )
 
 
@@ -134,3 +143,230 @@ def test_load_sample_id_filter_accepts_runner_json_shapes(tmp_path):
         "scannet/scene_a::1::0",
         "scannet/scene_b::2::1",
     }
+
+
+def test_load_side_by_side_predictions_streams_without_read_text(tmp_path, monkeypatch):
+    side_by_side = tmp_path / "side_by_side.json"
+    side_by_side.write_text(
+        json.dumps(
+            {
+                "pack_v1": {
+                    "n": 2,
+                    "per_sample": [
+                        {
+                            "sample_id": "a",
+                            "iou": 0.75,
+                            "status": "completed",
+                            "tool_trace": [{"response_text": "x" * 1000}],
+                        },
+                        {
+                            "sample_id": "b",
+                            "iou": None,
+                            "status": "failed",
+                            "tool_trace": [{"response_text": "y" * 1000}],
+                        },
+                    ],
+                }
+            },
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+
+    original_read_text = Path.read_text
+
+    def guarded_read_text(self: Path, *args, **kwargs):
+        if self == side_by_side:
+            raise AssertionError("side_by_side.json must be streamed")
+        return original_read_text(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", guarded_read_text)
+
+    assert list(load_side_by_side_predictions(side_by_side, backend="pack_v1")) == [
+        {"sample_id": "a", "iou": 0.75, "status": "completed"},
+        {"sample_id": "b", "iou": None, "status": "failed"},
+    ]
+
+
+def test_compute_leaderboard_metrics_streams_large_side_by_side(
+    tmp_path,
+    monkeypatch,
+):
+    side_by_side = tmp_path / "side_by_side.json"
+    sample_ids = tmp_path / "sample_ids.json"
+    scanrefer_root = tmp_path / "scanrefer"
+    raw_root = scanrefer_root / "raw"
+    raw_root.mkdir(parents=True)
+    raw_root.joinpath("ScanRefer_filtered_val.json").write_text(
+        json.dumps(
+            [
+                {
+                    "scene_id": "scene_a",
+                    "object_id": "0",
+                    "ann_id": "0",
+                    "object_name": "chair",
+                    "description": "chair",
+                },
+                {
+                    "scene_id": "scene_b",
+                    "object_id": "0",
+                    "ann_id": "0",
+                    "object_name": "table",
+                    "description": "table",
+                },
+            ]
+        ),
+        encoding="utf-8",
+    )
+    # Use canonical ids in this test so the lightweight metadata loader can
+    # reconstruct them from ScanRefer rows.
+    side_by_side.write_text(
+        json.dumps(
+            {
+                "pack_v1": {
+                    "n": 2,
+                    "per_sample": [
+                        {
+                            "sample_id": "scannet/scene_a::0::0",
+                            "iou": 0.6,
+                            "status": "completed",
+                        },
+                        {
+                            "sample_id": "scannet/scene_b::0::0",
+                            "iou": 0.1,
+                            "status": "completed",
+                        },
+                    ],
+                }
+            },
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    sample_ids.write_text(
+        '["scannet/scene_a::0::0", "scannet/scene_b::0::0"]',
+        encoding="utf-8",
+    )
+    phase8_root = tmp_path / "phase8"
+    for scene, class_name in [("scene_a", "chair"), ("scene_b", "table")]:
+        pkl_path = (
+            phase8_root
+            / scene
+            / "conceptgraph"
+            / "pcd_saves"
+            / "full_pcd_gt_axisaligned_post.pkl.gz"
+        )
+        pkl_path.parent.mkdir(parents=True)
+        with gzip.open(pkl_path, "wb") as f:
+            pickle.dump(
+                {"objects": [{"class_name": [class_name], "bbox_np": [[0, 0, 0]] * 8}]},
+                f,
+            )
+
+    original_read_text = Path.read_text
+
+    def guarded_read_text(self: Path, *args, **kwargs):
+        if self == side_by_side:
+            raise AssertionError("side_by_side.json must be streamed")
+        return original_read_text(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", guarded_read_text)
+
+    metrics = compute_leaderboard_metrics(
+        side_by_side_path=side_by_side,
+        scanrefer_data_root=scanrefer_root,
+        phase8_data_root=phase8_root,
+        sample_ids_path=sample_ids,
+    )
+    assert metrics["n_total"] == 2
+    assert metrics["acc25_overall"] == 0.5
+
+
+def test_compute_leaderboard_metrics_uses_light_metadata_loader(
+    tmp_path,
+    monkeypatch,
+):
+    side_by_side = tmp_path / "side_by_side.json"
+    side_by_side.write_text(
+        json.dumps(
+            {
+                "pack_v1": {
+                    "n": 2,
+                    "per_sample": [
+                        {"sample_id": "scannet/scene0000_00::0::0", "iou": 0.6},
+                        {"sample_id": "scannet/scene0000_00::1::0", "iou": 0.1},
+                    ],
+                }
+            },
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    sample_ids = tmp_path / "sample_ids.json"
+    sample_ids.write_text(
+        '["scannet/scene0000_00::0::0", "scannet/scene0000_00::1::0"]',
+        encoding="utf-8",
+    )
+    scanrefer_root = tmp_path / "scanrefer"
+    raw_root = scanrefer_root / "raw"
+    raw_root.mkdir(parents=True)
+    raw_root.joinpath("ScanRefer_filtered_val.json").write_text(
+        json.dumps(
+            [
+                {
+                    "scene_id": "scene0000_00",
+                    "object_id": "0",
+                    "ann_id": "0",
+                    "object_name": "chair",
+                    "description": "chair",
+                },
+                {
+                    "scene_id": "scene0000_00",
+                    "object_id": "1",
+                    "ann_id": "0",
+                    "object_name": "table",
+                    "description": "table",
+                },
+            ]
+        ),
+        encoding="utf-8",
+    )
+    phase8_root = tmp_path / "phase8"
+    pkl_path = (
+        phase8_root
+        / "scene0000_00"
+        / "conceptgraph"
+        / "pcd_saves"
+        / "full_pcd_gt_axisaligned_post.pkl.gz"
+    )
+    pkl_path.parent.mkdir(parents=True)
+    with gzip.open(pkl_path, "wb") as f:
+        pickle.dump(
+            {
+                "objects": [
+                    {"class_name": ["chair"], "bbox_np": [[0, 0, 0]] * 8},
+                    {"class_name": ["table"], "bbox_np": [[0, 0, 0]] * 8},
+                ]
+            },
+            f,
+        )
+
+    class HeavyDataset:
+        @classmethod
+        def from_path(cls, **kwargs):
+            raise AssertionError("leaderboard metrics must not use heavy dataset")
+
+    monkeypatch.setitem(
+        sys.modules,
+        "benchmarks.scanrefer_loader",
+        SimpleNamespace(ScanRefVGDataset=HeavyDataset),
+    )
+
+    metrics = compute_leaderboard_metrics(
+        side_by_side_path=side_by_side,
+        scanrefer_data_root=scanrefer_root,
+        phase8_data_root=phase8_root,
+        sample_ids_path=sample_ids,
+    )
+    assert metrics["n_unique"] == 2
+    assert metrics["acc25_unique"] == 0.5

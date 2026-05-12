@@ -94,12 +94,27 @@ class Stage2DeepAgentConfig(BaseModel):
         description="VG backend. Only 'pack_v1' is supported after Plan C.",
     )
     chassis_tools_version: int = Field(
-        default=4,
+        default=18,
         ge=1,
         description="Bump when chassis tool surface changes; folded into "
         "derive_eval_session_id so prompt-cache invalidates correctly. "
         "v4 added the optional `tool_override_reason` kwarg on submit_final "
-        "(TADG bypass path).",
+        "(TADG bypass path); v5 added the no-match candidate guard; "
+        "v6 added the evidence-frame consistency guard; v7 added 2D "
+        "left-to-right mark geometry to view_keyframe_marked; v8 added "
+        "left/right consistency checks to the evidence-frame guard; v9 "
+        "added left/right/near/next_to spatial ranking; v10 rejects "
+        "direct VG structured finals while a submit_final turn remains; "
+        "v11 widens the TADG lookback window to 32 trace entries; v12 keeps "
+        "a higher-confidence deferred submit_final over a weaker direct VG "
+        "structured replacement; v13 restricts evidence-frame left/right "
+        "alternatives to the submitted proposal's category-candidate set "
+        "when that trace set exists; v14 documents reversed pronoun "
+        "left/right relations in the VG spatial skill; v15 tightens "
+        "ambiguous-anchor and same-category adjacency spatial guidance; "
+        "v16 hard-blocks narrow unsafe TADG overrides; v17 blocks "
+        "left/right submissions with untested ambiguous anchors; v18 "
+        "blocks relation-rationale frame citations missing the spatial anchor.",
     )
     use_clip_visible_aug: bool = Field(
         default=False,
@@ -133,14 +148,13 @@ class Stage2DeepAgentConfig(BaseModel):
         "compare_proposals_spatial rank-1.",
     )
     tadg_window: int = Field(
-        default=16,
+        default=32,
         ge=1,
         le=64,
         description="Maximum tool_trace lookback (entries) when TADG searches "
-        "for a recent compare_proposals_spatial call. Calibrated against the "
-        "v3.5 tool surface (~10+ inspect_proposal calls between compare and "
-        "submit); v1 spec used 8 against v3.3 traces but Step 3 smoke showed "
-        "the gate missed S6 with that bound.",
+        "for a recent compare_proposals_spatial call. Widened from 16 to 32 "
+        "after v3.8 trace audit found high-impact relation disagreements "
+        "19-26 tool calls after the relevant compare.",
     )
     tadg_max_repeats: int = Field(
         default=3,
@@ -155,6 +169,34 @@ class Stage2DeepAgentConfig(BaseModel):
         le=200,
         description="Minimum non-whitespace length for tool_override_reason to "
         "bypass a TADG block.",
+    )
+    use_no_match_candidate_guard: bool = Field(
+        default=False,
+        description=(
+            "Enable the VG no-match candidate guard: soft-block "
+            "submit_final(proposal_id=-1) when the agent's own tool trace "
+            "still contains unresolved proposal candidates."
+        ),
+    )
+    use_evidence_frame_guard: bool = Field(
+        default=False,
+        description=(
+            "Enable the VG evidence-frame consistency guard: soft-block "
+            "submit_final when the rationale cites a marked frame that does "
+            "not contain the submitted proposal id."
+        ),
+    )
+    no_match_guard_max_repeats: int = Field(
+        default=3,
+        ge=1,
+        le=8,
+        description="Force-pass a repeated -1 after this many no-match guard blocks.",
+    )
+    no_match_guard_max_viewed: int = Field(
+        default=12,
+        ge=1,
+        le=40,
+        description="Maximum viewed-but-uninspected proposal ids listed by the guard.",
     )
 
     @property

@@ -236,4 +236,5 @@ Both should return `n=100`, `n_acc25=39`, `n_acc50=15`, `miou=0.1981`.
   `/tmp/v3p_logs/random100_agent.log`
 - Frozen fold: `tmp/scanrefer_artifacts/random100_sample_ids.json`
   (rebuild with `python scripts/build_scanrefer_random100_fold.py`)
-- Handoff that motivated this run: `docs/handoff_2026-05-03_2020.md`
+- Consolidated context for the handoff that motivated this run:
+  [`scanrefer-date-goal.md`](scanrefer-date-goal.md)

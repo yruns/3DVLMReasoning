@@ -2,6 +2,7 @@
 
 Spec: tmp/tadg_spec.md.
 """
+
 from __future__ import annotations
 
 import json
@@ -53,7 +54,7 @@ def _runtime(
     rs.task_type = Stage2TaskType.VISUAL_GROUNDING
     rs.use_tool_answer_disagreement_gate = flag_on
     # Leave window/max_repeats/override_min_chars at their dataclass
-    # defaults (16/3/6) so tests exercise the production-default values.
+    # defaults (32/3/6) so tests exercise the production-default values.
     # Tests that need a different bound override explicitly.
     return rs
 
@@ -65,6 +66,8 @@ def _record_compare(
     anchor_id: int,
     candidate_ids: list[int],
     ranked_ids: list[int],
+    supporting_frame_counts: list[int] | None = None,
+    contradicting_frame_counts: list[int] | None = None,
 ) -> None:
     request = {
         "relation": relation,
@@ -77,10 +80,34 @@ def _record_compare(
         "ranked_ids": ranked_ids,
         "distances": [0.1 * (i + 1) for i in range(len(ranked_ids))],
     }
+    if supporting_frame_counts is not None:
+        payload["supporting_frame_counts"] = supporting_frame_counts
+    if contradicting_frame_counts is not None:
+        payload["contradicting_frame_counts"] = contradicting_frame_counts
     rs.tool_trace.append(
         Stage2ToolObservation(
             tool_name="compare_proposals_spatial",
             tool_input=request,
+            response_text=json.dumps(payload),
+        )
+    )
+
+
+def _record_category_lookup(
+    rs: Stage2RuntimeState,
+    *,
+    category: str,
+    proposal_ids: list[int],
+) -> None:
+    payload = {
+        "category": category,
+        "proposal_ids": proposal_ids,
+        "available_categories": [category],
+    }
+    rs.tool_trace.append(
+        Stage2ToolObservation(
+            tool_name="find_proposals_by_category",
+            tool_input={"category": category},
             response_text=json.dumps(payload),
         )
     )
@@ -104,8 +131,11 @@ def _record_view(rs: Stage2RuntimeState, frame_id: int) -> None:
 def test_tadg_disabled_passes() -> None:
     rs = _runtime(flag_on=False)
     _record_compare(
-        rs, relation="closest_to", anchor_id=10,
-        candidate_ids=[2, 3, 33], ranked_ids=[33, 14, 43],
+        rs,
+        relation="closest_to",
+        anchor_id=10,
+        candidate_ids=[2, 3, 33],
+        ranked_ids=[33, 14, 43],
     )
     decision = evaluate_tadg(rs, {"proposal_id": 19, "confidence": 0.7})
     assert decision.blocked is False
@@ -115,8 +145,11 @@ def test_tadg_disabled_passes() -> None:
 def test_tadg_blocks_when_submitted_not_top1() -> None:
     rs = _runtime()
     _record_compare(
-        rs, relation="closest_to", anchor_id=10,
-        candidate_ids=[33, 14, 43], ranked_ids=[33, 14, 43],
+        rs,
+        relation="closest_to",
+        anchor_id=10,
+        candidate_ids=[33, 14, 43],
+        ranked_ids=[33, 14, 43],
     )
     decision = evaluate_tadg(rs, {"proposal_id": 14, "confidence": 0.7})
     assert decision.blocked is True
@@ -130,8 +163,11 @@ def test_tadg_blocks_when_submitted_not_top1() -> None:
 def test_tadg_passes_when_submitted_is_top1() -> None:
     rs = _runtime()
     _record_compare(
-        rs, relation="closest_to", anchor_id=15,
-        candidate_ids=[4, 2, 3], ranked_ids=[4, 2, 3],
+        rs,
+        relation="closest_to",
+        anchor_id=15,
+        candidate_ids=[4, 2, 3],
+        ranked_ids=[4, 2, 3],
     )
     decision = evaluate_tadg(rs, {"proposal_id": 4, "confidence": 0.8})
     assert decision.blocked is False
@@ -139,11 +175,36 @@ def test_tadg_passes_when_submitted_is_top1() -> None:
     assert rs.tadg_triggered is False
 
 
+def test_tadg_blocks_left_right_submit_when_anchor_candidates_untested() -> None:
+    rs = _runtime(
+        bundle=_bundle_with_query("this office chair is left of the keyboard")
+    )
+    _record_category_lookup(rs, category="office chair", proposal_ids=[39, 50])
+    _record_category_lookup(rs, category="keyboard", proposal_ids=[4, 8])
+    _record_compare(
+        rs,
+        relation="left_of",
+        anchor_id=4,
+        candidate_ids=[39, 50],
+        ranked_ids=[50, 39],
+        supporting_frame_counts=[61, 0],
+        contradicting_frame_counts=[1, 0],
+    )
+
+    decision = evaluate_tadg(rs, {"proposal_id": 50, "confidence": 0.89})
+
+    assert decision.blocked is True
+    assert "ambiguous anchor" in decision.message
+    assert "proposal 8" in decision.message
+
+
 def test_tadg_blocks_when_submitted_not_in_ranked() -> None:
     """S6 case: agent submits pid 19 not in the candidate set."""
     rs = _runtime()
     _record_compare(
-        rs, relation="closest_to", anchor_id=10,
+        rs,
+        relation="closest_to",
+        anchor_id=10,
         candidate_ids=[2, 3, 12, 14, 27, 33, 36, 43],
         ranked_ids=[33, 14, 43, 27, 36, 12, 3, 2],
     )
@@ -157,8 +218,11 @@ def test_tadg_blocks_anchor_self_pick() -> None:
     """S39 case: agent submits the anchor itself."""
     rs = _runtime(bundle=_bundle_with_query("a chair next to another same chair"))
     _record_compare(
-        rs, relation="closest_to", anchor_id=3,
-        candidate_ids=[9, 1, 5], ranked_ids=[9, 1, 5],
+        rs,
+        relation="closest_to",
+        anchor_id=3,
+        candidate_ids=[9, 1, 5],
+        ranked_ids=[9, 1, 5],
     )
     decision = evaluate_tadg(rs, {"proposal_id": 3, "confidence": 0.7})
     assert decision.blocked is True
@@ -172,8 +236,11 @@ def test_tadg_silent_when_no_matching_relation() -> None:
     bundle = _bundle_with_query("a brown chair")
     rs = _runtime(bundle=bundle)
     _record_compare(
-        rs, relation="closest_to", anchor_id=10,
-        candidate_ids=[2, 3], ranked_ids=[33, 14, 43],
+        rs,
+        relation="closest_to",
+        anchor_id=10,
+        candidate_ids=[2, 3],
+        ranked_ids=[33, 14, 43],
     )
     decision = evaluate_tadg(rs, {"proposal_id": 14, "confidence": 0.7})
     assert decision.blocked is False
@@ -185,8 +252,11 @@ def test_tadg_silent_when_compare_outside_window() -> None:
     rs = _runtime()
     rs.tadg_window = 8
     _record_compare(
-        rs, relation="closest_to", anchor_id=10,
-        candidate_ids=[2, 3, 33], ranked_ids=[33, 14, 43],
+        rs,
+        relation="closest_to",
+        anchor_id=10,
+        candidate_ids=[2, 3, 33],
+        ranked_ids=[33, 14, 43],
     )
     # Push 9 view entries to bury the compare past the window.
     for fid in range(100, 109):
@@ -198,8 +268,11 @@ def test_tadg_silent_when_compare_outside_window() -> None:
 def test_tadg_override_accepted() -> None:
     rs = _runtime()
     _record_compare(
-        rs, relation="closest_to", anchor_id=10,
-        candidate_ids=[2, 3, 33], ranked_ids=[33, 14, 43],
+        rs,
+        relation="closest_to",
+        anchor_id=10,
+        candidate_ids=[2, 3, 33],
+        ranked_ids=[33, 14, 43],
     )
     decision = evaluate_tadg(
         rs,
@@ -212,15 +285,210 @@ def test_tadg_override_accepted() -> None:
     assert rs.tool_override_reason == "rank-1 occluded by a wall"
 
 
+def test_tadg_rejects_override_for_same_category_anchor_self_query() -> None:
+    rs = _runtime(
+        bundle=_bundle_with_query(
+            "a black leather arm chair next to another same chair"
+        )
+    )
+    _record_compare(
+        rs,
+        relation="next_to",
+        anchor_id=5,
+        candidate_ids=[1, 3, 9],
+        ranked_ids=[1, 9, 3],
+    )
+    decision = evaluate_tadg(
+        rs,
+        {"proposal_id": 5, "confidence": 0.82},
+        tool_override_reason="proposal 5 looks tighter in the current frame",
+    )
+    assert decision.blocked is True
+    assert decision.subcase == "anchor_self"
+    assert "same-category" in decision.message
+    assert "proposal 1" in decision.message
+
+
+def test_tadg_rejects_override_for_anchor_self_spatial_role_error() -> None:
+    rs = _runtime(
+        bundle=_bundle_with_query(
+            "the black table chair with a red table chair to the left of it"
+        )
+    )
+    _record_compare(
+        rs,
+        relation="left_of",
+        anchor_id=5,
+        candidate_ids=[3, 12],
+        ranked_ids=[3, 12],
+    )
+    decision = evaluate_tadg(
+        rs,
+        {"proposal_id": 5, "confidence": 0.79},
+        tool_override_reason=(
+            "direct pixel evidence at the whiteboard end makes proposal 5 better"
+        ),
+    )
+
+    assert decision.blocked is True
+    assert decision.subcase == "anchor_self"
+    assert "anchor itself" in decision.message
+    assert "proposal 3" in decision.message
+
+
+def test_tadg_treats_in_front_of_as_next_to_relation() -> None:
+    rs = _runtime(
+        bundle=_bundle_with_query(
+            "the black table chair is located directly in front of the white writing board"
+        )
+    )
+    _record_compare(
+        rs,
+        relation="next_to",
+        anchor_id=1,
+        candidate_ids=[3, 5, 12],
+        ranked_ids=[3, 5, 12],
+    )
+
+    decision = evaluate_tadg(rs, {"proposal_id": 12, "confidence": 0.78})
+
+    assert decision.blocked is True
+    assert decision.relation == "next_to"
+    assert decision.top1_pid == 3
+    assert decision.subcase == "rank_mismatch"
+
+
+def test_tadg_matches_inverse_left_of_it_relation() -> None:
+    rs = _runtime(
+        bundle=_bundle_with_query(
+            "this is a brown chair. there is a table to the left of it with a lamp on it."
+        )
+    )
+    _record_compare(
+        rs,
+        relation="right_of",
+        anchor_id=3,
+        candidate_ids=[7, 8],
+        ranked_ids=[8, 7],
+    )
+
+    decision = evaluate_tadg(rs, {"proposal_id": 7, "confidence": 0.61})
+
+    assert decision.blocked is True
+    assert decision.relation == "right_of"
+    assert decision.top1_pid == 8
+    assert decision.subcase == "rank_mismatch"
+
+
+def test_tadg_blocks_override_when_compare_omits_same_category_candidates() -> None:
+    rs = _runtime(
+        bundle=_bundle_with_query(
+            "the black table chair with a red table chair to the left of it"
+        )
+    )
+    _record_category_lookup(rs, category="chair", proposal_ids=[3, 5, 6, 9, 11, 12])
+    _record_compare(
+        rs,
+        relation="left_of",
+        anchor_id=1,
+        candidate_ids=[6, 9, 11, 12],
+        ranked_ids=[6, 9, 12, 11],
+    )
+
+    decision = evaluate_tadg(
+        rs,
+        {"proposal_id": 12, "confidence": 0.77},
+        tool_override_reason="frame 18 looks more convincing than the tool rank",
+    )
+
+    assert decision.blocked is True
+    assert decision.subcase == "candidate_coverage_gap"
+    assert "proposal 3" in decision.message
+    assert "proposal 5" in decision.message
+
+
+def test_tadg_same_category_coverage_allows_anchor_excluded_from_candidates() -> None:
+    rs = _runtime(bundle=_bundle_with_query("a black chair next to another same chair"))
+    _record_category_lookup(rs, category="chair", proposal_ids=[0, 1, 2, 3, 5, 9])
+    _record_compare(
+        rs,
+        relation="next_to",
+        anchor_id=3,
+        candidate_ids=[0, 1, 2, 5, 9],
+        ranked_ids=[9, 1, 5, 0, 2],
+    )
+
+    decision = evaluate_tadg(rs, {"proposal_id": 9, "confidence": 0.7})
+
+    assert decision.blocked is False
+    assert decision.message == ""
+
+
+def test_tadg_rejects_override_when_left_right_top1_clearly_outsupports_submitted() -> None:
+    rs = _runtime(
+        bundle=_bundle_with_query(
+            "the black table chair with a red table chair to the left of it"
+        )
+    )
+    _record_compare(
+        rs,
+        relation="left_of",
+        anchor_id=1,
+        candidate_ids=[3, 12],
+        ranked_ids=[3, 12],
+        supporting_frame_counts=[18, 5],
+        contradicting_frame_counts=[0, 6],
+    )
+
+    decision = evaluate_tadg(
+        rs,
+        {"proposal_id": 12, "confidence": 0.72},
+        tool_override_reason="raw frame 18 looks visually better for proposal 12",
+    )
+
+    assert decision.blocked is True
+    assert decision.subcase == "rank_mismatch"
+    assert "strong 2D shared-frame support" in decision.message
+
+
+def test_tadg_rejects_override_when_left_right_top1_has_strong_2d_support() -> None:
+    rs = _runtime(
+        bundle=_bundle_with_query("this office chair is left of the keyboard")
+    )
+    _record_compare(
+        rs,
+        relation="left_of",
+        anchor_id=8,
+        candidate_ids=[39, 50],
+        ranked_ids=[39, 50],
+        supporting_frame_counts=[66, 0],
+        contradicting_frame_counts=[3, 0],
+    )
+    decision = evaluate_tadg(
+        rs,
+        {"proposal_id": 50, "confidence": 0.88},
+        tool_override_reason="proposal 50 is left of a different visible keyboard",
+    )
+    assert decision.blocked is True
+    assert decision.subcase == "rank_mismatch"
+    assert "strong 2D" in decision.message
+    assert decision.top1_pid == 39
+
+
 def test_tadg_override_too_short_still_blocks() -> None:
     rs = _runtime()
     rs.tadg_override_min_chars = 6
     _record_compare(
-        rs, relation="closest_to", anchor_id=10,
-        candidate_ids=[2, 3, 33], ranked_ids=[33, 14, 43],
+        rs,
+        relation="closest_to",
+        anchor_id=10,
+        candidate_ids=[2, 3, 33],
+        ranked_ids=[33, 14, 43],
     )
     decision = evaluate_tadg(
-        rs, {"proposal_id": 14, "confidence": 0.7}, tool_override_reason="x",
+        rs,
+        {"proposal_id": 14, "confidence": 0.7},
+        tool_override_reason="x",
     )
     assert decision.blocked is True
     assert rs.tool_override_reason is None
@@ -231,8 +499,11 @@ def test_tadg_repeat_force_pass() -> None:
     rs = _runtime()
     rs.tadg_max_repeats = 3
     _record_compare(
-        rs, relation="closest_to", anchor_id=10,
-        candidate_ids=[2, 3, 33], ranked_ids=[33, 14, 43],
+        rs,
+        relation="closest_to",
+        anchor_id=10,
+        candidate_ids=[2, 3, 33],
+        ranked_ids=[33, 14, 43],
     )
     d1 = evaluate_tadg(rs, {"proposal_id": 14, "confidence": 0.7})
     d2 = evaluate_tadg(rs, {"proposal_id": 14, "confidence": 0.7})
@@ -254,8 +525,11 @@ def test_tadg_relation_no_match() -> None:
     bundle = _bundle_with_query("a thing somewhere")
     rs = _runtime(bundle=bundle)
     _record_compare(
-        rs, relation="above", anchor_id=10,
-        candidate_ids=[33, 14], ranked_ids=[33, 14],
+        rs,
+        relation="above",
+        anchor_id=10,
+        candidate_ids=[33, 14],
+        ranked_ids=[33, 14],
     )
     decision = evaluate_tadg(rs, {"proposal_id": 14, "confidence": 0.7})
     assert decision.blocked is False
@@ -265,8 +539,11 @@ def test_tadg_skips_ood_proposal_id() -> None:
     """proposal_id=-1 is the OOD marker; gate must not fire."""
     rs = _runtime()
     _record_compare(
-        rs, relation="closest_to", anchor_id=10,
-        candidate_ids=[2, 3], ranked_ids=[33, 14],
+        rs,
+        relation="closest_to",
+        anchor_id=10,
+        candidate_ids=[2, 3],
+        ranked_ids=[33, 14],
     )
     decision = evaluate_tadg(rs, {"proposal_id": -1, "confidence": 0.0})
     assert decision.blocked is False
@@ -290,8 +567,11 @@ def test_tadg_alias_nearest_to_closest_to() -> None:
     bundle = _bundle_with_query("the cabinet nearest the window")
     rs = _runtime(bundle=bundle)
     _record_compare(
-        rs, relation="closest_to", anchor_id=10,
-        candidate_ids=[33, 14], ranked_ids=[33, 14],
+        rs,
+        relation="closest_to",
+        anchor_id=10,
+        candidate_ids=[33, 14],
+        ranked_ids=[33, 14],
     )
     decision = evaluate_tadg(rs, {"proposal_id": 14, "confidence": 0.7})
     assert decision.blocked is True
@@ -306,40 +586,77 @@ def test_tadg_alias_between_aliases_to_closest_to() -> None:
     bundle = _bundle_with_query("the cabinet between the wall and the stove")
     rs = _runtime(bundle=bundle)
     _record_compare(
-        rs, relation="closest_to", anchor_id=10,
-        candidate_ids=[33, 14], ranked_ids=[33, 14],
+        rs,
+        relation="closest_to",
+        anchor_id=10,
+        candidate_ids=[33, 14],
+        ranked_ids=[33, 14],
     )
     decision = evaluate_tadg(rs, {"proposal_id": 14, "confidence": 0.7})
     assert decision.blocked is True
 
 
-def test_tadg_window_default_boundary_at_runtime_default() -> None:
-    """M6: production-default window (Stage2RuntimeState.tadg_window=16)
-    boundary check. Push 17 fillers between compare and submit → silent;
-    push 15 fillers → blocks."""
-    rs = _runtime()
-    # Don't override tadg_window — exercise the runtime dataclass default (16).
-    assert rs.tadg_window == 16
+@pytest.mark.parametrize(
+    ("query", "relation"),
+    [
+        ("the cabinet next to the stove", "next_to"),
+        ("the cabinet near the stove", "near"),
+        ("the cabinet to the left of the stove", "left_of"),
+        ("the cabinet to the right of the stove", "right_of"),
+    ],
+)
+def test_tadg_matches_new_spatial_tool_relations(query: str, relation: str) -> None:
+    """When the agent uses the newer relation names accepted by
+    compare_proposals_spatial, TADG should still police submit_final
+    disagreement."""
+    bundle = _bundle_with_query(query)
+    rs = _runtime(bundle=bundle)
     _record_compare(
-        rs, relation="closest_to", anchor_id=10,
-        candidate_ids=[2, 3, 33], ranked_ids=[33, 14, 43],
+        rs,
+        relation=relation,
+        anchor_id=10,
+        candidate_ids=[33, 14],
+        ranked_ids=[33, 14],
     )
-    # 17 fillers → compare at index 0 of last-(window+1) = outside window=16.
-    for fid in range(100, 117):
+    decision = evaluate_tadg(rs, {"proposal_id": 14, "confidence": 0.7})
+    assert decision.blocked is True
+    assert decision.relation == relation
+    assert decision.top1_pid == 33
+
+
+def test_tadg_window_default_boundary_at_runtime_default() -> None:
+    """Production-default window=32 boundary check."""
+    rs = _runtime()
+    # Don't override tadg_window — exercise the runtime dataclass default (32).
+    assert rs.tadg_window == 32
+    _record_compare(
+        rs,
+        relation="closest_to",
+        anchor_id=10,
+        candidate_ids=[2, 3, 33],
+        ranked_ids=[33, 14, 43],
+    )
+    # 33 fillers → compare at index 0 of last-(window+1) = outside window=32.
+    for fid in range(100, 133):
         _record_view(rs, fid)
     d_silent = evaluate_tadg(rs, {"proposal_id": 14, "confidence": 0.7})
-    assert d_silent.blocked is False, "compare buried beyond window=16 should not trigger"
-    # Reset and try 15 fillers → still inside window.
+    assert (
+        d_silent.blocked is False
+    ), "compare buried beyond window=32 should not trigger"
+    # Reset and try 31 fillers → still inside window.
     rs2 = _runtime()
-    assert rs2.tadg_window == 16
+    assert rs2.tadg_window == 32
     _record_compare(
-        rs2, relation="closest_to", anchor_id=10,
-        candidate_ids=[2, 3, 33], ranked_ids=[33, 14, 43],
+        rs2,
+        relation="closest_to",
+        anchor_id=10,
+        candidate_ids=[2, 3, 33],
+        ranked_ids=[33, 14, 43],
     )
-    for fid in range(100, 115):
+    for fid in range(100, 131):
         _record_view(rs2, fid)
     d_block = evaluate_tadg(rs2, {"proposal_id": 14, "confidence": 0.7})
-    assert d_block.blocked is True, "compare within window=16 should trigger"
+    assert d_block.blocked is True, "compare within window=32 should trigger"
 
 
 # ------------------------------------------------------------------
@@ -384,8 +701,11 @@ def test_submit_final_blocks_when_tadg_disagrees(tmp_path: Path) -> None:
     _register_vg_stub_pack(tmp_path)
     rs = _runtime()
     _record_compare(
-        rs, relation="closest_to", anchor_id=10,
-        candidate_ids=[2, 3, 33], ranked_ids=[33, 14, 43],
+        rs,
+        relation="closest_to",
+        anchor_id=10,
+        candidate_ids=[2, 3, 33],
+        ranked_ids=[33, 14, 43],
     )
     _, _, submit_final = build_chassis_tools(rs)
     response = submit_final.invoke(
@@ -400,7 +720,8 @@ def test_submit_final_blocks_when_tadg_disagrees(tmp_path: Path) -> None:
     assert rs.tadg_triggered is True
     # Block is recorded for audit.
     block_records = [
-        t for t in rs.tool_trace
+        t
+        for t in rs.tool_trace
         if t.tool_name == "submit_final" and "TADG_BLOCK" in t.response_text
     ]
     assert len(block_records) == 1
@@ -414,8 +735,11 @@ def test_submit_final_passes_with_override(tmp_path: Path) -> None:
     _register_vg_stub_pack(tmp_path)
     rs = _runtime()
     _record_compare(
-        rs, relation="closest_to", anchor_id=10,
-        candidate_ids=[2, 3, 33], ranked_ids=[33, 14, 43],
+        rs,
+        relation="closest_to",
+        anchor_id=10,
+        candidate_ids=[2, 3, 33],
+        ranked_ids=[33, 14, 43],
     )
     _, _, submit_final = build_chassis_tools(rs)
     response = submit_final.invoke(
@@ -437,13 +761,19 @@ def test_submit_final_unblocked_when_flag_off(tmp_path: Path) -> None:
     _register_vg_stub_pack(tmp_path)
     rs = _runtime(flag_on=False)
     _record_compare(
-        rs, relation="closest_to", anchor_id=10,
-        candidate_ids=[2, 3, 33], ranked_ids=[33, 14, 43],
+        rs,
+        relation="closest_to",
+        anchor_id=10,
+        candidate_ids=[2, 3, 33],
+        ranked_ids=[33, 14, 43],
     )
     _, _, submit_final = build_chassis_tools(rs)
     response = submit_final.invoke(
-        {"payload": {"proposal_id": 14, "confidence": 0.7},
-         "rationale": "ok", "evidence_refs": []}
+        {
+            "payload": {"proposal_id": 14, "confidence": 0.7},
+            "rationale": "ok",
+            "evidence_refs": [],
+        }
     )
     assert "submitted" in response.lower()
     assert rs.tadg_triggered is False
@@ -458,8 +788,11 @@ def test_submit_final_block_then_override_succeeds(tmp_path: Path) -> None:
     _register_vg_stub_pack(tmp_path)
     rs = _runtime()
     _record_compare(
-        rs, relation="closest_to", anchor_id=10,
-        candidate_ids=[2, 3, 33], ranked_ids=[33, 14, 43],
+        rs,
+        relation="closest_to",
+        anchor_id=10,
+        candidate_ids=[2, 3, 33],
+        ranked_ids=[33, 14, 43],
     )
     _, _, submit_final = build_chassis_tools(rs)
 
@@ -504,8 +837,11 @@ def test_submit_final_nested_payload_does_not_bypass_tadg(tmp_path: Path) -> Non
     _register_vg_stub_pack(tmp_path)
     rs = _runtime()
     _record_compare(
-        rs, relation="closest_to", anchor_id=10,
-        candidate_ids=[2, 3, 33], ranked_ids=[33, 14, 43],
+        rs,
+        relation="closest_to",
+        anchor_id=10,
+        candidate_ids=[2, 3, 33],
+        ranked_ids=[33, 14, 43],
     )
     _, _, submit_final = build_chassis_tools(rs)
 

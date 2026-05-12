@@ -33,28 +33,115 @@ from typing import Any
 
 # Tool relations actually accepted by
 # vg_embodiedscan/tools.py:compare_proposals_spatial.
-_SUPPORTED_TOOL_RELATIONS = ("closest_to", "farthest_from", "above", "below")
+_SUPPORTED_TOOL_RELATIONS = (
+    "closest_to",
+    "near",
+    "next_to",
+    "farthest_from",
+    "above",
+    "below",
+    "left_of",
+    "right_of",
+)
 
 # Bidirectional alias map: tool_relation -> set of synonymous query/parser
 # relations that the gate considers a "match". Used both to (a) interpret
 # parser-extracted relations from `extra_metadata["hypothesis_output"]`
 # and (b) keyword-scan the raw query string when parser data is missing.
 _TOOL_RELATION_ALIASES: dict[str, frozenset[str]] = {
-    "closest_to": frozenset({
-        "closest_to", "closest", "near", "nearest", "nearest_to",
-        "next_to", "nextto", "next-to", "beside", "adjacent_to",
-        "adjacent", "by", "between",
-    }),
-    "farthest_from": frozenset({
-        "farthest_from", "farthest", "far_from", "far",
-    }),
-    "above": frozenset({
-        "above", "on", "on_top_of", "ontop", "on_top", "over",
-        "higher_than", "higher", "atop", "upon",
-    }),
-    "below": frozenset({
-        "below", "under", "beneath", "underneath", "lower_than",
-    }),
+    "closest_to": frozenset(
+        {
+            "closest_to",
+            "closest",
+            "near",
+            "nearest",
+            "nearest_to",
+            "next_to",
+            "nextto",
+            "next-to",
+            "beside",
+            "adjacent_to",
+            "adjacent",
+            "by",
+            "between",
+        }
+    ),
+    "near": frozenset(
+        {
+            "near",
+            "nearby",
+            "near_to",
+            "close_to",
+            "next_to",
+            "beside",
+            "adjacent_to",
+            "adjacent",
+            "by",
+        }
+    ),
+    "next_to": frozenset(
+        {
+            "next_to",
+            "nextto",
+            "next-to",
+            "in_front_of",
+            "front_of",
+            "beside",
+            "adjacent_to",
+            "adjacent",
+            "by",
+            "near",
+        }
+    ),
+    "farthest_from": frozenset(
+        {
+            "farthest_from",
+            "farthest",
+            "far_from",
+            "far",
+        }
+    ),
+    "above": frozenset(
+        {
+            "above",
+            "on",
+            "on_top_of",
+            "ontop",
+            "on_top",
+            "over",
+            "higher_than",
+            "higher",
+            "atop",
+            "upon",
+        }
+    ),
+    "below": frozenset(
+        {
+            "below",
+            "under",
+            "beneath",
+            "underneath",
+            "lower_than",
+        }
+    ),
+    "left_of": frozenset(
+        {
+            "left_of",
+            "to_the_left_of",
+            "on_the_left_of",
+            "left_hand",
+            "left-hand",
+        }
+    ),
+    "right_of": frozenset(
+        {
+            "right_of",
+            "to_the_right_of",
+            "on_the_right_of",
+            "right_hand",
+            "right-hand",
+        }
+    ),
 }
 
 # Patterns scanned in raw query strings as a fallback when the parser
@@ -67,20 +154,44 @@ _KEYWORD_PATTERNS: dict[str, re.Pattern[str]] = {
     for tool_rel, aliases in _TOOL_RELATION_ALIASES.items()
 }
 
+_SAME_CATEGORY_ADJACENCY_PATTERN = re.compile(
+    r"\b(same|same\s+type|of\s+the\s+same\s+type|another\s+same)\b",
+    re.IGNORECASE,
+)
+_ANCHOR_LEFT_OF_TARGET_PATTERN = re.compile(
+    r"\b(?:there\s+is|with|has|having|includes?|including|and)\b[^.?!]{0,120}"
+    r"\b(?:to\s+the\s+)?left\s+of\s+it\b",
+    re.IGNORECASE,
+)
+_ANCHOR_RIGHT_OF_TARGET_PATTERN = re.compile(
+    r"\b(?:there\s+is|with|has|having|includes?|including|and)\b[^.?!]{0,120}"
+    r"\b(?:to\s+the\s+)?right\s+of\s+it\b",
+    re.IGNORECASE,
+)
+
+
+def _bundle_query_text(runtime: Any) -> str:
+    bundle = getattr(runtime, "bundle", None)
+    extra = getattr(bundle, "extra_metadata", {}) or {}
+    query_text = ""
+    if bundle is not None:
+        query_text = getattr(bundle, "stage1_query", "") or extra.get("query", "") or ""
+    return query_text if isinstance(query_text, str) else ""
+
 
 @dataclass(frozen=True)
 class TADGDecision:
     """Outcome of a `submit_final` gate evaluation."""
 
     blocked: bool
-    message: str = ""               # populated when blocked OR override-accepted
-    top1_pid: int | None = None     # most recent compare's rank-1 (when matched)
+    message: str = ""  # populated when blocked OR override-accepted
+    top1_pid: int | None = None  # most recent compare's rank-1 (when matched)
     submitted_pid: int | None = None
     relation: str | None = None
     anchor_id: int | None = None
     ranked_ids: tuple[int, ...] = ()
-    subcase: str = ""               # 'anchor_self', 'not_in_candidates', 'rank_mismatch', ''
-    force_passed: bool = False      # set by anti-loop guard
+    subcase: str = ""  # 'anchor_self', 'not_in_candidates', 'rank_mismatch', ''
+    force_passed: bool = False  # set by anti-loop guard
 
 
 def _norm(token: str) -> str:
@@ -107,24 +218,18 @@ def _query_relation_set(runtime: Any) -> set[str]:
     §3 + §12 Q1 for the v1 baseline contract and the deferred
     parser-first plan.
     """
-    bundle = getattr(runtime, "bundle", None)
-    extra = getattr(bundle, "extra_metadata", {}) or {}
     matched: set[str] = set()
 
     # Keyword scan over the raw query string.
-    query_text = ""
-    if bundle is not None:
-        query_text = (
-            getattr(bundle, "stage1_query", "")
-            or extra.get("query", "")
-            or ""
-        )
-    if not isinstance(query_text, str):
-        query_text = ""
+    query_text = _bundle_query_text(runtime)
     if query_text:
         for tool_rel, pattern in _KEYWORD_PATTERNS.items():
             if pattern.search(query_text):
                 matched.add(tool_rel)
+        if _ANCHOR_LEFT_OF_TARGET_PATTERN.search(query_text):
+            matched.add("right_of")
+        if _ANCHOR_RIGHT_OF_TARGET_PATTERN.search(query_text):
+            matched.add("left_of")
 
     return matched
 
@@ -142,7 +247,7 @@ def _last_matching_compare(
     if not relevant_relations:
         return None
     trace = list(getattr(runtime, "tool_trace", []) or [])
-    window = max(int(getattr(runtime, "tadg_window", 16)), 1)
+    window = max(int(getattr(runtime, "tadg_window", 32)), 1)
     if window > len(trace):
         window = len(trace)
     for entry in reversed(trace[-window:]):
@@ -170,8 +275,224 @@ def _last_matching_compare(
         return {
             "relation": relation,
             "anchor_id": payload.get("anchor_id"),
+            "candidate_ids": [
+                int(p)
+                for p in tool_input.get("candidate_ids", [])
+                if isinstance(p, int)
+            ],
             "ranked_ids": [int(p) for p in ranked if isinstance(p, int)],
+            "supporting_frame_counts": payload.get("supporting_frame_counts") or [],
+            "contradicting_frame_counts": payload.get("contradicting_frame_counts")
+            or [],
         }
+    return None
+
+
+def _rank_value(values: Any, ranked_ids: list[int], proposal_id: int) -> int:
+    if proposal_id not in ranked_ids or not isinstance(values, list):
+        return 0
+    index = ranked_ids.index(proposal_id)
+    if index >= len(values):
+        return 0
+    try:
+        return int(values[index])
+    except (TypeError, ValueError):
+        return 0
+
+
+def _is_same_category_anchor_self_query(
+    runtime: Any, relevant_relations: set[str]
+) -> bool:
+    """Return True for phrases like "chair next to another same chair"."""
+    if "next_to" not in relevant_relations and "near" not in relevant_relations:
+        return False
+    query_text = _bundle_query_text(runtime)
+    return bool(_SAME_CATEGORY_ADJACENCY_PATTERN.search(query_text))
+
+
+def _strict_override_rejection_message(
+    *,
+    submitted_pid: int,
+    top1_pid: int,
+    relation: str,
+    anchor_id: int | None,
+    ranked_ids: list[int],
+    reason: str,
+) -> str:
+    anchor_repr = f"proposal {anchor_id}" if anchor_id is not None else "(anchor=?)"
+    return (
+        f"TADG_STRICT: override rejected for relation {relation!r} against "
+        f"{anchor_repr}; proposal {top1_pid} is the relation-ranked target and "
+        f"proposal {submitted_pid} should not bypass that result. {reason}\n\n"
+        f"Revise to proposal {top1_pid} (or another id from ranked_ids={ranked_ids}) "
+        f"after inspecting the cited evidence; do not resubmit proposal "
+        f"{submitted_pid} with only a new override reason."
+    )
+
+
+def _ambiguous_anchor_gap(runtime: Any, compare: dict[str, Any]) -> str | None:
+    relation = compare["relation"]
+    if relation not in {"left_of", "right_of"}:
+        return None
+    anchor_id = compare.get("anchor_id")
+    if not isinstance(anchor_id, int):
+        return None
+    candidate_ids = set(compare.get("candidate_ids") or [])
+    if not candidate_ids:
+        return None
+
+    trace = list(getattr(runtime, "tool_trace", []) or [])
+    window = max(int(getattr(runtime, "tadg_window", 32)), 1)
+    trace = trace[-window:]
+
+    anchor_candidates: list[int] = []
+    for entry in reversed(trace):
+        if getattr(entry, "tool_name", None) != "find_proposals_by_category":
+            continue
+        response_text = getattr(entry, "response_text", "") or ""
+        try:
+            payload = json.loads(response_text)
+        except (json.JSONDecodeError, TypeError):
+            continue
+        proposal_ids = payload.get("proposal_ids") or []
+        if not isinstance(proposal_ids, list) or anchor_id not in proposal_ids:
+            continue
+        ids = [int(pid) for pid in proposal_ids if isinstance(pid, int)]
+        if len(ids) <= 1:
+            return None
+        if set(ids) == candidate_ids:
+            # This lookup is for the target category, not the anchor category.
+            continue
+        anchor_candidates = ids
+        break
+
+    if len(anchor_candidates) <= 1:
+        return None
+
+    tested_anchor_ids: set[int] = set()
+    for entry in trace:
+        if getattr(entry, "tool_name", None) != "compare_proposals_spatial":
+            continue
+        tool_input = getattr(entry, "tool_input", {}) or {}
+        if _norm(tool_input.get("relation", "")) != relation:
+            continue
+        if set(tool_input.get("candidate_ids") or []) != candidate_ids:
+            continue
+        tested_anchor = tool_input.get("anchor_id")
+        if isinstance(tested_anchor, int):
+            tested_anchor_ids.add(tested_anchor)
+
+    missing = [pid for pid in anchor_candidates if pid not in tested_anchor_ids]
+    if not missing:
+        return None
+    missing_text = ", ".join(f"proposal {pid}" for pid in missing[:5])
+    return (
+        f"TADG_ANCHOR_AMBIGUITY: ambiguous anchor category has untested "
+        f"candidate(s): {missing_text}. Compare the same target candidate set "
+        f"against each anchor candidate before submitting a {relation!r} answer."
+    )
+
+
+def _candidate_coverage_gap(
+    runtime: Any,
+    compare: dict[str, Any],
+    submitted_pid: int,
+) -> tuple[str, list[int]] | None:
+    """Return omitted same-category candidates for an incomplete compare.
+
+    The agent often narrows a category candidate list before calling
+    `compare_proposals_spatial`. That is valid after explicit visual elimination,
+    but it is unsafe for a final answer to override the resulting rank when the
+    trace still contains untested same-category proposals. This check is
+    trace-only: it reads the agent's own category lookups and compare arguments.
+    """
+    candidate_ids = {
+        int(pid) for pid in compare.get("candidate_ids", []) if isinstance(pid, int)
+    }
+    if not candidate_ids or submitted_pid not in candidate_ids:
+        return None
+
+    trace = list(getattr(runtime, "tool_trace", []) or [])
+    window = max(int(getattr(runtime, "tadg_window", 32)), 1)
+    for entry in reversed(trace[-window:]):
+        if getattr(entry, "tool_name", None) != "find_proposals_by_category":
+            continue
+        response_text = getattr(entry, "response_text", "") or ""
+        try:
+            payload = json.loads(response_text)
+        except (json.JSONDecodeError, TypeError):
+            continue
+        proposal_ids = payload.get("proposal_ids") or []
+        if not isinstance(proposal_ids, list) or submitted_pid not in proposal_ids:
+            continue
+        category_ids = [int(pid) for pid in proposal_ids if isinstance(pid, int)]
+        if len(category_ids) > 12:
+            return None
+        anchor_id = compare.get("anchor_id")
+        omitted = [
+            pid
+            for pid in category_ids
+            if pid not in candidate_ids and pid != anchor_id
+        ]
+        if not omitted:
+            return None
+        omitted_text = ", ".join(f"proposal {pid}" for pid in omitted[:8])
+        message = (
+            "TADG_CANDIDATE_COVERAGE: latest spatial comparison used an "
+            f"incomplete same-category candidate set; omitted {omitted_text}. "
+            "Re-run compare_proposals_spatial with the complete category "
+            "candidate set, or explicitly inspect and eliminate the omitted "
+            "same-category proposals before submitting."
+        )
+        return message, omitted
+    return None
+
+
+def _should_reject_override(
+    *,
+    runtime: Any,
+    compare: dict[str, Any],
+    relevant_relations: set[str],
+    submitted_pid: int,
+    top1_pid: int,
+    subcase: str,
+    ranked_ids: list[int],
+) -> str | None:
+    relation = compare["relation"]
+    if subcase == "anchor_self" and _is_same_category_anchor_self_query(
+        runtime, relevant_relations
+    ):
+        return (
+            "This is a same-category adjacency query; the submitted proposal is "
+            "the anchor-self rather than the relation-ranked target."
+        )
+
+    if subcase == "anchor_self":
+        return (
+            "The submitted proposal is the spatial anchor itself, not the "
+            "relation-ranked target candidate. This indicates a target/anchor "
+            "role error, not a visual override."
+        )
+
+    if relation in {"left_of", "right_of"} and subcase == "rank_mismatch":
+        supporting = compare.get("supporting_frame_counts") or []
+        contradicting = compare.get("contradicting_frame_counts") or []
+        top_support = _rank_value(supporting, ranked_ids, top1_pid)
+        submitted_support = _rank_value(supporting, ranked_ids, submitted_pid)
+        top_contradict = _rank_value(contradicting, ranked_ids, top1_pid)
+        if (
+            top_support >= 15
+            and submitted_support <= max(1, top_support // 3)
+            and top_contradict <= max(5, top_support // 4)
+        ):
+            return (
+                "The top-ranked proposal has strong 2D shared-frame support "
+                f"({top_support} supporting vs {top_contradict} contradicting "
+                f"frames), while the submitted proposal has only {submitted_support} "
+                "supporting "
+                "left/right frames for this anchor."
+            )
+
     return None
 
 
@@ -272,6 +593,44 @@ def evaluate_tadg(
     if not ranked_ids:
         return TADGDecision(blocked=False)
     top1_pid = ranked_ids[0]
+
+    ambiguous_anchor_message = _ambiguous_anchor_gap(runtime, compare)
+    if ambiguous_anchor_message:
+        runtime.tadg_triggered = True
+        return TADGDecision(
+            blocked=True,
+            message=ambiguous_anchor_message,
+            top1_pid=top1_pid,
+            submitted_pid=submitted_pid,
+            relation=compare["relation"],
+            anchor_id=(
+                compare.get("anchor_id")
+                if isinstance(compare.get("anchor_id"), int)
+                else None
+            ),
+            ranked_ids=tuple(ranked_ids),
+            subcase="ambiguous_anchor",
+        )
+
+    coverage_gap = _candidate_coverage_gap(runtime, compare, submitted_pid)
+    if coverage_gap:
+        message, _ = coverage_gap
+        runtime.tadg_triggered = True
+        return TADGDecision(
+            blocked=True,
+            message=message,
+            top1_pid=top1_pid,
+            submitted_pid=submitted_pid,
+            relation=compare["relation"],
+            anchor_id=(
+                compare.get("anchor_id")
+                if isinstance(compare.get("anchor_id"), int)
+                else None
+            ),
+            ranked_ids=tuple(ranked_ids),
+            subcase="candidate_coverage_gap",
+        )
+
     if submitted_pid == top1_pid:
         # Tool agrees with submission; no disagreement.
         return TADGDecision(blocked=False)
@@ -292,6 +651,35 @@ def evaluate_tadg(
     min_chars = max(int(getattr(runtime, "tadg_override_min_chars", 6)), 1)
     reason = (tool_override_reason or "").strip()
     if reason and len(reason) >= min_chars:
+        strict_reason = _should_reject_override(
+            runtime=runtime,
+            compare=compare,
+            relevant_relations=relevant_relations,
+            submitted_pid=submitted_pid,
+            top1_pid=top1_pid,
+            subcase=subcase,
+            ranked_ids=ranked_ids,
+        )
+        if strict_reason:
+            runtime.tadg_triggered = True
+            block_message = _strict_override_rejection_message(
+                submitted_pid=submitted_pid,
+                top1_pid=top1_pid,
+                relation=compare["relation"],
+                anchor_id=anchor_id if isinstance(anchor_id, int) else None,
+                ranked_ids=ranked_ids,
+                reason=strict_reason,
+            )
+            return TADGDecision(
+                blocked=True,
+                message=block_message,
+                top1_pid=top1_pid,
+                submitted_pid=submitted_pid,
+                relation=compare["relation"],
+                anchor_id=anchor_id if isinstance(anchor_id, int) else None,
+                ranked_ids=tuple(ranked_ids),
+                subcase=subcase,
+            )
         runtime.tadg_triggered = True
         runtime.tool_override_reason = reason
         message = (

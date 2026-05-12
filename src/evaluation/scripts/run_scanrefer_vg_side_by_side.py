@@ -4,12 +4,15 @@ from __future__ import annotations
 
 import argparse
 import concurrent.futures
+import gzip
 import hashlib
 import json
 import math
+import pickle
 import statistics
 import threading
 import time
+from collections import OrderedDict
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -26,9 +29,32 @@ build_pack_v1_bundle: Any | None = None
 # Per-scene KeyframeSelector cache for the Stage 2 → Stage 1 callback loop.
 # Each scene's selector loads pcd + enriched_objects + visibility (~1-3s) and
 # is reused across all workers/samples in the same scene.
-_SELECTOR_CACHE: dict[str, Any] = {}
+_MAX_SELECTOR_CACHE_SIZE = 4
+_SELECTOR_CACHE: OrderedDict[str, Any] = OrderedDict()
 _SELECTOR_CACHE_LOCK = threading.Lock()
 _SELECTOR_BUILD_LOCKS: dict[str, threading.Lock] = {}
+_MAX_CONCEPTGRAPH_OBJECT_CACHE_SIZE = 4
+_CONCEPTGRAPH_OBJECT_CACHE: OrderedDict[
+    tuple[str, str], list[dict[str, Any]]
+] = OrderedDict()
+_CONCEPTGRAPH_OBJECT_CACHE_LOCK = threading.Lock()
+
+
+def _remember_keyframe_selector(scene_id: str, selector: Any | None) -> None:
+    _SELECTOR_CACHE[scene_id] = selector
+    _SELECTOR_CACHE.move_to_end(scene_id)
+    while len(_SELECTOR_CACHE) > _MAX_SELECTOR_CACHE_SIZE:
+        _SELECTOR_CACHE.popitem(last=False)
+
+
+def _remember_conceptgraph_objects(
+    cache_key: tuple[str, str],
+    objects: list[dict[str, Any]],
+) -> None:
+    _CONCEPTGRAPH_OBJECT_CACHE[cache_key] = objects
+    _CONCEPTGRAPH_OBJECT_CACHE.move_to_end(cache_key)
+    while len(_CONCEPTGRAPH_OBJECT_CACHE) > _MAX_CONCEPTGRAPH_OBJECT_CACHE_SIZE:
+        _CONCEPTGRAPH_OBJECT_CACHE.popitem(last=False)
 
 
 def _get_or_build_keyframe_selector(
@@ -44,6 +70,7 @@ def _get_or_build_keyframe_selector(
     """
     with _SELECTOR_CACHE_LOCK:
         if scene_id in _SELECTOR_CACHE:
+            _SELECTOR_CACHE.move_to_end(scene_id)
             return _SELECTOR_CACHE[scene_id]
         build_lock = _SELECTOR_BUILD_LOCKS.setdefault(scene_id, threading.Lock())
 
@@ -51,13 +78,14 @@ def _get_or_build_keyframe_selector(
         # Re-check inside the per-scene lock in case another worker built it
         with _SELECTOR_CACHE_LOCK:
             if scene_id in _SELECTOR_CACHE:
+                _SELECTOR_CACHE.move_to_end(scene_id)
                 return _SELECTOR_CACHE[scene_id]
 
         cg_root = phase8_data_root / scene_id / "conceptgraph"
         enriched = cg_root / "enriched_objects.json"
         if not enriched.exists():
             with _SELECTOR_CACHE_LOCK:
-                _SELECTOR_CACHE[scene_id] = None
+                _remember_keyframe_selector(scene_id, None)
             return None
 
         from query_scene.keyframe_selector import KeyframeSelector
@@ -70,7 +98,7 @@ def _get_or_build_keyframe_selector(
             llm_model=llm_model,
         )
         with _SELECTOR_CACHE_LOCK:
-            _SELECTOR_CACHE[scene_id] = selector
+            _remember_keyframe_selector(scene_id, selector)
         return selector
 
 
@@ -186,9 +214,14 @@ def compare_backends(
     config: Stage2DeepAgentConfig | None = None,
     sample_retries: int = 0,
     workers: int = 1,
-) -> dict[str, Any]:
+    return_results: bool = True,
+    write_side_by_side: bool = True,
+    max_new_samples: int | None = None,
+) -> dict[str, Any] | None:
     if workers <= 0:
         raise ValueError("workers must be positive")
+    if max_new_samples is not None and max_new_samples < 0:
+        raise ValueError("max_new_samples must be non-negative")
     validate_unique_sample_ids(sample_ids)
     if sample_ids:
         preflight_pack_sample_exists(data_root, sample_ids[0], pack_name=pack_name)
@@ -199,14 +232,6 @@ def compare_backends(
         def run_sample(
             sample_id: str, backend: BackendName = backend
         ) -> dict[str, Any]:
-            cached = load_sample_result_checkpoint(
-                output_dir,
-                backend,
-                sample_id,
-                pack_name=pack_name,
-            )
-            if cached is not None:
-                return cached
             try:
                 result = run_one_sample(
                     sample_id,
@@ -241,24 +266,54 @@ def compare_backends(
             )
             return result
 
+        missing_sample_ids = [
+            sample_id
+            for sample_id in sample_ids
+            if not sample_result_path(
+                output_dir,
+                backend,
+                sample_id,
+                pack_name=pack_name,
+            ).exists()
+        ]
+        if max_new_samples is not None:
+            missing_sample_ids = missing_sample_ids[:max_new_samples]
         if workers == 1:
-            per_sample = [run_sample(sample_id) for sample_id in sample_ids]
+            for sample_id in missing_sample_ids:
+                run_sample(sample_id)
         else:
             with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as executor:
-                per_sample = list(executor.map(run_sample, sample_ids))
-        ious = [float(r["iou"]) for r in per_sample if r.get("iou") is not None]
-        results[backend] = {
-            "n": len(per_sample),
-            "mean_iou": statistics.mean(ious) if ious else 0.0,
-            "Acc@0.25": sum(1 for v in ious if v >= 0.25) / max(len(ious), 1),
-            "Acc@0.50": sum(1 for v in ious if v >= 0.50) / max(len(ious), 1),
-            "per_sample": per_sample,
-        }
-    (output_dir / "side_by_side.json").write_text(
-        json.dumps(results, ensure_ascii=False, indent=2),
-        encoding="utf-8",
-    )
-    return results
+                futures = [
+                    executor.submit(run_sample, sample_id)
+                    for sample_id in missing_sample_ids
+                ]
+                for future in concurrent.futures.as_completed(futures):
+                    future.result()
+
+        if not write_side_by_side:
+            continue
+        if return_results:
+            results[backend] = build_backend_payload_from_checkpoints(
+                sample_ids=sample_ids,
+                output_dir=output_dir,
+                backend=backend,
+                pack_name=pack_name,
+                include_per_sample=True,
+            )
+        else:
+            stream_side_by_side_from_checkpoints(
+                sample_ids=sample_ids,
+                output_dir=output_dir,
+                backend=backend,
+                pack_name=pack_name,
+            )
+    if return_results and write_side_by_side:
+        (output_dir / "side_by_side.json").write_text(
+            json.dumps(results, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+        return results
+    return None
 
 
 def run_pack_v1_sample(
@@ -270,7 +325,12 @@ def run_pack_v1_sample(
     phase8_data_root: Path = Path("data/nr3d/scannet"),
     enable_stage1_callback: bool = True,
 ) -> Any:
-    bundle = build_pack_v1_bundle_from_sample(sample, data_root, pack_name=pack_name)
+    bundle = build_pack_v1_bundle_from_sample(
+        sample,
+        data_root,
+        pack_name=pack_name,
+        phase8_data_root=phase8_data_root,
+    )
     task = Stage2TaskSpec(
         task_type=Stage2TaskType.VISUAL_GROUNDING,
         user_query=str(sample["query"]),
@@ -331,11 +391,160 @@ def run_pack_v1_sample(
     return agent.run(task=task, bundle=bundle)
 
 
+def _bbox_minmax_from_9dof(bbox: Sequence[Any]) -> tuple[list[float], list[float]]:
+    cx, cy, cz, dx, dy, dz = [float(x) for x in bbox[:6]]
+    mins = [cx - dx / 2.0, cy - dy / 2.0, cz - dz / 2.0]
+    maxs = [cx + dx / 2.0, cy + dy / 2.0, cz + dz / 2.0]
+    return mins, maxs
+
+
+def _bbox_minmax_from_points(points: Any) -> tuple[list[float], list[float]]:
+    rows = list(points)
+    if not rows:
+        raise ValueError("bbox_np must contain at least one point")
+    mins = [min(float(row[i]) for row in rows) for i in range(3)]
+    maxs = [max(float(row[i]) for row in rows) for i in range(3)]
+    return mins, maxs
+
+
+def _axis_aligned_iou_3d(
+    a_min: Sequence[float],
+    a_max: Sequence[float],
+    b_min: Sequence[float],
+    b_max: Sequence[float],
+) -> float:
+    inter = 1.0
+    vol_a = 1.0
+    vol_b = 1.0
+    for idx in range(3):
+        inter_len = max(0.0, min(a_max[idx], b_max[idx]) - max(a_min[idx], b_min[idx]))
+        inter *= inter_len
+        vol_a *= max(0.0, a_max[idx] - a_min[idx])
+        vol_b *= max(0.0, b_max[idx] - b_min[idx])
+    union = vol_a + vol_b - inter
+    return inter / union if union > 0 else 0.0
+
+
+def _load_conceptgraph_objects_for_frame_views(
+    scene_id: str,
+    phase8_data_root: Path,
+) -> list[dict[str, Any]]:
+    cache_key = (str(phase8_data_root), scene_id)
+    with _CONCEPTGRAPH_OBJECT_CACHE_LOCK:
+        cached = _CONCEPTGRAPH_OBJECT_CACHE.get(cache_key)
+        if cached is not None:
+            _CONCEPTGRAPH_OBJECT_CACHE.move_to_end(cache_key)
+            return cached
+
+    pcd_path = (
+        phase8_data_root
+        / scene_id
+        / "conceptgraph"
+        / "pcd_saves"
+        / "full_pcd_gt_axisaligned_post.pkl.gz"
+    )
+    if not pcd_path.exists():
+        objects: list[dict[str, Any]] = []
+    else:
+        with gzip.open(pcd_path, "rb") as fh:
+            raw = pickle.load(fh)
+        objects = []
+        for obj in raw.get("objects", []):
+            if not isinstance(obj, dict) or obj.get("bbox_np") is None:
+                continue
+            try:
+                bbox_min, bbox_max = _bbox_minmax_from_points(obj["bbox_np"])
+            except ValueError:
+                continue
+            frame_views: dict[int, dict[str, Any]] = {}
+            image_ids = list(obj.get("image_idx", []) or [])
+            xys = list(obj.get("xyxy", []) or [])
+            confs = list(obj.get("conf", []) or [])
+            for idx, frame_raw in enumerate(image_ids):
+                if idx >= len(xys):
+                    continue
+                frame_id = int(frame_raw)
+                xyxy = [int(round(float(v))) for v in list(xys[idx])[:4]]
+                if len(xyxy) != 4:
+                    continue
+                frame_views[frame_id] = {
+                    "frame_id": frame_id,
+                    "bbox_2d": xyxy,
+                    "raw_rgb_path": str(
+                        phase8_data_root
+                        / scene_id
+                        / "raw"
+                        / f"{frame_id * 10:06d}-rgb.png"
+                    ),
+                    "visibility_weight": (
+                        float(confs[idx]) if idx < len(confs) else 1.0
+                    ),
+                }
+            if frame_views:
+                objects.append(
+                    {
+                        "bbox_min": bbox_min,
+                        "bbox_max": bbox_max,
+                        "frame_views": frame_views,
+                    }
+                )
+
+    with _CONCEPTGRAPH_OBJECT_CACHE_LOCK:
+        _remember_conceptgraph_objects(cache_key, objects)
+    return objects
+
+
+def _attach_conceptgraph_frame_views_to_pool(
+    pool: dict[str, Any],
+    *,
+    scene_id: str,
+    phase8_data_root: Path,
+    min_iou: float = 0.25,
+) -> None:
+    """Attach ConceptGraph 2D frame boxes to matched VG proposals.
+
+    This uses only prepared scene objects, not ScanRefer GT annotations.
+    """
+    objects = _load_conceptgraph_objects_for_frame_views(scene_id, phase8_data_root)
+    if not objects:
+        return
+    for proposal in pool.get("proposals", []) or []:
+        if not isinstance(proposal, dict) or proposal.get("frame_views"):
+            continue
+        bbox = proposal.get("bbox_3d_9dof")
+        if not isinstance(bbox, list) or len(bbox) < 6:
+            continue
+        prop_min, prop_max = _bbox_minmax_from_9dof(bbox)
+        best_obj: dict[str, Any] | None = None
+        best_iou = 0.0
+        for obj in objects:
+            iou = _axis_aligned_iou_3d(
+                prop_min,
+                prop_max,
+                obj["bbox_min"],
+                obj["bbox_max"],
+            )
+            if iou > best_iou:
+                best_iou = iou
+                best_obj = obj
+        if best_obj is None or best_iou < min_iou:
+            continue
+        proposal_id = int(proposal["id"])
+        proposal["frame_views"] = {
+            str(frame_id): {
+                **view,
+                "proposal_id": proposal_id,
+            }
+            for frame_id, view in best_obj["frame_views"].items()
+        }
+
+
 def build_pack_v1_bundle_from_sample(
     sample: dict[str, Any],
     data_root: Path,
     *,
     pack_name: str = "pack_scanrefer_v1",
+    phase8_data_root: Path = Path("data/nr3d/scannet"),
 ):
     source = sample.get("source")
     if not isinstance(source, str) or not source:
@@ -366,7 +575,7 @@ def build_pack_v1_bundle_from_sample(
             build_pack_v1_bundle as bundle_builder,
         )
 
-    return bundle_builder(
+    bundle = bundle_builder(
         proposals_jsonl=scene_dir / "proposals.jsonl",
         source=source,
         annotated_image_dir=scene_dir / "annotated",
@@ -375,6 +584,14 @@ def build_pack_v1_bundle_from_sample(
         scene_id=str(sample["scene_id"]),
         query=sample.get("query"),
     )
+    pool = (bundle.extra_metadata or {}).get("vg_proposal_pool")
+    if isinstance(pool, dict):
+        _attach_conceptgraph_frame_views_to_pool(
+            pool,
+            scene_id=str(sample["scene_id"]),
+            phase8_data_root=phase8_data_root,
+        )
+    return bundle
 
 
 def resolve_scene_artifacts_dir(
@@ -523,6 +740,103 @@ def write_sample_result_checkpoint(
     )
     tmp_path.replace(path)
     return path
+
+
+def load_required_sample_result_checkpoint(
+    output_dir: Path,
+    backend: BackendName,
+    sample_id: str,
+    *,
+    pack_name: str = "pack_scanrefer_v1",
+) -> dict[str, Any]:
+    payload = load_sample_result_checkpoint(
+        output_dir,
+        backend,
+        sample_id,
+        pack_name=pack_name,
+    )
+    if payload is None:
+        path = sample_result_path(
+            output_dir,
+            backend,
+            sample_id,
+            pack_name=pack_name,
+        )
+        raise FileNotFoundError(f"Missing per-sample checkpoint: {path}")
+    return payload
+
+
+def build_backend_payload_from_checkpoints(
+    *,
+    sample_ids: Sequence[str],
+    output_dir: Path,
+    backend: BackendName,
+    pack_name: str = "pack_scanrefer_v1",
+    include_per_sample: bool = True,
+) -> dict[str, Any]:
+    per_sample: list[dict[str, Any]] = []
+    ious: list[float] = []
+    for sample_id in sample_ids:
+        record = load_required_sample_result_checkpoint(
+            output_dir,
+            backend,
+            sample_id,
+            pack_name=pack_name,
+        )
+        if record.get("iou") is not None:
+            ious.append(float(record["iou"]))
+        if include_per_sample:
+            per_sample.append(record)
+    payload: dict[str, Any] = {
+        "n": len(sample_ids),
+        "mean_iou": statistics.mean(ious) if ious else 0.0,
+        "Acc@0.25": sum(1 for v in ious if v >= 0.25) / max(len(ious), 1),
+        "Acc@0.50": sum(1 for v in ious if v >= 0.50) / max(len(ious), 1),
+    }
+    if include_per_sample:
+        payload["per_sample"] = per_sample
+    return payload
+
+
+def stream_side_by_side_from_checkpoints(
+    *,
+    sample_ids: Sequence[str],
+    output_dir: Path,
+    backend: BackendName,
+    pack_name: str = "pack_scanrefer_v1",
+) -> Path:
+    payload = build_backend_payload_from_checkpoints(
+        sample_ids=sample_ids,
+        output_dir=output_dir,
+        backend=backend,
+        pack_name=pack_name,
+        include_per_sample=False,
+    )
+    output_path = output_dir / "side_by_side.json"
+    tmp_path = output_path.with_name(f"{output_path.name}.tmp")
+    with tmp_path.open("w", encoding="utf-8") as fh:
+        fh.write("{")
+        fh.write(json.dumps(backend, ensure_ascii=False))
+        fh.write(":{")
+        for key in ("n", "mean_iou", "Acc@0.25", "Acc@0.50"):
+            fh.write(json.dumps(key, ensure_ascii=False))
+            fh.write(":")
+            fh.write(json.dumps(payload[key], ensure_ascii=False))
+            fh.write(",")
+        fh.write('"per_sample":[')
+        for index, sample_id in enumerate(sample_ids):
+            if index:
+                fh.write(",")
+            record = load_required_sample_result_checkpoint(
+                output_dir,
+                backend,
+                sample_id,
+                pack_name=pack_name,
+            )
+            json.dump(record, fh, ensure_ascii=False)
+        fh.write("]}}")
+    tmp_path.replace(output_path)
+    return output_path
 
 
 def parse_scanrefer_sample_id(sample_id: str) -> ParsedScanRefSampleId:
@@ -699,6 +1013,7 @@ def is_retryable_sample_error(exc: Exception) -> bool:
             "429",
             "500",
             "503",
+            "504",
             "timeout",
             "timed out",
             "connection reset",
@@ -706,6 +1021,9 @@ def is_retryable_sample_error(exc: Exception) -> bool:
             "service hit an internal error",
             "-4399",
             "-4201",
+            "-4307",
+            "-4321",
+            "invalid_prompt",
         )
     )
 
@@ -756,6 +1074,24 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--sample-retries", type=int, default=2)
     parser.add_argument("--workers", type=int, default=1)
     parser.add_argument(
+        "--checkpoint-only",
+        action="store_true",
+        default=False,
+        help=(
+            "Only fill per-sample checkpoints; skip side_by_side.json assembly. "
+            "Use with --max-new-samples for bounded-memory batch resumes."
+        ),
+    )
+    parser.add_argument(
+        "--max-new-samples",
+        type=int,
+        default=None,
+        help=(
+            "Process at most this many missing per-sample checkpoints in this "
+            "process. Existing checkpoints are skipped without loading."
+        ),
+    )
+    parser.add_argument(
         "--use-clip-visible-aug",
         action="store_true",
         default=False,
@@ -774,6 +1110,25 @@ def parse_args() -> argparse.Namespace:
             "compare_proposals_spatial rank-1. Default off."
         ),
     )
+    parser.add_argument(
+        "--use-no-match-candidate-guard",
+        action="store_true",
+        default=False,
+        help=(
+            "Enable v3.7 no-match guard: soft-block submit_final(-1) when "
+            "the agent's own tool trace still contains unresolved candidates."
+        ),
+    )
+    parser.add_argument(
+        "--use-evidence-frame-guard",
+        action="store_true",
+        default=False,
+        help=(
+            "Enable v3.7 evidence-frame guard: soft-block submit_final when "
+            "the final rationale cites a marked frame that does not contain "
+            "the submitted proposal id."
+        ),
+    )
     return parser.parse_args()
 
 
@@ -783,6 +1138,8 @@ def main() -> None:
     config = Stage2DeepAgentConfig(
         use_clip_visible_aug=args.use_clip_visible_aug,
         use_tool_answer_disagreement_gate=args.use_tool_answer_disagreement_gate,
+        use_no_match_candidate_guard=args.use_no_match_candidate_guard,
+        use_evidence_frame_guard=args.use_evidence_frame_guard,
     )
     compare_backends(
         sample_ids=sample_ids,
@@ -792,6 +1149,9 @@ def main() -> None:
         config=config,
         sample_retries=args.sample_retries,
         workers=args.workers,
+        return_results=False,
+        write_side_by_side=not args.checkpoint_only,
+        max_new_samples=args.max_new_samples,
     )
 
 

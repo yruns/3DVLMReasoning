@@ -1,4 +1,5 @@
 """VG pack registration smoke test."""
+
 from __future__ import annotations
 
 import importlib
@@ -27,3 +28,26 @@ def test_vg_pack_registers_on_import() -> None:
     ]
     assert pack.required_primary_skill == "vg-grounding-playbook"
     assert pack.required_extra_metadata == ["vg_proposal_pool"]
+
+
+def test_spatial_skill_documents_reversed_pronoun_relations() -> None:
+    PACKS.clear()
+    importlib.reload(agents.packs.vg_embodiedscan)
+    pack = PACKS[Stage2TaskType.VISUAL_GROUNDING]
+    spatial = next(s for s in pack.skills if s.name == "vg-spatial-disambiguation")
+    body = spatial.body_path.read_text(encoding="utf-8")
+
+    assert "Y is to the left of it" in body
+    assert 'relation="right_of"' in body
+
+
+def test_spatial_skill_documents_ambiguous_anchor_and_same_category_rules() -> None:
+    PACKS.clear()
+    importlib.reload(agents.packs.vg_embodiedscan)
+    pack = PACKS[Stage2TaskType.VISUAL_GROUNDING]
+    spatial = next(s for s in pack.skills if s.name == "vg-spatial-disambiguation")
+    body = spatial.body_path.read_text(encoding="utf-8")
+
+    assert "Do not override a stronger relation result solely because" in body
+    assert "Same-category adjacency" in body
+    assert "anchor-self" in body

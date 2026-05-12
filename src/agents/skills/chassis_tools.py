@@ -3,6 +3,7 @@
 These are always-on tools registered when the active task has a TaskPack
 or when Stage2DeepAgentConfig.enable_chassis_tools=True.
 """
+
 from __future__ import annotations
 
 import json
@@ -11,6 +12,14 @@ from typing import Any
 from langchain_core.tools import BaseTool, tool
 from pydantic import ValidationError
 
+from agents.skills.evidence_frame_guard import (
+    evaluate_evidence_frame_guard,
+    evidence_frame_guard_record_fields,
+)
+from agents.skills.no_match_guard import (
+    evaluate_no_match_guard,
+    no_match_guard_record_fields,
+)
 from agents.skills.registry import PACKS, skills_for
 from agents.skills.tadg import evaluate_tadg, tadg_record_fields
 
@@ -75,6 +84,25 @@ def build_chassis_tools(runtime: Any) -> tuple[BaseTool, BaseTool, BaseTool]:
         characters after strip) to record an explicit divergence and
         proceed.
         """
+        if runtime.final_submission is not None:
+            msg = (
+                "ALREADY_SUBMITTED: submit_final already accepted a terminal "
+                "answer for this turn; ignoring this later submission until "
+                "the run loop consumes or clears the terminal signal."
+            )
+            runtime.record(
+                "submit_final",
+                {
+                    "payload": payload,
+                    "rationale": rationale,
+                    "evidence_refs": evidence_refs or [],
+                    "tool_override_reason": tool_override_reason,
+                    "ignored_existing_final_submission": runtime.final_submission,
+                },
+                msg,
+            )
+            return msg
+
         # TADG (Tool-Answer Disagreement Gate) — runs BEFORE chassis
         # validator so a blocked submission never produces a final
         # adapted result. Spec: tmp/tadg_spec.md, src/agents/skills/tadg.py.
@@ -91,7 +119,16 @@ def build_chassis_tools(runtime: Any) -> tuple[BaseTool, BaseTool, BaseTool]:
             if isinstance(inner, dict) and "proposal_id" in inner:
                 gate_payload = inner
         decision = evaluate_tadg(
-            runtime, gate_payload, tool_override_reason=tool_override_reason,
+            runtime,
+            gate_payload,
+            tool_override_reason=tool_override_reason,
+        )
+        no_match_decision = evaluate_no_match_guard(runtime, gate_payload)
+        evidence_frame_decision = evaluate_evidence_frame_guard(
+            runtime,
+            gate_payload,
+            rationale=rationale,
+            evidence_refs=evidence_refs or [],
         )
         if decision.blocked:
             runtime.record(
@@ -102,10 +139,42 @@ def build_chassis_tools(runtime: Any) -> tuple[BaseTool, BaseTool, BaseTool]:
                     "evidence_refs": evidence_refs or [],
                     "tool_override_reason": tool_override_reason,
                     **tadg_record_fields(decision),
+                    **no_match_guard_record_fields(no_match_decision),
+                    **evidence_frame_guard_record_fields(evidence_frame_decision),
                 },
                 f"TADG_BLOCK: {decision.message}",
             )
             return f"TADG_BLOCK: {decision.message}"
+        if no_match_decision.blocked:
+            runtime.record(
+                "submit_final",
+                {
+                    "payload": payload,
+                    "rationale": rationale,
+                    "evidence_refs": evidence_refs or [],
+                    "tool_override_reason": tool_override_reason,
+                    **tadg_record_fields(decision),
+                    **no_match_guard_record_fields(no_match_decision),
+                    **evidence_frame_guard_record_fields(evidence_frame_decision),
+                },
+                no_match_decision.message,
+            )
+            return no_match_decision.message
+        if evidence_frame_decision.blocked:
+            runtime.record(
+                "submit_final",
+                {
+                    "payload": payload,
+                    "rationale": rationale,
+                    "evidence_refs": evidence_refs or [],
+                    "tool_override_reason": tool_override_reason,
+                    **tadg_record_fields(decision),
+                    **no_match_guard_record_fields(no_match_decision),
+                    **evidence_frame_guard_record_fields(evidence_frame_decision),
+                },
+                evidence_frame_decision.message,
+            )
+            return evidence_frame_decision.message
 
         pack = PACKS.get(runtime.task_type)
         if pack is None:
@@ -120,7 +189,9 @@ def build_chassis_tools(runtime: Any) -> tuple[BaseTool, BaseTool, BaseTool]:
         payload_model = pack.finalizer.payload_model
         if hasattr(payload_model, "model_validate"):
             candidates = [payload]
-            nested_payload = payload.get("payload") if isinstance(payload, dict) else None
+            nested_payload = (
+                payload.get("payload") if isinstance(payload, dict) else None
+            )
             if isinstance(nested_payload, dict):
                 candidates.append(nested_payload)
             last_exc: ValueError | TypeError | None = None
@@ -148,8 +219,12 @@ def build_chassis_tools(runtime: Any) -> tuple[BaseTool, BaseTool, BaseTool]:
         # Stash the resolved payload onto the runtime so build_agent's
         # downstream normalization can pick it up.
         runtime.bundle = runtime.bundle.model_copy(
-            update={"extra_metadata": {**(runtime.bundle.extra_metadata or {}),
-                                       "stage2_submission": adapted}}
+            update={
+                "extra_metadata": {
+                    **(runtime.bundle.extra_metadata or {}),
+                    "stage2_submission": adapted,
+                }
+            }
         )
         # Terminal signal: the run loop polls this and exits as soon
         # as it's set, so submit_final actually ends the agent run.
@@ -167,6 +242,8 @@ def build_chassis_tools(runtime: Any) -> tuple[BaseTool, BaseTool, BaseTool]:
             "rationale": rationale,
             "evidence_refs": evidence_refs or [],
             **tadg_record_fields(decision),
+            **no_match_guard_record_fields(no_match_decision),
+            **evidence_frame_guard_record_fields(evidence_frame_decision),
         }
         if tool_override_reason:
             record_payload["tool_override_reason"] = tool_override_reason
