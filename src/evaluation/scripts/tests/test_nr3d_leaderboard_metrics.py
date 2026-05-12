@@ -15,6 +15,8 @@ from evaluation.scripts.nr3d_leaderboard_metrics import (
     aggregate,
     is_easy,
     is_view_dep,
+    load_requested_sample_ids,
+    restrict_to_sample_ids,
 )
 
 
@@ -193,3 +195,88 @@ def test_aggregate_invariants():
     m = aggregate(predictions, meta, filt)
     assert m["n_easy"] + m["n_hard"] == m["n_filtered"] == 2
     assert m["n_view_dep"] + m["n_view_indep"] == m["n_filtered"] == 2
+
+
+def test_aggregate_with_subset_scores_only_requested_sample_ids():
+    predictions = {"a": 0, "b": 99, "c": 2}
+    meta = [
+        _meta("a", 0, 2, ["table"]),
+        _meta("b", 1, 2, ["chair"]),
+        _meta("c", 2, 2, ["lamp"]),
+    ]
+    subset_predictions, subset_meta, subset_filtered = restrict_to_sample_ids(
+        predictions,
+        meta,
+        filtered_sample_ids={"a", "b", "c"},
+        requested_sample_ids={"a", "c"},
+    )
+    m = aggregate(subset_predictions, subset_meta, subset_filtered)
+
+    assert m["n_full"] == 2
+    assert m["n_filtered"] == 2
+    assert m["classification_acc_filtered"] == 1.0
+    assert {row["sample_id"] for row in m["per_sample"]} == {"a", "c"}
+
+
+def test_restrict_to_sample_ids_preserves_sample_meta_order():
+    predictions = {"a": 0, "b": 1, "c": 2}
+    meta = [
+        _meta("c", 2, 2, ["lamp"]),
+        _meta("a", 0, 2, ["table"]),
+        _meta("b", 1, 2, ["chair"]),
+    ]
+
+    _, subset_meta, _ = restrict_to_sample_ids(
+        predictions,
+        meta,
+        filtered_sample_ids={"a", "b", "c"},
+        requested_sample_ids={"a", "c"},
+    )
+
+    assert [row["sample_id"] for row in subset_meta] == ["c", "a"]
+
+
+def test_restrict_to_sample_ids_requires_prediction_for_requested_id():
+    with pytest.raises(ValueError, match="missing requested sample_ids"):
+        restrict_to_sample_ids(
+            predictions={"a": 0},
+            sample_meta=[_meta("a", 0, 2, ["x"])],
+            filtered_sample_ids={"a"},
+            requested_sample_ids={"a", "b"},
+        )
+
+
+def test_restrict_to_sample_ids_requires_metadata_for_requested_id():
+    with pytest.raises(ValueError, match="missing requested sample_ids"):
+        restrict_to_sample_ids(
+            predictions={"a": 0, "b": 1},
+            sample_meta=[_meta("a", 0, 2, ["x"])],
+            filtered_sample_ids={"a"},
+            requested_sample_ids={"a", "b"},
+        )
+
+
+def test_load_requested_sample_ids_accepts_string_list(tmp_path):
+    path = tmp_path / "sample_ids.json"
+    path.write_text('["a", "b"]', encoding="utf-8")
+
+    assert load_requested_sample_ids(path) == {"a", "b"}
+
+
+def test_load_requested_sample_ids_accepts_object_list(tmp_path):
+    path = tmp_path / "sample_ids.json"
+    path.write_text(
+        '[{"sample_id": "a"}, {"sample_id": "b", "extra": true}]',
+        encoding="utf-8",
+    )
+
+    assert load_requested_sample_ids(path) == {"a", "b"}
+
+
+@pytest.mark.parametrize("raw", ['{"sample_id": "a"}', "[]", '[""]', "[{}]", "[1]"])
+def test_load_requested_sample_ids_rejects_invalid_json_shapes(tmp_path, raw):
+    path = tmp_path / "sample_ids.json"
+    path.write_text(raw, encoding="utf-8")
+
+    with pytest.raises(ValueError):
+        load_requested_sample_ids(path)

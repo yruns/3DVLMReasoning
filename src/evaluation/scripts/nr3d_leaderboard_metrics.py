@@ -157,12 +157,67 @@ def aggregate(
     return metrics
 
 
+def load_requested_sample_ids(path: Path) -> set[str]:
+    raw = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(raw, list):
+        raise ValueError(f"sample ids JSON must be a list: {path}")
+
+    out: set[str] = set()
+    for index, item in enumerate(raw):
+        if isinstance(item, str):
+            sample_id = item
+        elif isinstance(item, dict):
+            sample_id = item.get("sample_id")
+        else:
+            raise ValueError(f"sample_ids[{index}] must be string or object")
+        if not isinstance(sample_id, str) or not sample_id:
+            raise ValueError(f"sample_ids[{index}] missing non-empty sample_id")
+        out.add(sample_id)
+
+    if not out:
+        raise ValueError(f"sample ids JSON is empty: {path}")
+    return out
+
+
+def restrict_to_sample_ids(
+    predictions: dict[str, int | None],
+    sample_meta: list[dict[str, Any]],
+    filtered_sample_ids: set[str],
+    requested_sample_ids: set[str],
+) -> tuple[dict[str, int | None], list[dict[str, Any]], set[str]]:
+    missing_predictions = requested_sample_ids - set(predictions)
+    if missing_predictions:
+        raise ValueError(
+            "missing requested sample_ids in predictions: "
+            f"{sorted(missing_predictions)[:5]}"
+        )
+
+    meta_ids = {str(row["sample_id"]) for row in sample_meta}
+    missing_meta = requested_sample_ids - meta_ids
+    if missing_meta:
+        raise ValueError(
+            "missing requested sample_ids in NR3D metadata: "
+            f"{sorted(missing_meta)[:5]}"
+        )
+
+    subset_predictions = {
+        sample_id: predictions[sample_id]
+        for sample_id in sorted(requested_sample_ids)
+    }
+    subset_meta = [
+        row for row in sample_meta if str(row["sample_id"]) in requested_sample_ids
+    ]
+    subset_filtered = filtered_sample_ids & requested_sample_ids
+    return subset_predictions, subset_meta, subset_filtered
+
+
 def compute_leaderboard_metrics(
     side_by_side_path: Path,
     nr3d_data_root: Path,
     phase8_data_root: Path,
     canonical_filter: bool = True,
     backend: str = "pack_v1",
+    sample_ids_path: Path | None = None,
 ) -> dict[str, Any]:
     """IO wrapper: load side_by_side.json + NR3D dataset, call ``aggregate``."""
     payload = json.loads(side_by_side_path.read_text(encoding="utf-8"))
@@ -204,6 +259,14 @@ def compute_leaderboard_metrics(
     else:
         filtered_sample_ids = {s["sample_id"] for s in sample_meta}
 
+    if sample_ids_path is not None:
+        predictions, sample_meta, filtered_sample_ids = restrict_to_sample_ids(
+            predictions,
+            sample_meta,
+            filtered_sample_ids,
+            load_requested_sample_ids(sample_ids_path),
+        )
+
     return aggregate(predictions, sample_meta, filtered_sample_ids)
 
 
@@ -214,6 +277,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--phase8-data-root", required=True, type=Path)
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--backend", default="pack_v1")
+    parser.add_argument("--sample-ids", type=Path, default=None)
     parser.add_argument(
         "--canonical-filter",
         type=lambda v: v.lower() in ("true", "1", "yes"),
@@ -231,6 +295,7 @@ def main() -> None:
         phase8_data_root=args.phase8_data_root,
         canonical_filter=args.canonical_filter,
         backend=args.backend,
+        sample_ids_path=args.sample_ids,
     )
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(
