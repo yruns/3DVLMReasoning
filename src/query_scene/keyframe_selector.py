@@ -24,6 +24,7 @@ Usage:
 from __future__ import annotations
 
 import gzip
+import importlib.util
 import json
 import pickle
 import threading
@@ -36,15 +37,15 @@ from typing import Any
 import numpy as np
 from loguru import logger
 
-# Optional imports
-try:
-    import open_clip
-    import torch
-
-    HAS_CLIP = True
-except Exception as e:
-    HAS_CLIP = False
-    logger.warning(f"open_clip not available, CLIP features will not work: {e}")
+# CLIP dependencies are intentionally lazy-loaded. Importing torch/open_clip at
+# module load time costs hundreds of MB per benchmark worker even when the
+# string/category path succeeds and CLIP fallback is never used.
+open_clip = None
+torch = None
+HAS_CLIP = (
+    importlib.util.find_spec("open_clip") is not None
+    and importlib.util.find_spec("torch") is not None
+)
 
 # Import nested query modules
 from .core import (
@@ -293,6 +294,7 @@ class KeyframeSelector:
         # CLIP model (lazy loaded)
         self._clip_model = None
         self._clip_tokenizer = None
+        self._torch = None
         self._clip_model_lock = threading.Lock()
 
         # Query parsing components (lazy loaded)
@@ -1095,12 +1097,24 @@ class KeyframeSelector:
                 return
 
             logger.info("Loading CLIP model...")
+            global open_clip, torch
+            if open_clip is None or torch is None:
+                try:
+                    import open_clip as open_clip_module
+                    import torch as torch_module
+                except ImportError as exc:
+                    raise RuntimeError(
+                        "open_clip and torch are required for CLIP fallback"
+                    ) from exc
+                open_clip = open_clip_module
+                torch = torch_module
 
             model, _, _ = open_clip.create_model_and_transforms(
                 "ViT-H-14", "laion2b_s32b_b79k"
             )
             self._clip_model = model.eval()
             self._clip_tokenizer = open_clip.get_tokenizer("ViT-H-14")
+            self._torch = torch
 
             if torch.cuda.is_available():
                 self._clip_model = self._clip_model.cuda()
@@ -1119,10 +1133,13 @@ class KeyframeSelector:
             return None
 
         tokens = self._clip_tokenizer([text])
-        if torch.cuda.is_available():
+        torch_module = self._torch or torch
+        if torch_module is None:
+            raise RuntimeError("CLIP model loaded without torch module")
+        if torch_module.cuda.is_available():
             tokens = tokens.cuda()
 
-        with torch.no_grad():
+        with torch_module.no_grad():
             feat = self._clip_model.encode_text(tokens)
             feat = feat / feat.norm(dim=-1, keepdim=True)
             return feat.cpu().numpy().flatten()
