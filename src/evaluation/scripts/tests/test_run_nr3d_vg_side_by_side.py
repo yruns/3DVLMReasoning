@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import sys
 from types import SimpleNamespace
 
 import pytest
@@ -153,6 +154,70 @@ def test_run_one_sample_scores_agent_bbox(monkeypatch, tmp_path) -> None:
     assert out["selected_object_id"] == 72
 
 
+def test_run_one_sample_preserves_tool_trace(monkeypatch, tmp_path) -> None:
+    from evaluation.scripts import run_nr3d_vg_side_by_side as runner
+
+    data_root = _write_nr3d_pack_inputs(tmp_path)
+
+    class FakeToolTrace:
+        def model_dump(self):
+            return {
+                "tool_name": "view_keyframe_marked",
+                "tool_input": {"frame_id": 10},
+                "response_text": "saw chair",
+            }
+
+    class FakeAgent:
+        def __init__(self, config):
+            pass
+
+        def run(self, task, bundle):
+            return SimpleNamespace(
+                result=SimpleNamespace(
+                    payload={
+                        "status": "completed",
+                        "selected_object_id": 72,
+                        "bbox_3d": [0, 0, 0, 1, 1, 1, 0, 0, 0],
+                    },
+                    confidence=0.8,
+                ),
+                tool_trace=[
+                    FakeToolTrace(),
+                    {
+                        "tool_name": "submit_final",
+                        "tool_input": {"selected_object_id": 72},
+                        "response_text": "accepted",
+                    },
+                ],
+            )
+
+    monkeypatch.setattr(runner, "Stage2DeepResearchAgent", FakeAgent)
+    monkeypatch.setattr(
+        runner,
+        "build_pack_v1_bundle",
+        lambda **kwargs: SimpleNamespace(scene_id=kwargs["scene_id"]),
+    )
+
+    out = runner.run_one_sample(
+        "scannet/scene0001_00::72::A1",
+        "pack_v1",
+        data_root=data_root,
+    )
+
+    assert out["tool_trace"] == [
+        {
+            "tool_name": "view_keyframe_marked",
+            "tool_input": {"frame_id": 10},
+            "response_text": "saw chair",
+        },
+        {
+            "tool_name": "submit_final",
+            "tool_input": {"selected_object_id": 72},
+            "response_text": "accepted",
+        },
+    ]
+
+
 def test_compare_backends_writes_side_by_side_and_checkpoints(
     monkeypatch, tmp_path
 ) -> None:
@@ -191,6 +256,45 @@ def test_compare_backends_writes_side_by_side_and_checkpoints(
     )
 
 
+def test_compare_backends_checkpoint_only_respects_max_new_samples(
+    monkeypatch, tmp_path
+) -> None:
+    from evaluation.scripts import run_nr3d_vg_side_by_side as runner
+
+    sample_ids = [
+        "scannet/scene0001_00::72::A1",
+        "scannet/scene0001_00::73::A2",
+        "scannet/scene0001_00::74::A3",
+    ]
+    calls = []
+
+    def fake_run_one(sample_id, backend, **_kwargs):
+        calls.append(sample_id)
+        return {
+            "sample_id": sample_id,
+            "backend": backend,
+            "status": "completed",
+            "iou": 1.0,
+        }
+
+    monkeypatch.setattr(runner, "run_one_sample", fake_run_one)
+    monkeypatch.setattr(runner, "preflight_pack_sample_exists", lambda *a, **kw: None)
+
+    result = runner.compare_backends(
+        sample_ids=sample_ids,
+        output_dir=tmp_path / "out",
+        data_root=tmp_path,
+        workers=1,
+        return_results=False,
+        write_side_by_side=False,
+        max_new_samples=1,
+    )
+
+    assert result is None
+    assert calls == [sample_ids[0]]
+    assert not (tmp_path / "out" / "side_by_side.json").exists()
+
+
 def test_compare_backends_persists_failed_sentinel_on_sample_exception(
     monkeypatch, tmp_path
 ) -> None:
@@ -225,6 +329,49 @@ def test_compare_backends_persists_failed_sentinel_on_sample_exception(
     # do not re-attempt the rotten sample.
     ckpts = list((tmp_path / "out" / "per_sample" / "pack_nr3d_v1").glob("*.json"))
     assert len(ckpts) == 1
+
+
+def test_main_wires_all_guard_flags(tmp_path, monkeypatch) -> None:
+    from evaluation.scripts import run_nr3d_vg_side_by_side as runner
+
+    sample_ids = tmp_path / "samples.json"
+    sample_ids.write_text("[]", encoding="utf-8")
+    captured = {}
+
+    def fake_compare_backends(**kwargs):
+        captured.update(kwargs)
+        return None
+
+    monkeypatch.setattr(runner, "compare_backends", fake_compare_backends)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "run_nr3d_vg_side_by_side",
+            "--sample-ids",
+            str(sample_ids),
+            "--output-dir",
+            str(tmp_path / "out"),
+            "--data-root",
+            str(tmp_path),
+            "--checkpoint-only",
+            "--max-new-samples",
+            "3",
+            "--use-tool-answer-disagreement-gate",
+            "--use-no-match-candidate-guard",
+            "--use-evidence-frame-guard",
+        ],
+    )
+
+    runner.main()
+
+    config = captured["config"]
+    assert config.use_tool_answer_disagreement_gate is True
+    assert config.use_no_match_candidate_guard is True
+    assert config.use_evidence_frame_guard is True
+    assert captured["return_results"] is False
+    assert captured["write_side_by_side"] is False
+    assert captured["max_new_samples"] == 3
 
 
 def test_load_sample_ids_accepts_strings_or_dicts(tmp_path) -> None:

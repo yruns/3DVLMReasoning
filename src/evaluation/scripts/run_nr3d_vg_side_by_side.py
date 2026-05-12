@@ -80,6 +80,7 @@ def _run_one_sample_once(
     cfg = config_for_backend(backend, config)
     raw_result = run_pack_v1_sample(sample, data_root, cfg, pack_name=pack_name)
     prediction = extract_pack_v1_prediction(raw_result)
+    tool_trace = extract_result_tool_trace(raw_result)
 
     status = prediction.get("status")
     if status is None:
@@ -99,6 +100,7 @@ def _run_one_sample_once(
             "selected_object_id": selected_id,
             "confidence": prediction.get("confidence"),
             "query": sample.get("query"),
+            "tool_trace": tool_trace,
         }
     if pred_bbox_raw is None:
         raise ValueError(
@@ -120,6 +122,7 @@ def _run_one_sample_once(
         "selected_object_id": selected_id,
         "confidence": prediction.get("confidence"),
         "query": sample.get("query"),
+        "tool_trace": tool_trace,
     }
 
 
@@ -132,9 +135,14 @@ def compare_backends(
     config: Stage2DeepAgentConfig | None = None,
     sample_retries: int = 0,
     workers: int = 1,
-) -> dict[str, Any]:
+    return_results: bool = True,
+    write_side_by_side: bool = True,
+    max_new_samples: int | None = None,
+) -> dict[str, Any] | None:
     if workers <= 0:
         raise ValueError("workers must be positive")
+    if max_new_samples is not None and max_new_samples < 0:
+        raise ValueError("max_new_samples must be non-negative")
     validate_unique_sample_ids(sample_ids)
     if sample_ids:
         preflight_pack_sample_exists(data_root, sample_ids[0], pack_name=pack_name)
@@ -145,14 +153,6 @@ def compare_backends(
         def run_sample(
             sample_id: str, backend: BackendName = backend
         ) -> dict[str, Any]:
-            cached = load_sample_result_checkpoint(
-                output_dir,
-                backend,
-                sample_id,
-                pack_name=pack_name,
-            )
-            if cached is not None:
-                return cached
             try:
                 result = run_one_sample(
                     sample_id,
@@ -177,6 +177,7 @@ def compare_backends(
                     "selected_object_id": None,
                     "confidence": None,
                     "query": None,
+                    "tool_trace": [],
                     "error": f"{type(exc).__name__}: {str(exc)[:480]}",
                 }
             write_sample_result_checkpoint(
@@ -187,24 +188,54 @@ def compare_backends(
             )
             return result
 
+        missing_sample_ids = [
+            sample_id
+            for sample_id in sample_ids
+            if not sample_result_path(
+                output_dir,
+                backend,
+                sample_id,
+                pack_name=pack_name,
+            ).exists()
+        ]
+        if max_new_samples is not None:
+            missing_sample_ids = missing_sample_ids[:max_new_samples]
         if workers == 1:
-            per_sample = [run_sample(sample_id) for sample_id in sample_ids]
+            for sample_id in missing_sample_ids:
+                run_sample(sample_id)
         else:
             with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as executor:
-                per_sample = list(executor.map(run_sample, sample_ids))
-        ious = [float(r["iou"]) for r in per_sample if r.get("iou") is not None]
-        results[backend] = {
-            "n": len(per_sample),
-            "mean_iou": statistics.mean(ious) if ious else 0.0,
-            "Acc@0.25": sum(1 for v in ious if v >= 0.25) / max(len(ious), 1),
-            "Acc@0.50": sum(1 for v in ious if v >= 0.50) / max(len(ious), 1),
-            "per_sample": per_sample,
-        }
-    (output_dir / "side_by_side.json").write_text(
-        json.dumps(results, ensure_ascii=False, indent=2),
-        encoding="utf-8",
-    )
-    return results
+                futures = [
+                    executor.submit(run_sample, sample_id)
+                    for sample_id in missing_sample_ids
+                ]
+                for future in concurrent.futures.as_completed(futures):
+                    future.result()
+
+        if not write_side_by_side:
+            continue
+        if return_results:
+            results[backend] = build_backend_payload_from_checkpoints(
+                sample_ids=sample_ids,
+                output_dir=output_dir,
+                backend=backend,
+                pack_name=pack_name,
+                include_per_sample=True,
+            )
+        else:
+            stream_side_by_side_from_checkpoints(
+                sample_ids=sample_ids,
+                output_dir=output_dir,
+                backend=backend,
+                pack_name=pack_name,
+            )
+    if return_results and write_side_by_side:
+        (output_dir / "side_by_side.json").write_text(
+            json.dumps(results, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+        return results
+    return None
 
 
 def run_pack_v1_sample(
@@ -389,6 +420,101 @@ def load_sample_result_checkpoint(
     return payload
 
 
+def load_required_sample_result_checkpoint(
+    output_dir: Path,
+    backend: BackendName,
+    sample_id: str,
+    *,
+    pack_name: str = "pack_nr3d_v1",
+) -> dict[str, Any]:
+    payload = load_sample_result_checkpoint(
+        output_dir,
+        backend,
+        sample_id,
+        pack_name=pack_name,
+    )
+    if payload is None:
+        path = sample_result_path(
+            output_dir,
+            backend,
+            sample_id,
+            pack_name=pack_name,
+        )
+        raise FileNotFoundError(f"Missing per-sample checkpoint: {path}")
+    return payload
+
+
+def build_backend_payload_from_checkpoints(
+    sample_ids: Sequence[str],
+    output_dir: Path,
+    backend: BackendName,
+    pack_name: str = "pack_nr3d_v1",
+    include_per_sample: bool = True,
+) -> dict[str, Any]:
+    per_sample: list[dict[str, Any]] = []
+    ious: list[float] = []
+    for sample_id in sample_ids:
+        record = load_required_sample_result_checkpoint(
+            output_dir,
+            backend,
+            sample_id,
+            pack_name=pack_name,
+        )
+        if record.get("iou") is not None:
+            ious.append(float(record["iou"]))
+        if include_per_sample:
+            per_sample.append(record)
+    payload: dict[str, Any] = {
+        "n": len(sample_ids),
+        "mean_iou": statistics.mean(ious) if ious else 0.0,
+        "Acc@0.25": sum(1 for v in ious if v >= 0.25) / max(len(ious), 1),
+        "Acc@0.50": sum(1 for v in ious if v >= 0.50) / max(len(ious), 1),
+    }
+    if include_per_sample:
+        payload["per_sample"] = per_sample
+    return payload
+
+
+def stream_side_by_side_from_checkpoints(
+    sample_ids: Sequence[str],
+    output_dir: Path,
+    backend: BackendName,
+    pack_name: str = "pack_nr3d_v1",
+) -> Path:
+    payload = build_backend_payload_from_checkpoints(
+        sample_ids=sample_ids,
+        output_dir=output_dir,
+        backend=backend,
+        pack_name=pack_name,
+        include_per_sample=False,
+    )
+    output_path = output_dir / "side_by_side.json"
+    tmp_path = output_path.with_name(f"{output_path.name}.tmp")
+    with tmp_path.open("w", encoding="utf-8") as fh:
+        fh.write("{")
+        fh.write(json.dumps(backend, ensure_ascii=False))
+        fh.write(":{")
+        for key in ("n", "mean_iou", "Acc@0.25", "Acc@0.50"):
+            fh.write(json.dumps(key, ensure_ascii=False))
+            fh.write(":")
+            fh.write(json.dumps(payload[key], ensure_ascii=False))
+            fh.write(",")
+        fh.write('"per_sample":[')
+        for index, sample_id in enumerate(sample_ids):
+            if index:
+                fh.write(",")
+            record = load_required_sample_result_checkpoint(
+                output_dir,
+                backend,
+                sample_id,
+                pack_name=pack_name,
+            )
+            fh.write(json.dumps(record, ensure_ascii=False))
+        fh.write("]}}")
+    tmp_path.replace(output_path)
+    return output_path
+
+
 def write_sample_result_checkpoint(
     output_dir: Path,
     backend: BackendName,
@@ -508,6 +634,33 @@ def extract_result_confidence(result: Any) -> float | None:
     return float(value) if value is not None else None
 
 
+def extract_result_tool_trace(result: Any) -> list[dict[str, Any]]:
+    """Return JSON-serializable tool observations from a Stage2AgentResult."""
+    trace = getattr(result, "tool_trace", None)
+    if not trace:
+        return []
+    out: list[dict[str, Any]] = []
+    for item in trace:
+        if isinstance(item, dict):
+            raw = dict(item)
+        elif hasattr(item, "model_dump"):
+            dumped = item.model_dump()
+            raw = dict(dumped) if isinstance(dumped, dict) else {"response_text": dumped}
+        elif any(
+            hasattr(item, attr)
+            for attr in ("tool_name", "tool_input", "response_text")
+        ):
+            raw = {
+                attr: getattr(item, attr)
+                for attr in ("tool_name", "tool_input", "response_text")
+                if hasattr(item, attr)
+            }
+        else:
+            raw = {"response_text": str(item)}
+        out.append(json.loads(json.dumps(raw, ensure_ascii=False, default=str)))
+    return out
+
+
 def coerce_bbox_9dof(raw: Any, *, field_name: str) -> list[float]:
     if isinstance(raw, str):
         raw = json.loads(raw.strip())
@@ -588,19 +741,75 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--pack-name", default="pack_nr3d_v1")
     parser.add_argument("--sample-retries", type=int, default=2)
     parser.add_argument("--workers", type=int, default=1)
+    parser.add_argument(
+        "--checkpoint-only",
+        action="store_true",
+        default=False,
+        help=(
+            "Only fill per-sample checkpoints; skip side_by_side.json assembly. "
+            "Use with --max-new-samples for bounded-memory batch resumes."
+        ),
+    )
+    parser.add_argument(
+        "--max-new-samples",
+        type=int,
+        default=None,
+        help=(
+            "Process at most this many missing per-sample checkpoints in this "
+            "process. Existing checkpoints are skipped without loading."
+        ),
+    )
+    parser.add_argument(
+        "--use-tool-answer-disagreement-gate",
+        action="store_true",
+        default=False,
+        help=(
+            "Enable TADG: soft-block submit_final when the submitted "
+            "proposal_id disagrees with the most recent matched-relation "
+            "compare_proposals_spatial rank-1. Default off."
+        ),
+    )
+    parser.add_argument(
+        "--use-no-match-candidate-guard",
+        action="store_true",
+        default=False,
+        help=(
+            "Enable no-match guard: soft-block submit_final(-1) when the "
+            "agent's own tool trace still contains unresolved candidates."
+        ),
+    )
+    parser.add_argument(
+        "--use-evidence-frame-guard",
+        action="store_true",
+        default=False,
+        help=(
+            "Enable evidence-frame guard: soft-block submit_final when the "
+            "final rationale cites a marked frame that does not contain the "
+            "submitted proposal id."
+        ),
+    )
     return parser.parse_args()
 
 
 def main() -> None:
     args = parse_args()
     sample_ids = load_sample_ids(args.sample_ids)
+    config = Stage2DeepAgentConfig(
+        use_tool_answer_disagreement_gate=args.use_tool_answer_disagreement_gate,
+        use_no_match_candidate_guard=args.use_no_match_candidate_guard,
+        use_evidence_frame_guard=args.use_evidence_frame_guard,
+    )
     compare_backends(
         sample_ids=sample_ids,
         output_dir=args.output_dir,
         data_root=args.data_root,
         pack_name=args.pack_name,
+        config=config,
         sample_retries=args.sample_retries,
         workers=args.workers,
+        return_results=False,
+        write_side_by_side=not args.checkpoint_only,
+        max_new_samples=args.max_new_samples,
     )
 
 
