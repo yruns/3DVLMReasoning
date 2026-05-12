@@ -169,6 +169,9 @@ def test_prepare_pack_v1_inputs_nr3d_smoke(tmp_path, monkeypatch) -> None:
     payload = json.loads(sample_json.read_text())
     assert payload["sample_id"] == "scannet/scene0001_00::0::A1"
     assert payload["query"] == "the chair by the table"
+    assert payload["keyframe_mode"] == "gt_target"
+    assert payload["keyframe_selection_uses_gt_target"] is True
+    assert payload["keyframe_selection_used_fallback"] is False
     assert payload["keyframes"] == [
         {
             "keyframe_idx": 0,
@@ -256,6 +259,76 @@ def test_select_keyframes_uses_phase8_object_to_views(tmp_path) -> None:
 
     assert [item["frame_id"] for item in keyframes] == [4, 2, 9]
     assert keyframes[0]["image_path"].endswith("000040-rgb.png")
+
+
+def test_query_driven_helper_uses_selector_without_visual_context(tmp_path) -> None:
+    from evaluation.scripts.prepare_pack_v1_inputs_nr3d import (
+        select_keyframes_query_driven,
+    )
+
+    data_root = tmp_path / "scannet"
+    _write_phase8_tree(data_root)
+
+    class FakeSelector:
+        def __init__(self) -> None:
+            self.calls: list[dict[str, Any]] = []
+
+        def select_keyframes_v2(self, **kwargs: Any) -> SimpleNamespace:
+            self.calls.append(kwargs)
+            return SimpleNamespace(keyframe_indices=[1])
+
+    selector = FakeSelector()
+    keyframes, used_fallback = select_keyframes_query_driven(
+        selector=selector,
+        scene_id="scene0001_00",
+        query="the chair by the table",
+        raw_frames_root=data_root,
+        k=3,
+    )
+
+    assert selector.calls == [
+        {
+            "query": "the chair by the table",
+            "k": 3,
+            "use_visual_context": False,
+        }
+    ]
+    assert [item["frame_id"] for item in keyframes] == [1]
+    assert used_fallback is False
+
+
+def test_query_driven_helper_falls_back_to_density(tmp_path) -> None:
+    from evaluation.scripts.prepare_pack_v1_inputs_nr3d import (
+        load_phase8_visibility_index,
+        select_keyframes_query_driven,
+    )
+
+    data_root = tmp_path / "scannet"
+    _write_phase8_tree(
+        data_root,
+        visibility={
+            "object_to_views": {0: [(0, 0.9)], 1: [(1, 0.7)]},
+            "view_to_objects": {0: [(0, 0.9)], 1: [(0, 0.8), (1, 0.7)]},
+            "metadata": {},
+        },
+    )
+    visibility = load_phase8_visibility_index(data_root / "scene0001_00")
+
+    class EmptySelector:
+        def select_keyframes_v2(self, **kwargs: Any) -> SimpleNamespace:
+            return SimpleNamespace(keyframe_indices=[])
+
+    keyframes, used_fallback = select_keyframes_query_driven(
+        selector=EmptySelector(),
+        scene_id="scene0001_00",
+        query="the chair by the table",
+        raw_frames_root=data_root,
+        k=3,
+        fallback_visibility=visibility,
+    )
+
+    assert [item["frame_id"] for item in keyframes] == [1, 0]
+    assert used_fallback is True
 
 
 def test_prepare_raises_for_unknown_requested_sample(tmp_path, monkeypatch) -> None:

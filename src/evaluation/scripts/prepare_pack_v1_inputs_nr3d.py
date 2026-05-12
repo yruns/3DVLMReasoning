@@ -86,6 +86,21 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help="NR3D root containing raw/nr3d.csv. Defaults to data-root parent.",
     )
+    parser.add_argument(
+        "--keyframe-mode",
+        default="gt_target",
+        choices=["gt_target", "query_driven"],
+        help=(
+            "How to pick initial RGB keyframes. 'gt_target' preserves the "
+            "legacy top-5 GT-target-visible behavior; 'query_driven' uses "
+            "Stage 1 query-driven keyframe selection with a density fallback."
+        ),
+    )
+    parser.add_argument(
+        "--keyframe-llm-model",
+        default="gemini-2.5-pro",
+        help="LLM for query_driven keyframe selection.",
+    )
     return parser.parse_args()
 
 
@@ -97,7 +112,14 @@ def prepare_pack_v1_inputs_nr3d(
     split: str = "test",
     max_samples: int | None = None,
     nr3d_root: Path | None = None,
+    keyframe_mode: str = "gt_target",
+    keyframe_llm_model: str = "gemini-2.5-pro",
 ) -> list[Path]:
+    if keyframe_mode not in ("gt_target", "query_driven"):
+        raise ValueError(
+            "keyframe_mode must be 'gt_target' or 'query_driven', "
+            f"got {keyframe_mode!r}"
+        )
     requests = load_sample_requests(sample_ids_path)
     if max_samples is not None:
         if max_samples <= 0:
@@ -113,6 +135,7 @@ def prepare_pack_v1_inputs_nr3d(
     )
 
     scene_artifacts: dict[str, SceneArtifacts] = {}
+    selector_cache: dict[str, Any] = {}
     written_samples: list[Path] = []
     for request in requests:
         sample = sample_lookup.get(request.sample_id)
@@ -133,6 +156,9 @@ def prepare_pack_v1_inputs_nr3d(
                 sample=sample,
                 data_root=data_root,
                 scene_artifacts=scene_artifacts[request.scene_id],
+                keyframe_mode=keyframe_mode,
+                keyframe_llm_model=keyframe_llm_model,
+                selector_cache=selector_cache,
             )
         )
     return written_samples
@@ -334,14 +360,50 @@ def write_sample_artifact(
     sample: Nr3dVGSample,
     data_root: Path,
     scene_artifacts: SceneArtifacts,
+    keyframe_mode: str = "gt_target",
+    keyframe_llm_model: str = "gemini-2.5-pro",
+    selector_cache: dict[str, Any] | None = None,
 ) -> Path:
     visibility = load_phase8_visibility_index(data_root / request.scene_id)
-    keyframes = select_keyframes_for_sample(
-        scene_root=data_root / request.scene_id,
-        target_id=request.target_id,
-        visibility=visibility,
-        k=5,
-    )
+    query = getattr(sample, "query", "") or getattr(sample, "text", "")
+    if not query:
+        raise ValueError(f"Missing query for {request.sample_id}")
+    if keyframe_mode == "gt_target":
+        keyframes = select_keyframes_for_sample(
+            scene_root=data_root / request.scene_id,
+            target_id=request.target_id,
+            visibility=visibility,
+            k=5,
+        )
+        uses_gt_target = True
+        used_fallback = False
+    elif keyframe_mode == "query_driven":
+        from query_scene.keyframe_selector import KeyframeSelector
+
+        if selector_cache is None:
+            selector_cache = {}
+        selector = selector_cache.get(request.scene_id)
+        if selector is None:
+            selector = KeyframeSelector.from_scene_path(
+                str(data_root / request.scene_id / "conceptgraph"),
+                stride=1,
+                llm_model=keyframe_llm_model,
+            )
+            selector_cache[request.scene_id] = selector
+        keyframes, used_fallback = select_keyframes_query_driven(
+            selector=selector,
+            scene_id=request.scene_id,
+            query=query,
+            raw_frames_root=data_root,
+            k=3,
+            fallback_visibility=visibility,
+        )
+        uses_gt_target = False
+    else:
+        raise ValueError(
+            "keyframe_mode must be 'gt_target' or 'query_driven', "
+            f"got {keyframe_mode!r}"
+        )
     normalized_keyframes = normalize_prepared_keyframes(
         keyframes,
         scene_artifacts.annotated_dir,
@@ -350,9 +412,6 @@ def write_sample_artifact(
         getattr(sample, "gt_bbox_3d", None),
         f"{request.sample_id}.gt_bbox_3d_9dof",
     )
-    query = getattr(sample, "query", "") or getattr(sample, "text", "")
-    if not query:
-        raise ValueError(f"Missing query for {request.sample_id}")
     payload = {
         "sample_id": request.sample_id,
         "scene_id": request.scene_id,
@@ -362,6 +421,9 @@ def write_sample_artifact(
         "gt_bbox_3d_9dof": gt_bbox,
         "scene_artifacts_dir": str(scene_artifacts.scene_dir),
         "source": "gt",
+        "keyframe_mode": keyframe_mode,
+        "keyframe_selection_uses_gt_target": uses_gt_target,
+        "keyframe_selection_used_fallback": used_fallback,
         "keyframes": normalized_keyframes,
     }
     path = sample_artifact_path(
@@ -400,6 +462,69 @@ def select_keyframes_for_sample(
             }
         )
     return keyframes
+
+
+def _keyframes_from_frame_ids(
+    scene_root: Path,
+    frame_ids: Sequence[int],
+    k: int,
+) -> list[dict[str, Any]]:
+    keyframes: list[dict[str, Any]] = []
+    for keyframe_idx, frame_id in enumerate(frame_ids[:k]):
+        keyframes.append(
+            {
+                "keyframe_idx": keyframe_idx,
+                "image_path": str(resolve_raw_rgb_path(scene_root, int(frame_id))),
+                "frame_id": int(frame_id),
+            }
+        )
+    return keyframes
+
+
+def select_keyframes_by_scene_density(
+    *,
+    scene_root: Path,
+    visibility: Phase8Visibility,
+    k: int = 3,
+) -> list[dict[str, Any]]:
+    frame_ids = [
+        frame_id
+        for frame_id, _entries in sorted(
+            visibility.view_to_objects.items(),
+            key=lambda item: (-len(item[1]), int(item[0])),
+        )
+    ]
+    return _keyframes_from_frame_ids(scene_root, frame_ids, k)
+
+
+def select_keyframes_query_driven(
+    *,
+    selector: Any,
+    scene_id: str,
+    query: str,
+    raw_frames_root: Path,
+    k: int = 3,
+    fallback_visibility: Phase8Visibility | None = None,
+) -> tuple[list[dict[str, Any]], bool]:
+    result = selector.select_keyframes_v2(
+        query=query,
+        k=k,
+        use_visual_context=False,
+    )
+    keyframe_indices = list(getattr(result, "keyframe_indices", []) or [])
+    scene_root = raw_frames_root / scene_id
+    if keyframe_indices:
+        return _keyframes_from_frame_ids(scene_root, keyframe_indices, k), False
+    if fallback_visibility is not None:
+        return (
+            select_keyframes_by_scene_density(
+                scene_root=scene_root,
+                visibility=fallback_visibility,
+                k=k,
+            ),
+            True,
+        )
+    return [], True
 
 
 def render_annotated_frames(
@@ -632,6 +757,8 @@ def main() -> None:
         split=args.split,
         max_samples=args.max_samples,
         nr3d_root=args.nr3d_root,
+        keyframe_mode=args.keyframe_mode,
+        keyframe_llm_model=args.keyframe_llm_model,
     )
     print(
         f"wrote {len(written)} sample artifacts under "
@@ -656,6 +783,8 @@ __all__ = [
     "prepare_scene_artifacts",
     "sample_artifact_path",
     "safe_sample_id",
+    "select_keyframes_by_scene_density",
     "select_keyframes_for_sample",
+    "select_keyframes_query_driven",
     "write_sample_artifact",
 ]
