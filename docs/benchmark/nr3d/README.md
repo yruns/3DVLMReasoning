@@ -12,6 +12,7 @@ the current human-facing index.
 | [protocol.md](protocol.md) | Consolidated protocol notes: metric family, fold/filter rules, candidate-pool equivalence, fairness boundary. |
 | [depth_visibility_rebuild_20260513.md](depth_visibility_rebuild_20260513.md) | Root-cause record and rebuild summary for depth-aware NR3D visibility indices. |
 | [depth_visibility_spotcheck_20260513.html](depth_visibility_spotcheck_20260513.html) | Visual spotcheck frames rendered from rebuilt depth-aware `view_to_objects`. |
+| [v6_inline_labels_depth_visible_random100](v6_inline_labels_depth_visible_random100_20260513.md) | Latest depth-aware random100 no-NMS rerender pilot. |
 | [v5p1_failed_rerun_full_20260513.md](v5p1_failed_rerun_full_20260513.md) | Latest full-test audit record; invalidated pending depth-aware rerun. |
 | [v5p1_case_studies_20260513.html](v5p1_case_studies_20260513.html) | Visual stage1+stage2 reasoning walkthrough for selected correct and failed cases. |
 | [runs.sqlite](runs.sqlite) | Queryable per-run and per-sample metrics. |
@@ -63,6 +64,17 @@ Interpretation:
 - v3 is also invalidated as a benchmark claim because its GT-target-visible
   shortcut used the same projection-only visibility source.
 
+Latest depth-aware partial pilot:
+
+- Version: `v6_inline_labels_depth_visible_random100`
+- Branch / commit: `feat/nr3d-v4-agent-guards-fair-views` / `41253ad`
+- Scope: same v4 random100 fold; preserved v4 keyframe frame ids; no selector
+  NMS
+- Result: Overall 71.00, Easy 78.05, Hard 66.10, View-Dep 70.59,
+  View-Indep 71.21
+- Raw artifacts:
+  `tmp/nr3d_eval_v6_inline_labels_depth_visible_random100_20260513/`
+
 ## Version Timeline
 
 | Version | Date | Branch / commit | Headline | Scope | Status |
@@ -73,6 +85,7 @@ Interpretation:
 | [v4_agent_guards_fair_views](v4_agent_guards_fair_views_20260512.md) | 2026-05-12 | `feat/nr3d-v4-agent-guards-fair-views` / `3f1c6d8` | Overall=71.00 | 100Q pilot | Invalidated: projection-only visibility |
 | [v5_agent_guards_fair_views_full](v5_agent_guards_fair_views_full_20260513.md) | 2026-05-13 | `feat/nr3d-v4-agent-guards-fair-views` / `7c996ad` | Overall=66.53 | 8584Q / 7805Q filtered | Invalidated: projection-only visibility |
 | [v5p1_failed_rerun_full](v5p1_failed_rerun_full_20260513.md) | 2026-05-13 | `feat/nr3d-v4-agent-guards-fair-views` / `c404536` | Overall=68.48 | 8584Q / 7805Q filtered | Invalidated: projection-only visibility |
+| [v6_inline_labels_depth_visible_random100](v6_inline_labels_depth_visible_random100_20260513.md) | 2026-05-13 | `feat/nr3d-v4-agent-guards-fair-views` / `41253ad` | Overall=71.00 | 100Q pilot | Depth-aware partial, no NMS |
 
 ## Protocol Summary
 
@@ -85,8 +98,9 @@ Interpretation:
 - Candidate pool: full-scene GT segmented / object proposals; the old
   "target-type-only public pool" assumption is retracted.
 - Fairness boundary: v3 uses GT-target-visible keyframes; v5/v5.1 use
-  query-driven keyframes. All three are invalidated until the underlying
-  object-frame visibility is rebuilt with depth occlusion.
+  query-driven keyframes but are invalidated because their object-frame
+  visibility was projection-only. v6 is depth-aware but partial and preserves
+  v4 keyframe choices to isolate marked-frame/prompt changes before NMS.
 
 See [protocol.md](protocol.md) for the consolidated evidence and caveats.
 
