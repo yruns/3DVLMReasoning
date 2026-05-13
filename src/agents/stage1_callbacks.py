@@ -28,6 +28,7 @@ def create_more_views_callback(
     keyframe_selector: Any,
     scene_id: str = "",
     max_additional_views: int = 3,
+    use_clip_object_terms: bool = True,
 ) -> Callable[[Stage2EvidenceBundle, dict[str, Any]], Stage2ToolResult]:
     """Create a callback that retrieves more views from Stage 1 KeyframeSelector.
 
@@ -89,6 +90,7 @@ def create_more_views_callback(
                 existing_view_ids,
                 max_additional_views,
                 frame_indices,
+                use_clip_object_terms=use_clip_object_terms,
             )
 
         if not new_view_ids:
@@ -148,6 +150,7 @@ def _targeted_views(
     existing_view_ids: set[int],
     max_views: int,
     frame_indices: list[int],
+    use_clip_object_terms: bool = True,
 ) -> list[int]:
     """Find views covering specified objects (hypothesis + object_terms)."""
     num_poses = len(selector.camera_poses)
@@ -194,12 +197,15 @@ def _targeted_views(
                             candidate_object_ids.append(obj.obj_id)
                         break
 
-    # From agent-specified object_terms (CLIP fallback via find_objects)
-    for term in object_terms:
-        matched = selector.find_objects(term, top_k=5)
-        for obj in matched:
-            if obj.obj_id not in candidate_object_ids:
-                candidate_object_ids.append(obj.obj_id)
+    # From agent-specified object_terms (CLIP fallback via find_objects).
+    # High-concurrency benchmark runs may disable this because KeyframeSelector
+    # owns a lazy CLIP model per scene selector.
+    if use_clip_object_terms:
+        for term in object_terms:
+            matched = selector.find_objects(term, top_k=5)
+            for obj in matched:
+                if obj.obj_id not in candidate_object_ids:
+                    candidate_object_ids.append(obj.obj_id)
 
     if not candidate_object_ids:
         return pinned[:max_views]

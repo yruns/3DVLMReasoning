@@ -256,8 +256,13 @@ def test_nr3d_pack_wires_stage1_callbacks(monkeypatch, tmp_path) -> None:
         lambda *a, **kw: selector,
         raising=False,
     )
+    def fake_create_more_views_callback(*args, **kwargs):
+        captured["more_views_args"] = args
+        captured["more_views_kwargs"] = kwargs
+        return "more"
+
     monkeypatch.setattr(
-        callbacks, "create_more_views_callback", lambda *a, **kw: "more"
+        callbacks, "create_more_views_callback", fake_create_more_views_callback
     )
     monkeypatch.setattr(callbacks, "create_crop_callback", lambda *a, **kw: "crop")
 
@@ -282,6 +287,8 @@ def test_nr3d_pack_wires_stage1_callbacks(monkeypatch, tmp_path) -> None:
     assert captured["agent_kwargs"]["more_views_callback"] == "more"
     assert captured["agent_kwargs"]["crop_callback"] == "crop"
     assert captured["agent_kwargs"]["hypothesis_callback"] == "hypothesis"
+    assert captured["more_views_args"][0] is selector
+    assert captured["more_views_kwargs"]["use_clip_object_terms"] is False
     assert captured["hypothesis_args"][0] is selector
     assert captured["hypothesis_kwargs"]["use_visual_context"] is False
 

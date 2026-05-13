@@ -901,6 +901,29 @@ class TestStage2DeepAgent(unittest.TestCase):
 
         self.assertEqual(merged, [2, 3, 5])
 
+    def test_targeted_views_can_disable_clip_object_term_fallback(self) -> None:
+        selector = type("Selector", (), {})()
+        selector.camera_poses = [object(), object(), object(), object()]
+        selector.objects = []
+
+        def fail_find_objects(term, top_k=5):
+            raise AssertionError(f"find_objects should stay disabled: {term}")
+
+        selector.find_objects = fail_find_objects
+        selector.get_joint_coverage_views = lambda object_ids, max_views: [3, 0]
+
+        selected = _targeted_views(
+            selector=selector,
+            bundle=Stage2EvidenceBundle(scene_id="room0"),
+            object_terms=["chair"],
+            existing_view_ids={1},
+            max_views=2,
+            frame_indices=[2],
+            use_clip_object_terms=False,
+        )
+
+        self.assertEqual(selected, [2])
+
     def test_temporal_fan_returns_neighbors_below_overlap_threshold(self) -> None:
         selector = type("Selector", (), {})()
         selector.camera_poses = []

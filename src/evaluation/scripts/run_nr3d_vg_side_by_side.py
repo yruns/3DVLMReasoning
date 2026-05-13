@@ -329,6 +329,7 @@ def run_pack_v1_sample(
             selector,
             scene_id=scene_id,
             max_additional_views=3,
+            use_clip_object_terms=False,
         )
         crop_callback = create_crop_callback(
             selector,
