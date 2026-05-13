@@ -322,9 +322,52 @@ PYTHONPATH=src .venv/bin/python -m pytest \
 
 Result: 42 passed.
 
-Next evaluation should reuse the same first300 pack and only rerun Stage 2:
+### First300-Valid Result
 
-- Output dir:
+v10 was evaluated on the same Transcrib3D first300-valid matched fold:
+
+- Output:
   `tmp/nr3d_eval_v10_geometry_first300_20260514/`
 - Pack:
   `pack_nr3d_v8_transcrib3d_first300_baseline`
+- Result: 216/281 = 76.87 overall; Easy 82.27, Hard 71.43,
+  local View-Dep 65.85, local View-Indep 81.41
+- Comparison:
+  - v8 baseline: 209/281 = 74.38
+  - v9 inventory: 211/281 = 75.09
+  - Transcrib3D GPT-4o first300-valid: 208/281 = 74.02
+  - v10 is +5 samples over v9 and +8 samples over Transcrib3D on this fold
+
+This is the first matched first300 run with a clearer margin over the
+Transcrib3D text-only baseline. It is still a 281-sample fold, not the full
+NR3D test set.
+
+### Random100 Regression Check
+
+The same v10 code was rerun on the fixed depth-aware random100 fold requested
+after the first300 gain:
+
+- Version doc: [v10_geometry_random100_20260514](v10_geometry_random100_20260514.md)
+- Branch / commit: `feat/nr3d-transcrib3d-first300` / `5b53037`
+- Fold / pack:
+  `tmp/nr3d_artifacts/v4_agent_guards_fair_views_random100_sample_ids.json` +
+  `pack_nr3d_v6_inline_labels_depth_visible`
+- Result: 69/100 = 69.00 overall; Easy 85.37, Hard 57.63,
+  View-Dep 50.00, View-Indep 78.79
+- Comparison:
+  - v7.1 rerun: 71/100
+  - v9 inventory: 71/100
+  - v10 is -2 samples versus both v7.1 and v9
+- Runtime:
+  - initial `workers=100` pass hit RSS guard at 15744MB after 12 checkpoints
+  - `workers=50` completed the remaining pass without another RSS guard
+  - final 3 `invalid_prompt` sentinels were moved aside and rerun at
+    `workers=3`
+  - final checkpoint audit: 100/100 completed, 0 failed sentinels
+
+Interpretation: v10's geometry helper is a matched-first300 improvement, but
+not a robust random100 improvement. The random100 drop is concentrated in hard
+and view-dependent cases, so the tool policy should be tightened: deterministic
+geometry ranking is suitable for pure size/height/superlative shortlists, but
+view-dependent spatial cases still need stronger visual-frame evidence before
+final submission.

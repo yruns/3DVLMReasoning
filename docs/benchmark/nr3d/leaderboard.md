@@ -44,6 +44,8 @@ only. They must not be quoted as public NR3D leaderboard results.
 | [v8 Transcrib3D first300 baseline](v8_transcrib3d_first300_baseline_20260514.md) | Transcrib3D `nr3d_first300_valid` matched fold; query-driven depth-aware pack + v7.1 Stage2 callbacks/guards; no NMS | 281 | 74.38 | 78.72 | 70.00 | 59.76 | 80.40 | +1 sample vs Transcrib3D GPT-4o first300-valid; not a clear win. |
 | [v9 proposal inventory random100](v9_inventory_random100_20260514.md) | same fixed random100 fold/pack as v7.1 + compact `Scene Proposal Inventory` prompt prior; no NMS | 100 | 71.00 | 85.37 | 61.02 | 61.76 | 75.76 | Tied with v7.1 overall; stable but not a random100 win. |
 | [v9 proposal inventory first300](v9_inventory_first300_20260514.md) | Transcrib3D first300-valid matched fold + compact `Scene Proposal Inventory` prompt prior; no NMS | 281 | 75.09 | 80.14 | 70.00 | 62.20 | 80.40 | +3 samples vs Transcrib3D GPT-4o first300-valid; modest win. |
+| [v10 geometry ranking first300](v10_geometry_first300_20260514.md) | Transcrib3D first300-valid matched fold + `rank_proposals_by_geometry`; no NMS | 281 | 76.87 | 82.27 | 71.43 | 65.85 | 81.41 | +8 samples vs Transcrib3D GPT-4o first300-valid; strongest matched-fold row so far. |
+| [v10 geometry ranking random100](v10_geometry_random100_20260514.md) | same fixed random100 fold/pack as v9 + `rank_proposals_by_geometry`; no NMS | 100 | 69.00 | 85.37 | 57.63 | 50.00 | 78.79 | -2pp vs v9; rank-tool subset 11/14 correct but view-dependent regressions dominate. |
 
 ## Memory / Throughput Note
 
@@ -61,3 +63,11 @@ each scene selector can lazily load its own CLIP model. NR3D now disables that
 object-term CLIP fallback for the callback path and relies on hypothesis
 categories plus visibility instead; the 100-worker rerun stayed well below the
 15GB RSS guard.
+
+The v10 random100 rerun exposed a third boundary: high-concurrency
+`request_crops` can still trigger per-worker CLIP loads through
+`selector.find_objects()`. The initial workers=100 pass reached 15744MB and was
+terminated by the 15GB RSS guard after 12 checkpoints. A workers=50 remaining
+pass completed without another RSS trip, so 50 is the observed stable ceiling
+for this pack/runtime until crop-path CLIP matching is cached, shared, or
+disabled.
