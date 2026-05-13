@@ -11,6 +11,7 @@ the current human-facing index.
 | [leaderboard.md](leaderboard.md) | Public SOTA comparison plus our current fair-view and historical rows. |
 | [protocol.md](protocol.md) | Consolidated protocol notes: metric family, fold/filter rules, candidate-pool equivalence, fairness boundary. |
 | [v5p1_failed_rerun_full_20260513.md](v5p1_failed_rerun_full_20260513.md) | Latest full-test fair-view result and detailed reproduction record. |
+| [v5p1_case_studies_20260513.html](v5p1_case_studies_20260513.html) | Visual stage1+stage2 reasoning walkthrough for selected correct and failed cases. |
 | [runs.sqlite](runs.sqlite) | Queryable per-run and per-sample metrics. |
 
 ## Current Result
@@ -28,6 +29,8 @@ Latest fair-view full-test row:
 - Stage 2 backend: `gpt-5.4-2026-03-05`
 - Raw merged artifacts: `tmp/nr3d_eval_v5_failed_rerun_merged_20260513/`
 - SQLite run id: `v5p1_failed_rerun_full_20260513`
+- Case-study HTML:
+  [v5p1_case_studies_20260513.html](v5p1_case_studies_20260513.html)
 
 | Metric | v5.1 fair-view | v5 before failed-rerun | v3 GT-visible | UniVLG public SOTA |
 |---|---:|---:|---:|---:|

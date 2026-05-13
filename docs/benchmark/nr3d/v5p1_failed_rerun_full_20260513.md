@@ -61,6 +61,8 @@ checkpoint set.
   `tmp/nr3d_eval_v5_failed_rerun_merged_20260513/side_by_side.json`
 - Merged leaderboard metrics:
   `tmp/nr3d_eval_v5_failed_rerun_merged_20260513/leaderboard_metrics.json`
+- Visual stage1+stage2 case-study HTML:
+  `docs/benchmark/nr3d/v5p1_case_studies_20260513.html`
 - Merge / metrics logs:
   - `tmp/nr3d_eval_v5_failed_rerun_merged_20260513_assemble.log`
   - `tmp/nr3d_eval_v5_failed_rerun_merged_20260513_metrics.log`
@@ -240,6 +242,11 @@ canonical target-class filter, 152 of 216 rerun samples are correct.
 | `scannet/scene0474_00::9::27195` | `Find the backpack laying on the sectional sofa.` | selected 9 == target 9 | Recovered correct filtered sample. Trace listed backpack proposals 8/9 and inspected marked keyframes including frames 149/150/59. Annotated images exist and are non-blank (`1296x968`). |
 | `scannet/scene0203_00::12::37998` | `the window that the couch is directly facing` | selected 8 != target 12 | Recovered completed but still incorrect filtered sample. Trace found window proposals 8/12/13 and couch proposals 2/3/26, then chose the wrong window. Annotated images exist and are non-blank (`1296x968`). |
 | `scannet/scene0655_00::19::8270` | `Box in corner of the room` | selected `null`, target 19 | Persistent no-match. Trace found no `box` / `carton` / `bin` category in the proposal pool and `request_more_views` callback was unavailable. This row is filtered out of the 7805Q headline because `mentions_target_class=false`. |
+
+A richer visual walkthrough for these and two additional cases lives in
+`v5p1_case_studies_20260513.html`. It includes stage1 keyframes, marked
+proposal images, proposal tables, and every stage2 tool call in chronological
+order.
 
 ## Comparison to v3 Unfair / GT-Visible Row
 
