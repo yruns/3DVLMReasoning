@@ -1,5 +1,10 @@
 # v5 Agent Guards + Fair Views Full - 2026-05-13
 
+> Superseded for fair-view headline reporting by
+> [v5p1_failed_rerun_full_20260513.md](v5p1_failed_rerun_full_20260513.md),
+> which reruns all 241 failed v5 sentinels and raises the filtered overall
+> from 66.53 to 68.48.
+
 Full NR3D test run using the v4 fair-view evidence path and ScanRefer-derived
 agent guard stack. This is the first full-test NR3D row without the historical
 GT-target-visible keyframe shortcut.

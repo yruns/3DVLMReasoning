@@ -12,14 +12,15 @@ papers also report Acc@0.25 / Acc@0.5 in a separate detection-mode track.
 | 3D-VisTA | classification | 64.2 | 72.1 | 56.7 | 61.5 | 65.1 | leaderboard |
 | MiKASA | classification | 64.4 | 69.7 | 59.4 | 65.4 | 64.0 | leaderboard |
 | UniVLG | classification | 65.2 | 73.3 | 57.0 | 55.1 | 69.9 | leaderboard 2026 |
-| **Ours (v5, zero-shot RGB+VLM, fair-view)** | classification, no GT-visible keyframes | **66.53** | **76.09** | **57.59** | **55.74** | **72.41** | [v5_agent_guards_fair_views_full_20260513.md](v5_agent_guards_fair_views_full_20260513.md) |
+| **Ours (v5.1, zero-shot RGB+VLM, fair-view)** | classification, no GT-visible keyframes | **68.48** | **78.43** | **59.18** | **57.38** | **74.53** | [v5p1_failed_rerun_full_20260513.md](v5p1_failed_rerun_full_20260513.md) |
 | **Ours (v3, zero-shot RGB+VLM)** | classification | **80.79** | **86.06** | **75.87** | **72.46** | **85.34** | [v3_referit3d_track_20260501.md](v3_referit3d_track_20260501.md) |
 
-The v5 "Ours" row is the latest fair-view measurement: same canonical
+The v5.1 "Ours" row is the latest fair-view measurement: same canonical
 full-scene GT-instance pool and leaderboard slicing, but without the
-GT-target-visible keyframe shortcut used by the historical v3 run. The v3 row
-is retained as the best historical number and GT-visible evidence upper-bound.
-Pool / fold equivalence is empirically verified in
+GT-target-visible keyframe shortcut used by the historical v3 run. It reruns
+and merges all 241 failed v5 sentinels, recovering 240 completed outputs. The
+v3 row is retained as the best historical number and GT-visible evidence
+upper-bound. Pool / fold equivalence is empirically verified in
 [pool_equivalence_log_20260501.md](pool_equivalence_log_20260501.md). The
 remaining asymmetry vs the published rows is paradigm (zero-shot RGB+VLM vs
 trained 3D-point-cloud model), not metric slicing.

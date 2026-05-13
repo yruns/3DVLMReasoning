@@ -17,21 +17,27 @@ task-pack pipeline.
 | [v3_referit3d_track](v3_referit3d_track_20260501.md) | 2026-05-01 | Overall=**0.8079**, Easy=**0.8606**, Hard=**0.7587**, V-Dep=**0.7246**, V-Indep=**0.8534** | 8584Q (n_filtered=7805) | **First leaderboard-comparable NR3D run** — canonical filter chain (`mentions_target_class_only=True`), classification accuracy as headline, 5-column SOTA-aligned table. Post-aggregated from v2 outputs (no agent re-run). Pool / fold equivalence empirically verified (see `pool_equivalence_log_20260501.md`). |
 | [v4_agent_guards_fair_views](v4_agent_guards_fair_views_20260512.md) | 2026-05-12 | Overall=**0.7100**, Easy=**0.8293**, Hard=**0.6271**, V-Dep=**0.6765**, V-Indep=**0.7273** | 100Q partial pilot | Query-driven fair keyframes plus TADG / no-match / evidence-frame guards. Same-fold baseline was Overall=0.8000, so v4 is -9.00 pp overall; no LLM/service failures while ramping workers 30 -> 60 -> 100. **Partial diagnostic, not a public leaderboard replacement.** |
 | [v5_agent_guards_fair_views_full](v5_agent_guards_fair_views_full_20260513.md) | 2026-05-13 | Overall=**0.6653**, Easy=**0.7609**, Hard=**0.5759**, V-Dep=**0.5574**, V-Indep=**0.7241** | 8584Q full test (n_filtered=7805) | Full fair-view query-driven run with TADG / no-match / evidence-frame guards. 8343 completed + 241 failed sentinels (2.81%). Stage2 workers=100 finished in about 7h25m under a 15GB RSS guard. Post-run hardening added lightweight ConceptGraph caches after identifying expanded `mask` fields as the high-concurrency memory root cause. |
+| [v5p1_failed_rerun_full](v5p1_failed_rerun_full_20260513.md) | 2026-05-13 | Overall=**0.6848**, Easy=**0.7843**, Hard=**0.5918**, V-Dep=**0.5738**, V-Indep=**0.7453** | 8584Q full test (n_filtered=7805) | Reran all 241 v5 failed sentinels and merged them back into the full fold. 240 recovered to completed, 1 persistent no-match filtered out by the canonical target-class filter. +1.95 pp overall vs v5; +3.28 pp vs public Nr3D UniVLG SOTA; still -12.31 pp vs historical v3 GT-visible row. |
 
 ## Current Interpretation
 
-**Latest full-test fair-view diagnostic (v5_agent_guards_fair_views_full, 2026-05-13)**:
-full NR3D test split with query-driven keyframes and the ScanRefer guard stack.
-Headline classification accuracy is **66.53 %** on n_filtered=7805
-(Easy=76.09, Hard=57.59, V-Dep=55.74, V-Indep=72.41). This is lower than the
-historical v3 row because v3 used the older GT-target-visible keyframe path;
-v5 is the cleaner no-GT-view evidence-selection measurement. Stage2 completed
-8584 checkpoints at workers=100 in about 7h25m, with 241 failed sentinels
-(2.81%) and no RSS guard trip. The post-run memory audit found that raw
-ConceptGraph pkl files expand about 258.9GB of unused `mask` arrays across
-local scenes; v5 hardening now adds lightweight sidecar caches and
-`--ensure-lightweight-cache` for future high-concurrency prep. Missing caches
-are auto-built under a cross-process lock and do not change or drop samples.
+**Latest full-test fair-view diagnostic (v5p1_failed_rerun_full, 2026-05-13)**:
+full NR3D test split with query-driven keyframes and the ScanRefer guard stack,
+after rerunning every failed sentinel from v5. Headline classification accuracy
+is **68.48 %** on n_filtered=7805 (Easy=78.43, Hard=59.18, V-Dep=57.38,
+V-Indep=74.53). This is **+1.95 pp** overall vs the first v5 full pass because
+the 241 failed sentinels were rerun and 240 recovered to completed outputs. One
+sample still submitted no-match after a single-worker retry; it is filtered out
+by the canonical `mentions_target_class` rule. v5.1 is the current fair-view
+row: it is **+3.28 pp** above the public Nr3D UniVLG SOTA row, but **12.31 pp
+below** the historical v3 GT-visible row. v3 remains an upper-bound style
+number because it used the older GT-target-visible keyframe path.
+
+The v5 post-run memory audit found that raw ConceptGraph pkl files expand
+about 258.9GB of unused `mask` arrays across local scenes. The branch now adds
+lightweight sidecar caches and `--ensure-lightweight-cache` for future
+high-concurrency prep. Missing caches are auto-built under a cross-process lock
+and do not change or drop samples.
 
 **Best historical full-test leaderboard row (v3_referit3d_track, 2026-05-01)**:
 post-aggregation of v2
@@ -42,7 +48,7 @@ V-Indep=85.34) on n_filtered=7805 (after canonical
 `mentions_target_class_only=True` filter), with full Easy/Hard +
 View-Dep/View-Indep breakdown. Pool / fold equivalence to canonical is
 verified empirically in `pool_equivalence_log_20260501.md`. See
-`v3_referit3d_track_20260501.md` for the full SOTA comparison table
+`v3_referit3d_track_20260501.md` for the historical SOTA comparison table
 against ReferIt3DNet, BUTD-DETR, MVT, 3D-VisTA, MiKASA, and UniVLG GT-track.
 
 **Latest diagnostic pilot (v4_agent_guards_fair_views, 2026-05-12)**:
@@ -52,7 +58,7 @@ the same-fold v1/v3 baseline is **80.00 %**. This is intentionally not a public
 leaderboard replacement: it measures the cost of removing GT-target-visible
 keyframe selection and running the guarded agent on NR3D. All 100 samples
 completed with zero LLM/service failures while ramping workers from 30 to 100.
-It is superseded by v5 for full-test fair-view reporting.
+It is superseded by v5/v5.1 for full-test fair-view reporting.
 
 The v2 numbers (Acc@0.25/0.50 = 77.67/77.62) remain valid as the IoU-on-GT-pool
 proxy of classification accuracy, but they are **superseded by v3** as the
