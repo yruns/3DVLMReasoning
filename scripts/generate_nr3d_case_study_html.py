@@ -380,6 +380,7 @@ def render_image_grid(
     target_id: int,
     selected_id: int | None,
     render_ctx: FrameRenderContext | None,
+    image_mode: str = "rerender",
 ) -> str:
     cards = []
     seen = set()
@@ -389,22 +390,30 @@ def render_image_grid(
         seen.add(path)
         src = Path(path)
         fid = int(frame_id) if frame_id is not None else None
-        rel = (
-            make_corrected_marked_thumb(
-                fid,
-                render_ctx=render_ctx,
-                assets_dir=assets_dir,
-                html_dir=html_dir,
-                prefix=f"{case_prefix}_{idx:02d}",
-            )
-            if fid is not None and render_ctx is not None
-            else make_thumb(
+        if image_mode == "recorded":
+            rel = make_thumb(
                 src,
                 assets_dir=assets_dir,
                 html_dir=html_dir,
                 prefix=f"{case_prefix}_{idx:02d}",
             )
-        )
+        else:
+            rel = (
+                make_corrected_marked_thumb(
+                    fid,
+                    render_ctx=render_ctx,
+                    assets_dir=assets_dir,
+                    html_dir=html_dir,
+                    prefix=f"{case_prefix}_{idx:02d}",
+                )
+                if fid is not None and render_ctx is not None
+                else make_thumb(
+                    src,
+                    assets_dir=assets_dir,
+                    html_dir=html_dir,
+                    prefix=f"{case_prefix}_{idx:02d}",
+                )
+            )
         if not rel:
             cards.append(
                 f'<div class="image-card missing"><div>Missing image</div><code>{esc(path)}</code></div>'
@@ -473,6 +482,7 @@ def render_tool_timeline(
     target_id: int,
     selected_id: int | None,
     render_ctx: FrameRenderContext | None,
+    image_mode: str = "rerender",
 ) -> str:
     blocks = []
     for i, call in enumerate(trace, start=1):
@@ -492,6 +502,7 @@ def render_tool_timeline(
                 target_id=target_id,
                 selected_id=selected_id,
                 render_ctx=render_ctx,
+                image_mode=image_mode,
             )
         blocks.append(
             f"""
@@ -549,6 +560,7 @@ def build_case_html(
     assets_dir: Path,
     html_dir: Path,
     pack_name: str,
+    image_mode: str = "rerender",
 ) -> str:
     scene_id, target_id, _ = parse_sample_id(spec.sample_id)
     prefix = safe_sample_prefix(spec.sample_id)
@@ -651,7 +663,7 @@ def build_case_html(
         target id and GT bbox are kept for scoring, not for view selection.
       </p>
       {stage1_table}
-      {render_image_grid(stage1_refs, case_prefix=case_prefix + "_stage1", assets_dir=assets_dir, html_dir=html_dir, visibility=visibility, proposals=proposals, target_id=target_id, selected_id=selected_id, render_ctx=render_ctx)}
+      {render_image_grid(stage1_refs, case_prefix=case_prefix + "_stage1", assets_dir=assets_dir, html_dir=html_dir, visibility=visibility, proposals=proposals, target_id=target_id, selected_id=selected_id, render_ctx=render_ctx, image_mode=image_mode)}
 
       <h3>Candidate proposals touched by Stage 2</h3>
       <p>The table includes the target, final selected proposal if any, category-search hits, and inspected proposals.</p>
@@ -664,8 +676,8 @@ def build_case_html(
         Every call below is rendered in chronological order with input, response,
         and any referenced marked frame image.
       </p>
-      {render_image_grid(stage2_refs, case_prefix=case_prefix + "_stage2refs", assets_dir=assets_dir, html_dir=html_dir, visibility=visibility, proposals=proposals, target_id=target_id, selected_id=selected_id, render_ctx=render_ctx)}
-      {render_tool_timeline(trace, case_prefix=case_prefix, assets_dir=assets_dir, html_dir=html_dir, visibility=visibility, proposals=proposals, target_id=target_id, selected_id=selected_id, render_ctx=render_ctx)}
+      {render_image_grid(stage2_refs, case_prefix=case_prefix + "_stage2refs", assets_dir=assets_dir, html_dir=html_dir, visibility=visibility, proposals=proposals, target_id=target_id, selected_id=selected_id, render_ctx=render_ctx, image_mode=image_mode)}
+      {render_tool_timeline(trace, case_prefix=case_prefix, assets_dir=assets_dir, html_dir=html_dir, visibility=visibility, proposals=proposals, target_id=target_id, selected_id=selected_id, render_ctx=render_ctx, image_mode=image_mode)}
     </section>
     """
 
@@ -679,6 +691,11 @@ def build_html(
     output: Path,
     assets_dir: Path,
     pack_name: str,
+    title: str,
+    run_id: str,
+    run_commit: str,
+    run_output: str,
+    image_mode: str = "rerender",
 ) -> str:
     html_dir = output.parent
     case_html = []
@@ -695,6 +712,7 @@ def build_html(
                 assets_dir=assets_dir,
                 html_dir=html_dir,
                 pack_name=pack_name,
+                image_mode=image_mode,
             )
         )
         status = "correct" if metric["is_correct"] else "failed"
@@ -705,7 +723,7 @@ def build_html(
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>NR3D v5.1 Stage1+Stage2 Case Studies</title>
+  <title>{esc(title)}</title>
   <style>
     :root {{
       --bg: #f6f7f9;
@@ -771,11 +789,11 @@ def build_html(
 </head>
 <body>
 <header>
-  <h1>NR3D v5.1 Stage1 + Stage2 Reasoning Case Studies</h1>
+  <h1>{esc(title)}</h1>
   <p>Generated from persisted artifacts only. No model calls are made by this report.</p>
-  <p>Frame images are re-rendered from raw RGB, <code>visibility.json</code>, and proposals with in-frustum 2D bbox marks; the raw tool responses still show the original annotated-frame paths used by the run.</p>
-  <p>Run branch: <code>feat/nr3d-v4-agent-guards-fair-views</code>; run-time code commit: <code>c404536</code>; report-generation repo commit: <code>{esc(git_short())}</code>.</p>
-  <p>Source run: <code>v5p1_failed_rerun_full_20260513</code>; output: <code>tmp/nr3d_eval_v5_failed_rerun_merged_20260513/</code>; pack: <code>{esc(pack_name)}</code>.</p>
+  <p>Image mode: <code>{esc(image_mode)}</code>. In <code>recorded</code> mode, frame images are thumbnails of the exact annotated PNG paths recorded in the sample pack and tool responses.</p>
+  <p>Run branch: <code>feat/nr3d-v4-agent-guards-fair-views</code>; run-time code commit: <code>{esc(run_commit)}</code>; report-generation repo commit: <code>{esc(git_short())}</code>.</p>
+  <p>Source run: <code>{esc(run_id)}</code>; output: <code>{esc(run_output)}</code>; pack: <code>{esc(pack_name)}</code>.</p>
 </header>
 <main>
   <nav>{''.join(nav)}</nav>
@@ -821,6 +839,37 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help="Optional sample_id override. Can be passed multiple times.",
     )
+    parser.add_argument(
+        "--case-title",
+        action="append",
+        default=None,
+        help="Optional case title override aligned with --case order.",
+    )
+    parser.add_argument(
+        "--case-why",
+        action="append",
+        default=None,
+        help="Optional case description override aligned with --case order.",
+    )
+    parser.add_argument(
+        "--title",
+        default="NR3D v5.1 Stage1 + Stage2 Reasoning Case Studies",
+    )
+    parser.add_argument("--run-id", default="v5p1_failed_rerun_full_20260513")
+    parser.add_argument("--run-commit", default="c404536")
+    parser.add_argument(
+        "--run-output",
+        default="tmp/nr3d_eval_v5_failed_rerun_merged_20260513/",
+    )
+    parser.add_argument(
+        "--image-mode",
+        choices=["rerender", "recorded"],
+        default="rerender",
+        help=(
+            "rerender: draw report thumbnails from raw RGB/proposals; "
+            "recorded: thumbnail the exact annotated image paths from artifacts"
+        ),
+    )
     return parser.parse_args()
 
 
@@ -833,7 +882,16 @@ def main() -> None:
         if isinstance(item, dict) and item.get("sample_id")
     }
     if args.case:
-        cases = [CaseSpec(sample_id=sid, title=sid, why="User-selected case.") for sid in args.case]
+        titles = args.case_title or []
+        whys = args.case_why or []
+        cases = [
+            CaseSpec(
+                sample_id=sid,
+                title=titles[index] if index < len(titles) else sid,
+                why=whys[index] if index < len(whys) else "User-selected case.",
+            )
+            for index, sid in enumerate(args.case)
+        ]
     else:
         cases = [CaseSpec(*row) for row in DEFAULT_CASES]
     missing = [case.sample_id for case in cases if case.sample_id not in metrics]
@@ -849,6 +907,11 @@ def main() -> None:
         output=args.output,
         assets_dir=args.assets_dir,
         pack_name=args.pack_name,
+        title=args.title,
+        run_id=args.run_id,
+        run_commit=args.run_commit,
+        run_output=args.run_output,
+        image_mode=args.image_mode,
     )
     args.output.write_text(html_text, encoding="utf-8")
     print(f"[nr3d-case-study] wrote {args.output}")

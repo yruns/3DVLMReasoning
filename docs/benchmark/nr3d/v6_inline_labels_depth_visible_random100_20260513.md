@@ -72,6 +72,8 @@ ablation is:
   `tmp/nr3d_eval_v6_inline_labels_depth_visible_random100_20260513/leaderboard_metrics.json`
 - Same-fold comparison vs v4:
   `tmp/nr3d_eval_v6_inline_labels_depth_visible_random100_20260513/comparison_vs_v4.json`
+- Visual reasoning walkthrough:
+  `docs/benchmark/nr3d/v6_random100_case_studies_20260513.html`
 - Logs:
   - `tmp/nr3d_v6_inline_prep_random100_20260513.log`
   - `tmp/nr3d_eval_v6_inline_labels_depth_visible_random100_20260513_w100.log`

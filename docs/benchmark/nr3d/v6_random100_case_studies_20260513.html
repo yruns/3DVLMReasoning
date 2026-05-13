@@ -1,0 +1,2818 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>NR3D v6 Random100 Full Stage1+Stage2 Case Studies</title>
+  <style>
+    :root {
+      --bg: #f6f7f9;
+      --ink: #172026;
+      --muted: #5b6770;
+      --line: #d9dee4;
+      --panel: #ffffff;
+      --ok: #117a4b;
+      --wrong: #b54708;
+      --failed: #b42318;
+      --accent: #315c96;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: var(--bg); color: var(--ink); line-height: 1.5; }
+    header { background: #101820; color: white; padding: 28px 40px; }
+    header h1 { margin: 0 0 10px; font-size: 30px; letter-spacing: 0; }
+    header p { margin: 4px 0; color: #d3dce5; max-width: 1180px; }
+    main { max-width: 1420px; margin: 0 auto; padding: 24px; }
+    nav { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 10px; margin: 18px 0 28px; }
+    nav a { display: flex; gap: 10px; align-items: center; padding: 10px 12px; background: var(--panel); color: var(--ink); text-decoration: none; border: 1px solid var(--line); border-radius: 6px; }
+    nav span { font-weight: 700; color: var(--accent); }
+    nav em { margin-left: auto; color: var(--muted); font-style: normal; font-size: 12px; }
+    .case { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 22px; margin: 0 0 28px; }
+    .case-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; border-bottom: 1px solid var(--line); padding-bottom: 14px; }
+    .eyebrow { color: var(--accent); text-transform: uppercase; font-size: 12px; font-weight: 700; letter-spacing: .08em; }
+    h2 { margin: 4px 0 6px; font-size: 24px; }
+    h3 { margin-top: 24px; border-left: 4px solid var(--accent); padding-left: 10px; }
+    h4 { margin: 0 0 8px; }
+    .why { margin: 0; color: var(--muted); max-width: 920px; }
+    .status { padding: 8px 12px; border-radius: 6px; color: white; font-weight: 700; white-space: nowrap; }
+    .status.ok { background: var(--ok); }
+    .status.wrong { background: var(--wrong); }
+    .status.failed { background: var(--failed); }
+    table { border-collapse: collapse; width: 100%; margin: 12px 0; font-size: 14px; }
+    th, td { border: 1px solid var(--line); padding: 8px 10px; vertical-align: top; text-align: left; }
+    th { background: #edf1f5; }
+    table.kv th { width: 230px; }
+    .image-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; margin: 12px 0; }
+    .image-card { margin: 0; border: 1px solid var(--line); background: #fafbfc; border-radius: 6px; overflow: hidden; }
+    .image-card img { width: 100%; height: auto; display: block; }
+    figcaption { padding: 10px; }
+    code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; overflow-wrap: anywhere; }
+    pre { white-space: pre-wrap; overflow-wrap: anywhere; background: #0f1720; color: #edf3f8; padding: 12px; border-radius: 6px; max-height: 360px; overflow: auto; }
+    .small { color: var(--muted); font-size: 12px; margin-top: 5px; }
+    .muted { color: var(--muted); font-size: 12px; }
+    .chip { display: inline-block; margin: 4px 5px 0 0; padding: 2px 6px; border-radius: 5px; color: white; font-size: 12px; }
+    .chip.target { background: var(--ok); }
+    .chip.selected { background: var(--accent); }
+    details.tool { border: 1px solid var(--line); border-radius: 6px; margin: 10px 0; background: #fbfcfd; }
+    details.tool summary { cursor: pointer; padding: 10px 12px; display: flex; gap: 10px; align-items: baseline; }
+    .tool-index { font-weight: 700; color: var(--accent); }
+    .tool-name { font-weight: 700; min-width: 190px; }
+    .tool-body { padding: 0 12px 12px; }
+    .cols { display: grid; grid-template-columns: minmax(240px, 0.9fr) minmax(300px, 1.5fr); gap: 12px; }
+    @media (max-width: 860px) {
+      header { padding: 22px; }
+      main { padding: 14px; }
+      .case-head { display: block; }
+      .status { display: inline-block; margin-top: 12px; }
+      .cols { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+<header>
+  <h1>NR3D v6 Random100 Full Stage1+Stage2 Case Studies</h1>
+  <p>Generated from persisted artifacts only. No model calls are made by this report.</p>
+  <p>Image mode: <code>recorded</code>. In <code>recorded</code> mode, frame images are thumbnails of the exact annotated PNG paths recorded in the sample pack and tool responses.</p>
+  <p>Run branch: <code>feat/nr3d-v4-agent-guards-fair-views</code>; run-time code commit: <code>41253ad</code>; report-generation repo commit: <code>184d513</code>.</p>
+  <p>Source run: <code>v6_inline_labels_depth_visible_random100_20260513</code>; output: <code>tmp/nr3d_eval_v6_inline_labels_depth_visible_random100_20260513/</code>; pack: <code>pack_nr3d_v6_inline_labels_depth_visible</code>.</p>
+</header>
+<main>
+  <nav><a href="#case-1"><span>1</span>Correct: left desk facing the window<em>correct</em></a><a href="#case-2"><span>2</span>Correct: whiteboard across from the door after guard<em>correct</em></a><a href="#case-3"><span>3</span>Wrong: grey chair next to the green one<em>failed</em></a><a href="#case-4"><span>4</span>Wrong: cabinet under desk without red chair<em>failed</em></a></nav>
+  
+    <section class="case" id="case-1">
+      <div class="case-head">
+        <div>
+          <div class="eyebrow">Case 1</div>
+          <h2>Correct: left desk facing the window</h2>
+          <p class="why">Correct ordinary spatial case. The agent uses the initial marked frames and submits the target desk #50.</p>
+        </div>
+        <div class="status ok">CORRECT</div>
+      </div>
+
+      <h3>Outcome</h3>
+      <p>The selected proposal is the target: id 50 (desk). The GT and predicted boxes match with IoU 1.000.</p>
+      <table class="kv"><tr><th>sample_id</th><td>scannet/scene0353_00::50::24580</td></tr><tr><th>query</th><td>When standing in the middle of the room facing the window the correct desk is on the left.</td></tr><tr><th>scene_id</th><td>scene0353_00</td></tr><tr><th>category / target label</th><td>desk / desk</td></tr><tr><th>target_id</th><td>50</td></tr><tr><th>selected_object_id</th><td>50</td></tr><tr><th>selected label</th><td>desk</td></tr><tr><th>status</th><td>completed</td></tr><tr><th>confidence</th><td>0.87</td></tr><tr><th>IoU</th><td>1.0000</td></tr><tr><th>filtered headline row</th><td>True</td></tr><tr><th>easy</th><td>True</td></tr><tr><th>view-dependent</th><td>True</td></tr></table>
+
+      <h3>Stage 1: query-driven evidence pack</h3>
+      <p>
+        Stage 1 produced the marked keyframe entry points below. The pack
+        explicitly records <code>keyframe_selection_uses_gt_target=false</code>;
+        target id and GT bbox are kept for scoring, not for view selection.
+      </p>
+      <table class="kv"><tr><th>pack sample</th><td>data/nr3d/scannet/scene0353_00/pack_nr3d_v6_inline_labels_depth_visible/samples/scannet__scene0353_00__50__24580.json</td></tr><tr><th>keyframe_mode</th><td>query_driven</td></tr><tr><th>uses_gt_target</th><td>False</td></tr><tr><th>used_non_gt_fallback</th><td>False</td></tr><tr><th>initial keyframes</th><td>71, 212, 67</td></tr><tr><th>target visible in initial keyframes</th><td>3/3</td></tr><tr><th>selected visible in initial keyframes</th><td>3/3</td></tr></table>
+      <div class="image-grid">
+            <figure class="image-card">
+              <img src="assets/v6_random100_case_studies_20260513/case01_scene0353_00_50_stage1_00_frame_71_d4dc12d0.jpg" alt="data/nr3d/scannet/scene0353_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_71.png" loading="lazy">
+              <figcaption>
+                <div><strong>frame 71</strong> <span class="muted">stage1 initial keyframe</span></div>
+                <div><span class="chip target">target visible</span><span class="chip selected">selected visible</span></div>
+                <div class="small">4:chair, 51:plate, 36:book, 3:chair, 38:jar, 37:bowl, 40:bottle, 17:desk, 12:object, 39:desk lamp, 2:blanket, 50:desk, 35:book, 46:window, 34:laptop, 47:bed, 41:pillow, 44:shelf, 6:curtain, 54:backpack</div>
+                <code>data/nr3d/scannet/scene0353_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_71.png</code>
+              </figcaption>
+            </figure>
+            
+
+            <figure class="image-card">
+              <img src="assets/v6_random100_case_studies_20260513/case01_scene0353_00_50_stage1_01_frame_212_ada51f40.jpg" alt="data/nr3d/scannet/scene0353_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_212.png" loading="lazy">
+              <figcaption>
+                <div><strong>frame 212</strong> <span class="muted">stage1 initial keyframe</span></div>
+                <div><span class="chip target">target visible</span><span class="chip selected">selected visible</span></div>
+                <div class="small">4:chair, 51:plate, 50:desk, 47:bed, 49:shelf, 52:book, 3:chair, 46:window</div>
+                <code>data/nr3d/scannet/scene0353_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_212.png</code>
+              </figcaption>
+            </figure>
+            
+
+            <figure class="image-card">
+              <img src="assets/v6_random100_case_studies_20260513/case01_scene0353_00_50_stage1_02_frame_67_db6311af.jpg" alt="data/nr3d/scannet/scene0353_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_67.png" loading="lazy">
+              <figcaption>
+                <div><strong>frame 67</strong> <span class="muted">stage1 initial keyframe</span></div>
+                <div><span class="chip target">target visible</span><span class="chip selected">selected visible</span></div>
+                <div class="small">51:plate, 52:book, 47:bed, 48:pillow, 50:desk, 12:object, 6:curtain, 49:shelf, 46:window, 4:chair, 3:chair, 2:blanket, 17:desk, 38:jar</div>
+                <code>data/nr3d/scannet/scene0353_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_67.png</code>
+              </figcaption>
+            </figure>
+            </div>
+
+      <h3>Candidate proposals touched by Stage 2</h3>
+      <p>The table includes the target, final selected proposal if any, category-search hits, and inspected proposals.</p>
+      <table><tr><th>ID</th><th>Role</th><th>Label</th><th>Score</th><th>BBox</th></tr><tr><td>50</td><td>target, selected</td><td>desk</td><td>1.0</td><td>center=(-0.938, 1.449, 0.724); size=(1.214, 2.089, 0.161)</td></tr>
+<tr><td>17</td><td>-</td><td>desk</td><td>1.0</td><td>center=(1.119, 1.452, 0.583); size=(1.207, 2.119, 0.631)</td></tr></table>
+
+      <h3>Stage 2: tool-augmented reasoning trace</h3>
+      <p>
+        Tool calls: 12. Tool mix:
+        list_skills=1, list_keyframes_with_proposals=2, load_skill=2, find_proposals_by_category=1, inspect_proposal=2, view_keyframe_marked=3, submit_final=1.
+        Every call below is rendered in chronological order with input, response,
+        and any referenced marked frame image.
+      </p>
+      <div class="image-grid">
+            <figure class="image-card">
+              <img src="assets/v6_random100_case_studies_20260513/case01_scene0353_00_50_stage2refs_00_frame_71_d4dc12d0.jpg" alt="data/nr3d/scannet/scene0353_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_71.png" loading="lazy">
+              <figcaption>
+                <div><strong>frame 71</strong> <span class="muted">stage2 tool #5: list_keyframes_with_proposals</span></div>
+                <div><span class="chip target">target visible</span><span class="chip selected">selected visible</span></div>
+                <div class="small">4:chair, 51:plate, 36:book, 3:chair, 38:jar, 37:bowl, 40:bottle, 17:desk, 12:object, 39:desk lamp, 2:blanket, 50:desk, 35:book, 46:window, 34:laptop, 47:bed, 41:pillow, 44:shelf, 6:curtain, 54:backpack</div>
+                <code>data/nr3d/scannet/scene0353_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_71.png</code>
+              </figcaption>
+            </figure>
+            
+
+            <figure class="image-card">
+              <img src="assets/v6_random100_case_studies_20260513/case01_scene0353_00_50_stage2refs_01_frame_212_ada51f40.jpg" alt="data/nr3d/scannet/scene0353_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_212.png" loading="lazy">
+              <figcaption>
+                <div><strong>frame 212</strong> <span class="muted">stage2 tool #5: list_keyframes_with_proposals</span></div>
+                <div><span class="chip target">target visible</span><span class="chip selected">selected visible</span></div>
+                <div class="small">4:chair, 51:plate, 50:desk, 47:bed, 49:shelf, 52:book, 3:chair, 46:window</div>
+                <code>data/nr3d/scannet/scene0353_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_212.png</code>
+              </figcaption>
+            </figure>
+            
+
+            <figure class="image-card">
+              <img src="assets/v6_random100_case_studies_20260513/case01_scene0353_00_50_stage2refs_02_frame_67_db6311af.jpg" alt="data/nr3d/scannet/scene0353_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_67.png" loading="lazy">
+              <figcaption>
+                <div><strong>frame 67</strong> <span class="muted">stage2 tool #5: list_keyframes_with_proposals</span></div>
+                <div><span class="chip target">target visible</span><span class="chip selected">selected visible</span></div>
+                <div class="small">51:plate, 52:book, 47:bed, 48:pillow, 50:desk, 12:object, 6:curtain, 49:shelf, 46:window, 4:chair, 3:chair, 2:blanket, 17:desk, 38:jar</div>
+                <code>data/nr3d/scannet/scene0353_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_67.png</code>
+              </figcaption>
+            </figure>
+            </div>
+      <div class="timeline">
+            <details class="tool" open>
+              <summary><span class="tool-index">01</span> <span class="tool-name">list_skills</span> <span>Available skills: vg-grounding-playbook, vg-spatial-disambiguation, evidence-scouting</span></summary>
+              <div class="tool-body">
+                <div class="cols">
+                  <div><h4>Input</h4><pre>{}</pre></div>
+                  <div><h4>Response summary / raw</h4><pre>[{&quot;name&quot;: &quot;vg-grounding-playbook&quot;, &quot;description&quot;: &quot;EmbodiedScan VG main loop: read marked keyframes, pick proposal, submit.&quot;}, {&quot;name&quot;: &quot;vg-spatial-disambiguation&quot;, &quot;description&quot;: &quot;Use when the query contains spatial relations like &#x27;next to&#x27;, &#x27;left of&#x27;, &#x27;above&#x27;, or &#x27;closest to&#x27;.&quot;}, {&quot;name&quot;: &quot;evidence-scouting&quot;, &quot;description&quot;: &quot;Decide when to request more keyframes or crops, and how to phrase the request.&quot;}]</pre></div>
+                </div>
+                
+              </div>
+            </details>
+            
+
+            <details class="tool" open>
+              <summary><span class="tool-index">02</span> <span class="tool-name">list_keyframes_with_proposals</span> <span>ERROR: load_skill(&#x27;vg-grounding-playbook&#x27;) before calling this tool.</span></summary>
+              <div class="tool-body">
+                <div class="cols">
+                  <div><h4>Input</h4><pre>{}</pre></div>
+                  <div><h4>Response summary / raw</h4><pre>ERROR: load_skill(&#x27;vg-grounding-playbook&#x27;) before calling this tool.</pre></div>
+                </div>
+                
+              </div>
+            </details>
+            
+
+            <details class="tool" open>
+              <summary><span class="tool-index">03</span> <span class="tool-name">load_skill</span> <span>Loaded skill: vg-grounding-playbook</span></summary>
+              <div class="tool-body">
+                <div class="cols">
+                  <div><h4>Input</h4><pre>{
+  &quot;skill_name&quot;: &quot;vg-grounding-playbook&quot;
+}</pre></div>
+                  <div><h4>Response summary / raw</h4><pre># VG Grounding Playbook
+
+## When to use this skill
+
+Load this skill at the start of every visual-grounding task on
+EmbodiedScan ScanNet val. It is the prerequisite for the 5 VG-pack
+tools — every one of them returns
+`&quot;ERROR: load_skill(&#x27;vg-grounding-playbook&#x27;) before calling this tool.&quot;`
+until this skill is loaded into `runtime.skills_loaded`.
+
+You are answering a query of the form &quot;find the X in the scene&quot;, where
+X may be a single object referent or a referring expression with
+spatial constraints. The scene comes with a pre-computed proposal pool
+(V-DETR or 2D-CG) and a set of pre-rendered set-of-marks keyframes.
+Your job is to pick the proposal id that matches the referent, or to
+mark the sample as failed if no proposal in the pool plausibly matches.
+
+## Decision tree
+
+This is a ReAct loop. The 1-3 initial keyframes are a *starting point*,
+not the final evidence. You have **four independent paths** to acquire
+fresh visual evidence when the initial keyframes don&#x27;t show the target,
+ordered cheapest-first:
+
+- **`view_keyframe_marked(frame_id=N)`** — instant. For any N in the
+  scene-wide frame index (typically 50-300 frames per scene). Use this
+  when the initial keyframes show the right *region* but not the
+  specific instance — e.g. you have category candidates from
+  `find_proposals_by_category` and want to verify each in a frame
+  where Mask3D actually marked it.
+  The marked image draws one colored 2D box per visible candidate
+  proposal. Each box is labeled directly as `#proposal_id category`;
+  submit the integer after `#` when that box covers the referent. The
+  category text is a weak detector label, not ground truth.
+- **`request_more_views(request_text, mode=&quot;targeted&quot;|&quot;explore&quot;|&quot;temporal_fan&quot;, object_terms=[...], frame_indices=[...])`**
+  — Stage-1 visibility-driven view fetch. Cheap (no LLM). Use when
+  you need additional views *centered on specific scene objects*
+  (`mode=&quot;targeted&quot;` + object_terms), or when you want views maximally
+  different from what you&#x27;ve seen (`mode=&quot;explore&quot;`), or temporal
+  neighbors of an anchor frame (`mode=&quot;temporal_fan&quot;` + frame_indices).
+- **`request_crops(request_text, object_terms=[...])`** — generates
+  a zoomed-in red-bbox crop around each named scene object. Use when
+  the proposal is visible but small / occluded in the existing
+  frames. CLIP-fallback object matching, ~moderate cost.
+- **`switch_or_expand_hypothesis(new_query=&quot;...&quot;)`** — calls Stage 1
+  again with a refined query string and **appends** new keyframes
+  (1-3 more). Most expensive (LLM hypothesis parse). Use as last
+  resort when the initial keyframes don&#x27;t cover the right *region*
+  of the scene at all — e.g. Stage 1 mis-parsed the utterance, or
+  the target&#x27;s category isn&#x27;t represented in any of the initial
+  frames AND `find_proposals_by_category` returned nothing useful.
+  This is the project&#x27;s **Stage 2 → Stage 1 callback** loop (mirrors
+  OpenEQA).
+
+Keep iterating with these four tools until you actually see the target
+clearly, or until you have proven the referent is not in the proposal
+pool. Prefer cheaper paths first.
+
+1. `list_keyframes_with_proposals()` — see which **initial** keyframes
+   carry which proposal ids and how many proposals each frame shows.
+2. **Identify target category and find ALL same-category candidates
+   scene-wide** — call `find_proposals_by_category(&quot;&lt;category&gt;&quot;)`. The
+   returned `proposal_ids` cover the whole scene&#x27;s Mask3D pool, not
+   just the initial keyframes.
+3. **Decide where to look:**
+   - If the initial keyframes contain ≥ 1 same-category candidate
+     (overlap between their `visible_proposal_ids` and step-2 ids):
+     `view_keyframe_marked(frame_id=N)` on those frames.
+   - If the initial keyframes carry NO same-category candidate but
+     `find_proposals_by_category` returned a non-empty list (the
+     candidates exist in the pool, just not in your initial frames):
+     navigate via `inspect_proposal(K)` → `frames_appeared` →
+     `view_keyframe_marked(frame_id=M)` on those frames.
+   - If `find_proposals_by_category` ALSO returned an empty list (no
+     candidate of that category anywhere in the pool), use
+     `switch_or_expand_hypothesis(new_query=&quot;&lt;a more general or
+     synonymous phrasing of the utterance&gt;&quot;)` to ask Stage 1 for
+     entirely new keyframes. Stage 1&#x27;s hypothesis parser may catch a
+     synonym or attribute the original parse missed.
+4. If you have ≥ 2 plausible candidates after looking at the marks,
+   call `inspect_proposal(proposal_id=K)` on each to disambiguate by
+   category, score, or which other frames the proposal appears in.
+5. If the query has a spatial constraint (&quot;next to the desk&quot;, &quot;left of
+   the sink&quot;, &quot;above the refrigerator&quot;), load the
+   `vg-spatial-disambiguation` skill and apply its workflow before
+   submitting.
+6. `submit_final({&quot;proposal_id&quot;: K, &quot;confidence&quot;: C}, rationale=...)`
+   — the chassis validator will reject any unknown id and FAIL-LOUD.
+7. If the referent genuinely is not in the proposal pool **after**
+   exhausting same-category candidates, viewing 3+ frames, AND trying
+   at least one `switch_or_expand_hypothesis` rewrite, submit the OOD
+   marker (see &quot;OOD handling&quot; below). If the no-match candidate guard
+   returns `NO_MATCH_GUARD`, do not treat that as a crash: it is a
+   compact checklist of unresolved candidates from your own trace.
+   Inspect or choose the best remaining proposal before trying `-1`
+   again.
+
+## tool: list_keyframes_with_proposals
+
+Inputs: none.
+
+Returns a JSON list, one entry per keyframe in the bundle:
+```
+[{&quot;keyframe_idx&quot;: int,
+  &quot;frame_id&quot;: int|None,
+  &quot;visible_proposal_ids&quot;: list[int],
+  &quot;n_proposals&quot;: int,
+  &quot;annotated_image&quot;: str (path to a frame_&lt;frame_id&gt;.png on disk)},
+ ...]
+```
+
+Use this once at the start of every task to pick frames worth viewing.
+A frame with `n_proposals=0` is not useful; a frame with
+`n_proposals &gt; 20` will usually need spatial disambiguation, not
+look-and-pick.
+
+## tool: view_keyframe_marked
+
+Inputs: `frame_id: int` (must be a key in the **scene-wide frame
+index**, NOT just the initial 5 keyframes — the index covers every
+frame in the scene where at least one Mask3D proposal is visible,
+typically 50-300 frames per scene).
+
+Returns a text body summarizing the chosen frame:
+`frame_id=N marked image at &lt;path&gt;; visible_proposals=[...]; categories=[...];
+left_to_right=[...]; boxes_2d={...}`.
+
+The injected image for that frame contains colored 2D proposal boxes.
+Each visible box is labeled `#proposal_id category`; the same ids appear
+in `visible_proposals` and `boxes_2d`. The 2D box is only the visible
+image evidence for that proposal, while the final answer must be the
+3D `proposal_id` submitted through `submit_final`.
+
+For left/right referring expressions, use `left_to_right` before
+submitting. It sorts the visible marked proposal ids by 2D image center
+from left to right. If the query says the target is &quot;to the left of&quot;
+another object and a marked frame shows both, the target should be the
+visible prop
+... [truncated 21344 chars]</pre></div>
+                </div>
+                
+              </div>
+            </details>
+            
+
+            <details class="tool" open>
+              <summary><span class="tool-index">04</span> <span class="tool-name">load_skill</span> <span>Loaded skill: vg-spatial-disambiguation</span></summary>
+              <div class="tool-body">
+                <div class="cols">
+                  <div><h4>Input</h4><pre>{
+  &quot;skill_name&quot;: &quot;vg-spatial-disambiguation&quot;
+}</pre></div>
+                  <div><h4>Response summary / raw</h4><pre># VG Spatial Disambiguation
+
+## When to use this skill
+
+Load this skill in addition to `vg-grounding-playbook` whenever the
+visual-grounding query contains an explicit spatial relation between
+two object referents. Telltale phrases:
+
+- &quot;next to ...&quot;, &quot;beside ...&quot;, &quot;adjacent to ...&quot; → `next_to`
+- &quot;near ...&quot;, &quot;nearby ...&quot; → `near`
+- &quot;closest to ...&quot;, &quot;nearest to ...&quot; → `closest_to`
+- &quot;farthest from ...&quot;, &quot;on the opposite side of ...&quot; → `farthest_from`
+- &quot;between A and B&quot;, &quot;in the middle of ...&quot; → reduces to two
+  `near` or `closest_to` calls (one against each anchor)
+- &quot;above ...&quot;, &quot;below ...&quot;, &quot;on top of ...&quot; → height-axis variants;
+- &quot;left of ...&quot;, &quot;right of ...&quot; → camera-frame variants; the tool uses
+  co-viewed 2D marked-frame geometry when candidate and anchor share
+  frames.
+
+This skill assumes you have already loaded `vg-grounding-playbook` and
+you understand the 5 VG tools. It only adds disambiguation patterns;
+it does not duplicate the tool descriptions.
+
+## Three-step workflow
+
+A spatial query decomposes into:
+
+1. **target** — the object the user wants found (returned in
+   `submit_final`).
+2. **relation** — one of `closest_to | near | next_to | farthest_from |
+   above | below | left_of | right_of`. Compound relations (between,
+   opposite) reduce to multiple calls.
+3. **anchor** — the reference object the relation is measured against.
+
+Resolve target candidates and the anchor independently first; combine
+with `compare_proposals_spatial` last. Do NOT use spatial reasoning to
+filter candidates before you have a candidate list.
+
+## Pronoun and secondary-clue relations
+
+Be careful when the query describes the target first and then gives a
+relation from an anchor back to the target:
+
+- &quot;find X. Y is to the left of it&quot; means the target X should be
+  `relation=&quot;right_of&quot;` anchor Y.
+- &quot;find X. Y is to the right of it&quot; means the target X should be
+  `relation=&quot;left_of&quot;` anchor Y.
+
+For example, &quot;the window is near a desk. there is a shelving unit to
+the left of it&quot; has target `window` and anchor `shelving unit`; compare
+the window candidates with `relation=&quot;right_of&quot;` against the shelf
+candidate. Do not let a weaker &quot;near the desk&quot; clue override the
+explicit left/right anchor clue when both window candidates are near the
+desk.
+
+## Tool sequence
+
+For a query &quot;find the X relation Y&quot;:
+
+1. `find_proposals_by_category(&quot;X&quot;)` returns
+   `{&quot;category&quot;: &quot;X&quot;, &quot;proposal_ids&quot;: [...], &quot;available_categories&quot;: [...]}`.
+   Read `[&quot;proposal_ids&quot;]` as `target_candidates`.
+2. `find_proposals_by_category(&quot;Y&quot;)` returns the same shape; read
+   `[&quot;proposal_ids&quot;]` as `anchor_candidates`.
+3. If `len(anchor_candidates) &gt; 1`, the anchor itself is ambiguous
+   (see &quot;Ambiguous anchor&quot; below). Otherwise pick the single anchor.
+4. `compare_proposals_spatial(candidate_ids=target_candidates,
+   anchor_id=picked_anchor, relation=&quot;closest_to&quot; | &quot;near&quot; |
+   &quot;next_to&quot; | &quot;farthest_from&quot; | &quot;above&quot; | &quot;below&quot; | &quot;left_of&quot; |
+   &quot;right_of&quot;)`
+   returns `{&quot;anchor_id&quot;: int, &quot;relation&quot;: str, &quot;ranked_ids&quot;: [...],
+   &quot;distances&quot;: [...]}`. Read `[&quot;ranked_ids&quot;]`.
+5. The first id in `ranked_ids` is your best guess. Cross-check by
+   `view_keyframe_marked(frame_id=...)` on a frame that contains both
+   the target and the anchor (use `inspect_proposal` to find their
+   shared frames if needed).
+6. `submit_final({&quot;proposal_id&quot;: ranked_ids[0], &quot;confidence&quot;: ...},
+   rationale=&quot;...&quot;)`.
+
+## Ambiguous anchor
+
+If `find_proposals_by_category(anchor)` returns ≥ 2 ids, you cannot
+just pick the first. The agent must either:
+
+- (a) Look at the user&#x27;s full query for additional context that
+  narrows the anchor (e.g. &quot;the desk near the window&quot; — apply this
+  skill recursively with the windowed-anchor as the next-level
+  target), or
+- (b) Compute the spatial answer for each anchor candidate
+  independently and either pick the most likely one given the query&#x27;s
+  natural-language hint, or report failure if all are equally
+  plausible.
+
+In practice (a) covers most cases. Only resort to (b) when no
+narrowing context exists, and budget allows multiple
+`compare_proposals_spatial` calls.
+
+When you resort to (b), compare every plausible anchor candidate before
+submitting. Prefer the target/anchor pair with the strongest relation
+evidence: for `left_of` / `right_of`, higher
+`supporting_frame_counts`, lower `contradicting_frame_counts`, and a
+non-null `mean_2d_center_offsets_x`; for `near` / `next_to`, a lower
+floor-plane `horizontal_distances` value after category sanity-checking.
+Do not override a stronger relation result solely because a different
+anchor was in the current frame. Example: if &quot;office chair left of the
+keyboard&quot; has two keyboard proposals and chair A is left of keyboard 1
+while chair B is left of keyboard 2, inspect both pairs or pick the pair
+with stronger shared-frame support instead of assuming the visible
+keyboard is the one intended.
+
+## Same-category adjacency
+
+For queries such as &quot;a chair next to another same chair&quot;, the target and
+anchor have the same category. Do not use the submitted target as its
+own anchor. Build a candidate list for the target category, then
+evaluate each plausible &quot;other same chair&quot; as the anchor while keeping
+the submitted target candidates separate from that anchor. If
+`submit_final` returns an anchor-self / `anchor_self` / `anchor-self`
+TADG block, treat it as a real reasoning error: re-run the comparison
+with a different anchor or submit the relation-ranked target. Do not
+override an anchor-self block just because the anchor candidate looks
+tighter in one marked frame.
+
+## Anti-patterns
+
+- Do NOT call `compare_proposals_spatial` with a single-element
+  `candidate_ids` — the ranking is trivially that one id, and you
+  haven&#x27;t used the spatial information.
+- Do use `relation=&quot;left_of&quot;` / `&quot;right_of&quot;` for phrases like &quot;left of
+  the sink&quot; only after you have candidate and anchor lists. The tool
+  uses shared marked-frame 2D boxes; if `shared_frame_counts` is zero or
+  `contradicting_frame_counts` is high, inspect shared frames before
+  trusting the rank.
+- Do use `relation=&quot;next_to&quot;` or `&quot;near&quot;` for adjacency language. These
+  rank by floor-plane distance and are usually better than full 3D
+  `closest_to` when object heights differ.
+- Do use `relation=&quot;above&quot;` / `&quot;below&quot;` for vertical relations. These
+  rank by bbox-center z offset and return `vertical_offsets`; they are
+  more appropriate than `closest_to` for phrases like &quot;cabinet above the
+  refrigerator&quot; or &quot;box below the table&quot;.
+- Do NOT rely on `compare_proposals_spatial` for &quot;between A and B&quot;
+  without explicitly intersecting two `closest_to` calls; bbox-center
+  Euclidean distance ranks single-anchor relations only.
+- Do NOT skip cross-checking with `view_keyframe_marked` after
+  ranking — distances on bbox centers do not always match the visual
+  intuition of &quot;next to&quot; (e.g. two boxes touching but with very
+  different sizes).
+- Do NOT assume the anchor is always disambiguated — always inspect
+  the length of `anchor_candidates`.
+
+## Exa
+... [truncated 3912 chars]</pre></div>
+                </div>
+                
+              </div>
+            </details>
+            
+
+            <details class="tool" open>
+              <summary><span class="tool-index">05</span> <span class="tool-name">list_keyframes_with_proposals</span> <span>Initial marked evidence: frame 71 (20 proposals); frame 212 (8 proposals); frame 67 (14 proposals)</span></summary>
+              <div class="tool-body">
+                <div class="cols">
+                  <div><h4>Input</h4><pre>{}</pre></div>
+                  <div><h4>Response summary / raw</h4><pre>[{&quot;keyframe_idx&quot;: 0, &quot;frame_id&quot;: 71, &quot;visible_proposal_ids&quot;: [4, 51, 36, 3, 38, 37, 40, 17, 12, 39, 2, 50, 35, 46, 34, 47, 41, 44, 6, 54], &quot;n_proposals&quot;: 20, &quot;annotated_image&quot;: &quot;data/nr3d/scannet/scene0353_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_71.png&quot;}, {&quot;keyframe_idx&quot;: 1, &quot;frame_id&quot;: 212, &quot;visible_proposal_ids&quot;: [4, 51, 50, 47, 49, 52, 3, 46], &quot;n_proposals&quot;: 8, &quot;annotated_image&quot;: &quot;data/nr3d/scannet/scene0353_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_212.png&quot;}, {&quot;keyframe_idx&quot;: 2, &quot;frame_id&quot;: 67, &quot;visible_proposal_ids&quot;: [51, 52, 47, 48, 50, 12, 6, 49, 46, 4, 3, 2, 17, 38], &quot;n_proposals&quot;: 14, &quot;annotated_image&quot;: &quot;data/nr3d/scannet/scene0353_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_67.png&quot;}]</pre></div>
+                </div>
+                <div class="image-grid">
+            <figure class="image-card">
+              <img src="assets/v6_random100_case_studies_20260513/case01_scene0353_00_50_tool05_00_frame_71_d4dc12d0.jpg" alt="data/nr3d/scannet/scene0353_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_71.png" loading="lazy">
+              <figcaption>
+                <div><strong>frame 71</strong> <span class="muted">tool #5: list_keyframes_with_proposals</span></div>
+                <div><span class="chip target">target visible</span><span class="chip selected">selected visible</span></div>
+                <div class="small">4:chair, 51:plate, 36:book, 3:chair, 38:jar, 37:bowl, 40:bottle, 17:desk, 12:object, 39:desk lamp, 2:blanket, 50:desk, 35:book, 46:window, 34:laptop, 47:bed, 41:pillow, 44:shelf, 6:curtain, 54:backpack</div>
+                <code>data/nr3d/scannet/scene0353_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_71.png</code>
+              </figcaption>
+            </figure>
+            
+
+            <figure class="image-card">
+              <img src="assets/v6_random100_case_studies_20260513/case01_scene0353_00_50_tool05_01_frame_212_ada51f40.jpg" alt="data/nr3d/scannet/scene0353_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_212.png" loading="lazy">
+              <figcaption>
+                <div><strong>frame 212</strong> <span class="muted">tool #5: list_keyframes_with_proposals</span></div>
+                <div><span class="chip target">target visible</span><span class="chip selected">selected visible</span></div>
+                <div class="small">4:chair, 51:plate, 50:desk, 47:bed, 49:shelf, 52:book, 3:chair, 46:window</div>
+                <code>data/nr3d/scannet/scene0353_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_212.png</code>
+              </figcaption>
+            </figure>
+            
+
+            <figure class="image-card">
+              <img src="assets/v6_random100_case_studies_20260513/case01_scene0353_00_50_tool05_02_frame_67_db6311af.jpg" alt="data/nr3d/scannet/scene0353_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_67.png" loading="lazy">
+              <figcaption>
+                <div><strong>frame 67</strong> <span class="muted">tool #5: list_keyframes_with_proposals</span></div>
+                <div><span class="chip target">target visible</span><span class="chip selected">selected visible</span></div>
+                <div class="small">51:plate, 52:book, 47:bed, 48:pillow, 50:desk, 12:object, 6:curtain, 49:shelf, 46:window, 4:chair, 3:chair, 2:blanket, 17:desk, 38:jar</div>
+                <code>data/nr3d/scannet/scene0353_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_67.png</code>
+              </figcaption>
+            </figure>
+            </div>
+              </div>
+            </details>
+            
+
+            <details class="tool" open>
+              <summary><span class="tool-index">06</span> <span class="tool-name">find_proposals_by_category</span> <span>Category search &#x27;desk&#x27; -&gt; [17, 50]</span></summary>
+              <div class="tool-body">
+                <div class="cols">
+                  <div><h4>Input</h4><pre>{
+  &quot;category&quot;: &quot;desk&quot;
+}</pre></div>
+                  <div><h4>Response summary / raw</h4><pre>{&quot;category&quot;: &quot;desk&quot;, &quot;proposal_ids&quot;: [17, 50], &quot;available_categories&quot;: [&quot;backpack&quot;, &quot;bed&quot;, &quot;blanket&quot;, &quot;book&quot;, &quot;bookshelf&quot;, &quot;bottle&quot;, &quot;bowl&quot;, &quot;box&quot;, &quot;calendar&quot;, &quot;ceiling&quot;, &quot;chair&quot;, &quot;closet&quot;, &quot;couch&quot;, &quot;curtain&quot;, &quot;decoration&quot;, &quot;desk&quot;, &quot;desk lamp&quot;, &quot;door&quot;, &quot;doorframe&quot;, &quot;dresser&quot;, &quot;floor&quot;, &quot;jacket&quot;, &quot;jar&quot;, &quot;laptop&quot;, &quot;mini fridge&quot;, &quot;object&quot;, &quot;pillow&quot;, &quot;plate&quot;, &quot;shelf&quot;, &quot;shoes&quot;, &quot;trash can&quot;, &quot;wall&quot;, &quot;wardrobe cabinet&quot;, &quot;whiteboard&quot;, &quot;window&quot;]}</pre></div>
+                </div>
+                
+              </div>
+            </details>
+            
+
+            <details class="tool" open>
+              <summary><span class="tool-index">07</span> <span class="tool-name">inspect_proposal</span> <span>Proposal 17 label=desk frames=85</span></summary>
+              <div class="tool-body">
+                <div class="cols">
+                  <div><h4>Input</h4><pre>{
+  &quot;proposal_id&quot;: 17
+}</pre></div>
+                  <div><h4>Response summary / raw</h4><pre>{&quot;proposal_id&quot;: 17, &quot;category&quot;: &quot;desk&quot;, &quot;score&quot;: 1.0, &quot;bbox_3d_9dof&quot;: [1.1189419196838242, 1.4523359044878177, 0.5825259621438337, 1.2073272395429022, 2.119137511728778, 0.6312416061048027, 0.012801000713451416, 0.027221444669700112, -0.20992905010044455], &quot;frames_appeared&quot;: [67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 214, 215, 216, 217, 218, 219, 220, 221, 222, 223, 224, 225, 226, 227, 228, 229, 230, 231, 232, 233, 234, 235, 236, 237, 238, 239, 240, 241, 242, 243, 244, 245, 246, 247, 248, 249, 250, 251, 252, 253, 254, 255, 256, 257, 258, 259, 260, 261, 262, 263, 264, 265, 266, 267, 268, 269, 270], &quot;source&quot;: &quot;gt&quot;}</pre></div>
+                </div>
+                
+              </div>
+            </details>
+            
+
+            <details class="tool" open>
+              <summary><span class="tool-index">08</span> <span class="tool-name">inspect_proposal</span> <span>Proposal 50 label=desk frames=78</span></summary>
+              <div class="tool-body">
+                <div class="cols">
+                  <div><h4>Input</h4><pre>{
+  &quot;proposal_id&quot;: 50
+}</pre></div>
+                  <div><h4>Response summary / raw</h4><pre>{&quot;proposal_id&quot;: 50, &quot;category&quot;: &quot;desk&quot;, &quot;score&quot;: 1.0, &quot;bbox_3d_9dof&quot;: [-0.9384131488606517, 1.4488968615543056, 0.7243174979649675, 1.2142878634541168, 2.089416676564035, 0.16111400801863962, -0.1726329896912803, 0.0597293700517596, 0.09101053618999685], &quot;frames_appeared&quot;: [43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 171, 172, 173, 174, 175, 176, 177, 178, 179, 180, 181, 182, 183, 184, 185, 186, 187, 188, 189, 190, 191, 192, 193, 194, 195, 196, 197, 198, 199, 200, 201, 202, 203, 204, 205, 206, 207, 208, 209, 210, 211, 212, 213, 214, 215, 216], &quot;source&quot;: &quot;gt&quot;}</pre></div>
+                </div>
+                
+              </div>
+            </details>
+            
+
+            <details class="tool" open>
+              <summary><span class="tool-index">09</span> <span class="tool-name">view_keyframe_marked</span> <span>Viewed marked frame 67. [&#x27;plate&#x27;, &#x27;book&#x27;, &#x27;bed&#x27;, &#x27;pillow&#x27;, &#x27;desk&#x27;, &#x27;object&#x27;, &#x27;curtain&#x27;, &#x27;shelf&#x27;, &#x27;window&#x27;, &#x27;chair&#x27;, &#x27;chair&#x27;, &#x27;blanket&#x27;, &#x27;desk&#x27;, &#x27;jar&#x27;]</span></summary>
+              <div class="tool-body">
+                <div class="cols">
+                  <div><h4>Input</h4><pre>{
+  &quot;frame_id&quot;: 67
+}</pre></div>
+                  <div><h4>Response summary / raw</h4><pre>frame_id=67 marked image at data/nr3d/scannet/scene0353_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_67.png; visible_proposals=[51, 52, 47, 48, 50, 12, 6, 49, 46, 4, 3, 2, 17, 38]; categories=[&#x27;plate&#x27;, &#x27;book&#x27;, &#x27;bed&#x27;, &#x27;pillow&#x27;, &#x27;desk&#x27;, &#x27;object&#x27;, &#x27;curtain&#x27;, &#x27;shelf&#x27;, &#x27;window&#x27;, &#x27;chair&#x27;, &#x27;chair&#x27;, &#x27;blanket&#x27;, &#x27;desk&#x27;, &#x27;jar&#x27;]</pre></div>
+                </div>
+                <div class="image-grid">
+            <figure class="image-card">
+              <img src="assets/v6_random100_case_studies_20260513/case01_scene0353_00_50_tool09_00_frame_67_db6311af.jpg" alt="data/nr3d/scannet/scene0353_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_67.png" loading="lazy">
+              <figcaption>
+                <div><strong>frame 67</strong> <span class="muted">tool #9: view_keyframe_marked</span></div>
+                <div><span class="chip target">target visible</span><span class="chip selected">selected visible</span></div>
+                <div class="small">51:plate, 52:book, 47:bed, 48:pillow, 50:desk, 12:object, 6:curtain, 49:shelf, 46:window, 4:chair, 3:chair, 2:blanket, 17:desk, 38:jar</div>
+                <code>data/nr3d/scannet/scene0353_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_67.png</code>
+              </figcaption>
+            </figure>
+            </div>
+              </div>
+            </details>
+            
+
+            <details class="tool" open>
+              <summary><span class="tool-index">10</span> <span class="tool-name">view_keyframe_marked</span> <span>Viewed marked frame 71. [&#x27;chair&#x27;, &#x27;plate&#x27;, &#x27;book&#x27;, &#x27;chair&#x27;, &#x27;jar&#x27;, &#x27;bowl&#x27;, &#x27;bottle&#x27;, &#x27;desk&#x27;, &#x27;object&#x27;, &#x27;desk lamp&#x27;, &#x27;blanket&#x27;, &#x27;desk&#x27;, &#x27;book&#x27;, &#x27;window&#x27;, &#x27;laptop&#x27;, &#x27;bed&#x27;, &#x27;pillow&#x27;, &#x27;shelf&#x27;, &#x27;curtain&#x27;, &#x27;backpack&#x27;]</span></summary>
+              <div class="tool-body">
+                <div class="cols">
+                  <div><h4>Input</h4><pre>{
+  &quot;frame_id&quot;: 71
+}</pre></div>
+                  <div><h4>Response summary / raw</h4><pre>frame_id=71 marked image at data/nr3d/scannet/scene0353_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_71.png; visible_proposals=[4, 51, 36, 3, 38, 37, 40, 17, 12, 39, 2, 50, 35, 46, 34, 47, 41, 44, 6, 54]; categories=[&#x27;chair&#x27;, &#x27;plate&#x27;, &#x27;book&#x27;, &#x27;chair&#x27;, &#x27;jar&#x27;, &#x27;bowl&#x27;, &#x27;bottle&#x27;, &#x27;desk&#x27;, &#x27;object&#x27;, &#x27;desk lamp&#x27;, &#x27;blanket&#x27;, &#x27;desk&#x27;, &#x27;book&#x27;, &#x27;window&#x27;, &#x27;laptop&#x27;, &#x27;bed&#x27;, &#x27;pillow&#x27;, &#x27;shelf&#x27;, &#x27;curtain&#x27;, &#x27;backpack&#x27;]</pre></div>
+                </div>
+                <div class="image-grid">
+            <figure class="image-card">
+              <img src="assets/v6_random100_case_studies_20260513/case01_scene0353_00_50_tool10_00_frame_71_d4dc12d0.jpg" alt="data/nr3d/scannet/scene0353_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_71.png" loading="lazy">
+              <figcaption>
+                <div><strong>frame 71</strong> <span class="muted">tool #10: view_keyframe_marked</span></div>
+                <div><span class="chip target">target visible</span><span class="chip selected">selected visible</span></div>
+                <div class="small">4:chair, 51:plate, 36:book, 3:chair, 38:jar, 37:bowl, 40:bottle, 17:desk, 12:object, 39:desk lamp, 2:blanket, 50:desk, 35:book, 46:window, 34:laptop, 47:bed, 41:pillow, 44:shelf, 6:curtain, 54:backpack</div>
+                <code>data/nr3d/scannet/scene0353_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_71.png</code>
+              </figcaption>
+            </figure>
+            </div>
+              </div>
+            </details>
+            
+
+            <details class="tool" open>
+              <summary><span class="tool-index">11</span> <span class="tool-name">view_keyframe_marked</span> <span>Viewed marked frame 212. [&#x27;chair&#x27;, &#x27;plate&#x27;, &#x27;desk&#x27;, &#x27;bed&#x27;, &#x27;shelf&#x27;, &#x27;book&#x27;, &#x27;chair&#x27;, &#x27;window&#x27;]</span></summary>
+              <div class="tool-body">
+                <div class="cols">
+                  <div><h4>Input</h4><pre>{
+  &quot;frame_id&quot;: 212
+}</pre></div>
+                  <div><h4>Response summary / raw</h4><pre>frame_id=212 marked image at data/nr3d/scannet/scene0353_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_212.png; visible_proposals=[4, 51, 50, 47, 49, 52, 3, 46]; categories=[&#x27;chair&#x27;, &#x27;plate&#x27;, &#x27;desk&#x27;, &#x27;bed&#x27;, &#x27;shelf&#x27;, &#x27;book&#x27;, &#x27;chair&#x27;, &#x27;window&#x27;]</pre></div>
+                </div>
+                <div class="image-grid">
+            <figure class="image-card">
+              <img src="assets/v6_random100_case_studies_20260513/case01_scene0353_00_50_tool11_00_frame_212_ada51f40.jpg" alt="data/nr3d/scannet/scene0353_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_212.png" loading="lazy">
+              <figcaption>
+                <div><strong>frame 212</strong> <span class="muted">tool #11: view_keyframe_marked</span></div>
+                <div><span class="chip target">target visible</span><span class="chip selected">selected visible</span></div>
+                <div class="small">4:chair, 51:plate, 50:desk, 47:bed, 49:shelf, 52:book, 3:chair, 46:window</div>
+                <code>data/nr3d/scannet/scene0353_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_212.png</code>
+              </figcaption>
+            </figure>
+            </div>
+              </div>
+            </details>
+            
+
+            <details class="tool" open>
+              <summary><span class="tool-index">12</span> <span class="tool-name">submit_final</span> <span>submit_final payload={&#x27;proposal_id&#x27;: 50, &#x27;confidence&#x27;: 0.87}; rationale=Frames 67, 71, and 212 show the room with window #46 and two desk proposals: #50 on the left side and #17 on the right side near the window. Interpreting the query from a person standing in the middle of the room facing the window, the correct desk is the left-side desk, proposal #50.</span></summary>
+              <div class="tool-body">
+                <div class="cols">
+                  <div><h4>Input</h4><pre>{
+  &quot;payload&quot;: {
+    &quot;proposal_id&quot;: 50,
+    &quot;confidence&quot;: 0.87
+  },
+  &quot;rationale&quot;: &quot;Frames 67, 71, and 212 show the room with window #46 and two desk proposals: #50 on the left side and #17 on the right side near the window. Interpreting the query from a person standing in the middle of the room facing the window, the correct desk is the left-side desk, proposal #50.&quot;,
+  &quot;evidence_refs&quot;: [],
+  &quot;tadg_blocked&quot;: false,
+  &quot;tadg_force_passed&quot;: false,
+  &quot;tadg_top1_pid&quot;: null,
+  &quot;tadg_submitted_pid&quot;: null,
+  &quot;tadg_relation&quot;: null,
+  &quot;tadg_anchor_id&quot;: null,
+  &quot;tadg_subcase&quot;: null,
+  &quot;tadg_ranked_ids&quot;: null,
+  &quot;tadg_message&quot;: null,
+  &quot;no_match_guard_blocked&quot;: false,
+  &quot;no_match_guard_force_passed&quot;: false,
+  &quot;no_match_guard_category_candidate_ids&quot;: null,
+  &quot;no_match_guard_category_candidate_labels&quot;: null,
+  &quot;no_match_guard_viewed_uninspected_ids&quot;: null,
+  &quot;no_match_guard_viewed_uninspected_labels&quot;: null,
+  &quot;no_match_guard_message&quot;: null,
+  &quot;evidence_frame_guard_blocked&quot;: false,
+  &quot;evidence_frame_guard_submitted_pid&quot;: 50,
+  &quot;evidence_frame_guard_cited_frame_ids&quot;: null,
+  &quot;evidence_frame_guard_visible_proposal_ids&quot;: null,
+  &quot;evidence_frame_guard_visible_proposal_labels&quot;: null,
+  &quot;evidence_frame_guard_relative_position_conflict&quot;: false,
+  &quot;evidence_frame_guard_relative_position_direction&quot;: null,
+  &quot;evidence_frame_guard_relative_position_alternatives&quot;: null,
+  &quot;evidence_frame_guard_relative_position_alternative_labels&quot;: null,
+  &quot;evidence_frame_guard_message&quot;: null
+}</pre></div>
+                  <div><h4>Response summary / raw</h4><pre>submitted; rationale=&#x27;Frames 67, 71, and 212 show the room with window #46 and two desk proposals: #50 on the left side and #17 on the right side near the window. Interpreting the query from a person standing in the middle of the room facing the window, the correct desk is the left-side desk, proposal #50.&#x27;; evidence_refs=0</pre></div>
+                </div>
+                
+              </div>
+            </details>
+            </div>
+    </section>
+    
+    <section class="case" id="case-2">
+      <div class="case-head">
+        <div>
+          <div class="eyebrow">Case 2</div>
+          <h2>Correct: whiteboard across from the door after guard</h2>
+          <p class="why">Correct case where evidence-frame guard blocks an unsupported final answer before the agent recovers.</p>
+        </div>
+        <div class="status ok">CORRECT</div>
+      </div>
+
+      <h3>Outcome</h3>
+      <p>The selected proposal is the target: id 18 (whiteboard). The GT and predicted boxes match with IoU 1.000.</p>
+      <table class="kv"><tr><th>sample_id</th><td>scannet/scene0578_00::18::21381</td></tr><tr><th>query</th><td>The whiteboard across from the door.</td></tr><tr><th>scene_id</th><td>scene0578_00</td></tr><tr><th>category / target label</th><td>whiteboard / whiteboard</td></tr><tr><th>target_id</th><td>18</td></tr><tr><th>selected_object_id</th><td>18</td></tr><tr><th>selected label</th><td>whiteboard</td></tr><tr><th>status</th><td>completed</td></tr><tr><th>confidence</th><td>0.86</td></tr><tr><th>IoU</th><td>1.0000</td></tr><tr><th>filtered headline row</th><td>True</td></tr><tr><th>easy</th><td>True</td></tr><tr><th>view-dependent</th><td>True</td></tr></table>
+
+      <h3>Stage 1: query-driven evidence pack</h3>
+      <p>
+        Stage 1 produced the marked keyframe entry points below. The pack
+        explicitly records <code>keyframe_selection_uses_gt_target=false</code>;
+        target id and GT bbox are kept for scoring, not for view selection.
+      </p>
+      <table class="kv"><tr><th>pack sample</th><td>data/nr3d/scannet/scene0578_00/pack_nr3d_v6_inline_labels_depth_visible/samples/scannet__scene0578_00__18__21381.json</td></tr><tr><th>keyframe_mode</th><td>query_driven</td></tr><tr><th>uses_gt_target</th><td>False</td></tr><tr><th>used_non_gt_fallback</th><td>True</td></tr><tr><th>initial keyframes</th><td>105, 55, 85</td></tr><tr><th>target visible in initial keyframes</th><td>2/3</td></tr><tr><th>selected visible in initial keyframes</th><td>2/3</td></tr></table>
+      <div class="image-grid">
+            <figure class="image-card">
+              <img src="assets/v6_random100_case_studies_20260513/case02_scene0578_00_18_stage1_00_frame_105_be4a2fb4.jpg" alt="data/nr3d/scannet/scene0578_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_105.png" loading="lazy">
+              <figcaption>
+                <div><strong>frame 105</strong> <span class="muted">stage1 initial keyframe</span></div>
+                <div><span class="chip target">target visible</span><span class="chip selected">selected visible</span></div>
+                <div class="small">18:whiteboard, 11:table, 8:chair, 20:backpack, 10:table, 5:chair, 6:chair, 19:window, 17:monitor, 7:chair</div>
+                <code>data/nr3d/scannet/scene0578_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_105.png</code>
+              </figcaption>
+            </figure>
+            
+
+            <figure class="image-card">
+              <img src="assets/v6_random100_case_studies_20260513/case02_scene0578_00_18_stage1_01_frame_55_37e95ddb.jpg" alt="data/nr3d/scannet/scene0578_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_55.png" loading="lazy">
+              <figcaption>
+                <div><strong>frame 55</strong> <span class="muted">stage1 initial keyframe</span></div>
+                <div></div>
+                <div class="small">11:table, 12:door, 7:chair, 5:chair, 6:chair, 9:window, 14:trash can</div>
+                <code>data/nr3d/scannet/scene0578_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_55.png</code>
+              </figcaption>
+            </figure>
+            
+
+            <figure class="image-card">
+              <img src="assets/v6_random100_case_studies_20260513/case02_scene0578_00_18_stage1_02_frame_85_67c82b5f.jpg" alt="data/nr3d/scannet/scene0578_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_85.png" loading="lazy">
+              <figcaption>
+                <div><strong>frame 85</strong> <span class="muted">stage1 initial keyframe</span></div>
+                <div><span class="chip target">target visible</span><span class="chip selected">selected visible</span></div>
+                <div class="small">18:whiteboard, 11:table, 8:chair, 20:backpack, 19:window, 5:chair, 10:table, 7:chair, 6:chair, 17:monitor</div>
+                <code>data/nr3d/scannet/scene0578_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_85.png</code>
+              </figcaption>
+            </figure>
+            </div>
+
+      <h3>Candidate proposals touched by Stage 2</h3>
+      <p>The table includes the target, final selected proposal if any, category-search hits, and inspected proposals.</p>
+      <table><tr><th>ID</th><th>Role</th><th>Label</th><th>Score</th><th>BBox</th></tr><tr><td>18</td><td>target, selected</td><td>whiteboard</td><td>1.0</td><td>center=(-0.179, -2.339, 1.249); size=(2.034, 0.083, 1.276)</td></tr>
+<tr><td>16</td><td>-</td><td>whiteboard</td><td>1.0</td><td>center=(1.468, -0.331, 1.374); size=(0.148, 2.204, 1.442)</td></tr>
+<tr><td>12</td><td>-</td><td>door</td><td>1.0</td><td>center=(-1.259, 1.871, 1.264); size=(1.066, 0.181, 1.903)</td></tr></table>
+
+      <h3>Stage 2: tool-augmented reasoning trace</h3>
+      <p>
+        Tool calls: 13. Tool mix:
+        list_skills=1, list_keyframes_with_proposals=2, load_skill=1, find_proposals_by_category=2, inspect_proposal=3, view_keyframe_marked=2, submit_final=2.
+        Every call below is rendered in chronological order with input, response,
+        and any referenced marked frame image.
+      </p>
+      <div class="image-grid">
+            <figure class="image-card">
+              <img src="assets/v6_random100_case_studies_20260513/case02_scene0578_00_18_stage2refs_00_frame_105_be4a2fb4.jpg" alt="data/nr3d/scannet/scene0578_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_105.png" loading="lazy">
+              <figcaption>
+                <div><strong>frame 105</strong> <span class="muted">stage2 tool #4: list_keyframes_with_proposals</span></div>
+                <div><span class="chip target">target visible</span><span class="chip selected">selected visible</span></div>
+                <div class="small">18:whiteboard, 11:table, 8:chair, 20:backpack, 10:table, 5:chair, 6:chair, 19:window, 17:monitor, 7:chair</div>
+                <code>data/nr3d/scannet/scene0578_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_105.png</code>
+              </figcaption>
+            </figure>
+            
+
+            <figure class="image-card">
+              <img src="assets/v6_random100_case_studies_20260513/case02_scene0578_00_18_stage2refs_01_frame_55_37e95ddb.jpg" alt="data/nr3d/scannet/scene0578_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_55.png" loading="lazy">
+              <figcaption>
+                <div><strong>frame 55</strong> <span class="muted">stage2 tool #4: list_keyframes_with_proposals</span></div>
+                <div></div>
+                <div class="small">11:table, 12:door, 7:chair, 5:chair, 6:chair, 9:window, 14:trash can</div>
+                <code>data/nr3d/scannet/scene0578_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_55.png</code>
+              </figcaption>
+            </figure>
+            
+
+            <figure class="image-card">
+              <img src="assets/v6_random100_case_studies_20260513/case02_scene0578_00_18_stage2refs_02_frame_85_67c82b5f.jpg" alt="data/nr3d/scannet/scene0578_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_85.png" loading="lazy">
+              <figcaption>
+                <div><strong>frame 85</strong> <span class="muted">stage2 tool #4: list_keyframes_with_proposals</span></div>
+                <div><span class="chip target">target visible</span><span class="chip selected">selected visible</span></div>
+                <div class="small">18:whiteboard, 11:table, 8:chair, 20:backpack, 19:window, 5:chair, 10:table, 7:chair, 6:chair, 17:monitor</div>
+                <code>data/nr3d/scannet/scene0578_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_85.png</code>
+              </figcaption>
+            </figure>
+            </div>
+      <div class="timeline">
+            <details class="tool" open>
+              <summary><span class="tool-index">01</span> <span class="tool-name">list_skills</span> <span>Available skills: vg-grounding-playbook, vg-spatial-disambiguation, evidence-scouting</span></summary>
+              <div class="tool-body">
+                <div class="cols">
+                  <div><h4>Input</h4><pre>{}</pre></div>
+                  <div><h4>Response summary / raw</h4><pre>[{&quot;name&quot;: &quot;vg-grounding-playbook&quot;, &quot;description&quot;: &quot;EmbodiedScan VG main loop: read marked keyframes, pick proposal, submit.&quot;}, {&quot;name&quot;: &quot;vg-spatial-disambiguation&quot;, &quot;description&quot;: &quot;Use when the query contains spatial relations like &#x27;next to&#x27;, &#x27;left of&#x27;, &#x27;above&#x27;, or &#x27;closest to&#x27;.&quot;}, {&quot;name&quot;: &quot;evidence-scouting&quot;, &quot;description&quot;: &quot;Decide when to request more keyframes or crops, and how to phrase the request.&quot;}]</pre></div>
+                </div>
+                
+              </div>
+            </details>
+            
+
+            <details class="tool" open>
+              <summary><span class="tool-index">02</span> <span class="tool-name">list_keyframes_with_proposals</span> <span>ERROR: load_skill(&#x27;vg-grounding-playbook&#x27;) before calling this tool.</span></summary>
+              <div class="tool-body">
+                <div class="cols">
+                  <div><h4>Input</h4><pre>{}</pre></div>
+                  <div><h4>Response summary / raw</h4><pre>ERROR: load_skill(&#x27;vg-grounding-playbook&#x27;) before calling this tool.</pre></div>
+                </div>
+                
+              </div>
+            </details>
+            
+
+            <details class="tool" open>
+              <summary><span class="tool-index">03</span> <span class="tool-name">load_skill</span> <span>Loaded skill: vg-grounding-playbook</span></summary>
+              <div class="tool-body">
+                <div class="cols">
+                  <div><h4>Input</h4><pre>{
+  &quot;skill_name&quot;: &quot;vg-grounding-playbook&quot;
+}</pre></div>
+                  <div><h4>Response summary / raw</h4><pre># VG Grounding Playbook
+
+## When to use this skill
+
+Load this skill at the start of every visual-grounding task on
+EmbodiedScan ScanNet val. It is the prerequisite for the 5 VG-pack
+tools — every one of them returns
+`&quot;ERROR: load_skill(&#x27;vg-grounding-playbook&#x27;) before calling this tool.&quot;`
+until this skill is loaded into `runtime.skills_loaded`.
+
+You are answering a query of the form &quot;find the X in the scene&quot;, where
+X may be a single object referent or a referring expression with
+spatial constraints. The scene comes with a pre-computed proposal pool
+(V-DETR or 2D-CG) and a set of pre-rendered set-of-marks keyframes.
+Your job is to pick the proposal id that matches the referent, or to
+mark the sample as failed if no proposal in the pool plausibly matches.
+
+## Decision tree
+
+This is a ReAct loop. The 1-3 initial keyframes are a *starting point*,
+not the final evidence. You have **four independent paths** to acquire
+fresh visual evidence when the initial keyframes don&#x27;t show the target,
+ordered cheapest-first:
+
+- **`view_keyframe_marked(frame_id=N)`** — instant. For any N in the
+  scene-wide frame index (typically 50-300 frames per scene). Use this
+  when the initial keyframes show the right *region* but not the
+  specific instance — e.g. you have category candidates from
+  `find_proposals_by_category` and want to verify each in a frame
+  where Mask3D actually marked it.
+  The marked image draws one colored 2D box per visible candidate
+  proposal. Each box is labeled directly as `#proposal_id category`;
+  submit the integer after `#` when that box covers the referent. The
+  category text is a weak detector label, not ground truth.
+- **`request_more_views(request_text, mode=&quot;targeted&quot;|&quot;explore&quot;|&quot;temporal_fan&quot;, object_terms=[...], frame_indices=[...])`**
+  — Stage-1 visibility-driven view fetch. Cheap (no LLM). Use when
+  you need additional views *centered on specific scene objects*
+  (`mode=&quot;targeted&quot;` + object_terms), or when you want views maximally
+  different from what you&#x27;ve seen (`mode=&quot;explore&quot;`), or temporal
+  neighbors of an anchor frame (`mode=&quot;temporal_fan&quot;` + frame_indices).
+- **`request_crops(request_text, object_terms=[...])`** — generates
+  a zoomed-in red-bbox crop around each named scene object. Use when
+  the proposal is visible but small / occluded in the existing
+  frames. CLIP-fallback object matching, ~moderate cost.
+- **`switch_or_expand_hypothesis(new_query=&quot;...&quot;)`** — calls Stage 1
+  again with a refined query string and **appends** new keyframes
+  (1-3 more). Most expensive (LLM hypothesis parse). Use as last
+  resort when the initial keyframes don&#x27;t cover the right *region*
+  of the scene at all — e.g. Stage 1 mis-parsed the utterance, or
+  the target&#x27;s category isn&#x27;t represented in any of the initial
+  frames AND `find_proposals_by_category` returned nothing useful.
+  This is the project&#x27;s **Stage 2 → Stage 1 callback** loop (mirrors
+  OpenEQA).
+
+Keep iterating with these four tools until you actually see the target
+clearly, or until you have proven the referent is not in the proposal
+pool. Prefer cheaper paths first.
+
+1. `list_keyframes_with_proposals()` — see which **initial** keyframes
+   carry which proposal ids and how many proposals each frame shows.
+2. **Identify target category and find ALL same-category candidates
+   scene-wide** — call `find_proposals_by_category(&quot;&lt;category&gt;&quot;)`. The
+   returned `proposal_ids` cover the whole scene&#x27;s Mask3D pool, not
+   just the initial keyframes.
+3. **Decide where to look:**
+   - If the initial keyframes contain ≥ 1 same-category candidate
+     (overlap between their `visible_proposal_ids` and step-2 ids):
+     `view_keyframe_marked(frame_id=N)` on those frames.
+   - If the initial keyframes carry NO same-category candidate but
+     `find_proposals_by_category` returned a non-empty list (the
+     candidates exist in the pool, just not in your initial frames):
+     navigate via `inspect_proposal(K)` → `frames_appeared` →
+     `view_keyframe_marked(frame_id=M)` on those frames.
+   - If `find_proposals_by_category` ALSO returned an empty list (no
+     candidate of that category anywhere in the pool), use
+     `switch_or_expand_hypothesis(new_query=&quot;&lt;a more general or
+     synonymous phrasing of the utterance&gt;&quot;)` to ask Stage 1 for
+     entirely new keyframes. Stage 1&#x27;s hypothesis parser may catch a
+     synonym or attribute the original parse missed.
+4. If you have ≥ 2 plausible candidates after looking at the marks,
+   call `inspect_proposal(proposal_id=K)` on each to disambiguate by
+   category, score, or which other frames the proposal appears in.
+5. If the query has a spatial constraint (&quot;next to the desk&quot;, &quot;left of
+   the sink&quot;, &quot;above the refrigerator&quot;), load the
+   `vg-spatial-disambiguation` skill and apply its workflow before
+   submitting.
+6. `submit_final({&quot;proposal_id&quot;: K, &quot;confidence&quot;: C}, rationale=...)`
+   — the chassis validator will reject any unknown id and FAIL-LOUD.
+7. If the referent genuinely is not in the proposal pool **after**
+   exhausting same-category candidates, viewing 3+ frames, AND trying
+   at least one `switch_or_expand_hypothesis` rewrite, submit the OOD
+   marker (see &quot;OOD handling&quot; below). If the no-match candidate guard
+   returns `NO_MATCH_GUARD`, do not treat that as a crash: it is a
+   compact checklist of unresolved candidates from your own trace.
+   Inspect or choose the best remaining proposal before trying `-1`
+   again.
+
+## tool: list_keyframes_with_proposals
+
+Inputs: none.
+
+Returns a JSON list, one entry per keyframe in the bundle:
+```
+[{&quot;keyframe_idx&quot;: int,
+  &quot;frame_id&quot;: int|None,
+  &quot;visible_proposal_ids&quot;: list[int],
+  &quot;n_proposals&quot;: int,
+  &quot;annotated_image&quot;: str (path to a frame_&lt;frame_id&gt;.png on disk)},
+ ...]
+```
+
+Use this once at the start of every task to pick frames worth viewing.
+A frame with `n_proposals=0` is not useful; a frame with
+`n_proposals &gt; 20` will usually need spatial disambiguation, not
+look-and-pick.
+
+## tool: view_keyframe_marked
+
+Inputs: `frame_id: int` (must be a key in the **scene-wide frame
+index**, NOT just the initial 5 keyframes — the index covers every
+frame in the scene where at least one Mask3D proposal is visible,
+typically 50-300 frames per scene).
+
+Returns a text body summarizing the chosen frame:
+`frame_id=N marked image at &lt;path&gt;; visible_proposals=[...]; categories=[...];
+left_to_right=[...]; boxes_2d={...}`.
+
+The injected image for that frame contains colored 2D proposal boxes.
+Each visible box is labeled `#proposal_id category`; the same ids appear
+in `visible_proposals` and `boxes_2d`. The 2D box is only the visible
+image evidence for that proposal, while the final answer must be the
+3D `proposal_id` submitted through `submit_final`.
+
+For left/right referring expressions, use `left_to_right` before
+submitting. It sorts the visible marked proposal ids by 2D image center
+from left to right. If the query says the target is &quot;to the left of&quot;
+another object and a marked frame shows both, the target should be the
+visible prop
+... [truncated 21344 chars]</pre></div>
+                </div>
+                
+              </div>
+            </details>
+            
+
+            <details class="tool" open>
+              <summary><span class="tool-index">04</span> <span class="tool-name">list_keyframes_with_proposals</span> <span>Initial marked evidence: frame 105 (10 proposals); frame 55 (7 proposals); frame 85 (10 proposals)</span></summary>
+              <div class="tool-body">
+                <div class="cols">
+                  <div><h4>Input</h4><pre>{}</pre></div>
+                  <div><h4>Response summary / raw</h4><pre>[{&quot;keyframe_idx&quot;: 0, &quot;frame_id&quot;: 105, &quot;visible_proposal_ids&quot;: [18, 11, 8, 20, 10, 5, 6, 19, 17, 7], &quot;n_proposals&quot;: 10, &quot;annotated_image&quot;: &quot;data/nr3d/scannet/scene0578_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_105.png&quot;}, {&quot;keyframe_idx&quot;: 1, &quot;frame_id&quot;: 55, &quot;visible_proposal_ids&quot;: [11, 12, 7, 5, 6, 9, 14], &quot;n_proposals&quot;: 7, &quot;annotated_image&quot;: &quot;data/nr3d/scannet/scene0578_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_55.png&quot;}, {&quot;keyframe_idx&quot;: 2, &quot;frame_id&quot;: 85, &quot;visible_proposal_ids&quot;: [18, 11, 8, 20, 19, 5, 10, 7, 6, 17], &quot;n_proposals&quot;: 10, &quot;annotated_image&quot;: &quot;data/nr3d/scannet/scene0578_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_85.png&quot;}]</pre></div>
+                </div>
+                <div class="image-grid">
+            <figure class="image-card">
+              <img src="assets/v6_random100_case_studies_20260513/case02_scene0578_00_18_tool04_00_frame_105_be4a2fb4.jpg" alt="data/nr3d/scannet/scene0578_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_105.png" loading="lazy">
+              <figcaption>
+                <div><strong>frame 105</strong> <span class="muted">tool #4: list_keyframes_with_proposals</span></div>
+                <div><span class="chip target">target visible</span><span class="chip selected">selected visible</span></div>
+                <div class="small">18:whiteboard, 11:table, 8:chair, 20:backpack, 10:table, 5:chair, 6:chair, 19:window, 17:monitor, 7:chair</div>
+                <code>data/nr3d/scannet/scene0578_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_105.png</code>
+              </figcaption>
+            </figure>
+            
+
+            <figure class="image-card">
+              <img src="assets/v6_random100_case_studies_20260513/case02_scene0578_00_18_tool04_01_frame_55_37e95ddb.jpg" alt="data/nr3d/scannet/scene0578_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_55.png" loading="lazy">
+              <figcaption>
+                <div><strong>frame 55</strong> <span class="muted">tool #4: list_keyframes_with_proposals</span></div>
+                <div></div>
+                <div class="small">11:table, 12:door, 7:chair, 5:chair, 6:chair, 9:window, 14:trash can</div>
+                <code>data/nr3d/scannet/scene0578_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_55.png</code>
+              </figcaption>
+            </figure>
+            
+
+            <figure class="image-card">
+              <img src="assets/v6_random100_case_studies_20260513/case02_scene0578_00_18_tool04_02_frame_85_67c82b5f.jpg" alt="data/nr3d/scannet/scene0578_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_85.png" loading="lazy">
+              <figcaption>
+                <div><strong>frame 85</strong> <span class="muted">tool #4: list_keyframes_with_proposals</span></div>
+                <div><span class="chip target">target visible</span><span class="chip selected">selected visible</span></div>
+                <div class="small">18:whiteboard, 11:table, 8:chair, 20:backpack, 19:window, 5:chair, 10:table, 7:chair, 6:chair, 17:monitor</div>
+                <code>data/nr3d/scannet/scene0578_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_85.png</code>
+              </figcaption>
+            </figure>
+            </div>
+              </div>
+            </details>
+            
+
+            <details class="tool" open>
+              <summary><span class="tool-index">05</span> <span class="tool-name">find_proposals_by_category</span> <span>Category search &#x27;whiteboard&#x27; -&gt; [16, 18]</span></summary>
+              <div class="tool-body">
+                <div class="cols">
+                  <div><h4>Input</h4><pre>{
+  &quot;category&quot;: &quot;whiteboard&quot;
+}</pre></div>
+                  <div><h4>Response summary / raw</h4><pre>{&quot;category&quot;: &quot;whiteboard&quot;, &quot;proposal_ids&quot;: [16, 18], &quot;available_categories&quot;: [&quot;backpack&quot;, &quot;ceiling&quot;, &quot;chair&quot;, &quot;door&quot;, &quot;floor&quot;, &quot;monitor&quot;, &quot;table&quot;, &quot;trash can&quot;, &quot;wall&quot;, &quot;whiteboard&quot;, &quot;window&quot;]}</pre></div>
+                </div>
+                
+              </div>
+            </details>
+            
+
+            <details class="tool" open>
+              <summary><span class="tool-index">06</span> <span class="tool-name">find_proposals_by_category</span> <span>Category search &#x27;door&#x27; -&gt; [12]</span></summary>
+              <div class="tool-body">
+                <div class="cols">
+                  <div><h4>Input</h4><pre>{
+  &quot;category&quot;: &quot;door&quot;
+}</pre></div>
+                  <div><h4>Response summary / raw</h4><pre>{&quot;category&quot;: &quot;door&quot;, &quot;proposal_ids&quot;: [12], &quot;available_categories&quot;: [&quot;backpack&quot;, &quot;ceiling&quot;, &quot;chair&quot;, &quot;door&quot;, &quot;floor&quot;, &quot;monitor&quot;, &quot;table&quot;, &quot;trash can&quot;, &quot;wall&quot;, &quot;whiteboard&quot;, &quot;window&quot;]}</pre></div>
+                </div>
+                
+              </div>
+            </details>
+            
+
+            <details class="tool" open>
+              <summary><span class="tool-index">07</span> <span class="tool-name">inspect_proposal</span> <span>Proposal 18 label=whiteboard frames=51</span></summary>
+              <div class="tool-body">
+                <div class="cols">
+                  <div><h4>Input</h4><pre>{
+  &quot;proposal_id&quot;: 18
+}</pre></div>
+                  <div><h4>Response summary / raw</h4><pre>{&quot;proposal_id&quot;: 18, &quot;category&quot;: &quot;whiteboard&quot;, &quot;score&quot;: 1.0, &quot;bbox_3d_9dof&quot;: [-0.17908174542194144, -2.339005679957282, 1.2490209239906782, 2.033971890603296, 0.0825284557801867, 1.2763486410152605, -0.03680376132364002, 0.019900581881225232, 0.3226291786625417], &quot;frames_appeared&quot;: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 112, 113], &quot;source&quot;: &quot;gt&quot;}</pre></div>
+                </div>
+                
+              </div>
+            </details>
+            
+
+            <details class="tool" open>
+              <summary><span class="tool-index">08</span> <span class="tool-name">inspect_proposal</span> <span>Proposal 16 label=whiteboard frames=62</span></summary>
+              <div class="tool-body">
+                <div class="cols">
+                  <div><h4>Input</h4><pre>{
+  &quot;proposal_id&quot;: 16
+}</pre></div>
+                  <div><h4>Response summary / raw</h4><pre>{&quot;proposal_id&quot;: 16, &quot;category&quot;: &quot;whiteboard&quot;, &quot;score&quot;: 1.0, &quot;bbox_3d_9dof&quot;: [1.467824592085122, -0.3310242030889536, 1.3735439707535746, 0.1479736941418019, 2.203705374354059, 1.4424704929695031, 0.006665806280762792, 0.06751862872979109, -0.01755955338083453], &quot;frames_appeared&quot;: [24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 49, 50, 51, 52, 53, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139], &quot;source&quot;: &quot;gt&quot;}</pre></div>
+                </div>
+                
+              </div>
+            </details>
+            
+
+            <details class="tool" open>
+              <summary><span class="tool-index">09</span> <span class="tool-name">view_keyframe_marked</span> <span>Viewed marked frame 55. [&#x27;table&#x27;, &#x27;door&#x27;, &#x27;chair&#x27;, &#x27;chair&#x27;, &#x27;chair&#x27;, &#x27;window&#x27;, &#x27;trash can&#x27;]</span></summary>
+              <div class="tool-body">
+                <div class="cols">
+                  <div><h4>Input</h4><pre>{
+  &quot;frame_id&quot;: 55
+}</pre></div>
+                  <div><h4>Response summary / raw</h4><pre>frame_id=55 marked image at data/nr3d/scannet/scene0578_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_55.png; visible_proposals=[11, 12, 7, 5, 6, 9, 14]; categories=[&#x27;table&#x27;, &#x27;door&#x27;, &#x27;chair&#x27;, &#x27;chair&#x27;, &#x27;chair&#x27;, &#x27;window&#x27;, &#x27;trash can&#x27;]</pre></div>
+                </div>
+                <div class="image-grid">
+            <figure class="image-card">
+              <img src="assets/v6_random100_case_studies_20260513/case02_scene0578_00_18_tool09_00_frame_55_37e95ddb.jpg" alt="data/nr3d/scannet/scene0578_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_55.png" loading="lazy">
+              <figcaption>
+                <div><strong>frame 55</strong> <span class="muted">tool #9: view_keyframe_marked</span></div>
+                <div></div>
+                <div class="small">11:table, 12:door, 7:chair, 5:chair, 6:chair, 9:window, 14:trash can</div>
+                <code>data/nr3d/scannet/scene0578_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_55.png</code>
+              </figcaption>
+            </figure>
+            </div>
+              </div>
+            </details>
+            
+
+            <details class="tool" open>
+              <summary><span class="tool-index">10</span> <span class="tool-name">view_keyframe_marked</span> <span>Viewed marked frame 105. [&#x27;whiteboard&#x27;, &#x27;table&#x27;, &#x27;chair&#x27;, &#x27;backpack&#x27;, &#x27;table&#x27;, &#x27;chair&#x27;, &#x27;chair&#x27;, &#x27;window&#x27;, &#x27;monitor&#x27;, &#x27;chair&#x27;]</span></summary>
+              <div class="tool-body">
+                <div class="cols">
+                  <div><h4>Input</h4><pre>{
+  &quot;frame_id&quot;: 105
+}</pre></div>
+                  <div><h4>Response summary / raw</h4><pre>frame_id=105 marked image at data/nr3d/scannet/scene0578_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_105.png; visible_proposals=[18, 11, 8, 20, 10, 5, 6, 19, 17, 7]; categories=[&#x27;whiteboard&#x27;, &#x27;table&#x27;, &#x27;chair&#x27;, &#x27;backpack&#x27;, &#x27;table&#x27;, &#x27;chair&#x27;, &#x27;chair&#x27;, &#x27;window&#x27;, &#x27;monitor&#x27;, &#x27;chair&#x27;]</pre></div>
+                </div>
+                <div class="image-grid">
+            <figure class="image-card">
+              <img src="assets/v6_random100_case_studies_20260513/case02_scene0578_00_18_tool10_00_frame_105_be4a2fb4.jpg" alt="data/nr3d/scannet/scene0578_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_105.png" loading="lazy">
+              <figcaption>
+                <div><strong>frame 105</strong> <span class="muted">tool #10: view_keyframe_marked</span></div>
+                <div><span class="chip target">target visible</span><span class="chip selected">selected visible</span></div>
+                <div class="small">18:whiteboard, 11:table, 8:chair, 20:backpack, 10:table, 5:chair, 6:chair, 19:window, 17:monitor, 7:chair</div>
+                <code>data/nr3d/scannet/scene0578_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_105.png</code>
+              </figcaption>
+            </figure>
+            </div>
+              </div>
+            </details>
+            
+
+            <details class="tool" open>
+              <summary><span class="tool-index">11</span> <span class="tool-name">inspect_proposal</span> <span>Proposal 12 label=door frames=24</span></summary>
+              <div class="tool-body">
+                <div class="cols">
+                  <div><h4>Input</h4><pre>{
+  &quot;proposal_id&quot;: 12
+}</pre></div>
+                  <div><h4>Response summary / raw</h4><pre>{&quot;proposal_id&quot;: 12, &quot;category&quot;: &quot;door&quot;, &quot;score&quot;: 1.0, &quot;bbox_3d_9dof&quot;: [-1.259499867157581, 1.8709881518903302, 1.2639338206458035, 1.0657085879661092, 0.18056044961626844, 1.9028697661285383, 0.05150963448346539, 0.011371932586903721, 0.29238896709909673], &quot;frames_appeared&quot;: [54, 55, 56, 57, 58, 59, 60, 61, 62, 69, 70, 71, 72, 73, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148], &quot;source&quot;: &quot;gt&quot;}</pre></div>
+                </div>
+                
+              </div>
+            </details>
+            
+
+            <details class="tool" open>
+              <summary><span class="tool-index">12</span> <span class="tool-name">submit_final</span> <span>submit_final payload={&#x27;proposal_id&#x27;: 18, &#x27;confidence&#x27;: 0.86}; rationale=Proposal 18 is the wall-mounted whiteboard visible in frames 105 and 85. The door is proposal 12 visible in frame 55, and the scene layout shows this whiteboard on the wall across the table from that door. The other whiteboard candidate, proposal 16, is not visible in the provided evidence and appears in a different set of frames, so 18 is the supported match.</span></summary>
+              <div class="tool-body">
+                <div class="cols">
+                  <div><h4>Input</h4><pre>{
+  &quot;payload&quot;: {
+    &quot;proposal_id&quot;: 18,
+    &quot;confidence&quot;: 0.86
+  },
+  &quot;rationale&quot;: &quot;Proposal 18 is the wall-mounted whiteboard visible in frames 105 and 85. The door is proposal 12 visible in frame 55, and the scene layout shows this whiteboard on the wall across the table from that door. The other whiteboard candidate, proposal 16, is not visible in the provided evidence and appears in a different set of frames, so 18 is the supported match.&quot;,
+  &quot;evidence_refs&quot;: [],
+  &quot;tool_override_reason&quot;: null,
+  &quot;tadg_blocked&quot;: false,
+  &quot;tadg_force_passed&quot;: false,
+  &quot;tadg_top1_pid&quot;: null,
+  &quot;tadg_submitted_pid&quot;: null,
+  &quot;tadg_relation&quot;: null,
+  &quot;tadg_anchor_id&quot;: null,
+  &quot;tadg_subcase&quot;: null,
+  &quot;tadg_ranked_ids&quot;: null,
+  &quot;tadg_message&quot;: null,
+  &quot;no_match_guard_blocked&quot;: false,
+  &quot;no_match_guard_force_passed&quot;: false,
+  &quot;no_match_guard_category_candidate_ids&quot;: null,
+  &quot;no_match_guard_category_candidate_labels&quot;: null,
+  &quot;no_match_guard_viewed_uninspected_ids&quot;: null,
+  &quot;no_match_guard_viewed_uninspected_labels&quot;: null,
+  &quot;no_match_guard_message&quot;: null,
+  &quot;evidence_frame_guard_blocked&quot;: true,
+  &quot;evidence_frame_guard_submitted_pid&quot;: 18,
+  &quot;evidence_frame_guard_cited_frame_ids&quot;: [
+    55
+  ],
+  &quot;evidence_frame_guard_visible_proposal_ids&quot;: [
+    11,
+    12,
+    7,
+    5,
+    6,
+    9,
+    14
+  ],
+  &quot;evidence_frame_guard_visible_proposal_labels&quot;: [
+    &quot;table&quot;,
+    &quot;door&quot;,
+    &quot;chair&quot;,
+    &quot;chair&quot;,
+    &quot;chair&quot;,
+    &quot;window&quot;,
+    &quot;trash can&quot;
+  ],
+  &quot;evidence_frame_guard_relative_position_conflict&quot;: false,
+  &quot;evidence_frame_guard_relative_position_direction&quot;: null,
+  &quot;evidence_frame_guard_relative_position_alternatives&quot;: null,
+  &quot;evidence_frame_guard_relative_position_alternative_labels&quot;: null,
+  &quot;evidence_frame_guard_message&quot;: &quot;EVIDENCE_FRAME_GUARD: rationale/evidence cites marked frame(s) 55, but submitted proposal 18 is not visible there. Visible proposals in cited frame(s): 11:table, 12:door, 7:chair, 5:chair, 6:chair, 9:window, 14:trash can. If a cited marked frame shows the target, submit the proposal id whose mark directly covers the target in that frame; proposal labels are weak priors, so a mislabeled proposal covering the target beats a semantically named proposal from another frame.&quot;
+}</pre></div>
+                  <div><h4>Response summary / raw</h4><pre>EVIDENCE_FRAME_GUARD: rationale/evidence cites marked frame(s) 55, but submitted proposal 18 is not visible there. Visible proposals in cited frame(s): 11:table, 12:door, 7:chair, 5:chair, 6:chair, 9:window, 14:trash can. If a cited marked frame shows the target, submit the proposal id whose mark directly covers the target in that frame; proposal labels are weak priors, so a mislabeled proposal covering the target beats a semantically named proposal from another frame.</pre></div>
+                </div>
+                
+              </div>
+            </details>
+            
+
+            <details class="tool" open>
+              <summary><span class="tool-index">13</span> <span class="tool-name">submit_final</span> <span>submit_final payload={&#x27;proposal_id&#x27;: 18, &#x27;confidence&#x27;: 0.86}; rationale=Proposal 18 is the visible wall-mounted whiteboard in marked frame 105, and it is also visible in frame 85. The door is a separate proposal (12) seen in other frames, while the other whiteboard candidate 16 is not shown in the supporting marked frames here. Based on the visible evidence, 18 is the best-supported whiteboard referred to as across from the door.</span></summary>
+              <div class="tool-body">
+                <div class="cols">
+                  <div><h4>Input</h4><pre>{
+  &quot;payload&quot;: {
+    &quot;proposal_id&quot;: 18,
+    &quot;confidence&quot;: 0.86
+  },
+  &quot;rationale&quot;: &quot;Proposal 18 is the visible wall-mounted whiteboard in marked frame 105, and it is also visible in frame 85. The door is a separate proposal (12) seen in other frames, while the other whiteboard candidate 16 is not shown in the supporting marked frames here. Based on the visible evidence, 18 is the best-supported whiteboard referred to as across from the door.&quot;,
+  &quot;evidence_refs&quot;: [],
+  &quot;tadg_blocked&quot;: false,
+  &quot;tadg_force_passed&quot;: false,
+  &quot;tadg_top1_pid&quot;: null,
+  &quot;tadg_submitted_pid&quot;: null,
+  &quot;tadg_relation&quot;: null,
+  &quot;tadg_anchor_id&quot;: null,
+  &quot;tadg_subcase&quot;: null,
+  &quot;tadg_ranked_ids&quot;: null,
+  &quot;tadg_message&quot;: null,
+  &quot;no_match_guard_blocked&quot;: false,
+  &quot;no_match_guard_force_passed&quot;: false,
+  &quot;no_match_guard_category_candidate_ids&quot;: null,
+  &quot;no_match_guard_category_candidate_labels&quot;: null,
+  &quot;no_match_guard_viewed_uninspected_ids&quot;: null,
+  &quot;no_match_guard_viewed_uninspected_labels&quot;: null,
+  &quot;no_match_guard_message&quot;: null,
+  &quot;evidence_frame_guard_blocked&quot;: false,
+  &quot;evidence_frame_guard_submitted_pid&quot;: 18,
+  &quot;evidence_frame_guard_cited_frame_ids&quot;: [
+    105
+  ],
+  &quot;evidence_frame_guard_visible_proposal_ids&quot;: null,
+  &quot;evidence_frame_guard_visible_proposal_labels&quot;: null,
+  &quot;evidence_frame_guard_relative_position_conflict&quot;: false,
+  &quot;evidence_frame_guard_relative_position_direction&quot;: null,
+  &quot;evidence_frame_guard_relative_position_alternatives&quot;: null,
+  &quot;evidence_frame_guard_relative_position_alternative_labels&quot;: null,
+  &quot;evidence_frame_guard_message&quot;: null
+}</pre></div>
+                  <div><h4>Response summary / raw</h4><pre>submitted; rationale=&#x27;Proposal 18 is the visible wall-mounted whiteboard in marked frame 105, and it is also visible in frame 85. The door is a separate proposal (12) seen in other frames, while the other whiteboard candidate 16 is not shown in the supporting marked frames here. Based on the visible evidence, 18 is the best-supported whiteboard referred to as across from the door.&#x27;; evidence_refs=0</pre></div>
+                </div>
+                
+              </div>
+            </details>
+            </div>
+    </section>
+    
+    <section class="case" id="case-3">
+      <div class="case-head">
+        <div>
+          <div class="eyebrow">Case 3</div>
+          <h2>Wrong: grey chair next to the green one</h2>
+          <p class="why">Wrong chair disambiguation. The final selected chair #24 is near the intended region but not the target #0.</p>
+        </div>
+        <div class="status wrong">WRONG</div>
+      </div>
+
+      <h3>Outcome</h3>
+      <p>The agent selected id 24 (chair), but the target is id 0 (chair). The classification metric is therefore false and IoU is 0.064.</p>
+      <table class="kv"><tr><th>sample_id</th><td>scannet/scene0565_00::0::3757</td></tr><tr><th>query</th><td>pick the grey chair next to the green one.</td></tr><tr><th>scene_id</th><td>scene0565_00</td></tr><tr><th>category / target label</th><td>chair / chair</td></tr><tr><th>target_id</th><td>0</td></tr><tr><th>selected_object_id</th><td>24</td></tr><tr><th>selected label</th><td>chair</td></tr><tr><th>status</th><td>completed</td></tr><tr><th>confidence</th><td>0.91</td></tr><tr><th>IoU</th><td>0.0644</td></tr><tr><th>filtered headline row</th><td>True</td></tr><tr><th>easy</th><td>False</td></tr><tr><th>view-dependent</th><td>False</td></tr></table>
+
+      <h3>Stage 1: query-driven evidence pack</h3>
+      <p>
+        Stage 1 produced the marked keyframe entry points below. The pack
+        explicitly records <code>keyframe_selection_uses_gt_target=false</code>;
+        target id and GT bbox are kept for scoring, not for view selection.
+      </p>
+      <table class="kv"><tr><th>pack sample</th><td>data/nr3d/scannet/scene0565_00/pack_nr3d_v6_inline_labels_depth_visible/samples/scannet__scene0565_00__0__3757.json</td></tr><tr><th>keyframe_mode</th><td>query_driven</td></tr><tr><th>uses_gt_target</th><td>False</td></tr><tr><th>used_non_gt_fallback</th><td>False</td></tr><tr><th>initial keyframes</th><td>46, 48, 44</td></tr><tr><th>target visible in initial keyframes</th><td>3/3</td></tr><tr><th>selected visible in initial keyframes</th><td>3/3</td></tr></table>
+      <div class="image-grid">
+            <figure class="image-card">
+              <img src="assets/v6_random100_case_studies_20260513/case03_scene0565_00_0_stage1_00_frame_46_8c8337af.jpg" alt="data/nr3d/scannet/scene0565_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_46.png" loading="lazy">
+              <figcaption>
+                <div><strong>frame 46</strong> <span class="muted">stage1 initial keyframe</span></div>
+                <div><span class="chip target">target visible</span><span class="chip selected">selected visible</span></div>
+                <div class="small">0:chair, 15:printer, 24:chair, 13:desk, 37:board, 35:shelf, 38:tube, 5:monitor, 21:statue, 36:shelf, 27:scanner</div>
+                <code>data/nr3d/scannet/scene0565_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_46.png</code>
+              </figcaption>
+            </figure>
+            
+
+            <figure class="image-card">
+              <img src="assets/v6_random100_case_studies_20260513/case03_scene0565_00_0_stage1_01_frame_48_9248eefc.jpg" alt="data/nr3d/scannet/scene0565_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_48.png" loading="lazy">
+              <figcaption>
+                <div><strong>frame 48</strong> <span class="muted">stage1 initial keyframe</span></div>
+                <div><span class="chip target">target visible</span><span class="chip selected">selected visible</span></div>
+                <div class="small">24:chair, 0:chair, 15:printer, 37:board, 13:desk, 35:shelf, 27:scanner, 17:keyboard, 29:computer tower, 36:shelf, 38:tube, 21:statue, 5:monitor, 7:box</div>
+                <code>data/nr3d/scannet/scene0565_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_48.png</code>
+              </figcaption>
+            </figure>
+            
+
+            <figure class="image-card">
+              <img src="assets/v6_random100_case_studies_20260513/case03_scene0565_00_0_stage1_02_frame_44_140696db.jpg" alt="data/nr3d/scannet/scene0565_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_44.png" loading="lazy">
+              <figcaption>
+                <div><strong>frame 44</strong> <span class="muted">stage1 initial keyframe</span></div>
+                <div><span class="chip target">target visible</span><span class="chip selected">selected visible</span></div>
+                <div class="small">0:chair, 15:printer, 13:desk, 24:chair, 35:shelf, 37:board, 14:printer, 36:shelf, 38:tube, 5:monitor, 21:statue</div>
+                <code>data/nr3d/scannet/scene0565_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_44.png</code>
+              </figcaption>
+            </figure>
+            </div>
+
+      <h3>Candidate proposals touched by Stage 2</h3>
+      <p>The table includes the target, final selected proposal if any, category-search hits, and inspected proposals.</p>
+      <table><tr><th>ID</th><th>Role</th><th>Label</th><th>Score</th><th>BBox</th></tr><tr><td>0</td><td>target</td><td>chair</td><td>1.0</td><td>center=(0.154, -1.915, 0.456); size=(0.690, 0.803, 1.237)</td></tr>
+<tr><td>24</td><td>selected</td><td>chair</td><td>1.0</td><td>center=(0.692, -1.615, 0.400); size=(0.653, 0.802, 1.051)</td></tr>
+<tr><td>1</td><td>-</td><td>chair</td><td>1.0</td><td>center=(0.042, 1.938, 0.610); size=(0.571, 0.535, 1.149)</td></tr>
+<tr><td>25</td><td>-</td><td>chair</td><td>1.0</td><td>center=(0.541, 2.976, 0.614); size=(0.493, 0.532, 1.077)</td></tr></table>
+
+      <h3>Stage 2: tool-augmented reasoning trace</h3>
+      <p>
+        Tool calls: 15. Tool mix:
+        list_skills=1, list_keyframes_with_proposals=2, load_skill=2, find_proposals_by_category=1, inspect_proposal=4, compare_proposals_spatial=1, view_keyframe_marked=3, submit_final=1.
+        Every call below is rendered in chronological order with input, response,
+        and any referenced marked frame image.
+      </p>
+      <div class="image-grid">
+            <figure class="image-card">
+              <img src="assets/v6_random100_case_studies_20260513/case03_scene0565_00_0_stage2refs_00_frame_46_8c8337af.jpg" alt="data/nr3d/scannet/scene0565_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_46.png" loading="lazy">
+              <figcaption>
+                <div><strong>frame 46</strong> <span class="muted">stage2 tool #4: list_keyframes_with_proposals</span></div>
+                <div><span class="chip target">target visible</span><span class="chip selected">selected visible</span></div>
+                <div class="small">0:chair, 15:printer, 24:chair, 13:desk, 37:board, 35:shelf, 38:tube, 5:monitor, 21:statue, 36:shelf, 27:scanner</div>
+                <code>data/nr3d/scannet/scene0565_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_46.png</code>
+              </figcaption>
+            </figure>
+            
+
+            <figure class="image-card">
+              <img src="assets/v6_random100_case_studies_20260513/case03_scene0565_00_0_stage2refs_01_frame_48_9248eefc.jpg" alt="data/nr3d/scannet/scene0565_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_48.png" loading="lazy">
+              <figcaption>
+                <div><strong>frame 48</strong> <span class="muted">stage2 tool #4: list_keyframes_with_proposals</span></div>
+                <div><span class="chip target">target visible</span><span class="chip selected">selected visible</span></div>
+                <div class="small">24:chair, 0:chair, 15:printer, 37:board, 13:desk, 35:shelf, 27:scanner, 17:keyboard, 29:computer tower, 36:shelf, 38:tube, 21:statue, 5:monitor, 7:box</div>
+                <code>data/nr3d/scannet/scene0565_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_48.png</code>
+              </figcaption>
+            </figure>
+            
+
+            <figure class="image-card">
+              <img src="assets/v6_random100_case_studies_20260513/case03_scene0565_00_0_stage2refs_02_frame_44_140696db.jpg" alt="data/nr3d/scannet/scene0565_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_44.png" loading="lazy">
+              <figcaption>
+                <div><strong>frame 44</strong> <span class="muted">stage2 tool #4: list_keyframes_with_proposals</span></div>
+                <div><span class="chip target">target visible</span><span class="chip selected">selected visible</span></div>
+                <div class="small">0:chair, 15:printer, 13:desk, 24:chair, 35:shelf, 37:board, 14:printer, 36:shelf, 38:tube, 5:monitor, 21:statue</div>
+                <code>data/nr3d/scannet/scene0565_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_44.png</code>
+              </figcaption>
+            </figure>
+            </div>
+      <div class="timeline">
+            <details class="tool" open>
+              <summary><span class="tool-index">01</span> <span class="tool-name">list_skills</span> <span>Available skills: vg-grounding-playbook, vg-spatial-disambiguation, evidence-scouting</span></summary>
+              <div class="tool-body">
+                <div class="cols">
+                  <div><h4>Input</h4><pre>{}</pre></div>
+                  <div><h4>Response summary / raw</h4><pre>[{&quot;name&quot;: &quot;vg-grounding-playbook&quot;, &quot;description&quot;: &quot;EmbodiedScan VG main loop: read marked keyframes, pick proposal, submit.&quot;}, {&quot;name&quot;: &quot;vg-spatial-disambiguation&quot;, &quot;description&quot;: &quot;Use when the query contains spatial relations like &#x27;next to&#x27;, &#x27;left of&#x27;, &#x27;above&#x27;, or &#x27;closest to&#x27;.&quot;}, {&quot;name&quot;: &quot;evidence-scouting&quot;, &quot;description&quot;: &quot;Decide when to request more keyframes or crops, and how to phrase the request.&quot;}]</pre></div>
+                </div>
+                
+              </div>
+            </details>
+            
+
+            <details class="tool" open>
+              <summary><span class="tool-index">02</span> <span class="tool-name">list_keyframes_with_proposals</span> <span>ERROR: load_skill(&#x27;vg-grounding-playbook&#x27;) before calling this tool.</span></summary>
+              <div class="tool-body">
+                <div class="cols">
+                  <div><h4>Input</h4><pre>{}</pre></div>
+                  <div><h4>Response summary / raw</h4><pre>ERROR: load_skill(&#x27;vg-grounding-playbook&#x27;) before calling this tool.</pre></div>
+                </div>
+                
+              </div>
+            </details>
+            
+
+            <details class="tool" open>
+              <summary><span class="tool-index">03</span> <span class="tool-name">load_skill</span> <span>Loaded skill: vg-grounding-playbook</span></summary>
+              <div class="tool-body">
+                <div class="cols">
+                  <div><h4>Input</h4><pre>{
+  &quot;skill_name&quot;: &quot;vg-grounding-playbook&quot;
+}</pre></div>
+                  <div><h4>Response summary / raw</h4><pre># VG Grounding Playbook
+
+## When to use this skill
+
+Load this skill at the start of every visual-grounding task on
+EmbodiedScan ScanNet val. It is the prerequisite for the 5 VG-pack
+tools — every one of them returns
+`&quot;ERROR: load_skill(&#x27;vg-grounding-playbook&#x27;) before calling this tool.&quot;`
+until this skill is loaded into `runtime.skills_loaded`.
+
+You are answering a query of the form &quot;find the X in the scene&quot;, where
+X may be a single object referent or a referring expression with
+spatial constraints. The scene comes with a pre-computed proposal pool
+(V-DETR or 2D-CG) and a set of pre-rendered set-of-marks keyframes.
+Your job is to pick the proposal id that matches the referent, or to
+mark the sample as failed if no proposal in the pool plausibly matches.
+
+## Decision tree
+
+This is a ReAct loop. The 1-3 initial keyframes are a *starting point*,
+not the final evidence. You have **four independent paths** to acquire
+fresh visual evidence when the initial keyframes don&#x27;t show the target,
+ordered cheapest-first:
+
+- **`view_keyframe_marked(frame_id=N)`** — instant. For any N in the
+  scene-wide frame index (typically 50-300 frames per scene). Use this
+  when the initial keyframes show the right *region* but not the
+  specific instance — e.g. you have category candidates from
+  `find_proposals_by_category` and want to verify each in a frame
+  where Mask3D actually marked it.
+  The marked image draws one colored 2D box per visible candidate
+  proposal. Each box is labeled directly as `#proposal_id category`;
+  submit the integer after `#` when that box covers the referent. The
+  category text is a weak detector label, not ground truth.
+- **`request_more_views(request_text, mode=&quot;targeted&quot;|&quot;explore&quot;|&quot;temporal_fan&quot;, object_terms=[...], frame_indices=[...])`**
+  — Stage-1 visibility-driven view fetch. Cheap (no LLM). Use when
+  you need additional views *centered on specific scene objects*
+  (`mode=&quot;targeted&quot;` + object_terms), or when you want views maximally
+  different from what you&#x27;ve seen (`mode=&quot;explore&quot;`), or temporal
+  neighbors of an anchor frame (`mode=&quot;temporal_fan&quot;` + frame_indices).
+- **`request_crops(request_text, object_terms=[...])`** — generates
+  a zoomed-in red-bbox crop around each named scene object. Use when
+  the proposal is visible but small / occluded in the existing
+  frames. CLIP-fallback object matching, ~moderate cost.
+- **`switch_or_expand_hypothesis(new_query=&quot;...&quot;)`** — calls Stage 1
+  again with a refined query string and **appends** new keyframes
+  (1-3 more). Most expensive (LLM hypothesis parse). Use as last
+  resort when the initial keyframes don&#x27;t cover the right *region*
+  of the scene at all — e.g. Stage 1 mis-parsed the utterance, or
+  the target&#x27;s category isn&#x27;t represented in any of the initial
+  frames AND `find_proposals_by_category` returned nothing useful.
+  This is the project&#x27;s **Stage 2 → Stage 1 callback** loop (mirrors
+  OpenEQA).
+
+Keep iterating with these four tools until you actually see the target
+clearly, or until you have proven the referent is not in the proposal
+pool. Prefer cheaper paths first.
+
+1. `list_keyframes_with_proposals()` — see which **initial** keyframes
+   carry which proposal ids and how many proposals each frame shows.
+2. **Identify target category and find ALL same-category candidates
+   scene-wide** — call `find_proposals_by_category(&quot;&lt;category&gt;&quot;)`. The
+   returned `proposal_ids` cover the whole scene&#x27;s Mask3D pool, not
+   just the initial keyframes.
+3. **Decide where to look:**
+   - If the initial keyframes contain ≥ 1 same-category candidate
+     (overlap between their `visible_proposal_ids` and step-2 ids):
+     `view_keyframe_marked(frame_id=N)` on those frames.
+   - If the initial keyframes carry NO same-category candidate but
+     `find_proposals_by_category` returned a non-empty list (the
+     candidates exist in the pool, just not in your initial frames):
+     navigate via `inspect_proposal(K)` → `frames_appeared` →
+     `view_keyframe_marked(frame_id=M)` on those frames.
+   - If `find_proposals_by_category` ALSO returned an empty list (no
+     candidate of that category anywhere in the pool), use
+     `switch_or_expand_hypothesis(new_query=&quot;&lt;a more general or
+     synonymous phrasing of the utterance&gt;&quot;)` to ask Stage 1 for
+     entirely new keyframes. Stage 1&#x27;s hypothesis parser may catch a
+     synonym or attribute the original parse missed.
+4. If you have ≥ 2 plausible candidates after looking at the marks,
+   call `inspect_proposal(proposal_id=K)` on each to disambiguate by
+   category, score, or which other frames the proposal appears in.
+5. If the query has a spatial constraint (&quot;next to the desk&quot;, &quot;left of
+   the sink&quot;, &quot;above the refrigerator&quot;), load the
+   `vg-spatial-disambiguation` skill and apply its workflow before
+   submitting.
+6. `submit_final({&quot;proposal_id&quot;: K, &quot;confidence&quot;: C}, rationale=...)`
+   — the chassis validator will reject any unknown id and FAIL-LOUD.
+7. If the referent genuinely is not in the proposal pool **after**
+   exhausting same-category candidates, viewing 3+ frames, AND trying
+   at least one `switch_or_expand_hypothesis` rewrite, submit the OOD
+   marker (see &quot;OOD handling&quot; below). If the no-match candidate guard
+   returns `NO_MATCH_GUARD`, do not treat that as a crash: it is a
+   compact checklist of unresolved candidates from your own trace.
+   Inspect or choose the best remaining proposal before trying `-1`
+   again.
+
+## tool: list_keyframes_with_proposals
+
+Inputs: none.
+
+Returns a JSON list, one entry per keyframe in the bundle:
+```
+[{&quot;keyframe_idx&quot;: int,
+  &quot;frame_id&quot;: int|None,
+  &quot;visible_proposal_ids&quot;: list[int],
+  &quot;n_proposals&quot;: int,
+  &quot;annotated_image&quot;: str (path to a frame_&lt;frame_id&gt;.png on disk)},
+ ...]
+```
+
+Use this once at the start of every task to pick frames worth viewing.
+A frame with `n_proposals=0` is not useful; a frame with
+`n_proposals &gt; 20` will usually need spatial disambiguation, not
+look-and-pick.
+
+## tool: view_keyframe_marked
+
+Inputs: `frame_id: int` (must be a key in the **scene-wide frame
+index**, NOT just the initial 5 keyframes — the index covers every
+frame in the scene where at least one Mask3D proposal is visible,
+typically 50-300 frames per scene).
+
+Returns a text body summarizing the chosen frame:
+`frame_id=N marked image at &lt;path&gt;; visible_proposals=[...]; categories=[...];
+left_to_right=[...]; boxes_2d={...}`.
+
+The injected image for that frame contains colored 2D proposal boxes.
+Each visible box is labeled `#proposal_id category`; the same ids appear
+in `visible_proposals` and `boxes_2d`. The 2D box is only the visible
+image evidence for that proposal, while the final answer must be the
+3D `proposal_id` submitted through `submit_final`.
+
+For left/right referring expressions, use `left_to_right` before
+submitting. It sorts the visible marked proposal ids by 2D image center
+from left to right. If the query says the target is &quot;to the left of&quot;
+another object and a marked frame shows both, the target should be the
+visible prop
+... [truncated 21344 chars]</pre></div>
+                </div>
+                
+              </div>
+            </details>
+            
+
+            <details class="tool" open>
+              <summary><span class="tool-index">04</span> <span class="tool-name">list_keyframes_with_proposals</span> <span>Initial marked evidence: frame 46 (11 proposals); frame 48 (14 proposals); frame 44 (11 proposals)</span></summary>
+              <div class="tool-body">
+                <div class="cols">
+                  <div><h4>Input</h4><pre>{}</pre></div>
+                  <div><h4>Response summary / raw</h4><pre>[{&quot;keyframe_idx&quot;: 0, &quot;frame_id&quot;: 46, &quot;visible_proposal_ids&quot;: [0, 15, 24, 13, 37, 35, 38, 5, 21, 36, 27], &quot;n_proposals&quot;: 11, &quot;annotated_image&quot;: &quot;data/nr3d/scannet/scene0565_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_46.png&quot;}, {&quot;keyframe_idx&quot;: 1, &quot;frame_id&quot;: 48, &quot;visible_proposal_ids&quot;: [24, 0, 15, 37, 13, 35, 27, 17, 29, 36, 38, 21, 5, 7], &quot;n_proposals&quot;: 14, &quot;annotated_image&quot;: &quot;data/nr3d/scannet/scene0565_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_48.png&quot;}, {&quot;keyframe_idx&quot;: 2, &quot;frame_id&quot;: 44, &quot;visible_proposal_ids&quot;: [0, 15, 13, 24, 35, 37, 14, 36, 38, 5, 21], &quot;n_proposals&quot;: 11, &quot;annotated_image&quot;: &quot;data/nr3d/scannet/scene0565_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_44.png&quot;}]</pre></div>
+                </div>
+                <div class="image-grid">
+            <figure class="image-card">
+              <img src="assets/v6_random100_case_studies_20260513/case03_scene0565_00_0_tool04_00_frame_46_8c8337af.jpg" alt="data/nr3d/scannet/scene0565_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_46.png" loading="lazy">
+              <figcaption>
+                <div><strong>frame 46</strong> <span class="muted">tool #4: list_keyframes_with_proposals</span></div>
+                <div><span class="chip target">target visible</span><span class="chip selected">selected visible</span></div>
+                <div class="small">0:chair, 15:printer, 24:chair, 13:desk, 37:board, 35:shelf, 38:tube, 5:monitor, 21:statue, 36:shelf, 27:scanner</div>
+                <code>data/nr3d/scannet/scene0565_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_46.png</code>
+              </figcaption>
+            </figure>
+            
+
+            <figure class="image-card">
+              <img src="assets/v6_random100_case_studies_20260513/case03_scene0565_00_0_tool04_01_frame_48_9248eefc.jpg" alt="data/nr3d/scannet/scene0565_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_48.png" loading="lazy">
+              <figcaption>
+                <div><strong>frame 48</strong> <span class="muted">tool #4: list_keyframes_with_proposals</span></div>
+                <div><span class="chip target">target visible</span><span class="chip selected">selected visible</span></div>
+                <div class="small">24:chair, 0:chair, 15:printer, 37:board, 13:desk, 35:shelf, 27:scanner, 17:keyboard, 29:computer tower, 36:shelf, 38:tube, 21:statue, 5:monitor, 7:box</div>
+                <code>data/nr3d/scannet/scene0565_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_48.png</code>
+              </figcaption>
+            </figure>
+            
+
+            <figure class="image-card">
+              <img src="assets/v6_random100_case_studies_20260513/case03_scene0565_00_0_tool04_02_frame_44_140696db.jpg" alt="data/nr3d/scannet/scene0565_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_44.png" loading="lazy">
+              <figcaption>
+                <div><strong>frame 44</strong> <span class="muted">tool #4: list_keyframes_with_proposals</span></div>
+                <div><span class="chip target">target visible</span><span class="chip selected">selected visible</span></div>
+                <div class="small">0:chair, 15:printer, 13:desk, 24:chair, 35:shelf, 37:board, 14:printer, 36:shelf, 38:tube, 5:monitor, 21:statue</div>
+                <code>data/nr3d/scannet/scene0565_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_44.png</code>
+              </figcaption>
+            </figure>
+            </div>
+              </div>
+            </details>
+            
+
+            <details class="tool" open>
+              <summary><span class="tool-index">05</span> <span class="tool-name">find_proposals_by_category</span> <span>Category search &#x27;chair&#x27; -&gt; [0, 1, 24, 25]</span></summary>
+              <div class="tool-body">
+                <div class="cols">
+                  <div><h4>Input</h4><pre>{
+  &quot;category&quot;: &quot;chair&quot;
+}</pre></div>
+                  <div><h4>Response summary / raw</h4><pre>{&quot;category&quot;: &quot;chair&quot;, &quot;proposal_ids&quot;: [0, 1, 24, 25], &quot;available_categories&quot;: [&quot;board&quot;, &quot;book&quot;, &quot;box&quot;, &quot;cabinets&quot;, &quot;cart&quot;, &quot;chair&quot;, &quot;computer tower&quot;, &quot;desk&quot;, &quot;door&quot;, &quot;doorframe&quot;, &quot;floor&quot;, &quot;keyboard&quot;, &quot;monitor&quot;, &quot;printer&quot;, &quot;recycling bin&quot;, &quot;scanner&quot;, &quot;shelf&quot;, &quot;statue&quot;, &quot;tube&quot;, &quot;wall&quot;, &quot;window&quot;]}</pre></div>
+                </div>
+                
+              </div>
+            </details>
+            
+
+            <details class="tool" open>
+              <summary><span class="tool-index">06</span> <span class="tool-name">load_skill</span> <span>Loaded skill: vg-spatial-disambiguation</span></summary>
+              <div class="tool-body">
+                <div class="cols">
+                  <div><h4>Input</h4><pre>{
+  &quot;skill_name&quot;: &quot;vg-spatial-disambiguation&quot;
+}</pre></div>
+                  <div><h4>Response summary / raw</h4><pre># VG Spatial Disambiguation
+
+## When to use this skill
+
+Load this skill in addition to `vg-grounding-playbook` whenever the
+visual-grounding query contains an explicit spatial relation between
+two object referents. Telltale phrases:
+
+- &quot;next to ...&quot;, &quot;beside ...&quot;, &quot;adjacent to ...&quot; → `next_to`
+- &quot;near ...&quot;, &quot;nearby ...&quot; → `near`
+- &quot;closest to ...&quot;, &quot;nearest to ...&quot; → `closest_to`
+- &quot;farthest from ...&quot;, &quot;on the opposite side of ...&quot; → `farthest_from`
+- &quot;between A and B&quot;, &quot;in the middle of ...&quot; → reduces to two
+  `near` or `closest_to` calls (one against each anchor)
+- &quot;above ...&quot;, &quot;below ...&quot;, &quot;on top of ...&quot; → height-axis variants;
+- &quot;left of ...&quot;, &quot;right of ...&quot; → camera-frame variants; the tool uses
+  co-viewed 2D marked-frame geometry when candidate and anchor share
+  frames.
+
+This skill assumes you have already loaded `vg-grounding-playbook` and
+you understand the 5 VG tools. It only adds disambiguation patterns;
+it does not duplicate the tool descriptions.
+
+## Three-step workflow
+
+A spatial query decomposes into:
+
+1. **target** — the object the user wants found (returned in
+   `submit_final`).
+2. **relation** — one of `closest_to | near | next_to | farthest_from |
+   above | below | left_of | right_of`. Compound relations (between,
+   opposite) reduce to multiple calls.
+3. **anchor** — the reference object the relation is measured against.
+
+Resolve target candidates and the anchor independently first; combine
+with `compare_proposals_spatial` last. Do NOT use spatial reasoning to
+filter candidates before you have a candidate list.
+
+## Pronoun and secondary-clue relations
+
+Be careful when the query describes the target first and then gives a
+relation from an anchor back to the target:
+
+- &quot;find X. Y is to the left of it&quot; means the target X should be
+  `relation=&quot;right_of&quot;` anchor Y.
+- &quot;find X. Y is to the right of it&quot; means the target X should be
+  `relation=&quot;left_of&quot;` anchor Y.
+
+For example, &quot;the window is near a desk. there is a shelving unit to
+the left of it&quot; has target `window` and anchor `shelving unit`; compare
+the window candidates with `relation=&quot;right_of&quot;` against the shelf
+candidate. Do not let a weaker &quot;near the desk&quot; clue override the
+explicit left/right anchor clue when both window candidates are near the
+desk.
+
+## Tool sequence
+
+For a query &quot;find the X relation Y&quot;:
+
+1. `find_proposals_by_category(&quot;X&quot;)` returns
+   `{&quot;category&quot;: &quot;X&quot;, &quot;proposal_ids&quot;: [...], &quot;available_categories&quot;: [...]}`.
+   Read `[&quot;proposal_ids&quot;]` as `target_candidates`.
+2. `find_proposals_by_category(&quot;Y&quot;)` returns the same shape; read
+   `[&quot;proposal_ids&quot;]` as `anchor_candidates`.
+3. If `len(anchor_candidates) &gt; 1`, the anchor itself is ambiguous
+   (see &quot;Ambiguous anchor&quot; below). Otherwise pick the single anchor.
+4. `compare_proposals_spatial(candidate_ids=target_candidates,
+   anchor_id=picked_anchor, relation=&quot;closest_to&quot; | &quot;near&quot; |
+   &quot;next_to&quot; | &quot;farthest_from&quot; | &quot;above&quot; | &quot;below&quot; | &quot;left_of&quot; |
+   &quot;right_of&quot;)`
+   returns `{&quot;anchor_id&quot;: int, &quot;relation&quot;: str, &quot;ranked_ids&quot;: [...],
+   &quot;distances&quot;: [...]}`. Read `[&quot;ranked_ids&quot;]`.
+5. The first id in `ranked_ids` is your best guess. Cross-check by
+   `view_keyframe_marked(frame_id=...)` on a frame that contains both
+   the target and the anchor (use `inspect_proposal` to find their
+   shared frames if needed).
+6. `submit_final({&quot;proposal_id&quot;: ranked_ids[0], &quot;confidence&quot;: ...},
+   rationale=&quot;...&quot;)`.
+
+## Ambiguous anchor
+
+If `find_proposals_by_category(anchor)` returns ≥ 2 ids, you cannot
+just pick the first. The agent must either:
+
+- (a) Look at the user&#x27;s full query for additional context that
+  narrows the anchor (e.g. &quot;the desk near the window&quot; — apply this
+  skill recursively with the windowed-anchor as the next-level
+  target), or
+- (b) Compute the spatial answer for each anchor candidate
+  independently and either pick the most likely one given the query&#x27;s
+  natural-language hint, or report failure if all are equally
+  plausible.
+
+In practice (a) covers most cases. Only resort to (b) when no
+narrowing context exists, and budget allows multiple
+`compare_proposals_spatial` calls.
+
+When you resort to (b), compare every plausible anchor candidate before
+submitting. Prefer the target/anchor pair with the strongest relation
+evidence: for `left_of` / `right_of`, higher
+`supporting_frame_counts`, lower `contradicting_frame_counts`, and a
+non-null `mean_2d_center_offsets_x`; for `near` / `next_to`, a lower
+floor-plane `horizontal_distances` value after category sanity-checking.
+Do not override a stronger relation result solely because a different
+anchor was in the current frame. Example: if &quot;office chair left of the
+keyboard&quot; has two keyboard proposals and chair A is left of keyboard 1
+while chair B is left of keyboard 2, inspect both pairs or pick the pair
+with stronger shared-frame support instead of assuming the visible
+keyboard is the one intended.
+
+## Same-category adjacency
+
+For queries such as &quot;a chair next to another same chair&quot;, the target and
+anchor have the same category. Do not use the submitted target as its
+own anchor. Build a candidate list for the target category, then
+evaluate each plausible &quot;other same chair&quot; as the anchor while keeping
+the submitted target candidates separate from that anchor. If
+`submit_final` returns an anchor-self / `anchor_self` / `anchor-self`
+TADG block, treat it as a real reasoning error: re-run the comparison
+with a different anchor or submit the relation-ranked target. Do not
+override an anchor-self block just because the anchor candidate looks
+tighter in one marked frame.
+
+## Anti-patterns
+
+- Do NOT call `compare_proposals_spatial` with a single-element
+  `candidate_ids` — the ranking is trivially that one id, and you
+  haven&#x27;t used the spatial information.
+- Do use `relation=&quot;left_of&quot;` / `&quot;right_of&quot;` for phrases like &quot;left of
+  the sink&quot; only after you have candidate and anchor lists. The tool
+  uses shared marked-frame 2D boxes; if `shared_frame_counts` is zero or
+  `contradicting_frame_counts` is high, inspect shared frames before
+  trusting the rank.
+- Do use `relation=&quot;next_to&quot;` or `&quot;near&quot;` for adjacency language. These
+  rank by floor-plane distance and are usually better than full 3D
+  `closest_to` when object heights differ.
+- Do use `relation=&quot;above&quot;` / `&quot;below&quot;` for vertical relations. These
+  rank by bbox-center z offset and return `vertical_offsets`; they are
+  more appropriate than `closest_to` for phrases like &quot;cabinet above the
+  refrigerator&quot; or &quot;box below the table&quot;.
+- Do NOT rely on `compare_proposals_spatial` for &quot;between A and B&quot;
+  without explicitly intersecting two `closest_to` calls; bbox-center
+  Euclidean distance ranks single-anchor relations only.
+- Do NOT skip cross-checking with `view_keyframe_marked` after
+  ranking — distances on bbox centers do not always match the visual
+  intuition of &quot;next to&quot; (e.g. two boxes touching but with very
+  different sizes).
+- Do NOT assume the anchor is always disambiguated — always inspect
+  the length of `anchor_candidates`.
+
+## Exa
+... [truncated 3912 chars]</pre></div>
+                </div>
+                
+              </div>
+            </details>
+            
+
+            <details class="tool" open>
+              <summary><span class="tool-index">07</span> <span class="tool-name">inspect_proposal</span> <span>Proposal 0 label=chair frames=52</span></summary>
+              <div class="tool-body">
+                <div class="cols">
+                  <div><h4>Input</h4><pre>{
+  &quot;proposal_id&quot;: 0
+}</pre></div>
+                  <div><h4>Response summary / raw</h4><pre>{&quot;proposal_id&quot;: 0, &quot;category&quot;: &quot;chair&quot;, &quot;score&quot;: 1.0, &quot;bbox_3d_9dof&quot;: [0.1535856160779318, -1.9151555773403104, 0.4557438459539096, 0.6900180730087561, 0.8025828528073499, 1.236824354785072, -0.12167199582851068, 0.3733871530281545, 0.4392607195111556], &quot;frames_appeared&quot;: [9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 64, 65, 66, 67, 68, 102], &quot;source&quot;: &quot;gt&quot;}</pre></div>
+                </div>
+                
+              </div>
+            </details>
+            
+
+            <details class="tool" open>
+              <summary><span class="tool-index">08</span> <span class="tool-name">inspect_proposal</span> <span>Proposal 1 label=chair frames=41</span></summary>
+              <div class="tool-body">
+                <div class="cols">
+                  <div><h4>Input</h4><pre>{
+  &quot;proposal_id&quot;: 1
+}</pre></div>
+                  <div><h4>Response summary / raw</h4><pre>{&quot;proposal_id&quot;: 1, &quot;category&quot;: &quot;chair&quot;, &quot;score&quot;: 1.0, &quot;bbox_3d_9dof&quot;: [0.041690010492958285, 1.9377540709981154, 0.6102738712965826, 0.5710780916751502, 0.5352175185573665, 1.1494637848555231, 0.3556757904451512, 0.09684654314476093, -0.6626037801290964], &quot;frames_appeared&quot;: [0, 1, 2, 3, 4, 5, 6, 7, 8, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106], &quot;source&quot;: &quot;gt&quot;}</pre></div>
+                </div>
+                
+              </div>
+            </details>
+            
+
+            <details class="tool" open>
+              <summary><span class="tool-index">09</span> <span class="tool-name">inspect_proposal</span> <span>Proposal 24 label=chair frames=43</span></summary>
+              <div class="tool-body">
+                <div class="cols">
+                  <div><h4>Input</h4><pre>{
+  &quot;proposal_id&quot;: 24
+}</pre></div>
+                  <div><h4>Response summary / raw</h4><pre>{&quot;proposal_id&quot;: 24, &quot;category&quot;: &quot;chair&quot;, &quot;score&quot;: 1.0, &quot;bbox_3d_9dof&quot;: [0.6922572281778622, -1.6151708522728125, 0.4003920054507698, 0.6529358912992838, 0.8021747940575394, 1.0514804599372591, -0.24345757931995035, 0.4261761736309675, 0.2750406255846082], &quot;frames_appeared&quot;: [9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 100, 101, 102, 103], &quot;source&quot;: &quot;gt&quot;}</pre></div>
+                </div>
+                
+              </div>
+            </details>
+            
+
+            <details class="tool" open>
+              <summary><span class="tool-index">10</span> <span class="tool-name">inspect_proposal</span> <span>Proposal 25 label=chair frames=15</span></summary>
+              <div class="tool-body">
+                <div class="cols">
+                  <div><h4>Input</h4><pre>{
+  &quot;proposal_id&quot;: 25
+}</pre></div>
+                  <div><h4>Response summary / raw</h4><pre>{&quot;proposal_id&quot;: 25, &quot;category&quot;: &quot;chair&quot;, &quot;score&quot;: 1.0, &quot;bbox_3d_9dof&quot;: [0.541470996761351, 2.9764746328698846, 0.6141489208122717, 0.4931457602847147, 0.5320714104939166, 1.0773663881808275, -0.12920495603786422, -0.33882520107799596, 0.4069178079975737], &quot;frames_appeared&quot;: [76, 77, 78, 79, 80, 81, 82, 91, 92, 93, 94, 95, 96, 97, 98], &quot;source&quot;: &quot;gt&quot;}</pre></div>
+                </div>
+                
+              </div>
+            </details>
+            
+
+            <details class="tool" open>
+              <summary><span class="tool-index">11</span> <span class="tool-name">compare_proposals_spatial</span> <span>{&quot;anchor_id&quot;: 0, &quot;relation&quot;: &quot;next_to&quot;, &quot;ranked_ids&quot;: [24, 1, 25], &quot;distances&quot;: [0.6190490830323918, 3.857630479133657, 4.909541052861239], &quot;horizontal_distances&quot;: [0.616569494020066, 3.854534133304382, 4.906984938023446], &quot;vertical_offsets&quot;: [-0.05535184050313979, 0.15453002534267302, 0.15840507485836208], &quot;x_offsets&quot;: [0.5386716120999304, -0.11189560558497352, 0.3878853806834192], &quot;shared_frame_counts&quot;: [0, 0, 0], </span></summary>
+              <div class="tool-body">
+                <div class="cols">
+                  <div><h4>Input</h4><pre>{
+  &quot;candidate_ids&quot;: [
+    1,
+    24,
+    25
+  ],
+  &quot;anchor_id&quot;: 0,
+  &quot;relation&quot;: &quot;next_to&quot;
+}</pre></div>
+                  <div><h4>Response summary / raw</h4><pre>{&quot;anchor_id&quot;: 0, &quot;relation&quot;: &quot;next_to&quot;, &quot;ranked_ids&quot;: [24, 1, 25], &quot;distances&quot;: [0.6190490830323918, 3.857630479133657, 4.909541052861239], &quot;horizontal_distances&quot;: [0.616569494020066, 3.854534133304382, 4.906984938023446], &quot;vertical_offsets&quot;: [-0.05535184050313979, 0.15453002534267302, 0.15840507485836208], &quot;x_offsets&quot;: [0.5386716120999304, -0.11189560558497352, 0.3878853806834192], &quot;shared_frame_counts&quot;: [0, 0, 0], &quot;mean_2d_center_offsets_x&quot;: [null, null, null], &quot;supporting_frame_counts&quot;: [0, 0, 0], &quot;contradicting_frame_counts&quot;: [0, 0, 0]}</pre></div>
+                </div>
+                
+              </div>
+            </details>
+            
+
+            <details class="tool" open>
+              <summary><span class="tool-index">12</span> <span class="tool-name">view_keyframe_marked</span> <span>Viewed marked frame 46. [&#x27;chair&#x27;, &#x27;printer&#x27;, &#x27;chair&#x27;, &#x27;desk&#x27;, &#x27;board&#x27;, &#x27;shelf&#x27;, &#x27;tube&#x27;, &#x27;monitor&#x27;, &#x27;statue&#x27;, &#x27;shelf&#x27;, &#x27;scanner&#x27;]</span></summary>
+              <div class="tool-body">
+                <div class="cols">
+                  <div><h4>Input</h4><pre>{
+  &quot;frame_id&quot;: 46
+}</pre></div>
+                  <div><h4>Response summary / raw</h4><pre>frame_id=46 marked image at data/nr3d/scannet/scene0565_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_46.png; visible_proposals=[0, 15, 24, 13, 37, 35, 38, 5, 21, 36, 27]; categories=[&#x27;chair&#x27;, &#x27;printer&#x27;, &#x27;chair&#x27;, &#x27;desk&#x27;, &#x27;board&#x27;, &#x27;shelf&#x27;, &#x27;tube&#x27;, &#x27;monitor&#x27;, &#x27;statue&#x27;, &#x27;shelf&#x27;, &#x27;scanner&#x27;]</pre></div>
+                </div>
+                <div class="image-grid">
+            <figure class="image-card">
+              <img src="assets/v6_random100_case_studies_20260513/case03_scene0565_00_0_tool12_00_frame_46_8c8337af.jpg" alt="data/nr3d/scannet/scene0565_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_46.png" loading="lazy">
+              <figcaption>
+                <div><strong>frame 46</strong> <span class="muted">tool #12: view_keyframe_marked</span></div>
+                <div><span class="chip target">target visible</span><span class="chip selected">selected visible</span></div>
+                <div class="small">0:chair, 15:printer, 24:chair, 13:desk, 37:board, 35:shelf, 38:tube, 5:monitor, 21:statue, 36:shelf, 27:scanner</div>
+                <code>data/nr3d/scannet/scene0565_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_46.png</code>
+              </figcaption>
+            </figure>
+            </div>
+              </div>
+            </details>
+            
+
+            <details class="tool" open>
+              <summary><span class="tool-index">13</span> <span class="tool-name">view_keyframe_marked</span> <span>Viewed marked frame 48. [&#x27;chair&#x27;, &#x27;chair&#x27;, &#x27;printer&#x27;, &#x27;board&#x27;, &#x27;desk&#x27;, &#x27;shelf&#x27;, &#x27;scanner&#x27;, &#x27;keyboard&#x27;, &#x27;computer tower&#x27;, &#x27;shelf&#x27;, &#x27;tube&#x27;, &#x27;statue&#x27;, &#x27;monitor&#x27;, &#x27;box&#x27;]</span></summary>
+              <div class="tool-body">
+                <div class="cols">
+                  <div><h4>Input</h4><pre>{
+  &quot;frame_id&quot;: 48
+}</pre></div>
+                  <div><h4>Response summary / raw</h4><pre>frame_id=48 marked image at data/nr3d/scannet/scene0565_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_48.png; visible_proposals=[24, 0, 15, 37, 13, 35, 27, 17, 29, 36, 38, 21, 5, 7]; categories=[&#x27;chair&#x27;, &#x27;chair&#x27;, &#x27;printer&#x27;, &#x27;board&#x27;, &#x27;desk&#x27;, &#x27;shelf&#x27;, &#x27;scanner&#x27;, &#x27;keyboard&#x27;, &#x27;computer tower&#x27;, &#x27;shelf&#x27;, &#x27;tube&#x27;, &#x27;statue&#x27;, &#x27;monitor&#x27;, &#x27;box&#x27;]</pre></div>
+                </div>
+                <div class="image-grid">
+            <figure class="image-card">
+              <img src="assets/v6_random100_case_studies_20260513/case03_scene0565_00_0_tool13_00_frame_48_9248eefc.jpg" alt="data/nr3d/scannet/scene0565_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_48.png" loading="lazy">
+              <figcaption>
+                <div><strong>frame 48</strong> <span class="muted">tool #13: view_keyframe_marked</span></div>
+                <div><span class="chip target">target visible</span><span class="chip selected">selected visible</span></div>
+                <div class="small">24:chair, 0:chair, 15:printer, 37:board, 13:desk, 35:shelf, 27:scanner, 17:keyboard, 29:computer tower, 36:shelf, 38:tube, 21:statue, 5:monitor, 7:box</div>
+                <code>data/nr3d/scannet/scene0565_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_48.png</code>
+              </figcaption>
+            </figure>
+            </div>
+              </div>
+            </details>
+            
+
+            <details class="tool" open>
+              <summary><span class="tool-index">14</span> <span class="tool-name">view_keyframe_marked</span> <span>Viewed marked frame 44. [&#x27;chair&#x27;, &#x27;printer&#x27;, &#x27;desk&#x27;, &#x27;chair&#x27;, &#x27;shelf&#x27;, &#x27;board&#x27;, &#x27;printer&#x27;, &#x27;shelf&#x27;, &#x27;tube&#x27;, &#x27;monitor&#x27;, &#x27;statue&#x27;]</span></summary>
+              <div class="tool-body">
+                <div class="cols">
+                  <div><h4>Input</h4><pre>{
+  &quot;frame_id&quot;: 44
+}</pre></div>
+                  <div><h4>Response summary / raw</h4><pre>frame_id=44 marked image at data/nr3d/scannet/scene0565_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_44.png; visible_proposals=[0, 15, 13, 24, 35, 37, 14, 36, 38, 5, 21]; categories=[&#x27;chair&#x27;, &#x27;printer&#x27;, &#x27;desk&#x27;, &#x27;chair&#x27;, &#x27;shelf&#x27;, &#x27;board&#x27;, &#x27;printer&#x27;, &#x27;shelf&#x27;, &#x27;tube&#x27;, &#x27;monitor&#x27;, &#x27;statue&#x27;]</pre></div>
+                </div>
+                <div class="image-grid">
+            <figure class="image-card">
+              <img src="assets/v6_random100_case_studies_20260513/case03_scene0565_00_0_tool14_00_frame_44_140696db.jpg" alt="data/nr3d/scannet/scene0565_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_44.png" loading="lazy">
+              <figcaption>
+                <div><strong>frame 44</strong> <span class="muted">tool #14: view_keyframe_marked</span></div>
+                <div><span class="chip target">target visible</span><span class="chip selected">selected visible</span></div>
+                <div class="small">0:chair, 15:printer, 13:desk, 24:chair, 35:shelf, 37:board, 14:printer, 36:shelf, 38:tube, 5:monitor, 21:statue</div>
+                <code>data/nr3d/scannet/scene0565_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_44.png</code>
+              </figcaption>
+            </figure>
+            </div>
+              </div>
+            </details>
+            
+
+            <details class="tool" open>
+              <summary><span class="tool-index">15</span> <span class="tool-name">submit_final</span> <span>submit_final payload={&#x27;proposal_id&#x27;: 24, &#x27;confidence&#x27;: 0.91}; rationale=Proposal #24 is the grey chair immediately adjacent to the green chair (#0) in marked frames 44, 46, and 48. The other chair proposals (#1 and #25) appear in distant, different parts of the scene, and spatial ranking among chair proposals relative to the green chair ranks #24 as the nearest/next-to candidate.</span></summary>
+              <div class="tool-body">
+                <div class="cols">
+                  <div><h4>Input</h4><pre>{
+  &quot;payload&quot;: {
+    &quot;proposal_id&quot;: 24,
+    &quot;confidence&quot;: 0.91
+  },
+  &quot;rationale&quot;: &quot;Proposal #24 is the grey chair immediately adjacent to the green chair (#0) in marked frames 44, 46, and 48. The other chair proposals (#1 and #25) appear in distant, different parts of the scene, and spatial ranking among chair proposals relative to the green chair ranks #24 as the nearest/next-to candidate.&quot;,
+  &quot;evidence_refs&quot;: [],
+  &quot;tadg_blocked&quot;: false,
+  &quot;tadg_force_passed&quot;: false,
+  &quot;tadg_top1_pid&quot;: null,
+  &quot;tadg_submitted_pid&quot;: null,
+  &quot;tadg_relation&quot;: null,
+  &quot;tadg_anchor_id&quot;: null,
+  &quot;tadg_subcase&quot;: null,
+  &quot;tadg_ranked_ids&quot;: null,
+  &quot;tadg_message&quot;: null,
+  &quot;no_match_guard_blocked&quot;: false,
+  &quot;no_match_guard_force_passed&quot;: false,
+  &quot;no_match_guard_category_candidate_ids&quot;: null,
+  &quot;no_match_guard_category_candidate_labels&quot;: null,
+  &quot;no_match_guard_viewed_uninspected_ids&quot;: null,
+  &quot;no_match_guard_viewed_uninspected_labels&quot;: null,
+  &quot;no_match_guard_message&quot;: null,
+  &quot;evidence_frame_guard_blocked&quot;: false,
+  &quot;evidence_frame_guard_submitted_pid&quot;: 24,
+  &quot;evidence_frame_guard_cited_frame_ids&quot;: null,
+  &quot;evidence_frame_guard_visible_proposal_ids&quot;: null,
+  &quot;evidence_frame_guard_visible_proposal_labels&quot;: null,
+  &quot;evidence_frame_guard_relative_position_conflict&quot;: false,
+  &quot;evidence_frame_guard_relative_position_direction&quot;: null,
+  &quot;evidence_frame_guard_relative_position_alternatives&quot;: null,
+  &quot;evidence_frame_guard_relative_position_alternative_labels&quot;: null,
+  &quot;evidence_frame_guard_message&quot;: null
+}</pre></div>
+                  <div><h4>Response summary / raw</h4><pre>submitted; rationale=&#x27;Proposal #24 is the grey chair immediately adjacent to the green chair (#0) in marked frames 44, 46, and 48. The other chair proposals (#1 and #25) appear in distant, different parts of the scene, and spatial ranking among chair proposals relative to the green chair ranks #24 as the nearest/next-to candidate.&#x27;; evidence_refs=0</pre></div>
+                </div>
+                
+              </div>
+            </details>
+            </div>
+    </section>
+    
+    <section class="case" id="case-4">
+      <div class="case-head">
+        <div>
+          <div class="eyebrow">Case 4</div>
+          <h2>Wrong: cabinet under desk without red chair</h2>
+          <p class="why">Wrong case with evidence-frame guard intervention. The agent finally selects cabinet #29 instead of target #36.</p>
+        </div>
+        <div class="status wrong">WRONG</div>
+      </div>
+
+      <h3>Outcome</h3>
+      <p>The agent selected id 29 (file cabinet), but the target is id 36 (file cabinet). The classification metric is therefore false and IoU is 0.000.</p>
+      <table class="kv"><tr><th>sample_id</th><td>scannet/scene0329_00::36::39361</td></tr><tr><th>query</th><td>Pick the cabinet under the desk that does NOT have a red chair. It is on the side of the office with the whiteboard.</td></tr><tr><th>scene_id</th><td>scene0329_00</td></tr><tr><th>category / target label</th><td>file cabinet / file cabinet</td></tr><tr><th>target_id</th><td>36</td></tr><tr><th>selected_object_id</th><td>29</td></tr><tr><th>selected label</th><td>file cabinet</td></tr><tr><th>status</th><td>completed</td></tr><tr><th>confidence</th><td>0.85</td></tr><tr><th>IoU</th><td>0.0000</td></tr><tr><th>filtered headline row</th><td>True</td></tr><tr><th>easy</th><td>True</td></tr><tr><th>view-dependent</th><td>False</td></tr></table>
+
+      <h3>Stage 1: query-driven evidence pack</h3>
+      <p>
+        Stage 1 produced the marked keyframe entry points below. The pack
+        explicitly records <code>keyframe_selection_uses_gt_target=false</code>;
+        target id and GT bbox are kept for scoring, not for view selection.
+      </p>
+      <table class="kv"><tr><th>pack sample</th><td>data/nr3d/scannet/scene0329_00/pack_nr3d_v6_inline_labels_depth_visible/samples/scannet__scene0329_00__36__39361.json</td></tr><tr><th>keyframe_mode</th><td>query_driven</td></tr><tr><th>uses_gt_target</th><td>False</td></tr><tr><th>used_non_gt_fallback</th><td>True</td></tr><tr><th>initial keyframes</th><td>104, 101, 122</td></tr><tr><th>target visible in initial keyframes</th><td>1/3</td></tr><tr><th>selected visible in initial keyframes</th><td>0/3</td></tr></table>
+      <div class="image-grid">
+            <figure class="image-card">
+              <img src="assets/v6_random100_case_studies_20260513/case04_scene0329_00_36_stage1_00_frame_104_6c69e6a2.jpg" alt="data/nr3d/scannet/scene0329_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_104.png" loading="lazy">
+              <figcaption>
+                <div><strong>frame 104</strong> <span class="muted">stage1 initial keyframe</span></div>
+                <div></div>
+                <div class="small">11:shelf, 34:chair, 32:monitor, 6:table, 7:table, 13:chair, 30:monitor, 37:chair, 40:doorframe</div>
+                <code>data/nr3d/scannet/scene0329_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_104.png</code>
+              </figcaption>
+            </figure>
+            
+
+            <figure class="image-card">
+              <img src="assets/v6_random100_case_studies_20260513/case04_scene0329_00_36_stage1_01_frame_101_2cf5be18.jpg" alt="data/nr3d/scannet/scene0329_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_101.png" loading="lazy">
+              <figcaption>
+                <div><strong>frame 101</strong> <span class="muted">stage1 initial keyframe</span></div>
+                <div><span class="chip target">target visible</span></div>
+                <div class="small">13:chair, 30:monitor, 11:shelf, 7:table, 34:chair, 31:monitor, 6:table, 32:monitor, 36:file cabinet</div>
+                <code>data/nr3d/scannet/scene0329_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_101.png</code>
+              </figcaption>
+            </figure>
+            
+
+            <figure class="image-card">
+              <img src="assets/v6_random100_case_studies_20260513/case04_scene0329_00_36_stage1_02_frame_122_abfb0158.jpg" alt="data/nr3d/scannet/scene0329_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_122.png" loading="lazy">
+              <figcaption>
+                <div><strong>frame 122</strong> <span class="muted">stage1 initial keyframe</span></div>
+                <div></div>
+                <div class="small">11:shelf, 30:monitor, 31:monitor, 7:table, 34:chair, 6:table, 13:chair, 37:chair</div>
+                <code>data/nr3d/scannet/scene0329_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_122.png</code>
+              </figcaption>
+            </figure>
+            </div>
+
+      <h3>Candidate proposals touched by Stage 2</h3>
+      <p>The table includes the target, final selected proposal if any, category-search hits, and inspected proposals.</p>
+      <table><tr><th>ID</th><th>Role</th><th>Label</th><th>Score</th><th>BBox</th></tr><tr><td>36</td><td>target</td><td>file cabinet</td><td>1.0</td><td>center=(-0.968, -2.170, 0.423); size=(0.513, 0.179, 0.463)</td></tr>
+<tr><td>29</td><td>selected</td><td>file cabinet</td><td>1.0</td><td>center=(1.933, -2.026, 0.576); size=(0.372, 0.091, 0.515)</td></tr>
+<tr><td>43</td><td>-</td><td>whiteboard</td><td>1.0</td><td>center=(-3.130, 1.976, 1.351); size=(0.147, 3.051, 1.467)</td></tr>
+<tr><td>13</td><td>-</td><td>chair</td><td>1.0</td><td>center=(1.403, -1.356, 0.619); size=(0.531, 0.404, 1.043)</td></tr>
+<tr><td>34</td><td>-</td><td>chair</td><td>1.0</td><td>center=(-0.424, -1.754, 0.675); size=(0.753, 0.767, 0.364)</td></tr>
+<tr><td>37</td><td>-</td><td>chair</td><td>1.0</td><td>center=(-1.163, -1.513, 0.681); size=(0.517, 0.557, 0.407)</td></tr></table>
+
+      <h3>Stage 2: tool-augmented reasoning trace</h3>
+      <p>
+        Tool calls: 26. Tool mix:
+        list_skills=1, list_keyframes_with_proposals=2, load_skill=1, find_proposals_by_category=4, inspect_proposal=8, view_keyframe_marked=6, request_more_views=1, submit_final=3.
+        Every call below is rendered in chronological order with input, response,
+        and any referenced marked frame image.
+      </p>
+      <div class="image-grid">
+            <figure class="image-card">
+              <img src="assets/v6_random100_case_studies_20260513/case04_scene0329_00_36_stage2refs_00_frame_104_6c69e6a2.jpg" alt="data/nr3d/scannet/scene0329_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_104.png" loading="lazy">
+              <figcaption>
+                <div><strong>frame 104</strong> <span class="muted">stage2 tool #4: list_keyframes_with_proposals</span></div>
+                <div></div>
+                <div class="small">11:shelf, 34:chair, 32:monitor, 6:table, 7:table, 13:chair, 30:monitor, 37:chair, 40:doorframe</div>
+                <code>data/nr3d/scannet/scene0329_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_104.png</code>
+              </figcaption>
+            </figure>
+            
+
+            <figure class="image-card">
+              <img src="assets/v6_random100_case_studies_20260513/case04_scene0329_00_36_stage2refs_01_frame_101_2cf5be18.jpg" alt="data/nr3d/scannet/scene0329_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_101.png" loading="lazy">
+              <figcaption>
+                <div><strong>frame 101</strong> <span class="muted">stage2 tool #4: list_keyframes_with_proposals</span></div>
+                <div><span class="chip target">target visible</span></div>
+                <div class="small">13:chair, 30:monitor, 11:shelf, 7:table, 34:chair, 31:monitor, 6:table, 32:monitor, 36:file cabinet</div>
+                <code>data/nr3d/scannet/scene0329_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_101.png</code>
+              </figcaption>
+            </figure>
+            
+
+            <figure class="image-card">
+              <img src="assets/v6_random100_case_studies_20260513/case04_scene0329_00_36_stage2refs_02_frame_122_abfb0158.jpg" alt="data/nr3d/scannet/scene0329_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_122.png" loading="lazy">
+              <figcaption>
+                <div><strong>frame 122</strong> <span class="muted">stage2 tool #4: list_keyframes_with_proposals</span></div>
+                <div></div>
+                <div class="small">11:shelf, 30:monitor, 31:monitor, 7:table, 34:chair, 6:table, 13:chair, 37:chair</div>
+                <code>data/nr3d/scannet/scene0329_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_122.png</code>
+              </figcaption>
+            </figure>
+            
+
+            <figure class="image-card">
+              <img src="assets/v6_random100_case_studies_20260513/case04_scene0329_00_36_stage2refs_03_frame_100_562f9c54.jpg" alt="data/nr3d/scannet/scene0329_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_100.png" loading="lazy">
+              <figcaption>
+                <div><strong>frame 100</strong> <span class="muted">stage2 tool #13: view_keyframe_marked</span></div>
+                <div><span class="chip target">target visible</span><span class="chip selected">selected visible</span></div>
+                <div class="small">13:chair, 7:table, 29:file cabinet, 30:monitor, 11:shelf, 34:chair, 36:file cabinet</div>
+                <code>data/nr3d/scannet/scene0329_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_100.png</code>
+              </figcaption>
+            </figure>
+            
+
+            <figure class="image-card">
+              <img src="assets/v6_random100_case_studies_20260513/case04_scene0329_00_36_stage2refs_04_frame_91_9e967327.jpg" alt="data/nr3d/scannet/scene0329_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_91.png" loading="lazy">
+              <figcaption>
+                <div><strong>frame 91</strong> <span class="muted">stage2 tool #14: view_keyframe_marked</span></div>
+                <div><span class="chip selected">selected visible</span></div>
+                <div class="small">5:door, 25:trash can, 26:doorframe, 27:trash can, 14:trash can, 29:file cabinet, 7:table</div>
+                <code>data/nr3d/scannet/scene0329_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_91.png</code>
+              </figcaption>
+            </figure>
+            
+
+            <figure class="image-card">
+              <img src="assets/v6_random100_case_studies_20260513/case04_scene0329_00_36_stage2refs_05_frame_29_b80c9127.jpg" alt="data/nr3d/scannet/scene0329_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_29.png" loading="lazy">
+              <figcaption>
+                <div><strong>frame 29</strong> <span class="muted">stage2 tool #15: view_keyframe_marked</span></div>
+                <div></div>
+                <div class="small">1:couch, 43:whiteboard</div>
+                <code>data/nr3d/scannet/scene0329_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_29.png</code>
+              </figcaption>
+            </figure>
+            </div>
+      <div class="timeline">
+            <details class="tool" open>
+              <summary><span class="tool-index">01</span> <span class="tool-name">list_skills</span> <span>Available skills: vg-grounding-playbook, vg-spatial-disambiguation, evidence-scouting</span></summary>
+              <div class="tool-body">
+                <div class="cols">
+                  <div><h4>Input</h4><pre>{}</pre></div>
+                  <div><h4>Response summary / raw</h4><pre>[{&quot;name&quot;: &quot;vg-grounding-playbook&quot;, &quot;description&quot;: &quot;EmbodiedScan VG main loop: read marked keyframes, pick proposal, submit.&quot;}, {&quot;name&quot;: &quot;vg-spatial-disambiguation&quot;, &quot;description&quot;: &quot;Use when the query contains spatial relations like &#x27;next to&#x27;, &#x27;left of&#x27;, &#x27;above&#x27;, or &#x27;closest to&#x27;.&quot;}, {&quot;name&quot;: &quot;evidence-scouting&quot;, &quot;description&quot;: &quot;Decide when to request more keyframes or crops, and how to phrase the request.&quot;}]</pre></div>
+                </div>
+                
+              </div>
+            </details>
+            
+
+            <details class="tool" open>
+              <summary><span class="tool-index">02</span> <span class="tool-name">list_keyframes_with_proposals</span> <span>ERROR: load_skill(&#x27;vg-grounding-playbook&#x27;) before calling this tool.</span></summary>
+              <div class="tool-body">
+                <div class="cols">
+                  <div><h4>Input</h4><pre>{}</pre></div>
+                  <div><h4>Response summary / raw</h4><pre>ERROR: load_skill(&#x27;vg-grounding-playbook&#x27;) before calling this tool.</pre></div>
+                </div>
+                
+              </div>
+            </details>
+            
+
+            <details class="tool" open>
+              <summary><span class="tool-index">03</span> <span class="tool-name">load_skill</span> <span>Loaded skill: vg-grounding-playbook</span></summary>
+              <div class="tool-body">
+                <div class="cols">
+                  <div><h4>Input</h4><pre>{
+  &quot;skill_name&quot;: &quot;vg-grounding-playbook&quot;
+}</pre></div>
+                  <div><h4>Response summary / raw</h4><pre># VG Grounding Playbook
+
+## When to use this skill
+
+Load this skill at the start of every visual-grounding task on
+EmbodiedScan ScanNet val. It is the prerequisite for the 5 VG-pack
+tools — every one of them returns
+`&quot;ERROR: load_skill(&#x27;vg-grounding-playbook&#x27;) before calling this tool.&quot;`
+until this skill is loaded into `runtime.skills_loaded`.
+
+You are answering a query of the form &quot;find the X in the scene&quot;, where
+X may be a single object referent or a referring expression with
+spatial constraints. The scene comes with a pre-computed proposal pool
+(V-DETR or 2D-CG) and a set of pre-rendered set-of-marks keyframes.
+Your job is to pick the proposal id that matches the referent, or to
+mark the sample as failed if no proposal in the pool plausibly matches.
+
+## Decision tree
+
+This is a ReAct loop. The 1-3 initial keyframes are a *starting point*,
+not the final evidence. You have **four independent paths** to acquire
+fresh visual evidence when the initial keyframes don&#x27;t show the target,
+ordered cheapest-first:
+
+- **`view_keyframe_marked(frame_id=N)`** — instant. For any N in the
+  scene-wide frame index (typically 50-300 frames per scene). Use this
+  when the initial keyframes show the right *region* but not the
+  specific instance — e.g. you have category candidates from
+  `find_proposals_by_category` and want to verify each in a frame
+  where Mask3D actually marked it.
+  The marked image draws one colored 2D box per visible candidate
+  proposal. Each box is labeled directly as `#proposal_id category`;
+  submit the integer after `#` when that box covers the referent. The
+  category text is a weak detector label, not ground truth.
+- **`request_more_views(request_text, mode=&quot;targeted&quot;|&quot;explore&quot;|&quot;temporal_fan&quot;, object_terms=[...], frame_indices=[...])`**
+  — Stage-1 visibility-driven view fetch. Cheap (no LLM). Use when
+  you need additional views *centered on specific scene objects*
+  (`mode=&quot;targeted&quot;` + object_terms), or when you want views maximally
+  different from what you&#x27;ve seen (`mode=&quot;explore&quot;`), or temporal
+  neighbors of an anchor frame (`mode=&quot;temporal_fan&quot;` + frame_indices).
+- **`request_crops(request_text, object_terms=[...])`** — generates
+  a zoomed-in red-bbox crop around each named scene object. Use when
+  the proposal is visible but small / occluded in the existing
+  frames. CLIP-fallback object matching, ~moderate cost.
+- **`switch_or_expand_hypothesis(new_query=&quot;...&quot;)`** — calls Stage 1
+  again with a refined query string and **appends** new keyframes
+  (1-3 more). Most expensive (LLM hypothesis parse). Use as last
+  resort when the initial keyframes don&#x27;t cover the right *region*
+  of the scene at all — e.g. Stage 1 mis-parsed the utterance, or
+  the target&#x27;s category isn&#x27;t represented in any of the initial
+  frames AND `find_proposals_by_category` returned nothing useful.
+  This is the project&#x27;s **Stage 2 → Stage 1 callback** loop (mirrors
+  OpenEQA).
+
+Keep iterating with these four tools until you actually see the target
+clearly, or until you have proven the referent is not in the proposal
+pool. Prefer cheaper paths first.
+
+1. `list_keyframes_with_proposals()` — see which **initial** keyframes
+   carry which proposal ids and how many proposals each frame shows.
+2. **Identify target category and find ALL same-category candidates
+   scene-wide** — call `find_proposals_by_category(&quot;&lt;category&gt;&quot;)`. The
+   returned `proposal_ids` cover the whole scene&#x27;s Mask3D pool, not
+   just the initial keyframes.
+3. **Decide where to look:**
+   - If the initial keyframes contain ≥ 1 same-category candidate
+     (overlap between their `visible_proposal_ids` and step-2 ids):
+     `view_keyframe_marked(frame_id=N)` on those frames.
+   - If the initial keyframes carry NO same-category candidate but
+     `find_proposals_by_category` returned a non-empty list (the
+     candidates exist in the pool, just not in your initial frames):
+     navigate via `inspect_proposal(K)` → `frames_appeared` →
+     `view_keyframe_marked(frame_id=M)` on those frames.
+   - If `find_proposals_by_category` ALSO returned an empty list (no
+     candidate of that category anywhere in the pool), use
+     `switch_or_expand_hypothesis(new_query=&quot;&lt;a more general or
+     synonymous phrasing of the utterance&gt;&quot;)` to ask Stage 1 for
+     entirely new keyframes. Stage 1&#x27;s hypothesis parser may catch a
+     synonym or attribute the original parse missed.
+4. If you have ≥ 2 plausible candidates after looking at the marks,
+   call `inspect_proposal(proposal_id=K)` on each to disambiguate by
+   category, score, or which other frames the proposal appears in.
+5. If the query has a spatial constraint (&quot;next to the desk&quot;, &quot;left of
+   the sink&quot;, &quot;above the refrigerator&quot;), load the
+   `vg-spatial-disambiguation` skill and apply its workflow before
+   submitting.
+6. `submit_final({&quot;proposal_id&quot;: K, &quot;confidence&quot;: C}, rationale=...)`
+   — the chassis validator will reject any unknown id and FAIL-LOUD.
+7. If the referent genuinely is not in the proposal pool **after**
+   exhausting same-category candidates, viewing 3+ frames, AND trying
+   at least one `switch_or_expand_hypothesis` rewrite, submit the OOD
+   marker (see &quot;OOD handling&quot; below). If the no-match candidate guard
+   returns `NO_MATCH_GUARD`, do not treat that as a crash: it is a
+   compact checklist of unresolved candidates from your own trace.
+   Inspect or choose the best remaining proposal before trying `-1`
+   again.
+
+## tool: list_keyframes_with_proposals
+
+Inputs: none.
+
+Returns a JSON list, one entry per keyframe in the bundle:
+```
+[{&quot;keyframe_idx&quot;: int,
+  &quot;frame_id&quot;: int|None,
+  &quot;visible_proposal_ids&quot;: list[int],
+  &quot;n_proposals&quot;: int,
+  &quot;annotated_image&quot;: str (path to a frame_&lt;frame_id&gt;.png on disk)},
+ ...]
+```
+
+Use this once at the start of every task to pick frames worth viewing.
+A frame with `n_proposals=0` is not useful; a frame with
+`n_proposals &gt; 20` will usually need spatial disambiguation, not
+look-and-pick.
+
+## tool: view_keyframe_marked
+
+Inputs: `frame_id: int` (must be a key in the **scene-wide frame
+index**, NOT just the initial 5 keyframes — the index covers every
+frame in the scene where at least one Mask3D proposal is visible,
+typically 50-300 frames per scene).
+
+Returns a text body summarizing the chosen frame:
+`frame_id=N marked image at &lt;path&gt;; visible_proposals=[...]; categories=[...];
+left_to_right=[...]; boxes_2d={...}`.
+
+The injected image for that frame contains colored 2D proposal boxes.
+Each visible box is labeled `#proposal_id category`; the same ids appear
+in `visible_proposals` and `boxes_2d`. The 2D box is only the visible
+image evidence for that proposal, while the final answer must be the
+3D `proposal_id` submitted through `submit_final`.
+
+For left/right referring expressions, use `left_to_right` before
+submitting. It sorts the visible marked proposal ids by 2D image center
+from left to right. If the query says the target is &quot;to the left of&quot;
+another object and a marked frame shows both, the target should be the
+visible prop
+... [truncated 21344 chars]</pre></div>
+                </div>
+                
+              </div>
+            </details>
+            
+
+            <details class="tool" open>
+              <summary><span class="tool-index">04</span> <span class="tool-name">list_keyframes_with_proposals</span> <span>Initial marked evidence: frame 104 (9 proposals); frame 101 (9 proposals); frame 122 (8 proposals)</span></summary>
+              <div class="tool-body">
+                <div class="cols">
+                  <div><h4>Input</h4><pre>{}</pre></div>
+                  <div><h4>Response summary / raw</h4><pre>[{&quot;keyframe_idx&quot;: 0, &quot;frame_id&quot;: 104, &quot;visible_proposal_ids&quot;: [11, 34, 32, 6, 7, 13, 30, 37, 40], &quot;n_proposals&quot;: 9, &quot;annotated_image&quot;: &quot;data/nr3d/scannet/scene0329_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_104.png&quot;}, {&quot;keyframe_idx&quot;: 1, &quot;frame_id&quot;: 101, &quot;visible_proposal_ids&quot;: [13, 30, 11, 7, 34, 31, 6, 32, 36], &quot;n_proposals&quot;: 9, &quot;annotated_image&quot;: &quot;data/nr3d/scannet/scene0329_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_101.png&quot;}, {&quot;keyframe_idx&quot;: 2, &quot;frame_id&quot;: 122, &quot;visible_proposal_ids&quot;: [11, 30, 31, 7, 34, 6, 13, 37], &quot;n_proposals&quot;: 8, &quot;annotated_image&quot;: &quot;data/nr3d/scannet/scene0329_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_122.png&quot;}]</pre></div>
+                </div>
+                <div class="image-grid">
+            <figure class="image-card">
+              <img src="assets/v6_random100_case_studies_20260513/case04_scene0329_00_36_tool04_00_frame_104_6c69e6a2.jpg" alt="data/nr3d/scannet/scene0329_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_104.png" loading="lazy">
+              <figcaption>
+                <div><strong>frame 104</strong> <span class="muted">tool #4: list_keyframes_with_proposals</span></div>
+                <div></div>
+                <div class="small">11:shelf, 34:chair, 32:monitor, 6:table, 7:table, 13:chair, 30:monitor, 37:chair, 40:doorframe</div>
+                <code>data/nr3d/scannet/scene0329_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_104.png</code>
+              </figcaption>
+            </figure>
+            
+
+            <figure class="image-card">
+              <img src="assets/v6_random100_case_studies_20260513/case04_scene0329_00_36_tool04_01_frame_101_2cf5be18.jpg" alt="data/nr3d/scannet/scene0329_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_101.png" loading="lazy">
+              <figcaption>
+                <div><strong>frame 101</strong> <span class="muted">tool #4: list_keyframes_with_proposals</span></div>
+                <div><span class="chip target">target visible</span></div>
+                <div class="small">13:chair, 30:monitor, 11:shelf, 7:table, 34:chair, 31:monitor, 6:table, 32:monitor, 36:file cabinet</div>
+                <code>data/nr3d/scannet/scene0329_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_101.png</code>
+              </figcaption>
+            </figure>
+            
+
+            <figure class="image-card">
+              <img src="assets/v6_random100_case_studies_20260513/case04_scene0329_00_36_tool04_02_frame_122_abfb0158.jpg" alt="data/nr3d/scannet/scene0329_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_122.png" loading="lazy">
+              <figcaption>
+                <div><strong>frame 122</strong> <span class="muted">tool #4: list_keyframes_with_proposals</span></div>
+                <div></div>
+                <div class="small">11:shelf, 30:monitor, 31:monitor, 7:table, 34:chair, 6:table, 13:chair, 37:chair</div>
+                <code>data/nr3d/scannet/scene0329_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_122.png</code>
+              </figcaption>
+            </figure>
+            </div>
+              </div>
+            </details>
+            
+
+            <details class="tool" open>
+              <summary><span class="tool-index">05</span> <span class="tool-name">find_proposals_by_category</span> <span>Category search &#x27;cabinet&#x27; -&gt; []</span></summary>
+              <div class="tool-body">
+                <div class="cols">
+                  <div><h4>Input</h4><pre>{
+  &quot;category&quot;: &quot;cabinet&quot;
+}</pre></div>
+                  <div><h4>Response summary / raw</h4><pre>{&quot;category&quot;: &quot;cabinet&quot;, &quot;proposal_ids&quot;: [], &quot;available_categories&quot;: [&quot;chair&quot;, &quot;coffee table&quot;, &quot;computer tower&quot;, &quot;couch&quot;, &quot;door&quot;, &quot;doorframe&quot;, &quot;file cabinet&quot;, &quot;floor&quot;, &quot;lamp&quot;, &quot;monitor&quot;, &quot;object&quot;, &quot;picture&quot;, &quot;shelf&quot;, &quot;table&quot;, &quot;trash can&quot;, &quot;wall&quot;, &quot;whiteboard&quot;]}</pre></div>
+                </div>
+                
+              </div>
+            </details>
+            
+
+            <details class="tool" open>
+              <summary><span class="tool-index">06</span> <span class="tool-name">find_proposals_by_category</span> <span>Category search &#x27;file cabinet&#x27; -&gt; [29, 36]</span></summary>
+              <div class="tool-body">
+                <div class="cols">
+                  <div><h4>Input</h4><pre>{
+  &quot;category&quot;: &quot;file cabinet&quot;
+}</pre></div>
+                  <div><h4>Response summary / raw</h4><pre>{&quot;category&quot;: &quot;file cabinet&quot;, &quot;proposal_ids&quot;: [29, 36], &quot;available_categories&quot;: [&quot;chair&quot;, &quot;coffee table&quot;, &quot;computer tower&quot;, &quot;couch&quot;, &quot;door&quot;, &quot;doorframe&quot;, &quot;file cabinet&quot;, &quot;floor&quot;, &quot;lamp&quot;, &quot;monitor&quot;, &quot;object&quot;, &quot;picture&quot;, &quot;shelf&quot;, &quot;table&quot;, &quot;trash can&quot;, &quot;wall&quot;, &quot;whiteboard&quot;]}</pre></div>
+                </div>
+                
+              </div>
+            </details>
+            
+
+            <details class="tool" open>
+              <summary><span class="tool-index">07</span> <span class="tool-name">inspect_proposal</span> <span>Proposal 36 label=file cabinet frames=11</span></summary>
+              <div class="tool-body">
+                <div class="cols">
+                  <div><h4>Input</h4><pre>{
+  &quot;proposal_id&quot;: 36
+}</pre></div>
+                  <div><h4>Response summary / raw</h4><pre>{&quot;proposal_id&quot;: 36, &quot;category&quot;: &quot;file cabinet&quot;, &quot;score&quot;: 1.0, &quot;bbox_3d_9dof&quot;: [-0.9682896815475391, -2.169542590724004, 0.4230071434560042, 0.5133770997294556, 0.179446667428381, 0.4631423656665833, 0.17194674800662407, -0.05485304645486, -0.2896162779535787], &quot;frames_appeared&quot;: [100, 101, 120, 131, 132, 133, 134, 135, 136, 137, 138], &quot;source&quot;: &quot;gt&quot;}</pre></div>
+                </div>
+                
+              </div>
+            </details>
+            
+
+            <details class="tool" open>
+              <summary><span class="tool-index">08</span> <span class="tool-name">inspect_proposal</span> <span>Proposal 29 label=file cabinet frames=10</span></summary>
+              <div class="tool-body">
+                <div class="cols">
+                  <div><h4>Input</h4><pre>{
+  &quot;proposal_id&quot;: 29
+}</pre></div>
+                  <div><h4>Response summary / raw</h4><pre>{&quot;proposal_id&quot;: 29, &quot;category&quot;: &quot;file cabinet&quot;, &quot;score&quot;: 1.0, &quot;bbox_3d_9dof&quot;: [1.9330277587394984, -2.026218380781784, 0.5760864795843793, 0.3717576806041232, 0.0913680823429138, 0.5145134791257311, -0.1841107956764439, -0.06432338430232987, 0.008174887579394316], &quot;frames_appeared&quot;: [91, 92, 93, 94, 95, 96, 97, 98, 99, 100], &quot;source&quot;: &quot;gt&quot;}</pre></div>
+                </div>
+                
+              </div>
+            </details>
+            
+
+            <details class="tool" open>
+              <summary><span class="tool-index">09</span> <span class="tool-name">find_proposals_by_category</span> <span>Category search &#x27;whiteboard&#x27; -&gt; [43]</span></summary>
+              <div class="tool-body">
+                <div class="cols">
+                  <div><h4>Input</h4><pre>{
+  &quot;category&quot;: &quot;whiteboard&quot;
+}</pre></div>
+                  <div><h4>Response summary / raw</h4><pre>{&quot;category&quot;: &quot;whiteboard&quot;, &quot;proposal_ids&quot;: [43], &quot;available_categories&quot;: [&quot;chair&quot;, &quot;coffee table&quot;, &quot;computer tower&quot;, &quot;couch&quot;, &quot;door&quot;, &quot;doorframe&quot;, &quot;file cabinet&quot;, &quot;floor&quot;, &quot;lamp&quot;, &quot;monitor&quot;, &quot;object&quot;, &quot;picture&quot;, &quot;shelf&quot;, &quot;table&quot;, &quot;trash can&quot;, &quot;wall&quot;, &quot;whiteboard&quot;]}</pre></div>
+                </div>
+                
+              </div>
+            </details>
+            
+
+            <details class="tool" open>
+              <summary><span class="tool-index">10</span> <span class="tool-name">find_proposals_by_category</span> <span>Category search &#x27;chair&#x27; -&gt; [13, 34, 37]</span></summary>
+              <div class="tool-body">
+                <div class="cols">
+                  <div><h4>Input</h4><pre>{
+  &quot;category&quot;: &quot;chair&quot;
+}</pre></div>
+                  <div><h4>Response summary / raw</h4><pre>{&quot;category&quot;: &quot;chair&quot;, &quot;proposal_ids&quot;: [13, 34, 37], &quot;available_categories&quot;: [&quot;chair&quot;, &quot;coffee table&quot;, &quot;computer tower&quot;, &quot;couch&quot;, &quot;door&quot;, &quot;doorframe&quot;, &quot;file cabinet&quot;, &quot;floor&quot;, &quot;lamp&quot;, &quot;monitor&quot;, &quot;object&quot;, &quot;picture&quot;, &quot;shelf&quot;, &quot;table&quot;, &quot;trash can&quot;, &quot;wall&quot;, &quot;whiteboard&quot;]}</pre></div>
+                </div>
+                
+              </div>
+            </details>
+            
+
+            <details class="tool" open>
+              <summary><span class="tool-index">11</span> <span class="tool-name">inspect_proposal</span> <span>Proposal 43 label=whiteboard frames=38</span></summary>
+              <div class="tool-body">
+                <div class="cols">
+                  <div><h4>Input</h4><pre>{
+  &quot;proposal_id&quot;: 43
+}</pre></div>
+                  <div><h4>Response summary / raw</h4><pre>{&quot;proposal_id&quot;: 43, &quot;category&quot;: &quot;whiteboard&quot;, &quot;score&quot;: 1.0, &quot;bbox_3d_9dof&quot;: [-3.1296896834147283, 1.9759704686333208, 1.350598460005401, 0.14650906964703747, 3.0509681886712796, 1.467092753037178, -0.08107760981137055, 0.017991528584540006, 0.017798803232119007], &quot;frames_appeared&quot;: [29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155], &quot;source&quot;: &quot;gt&quot;}</pre></div>
+                </div>
+                
+              </div>
+            </details>
+            
+
+            <details class="tool" open>
+              <summary><span class="tool-index">12</span> <span class="tool-name">inspect_proposal</span> <span>Proposal 13 label=chair frames=22</span></summary>
+              <div class="tool-body">
+                <div class="cols">
+                  <div><h4>Input</h4><pre>{
+  &quot;proposal_id&quot;: 13
+}</pre></div>
+                  <div><h4>Response summary / raw</h4><pre>{&quot;proposal_id&quot;: 13, &quot;category&quot;: &quot;chair&quot;, &quot;score&quot;: 1.0, &quot;bbox_3d_9dof&quot;: [1.4034850719338576, -1.3562050007135094, 0.6193364183707674, 0.5310726812784021, 0.4040144274264998, 1.0429650749945794, -0.19213563602841321, 0.6092718668408854, -0.06204174377517503], &quot;frames_appeared&quot;: [94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 108, 109, 118, 119, 120, 121, 122, 123, 124, 125, 126], &quot;source&quot;: &quot;gt&quot;}</pre></div>
+                </div>
+                
+              </div>
+            </details>
+            
+
+            <details class="tool" open>
+              <summary><span class="tool-index">13</span> <span class="tool-name">view_keyframe_marked</span> <span>Viewed marked frame 100. [&#x27;chair&#x27;, &#x27;table&#x27;, &#x27;file cabinet&#x27;, &#x27;monitor&#x27;, &#x27;shelf&#x27;, &#x27;chair&#x27;, &#x27;file cabinet&#x27;]</span></summary>
+              <div class="tool-body">
+                <div class="cols">
+                  <div><h4>Input</h4><pre>{
+  &quot;frame_id&quot;: 100
+}</pre></div>
+                  <div><h4>Response summary / raw</h4><pre>frame_id=100 marked image at data/nr3d/scannet/scene0329_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_100.png; visible_proposals=[13, 7, 29, 30, 11, 34, 36]; categories=[&#x27;chair&#x27;, &#x27;table&#x27;, &#x27;file cabinet&#x27;, &#x27;monitor&#x27;, &#x27;shelf&#x27;, &#x27;chair&#x27;, &#x27;file cabinet&#x27;]</pre></div>
+                </div>
+                <div class="image-grid">
+            <figure class="image-card">
+              <img src="assets/v6_random100_case_studies_20260513/case04_scene0329_00_36_tool13_00_frame_100_562f9c54.jpg" alt="data/nr3d/scannet/scene0329_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_100.png" loading="lazy">
+              <figcaption>
+                <div><strong>frame 100</strong> <span class="muted">tool #13: view_keyframe_marked</span></div>
+                <div><span class="chip target">target visible</span><span class="chip selected">selected visible</span></div>
+                <div class="small">13:chair, 7:table, 29:file cabinet, 30:monitor, 11:shelf, 34:chair, 36:file cabinet</div>
+                <code>data/nr3d/scannet/scene0329_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_100.png</code>
+              </figcaption>
+            </figure>
+            </div>
+              </div>
+            </details>
+            
+
+            <details class="tool" open>
+              <summary><span class="tool-index">14</span> <span class="tool-name">view_keyframe_marked</span> <span>Viewed marked frame 91. [&#x27;door&#x27;, &#x27;trash can&#x27;, &#x27;doorframe&#x27;, &#x27;trash can&#x27;, &#x27;trash can&#x27;, &#x27;file cabinet&#x27;, &#x27;table&#x27;]</span></summary>
+              <div class="tool-body">
+                <div class="cols">
+                  <div><h4>Input</h4><pre>{
+  &quot;frame_id&quot;: 91
+}</pre></div>
+                  <div><h4>Response summary / raw</h4><pre>frame_id=91 marked image at data/nr3d/scannet/scene0329_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_91.png; visible_proposals=[5, 25, 26, 27, 14, 29, 7]; categories=[&#x27;door&#x27;, &#x27;trash can&#x27;, &#x27;doorframe&#x27;, &#x27;trash can&#x27;, &#x27;trash can&#x27;, &#x27;file cabinet&#x27;, &#x27;table&#x27;]</pre></div>
+                </div>
+                <div class="image-grid">
+            <figure class="image-card">
+              <img src="assets/v6_random100_case_studies_20260513/case04_scene0329_00_36_tool14_00_frame_91_9e967327.jpg" alt="data/nr3d/scannet/scene0329_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_91.png" loading="lazy">
+              <figcaption>
+                <div><strong>frame 91</strong> <span class="muted">tool #14: view_keyframe_marked</span></div>
+                <div><span class="chip selected">selected visible</span></div>
+                <div class="small">5:door, 25:trash can, 26:doorframe, 27:trash can, 14:trash can, 29:file cabinet, 7:table</div>
+                <code>data/nr3d/scannet/scene0329_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_91.png</code>
+              </figcaption>
+            </figure>
+            </div>
+              </div>
+            </details>
+            
+
+            <details class="tool" open>
+              <summary><span class="tool-index">15</span> <span class="tool-name">view_keyframe_marked</span> <span>Viewed marked frame 29. [&#x27;couch&#x27;, &#x27;whiteboard&#x27;]</span></summary>
+              <div class="tool-body">
+                <div class="cols">
+                  <div><h4>Input</h4><pre>{
+  &quot;frame_id&quot;: 29
+}</pre></div>
+                  <div><h4>Response summary / raw</h4><pre>frame_id=29 marked image at data/nr3d/scannet/scene0329_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_29.png; visible_proposals=[1, 43]; categories=[&#x27;couch&#x27;, &#x27;whiteboard&#x27;]</pre></div>
+                </div>
+                <div class="image-grid">
+            <figure class="image-card">
+              <img src="assets/v6_random100_case_studies_20260513/case04_scene0329_00_36_tool15_00_frame_29_b80c9127.jpg" alt="data/nr3d/scannet/scene0329_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_29.png" loading="lazy">
+              <figcaption>
+                <div><strong>frame 29</strong> <span class="muted">tool #15: view_keyframe_marked</span></div>
+                <div></div>
+                <div class="small">1:couch, 43:whiteboard</div>
+                <code>data/nr3d/scannet/scene0329_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_29.png</code>
+              </figcaption>
+            </figure>
+            </div>
+              </div>
+            </details>
+            
+
+            <details class="tool" open>
+              <summary><span class="tool-index">16</span> <span class="tool-name">view_keyframe_marked</span> <span>Viewed marked frame 101. [&#x27;chair&#x27;, &#x27;monitor&#x27;, &#x27;shelf&#x27;, &#x27;table&#x27;, &#x27;chair&#x27;, &#x27;monitor&#x27;, &#x27;table&#x27;, &#x27;monitor&#x27;, &#x27;file cabinet&#x27;]</span></summary>
+              <div class="tool-body">
+                <div class="cols">
+                  <div><h4>Input</h4><pre>{
+  &quot;frame_id&quot;: 101
+}</pre></div>
+                  <div><h4>Response summary / raw</h4><pre>frame_id=101 marked image at data/nr3d/scannet/scene0329_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_101.png; visible_proposals=[13, 30, 11, 7, 34, 31, 6, 32, 36]; categories=[&#x27;chair&#x27;, &#x27;monitor&#x27;, &#x27;shelf&#x27;, &#x27;table&#x27;, &#x27;chair&#x27;, &#x27;monitor&#x27;, &#x27;table&#x27;, &#x27;monitor&#x27;, &#x27;file cabinet&#x27;]</pre></div>
+                </div>
+                <div class="image-grid">
+            <figure class="image-card">
+              <img src="assets/v6_random100_case_studies_20260513/case04_scene0329_00_36_tool16_00_frame_101_2cf5be18.jpg" alt="data/nr3d/scannet/scene0329_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_101.png" loading="lazy">
+              <figcaption>
+                <div><strong>frame 101</strong> <span class="muted">tool #16: view_keyframe_marked</span></div>
+                <div><span class="chip target">target visible</span></div>
+                <div class="small">13:chair, 30:monitor, 11:shelf, 7:table, 34:chair, 31:monitor, 6:table, 32:monitor, 36:file cabinet</div>
+                <code>data/nr3d/scannet/scene0329_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_101.png</code>
+              </figcaption>
+            </figure>
+            </div>
+              </div>
+            </details>
+            
+
+            <details class="tool" open>
+              <summary><span class="tool-index">17</span> <span class="tool-name">inspect_proposal</span> <span>Proposal 34 label=chair frames=28</span></summary>
+              <div class="tool-body">
+                <div class="cols">
+                  <div><h4>Input</h4><pre>{
+  &quot;proposal_id&quot;: 34
+}</pre></div>
+                  <div><h4>Response summary / raw</h4><pre>{&quot;proposal_id&quot;: 34, &quot;category&quot;: &quot;chair&quot;, &quot;score&quot;: 1.0, &quot;bbox_3d_9dof&quot;: [-0.42406921047057966, -1.753662103953962, 0.6751234313214628, 0.7525091483855285, 0.7671079943927859, 0.36357231118190003, -0.8382997285112739, 0.32347369779275303, 0.29685122806267256], &quot;frames_appeared&quot;: [100, 101, 102, 103, 104, 105, 106, 107, 108, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136], &quot;source&quot;: &quot;gt&quot;}</pre></div>
+                </div>
+                
+              </div>
+            </details>
+            
+
+            <details class="tool" open>
+              <summary><span class="tool-index">18</span> <span class="tool-name">inspect_proposal</span> <span>Proposal 37 label=chair frames=19</span></summary>
+              <div class="tool-body">
+                <div class="cols">
+                  <div><h4>Input</h4><pre>{
+  &quot;proposal_id&quot;: 37
+}</pre></div>
+                  <div><h4>Response summary / raw</h4><pre>{&quot;proposal_id&quot;: 37, &quot;category&quot;: &quot;chair&quot;, &quot;score&quot;: 1.0, &quot;bbox_3d_9dof&quot;: [-1.1631174413251215, -1.5128218899713164, 0.6807114472736279, 0.5166128595506572, 0.5568878693661785, 0.4070347774583727, 0.578057435285332, 0.13627469791521896, -0.014476111706830441], &quot;frames_appeared&quot;: [14, 102, 103, 104, 105, 106, 107, 108, 109, 118, 119, 120, 121, 122, 134, 135, 136, 137, 138], &quot;source&quot;: &quot;gt&quot;}</pre></div>
+                </div>
+                
+              </div>
+            </details>
+            
+
+            <details class="tool" open>
+              <summary><span class="tool-index">19</span> <span class="tool-name">request_more_views</span> <span>Requested more evidence. Response: request_more_views callback is not configured.</span></summary>
+              <div class="tool-body">
+                <div class="cols">
+                  <div><h4>Input</h4><pre>{
+  &quot;request_text&quot;: &quot;Need additional views tying the whiteboard side of the office to the desks and both file cabinets, so I can determine which cabinet under a desk is on the whiteboard side and which one does not have a red chair.&quot;,
+  &quot;frame_indices&quot;: [],
+  &quot;object_terms&quot;: [
+    &quot;whiteboard&quot;,
+    &quot;file cabinet&quot;,
+    &quot;desk&quot;,
+    &quot;chair&quot;
+  ],
+  &quot;mode&quot;: &quot;targeted&quot;
+}</pre></div>
+                  <div><h4>Response summary / raw</h4><pre>request_more_views callback is not configured.</pre></div>
+                </div>
+                
+              </div>
+            </details>
+            
+
+            <details class="tool" open>
+              <summary><span class="tool-index">20</span> <span class="tool-name">submit_final</span> <span>submit_final payload={&#x27;proposal_id&#x27;: 36, &#x27;confidence&#x27;: 0.67}; rationale=Whiteboard proposal #43 is visible in frame 29, establishing the whiteboard side. Across frames 100-101 and the provided keyframes, file cabinet #36 is under the right-side desk and is paired with dark chairs #34/#37, while the visible red chair #13 belongs to the other desk area. File cabinet #29 appears in a different region/frames and is not supported as the whiteboard-side cabinet without the red chair. Thus #36 </span></summary>
+              <div class="tool-body">
+                <div class="cols">
+                  <div><h4>Input</h4><pre>{
+  &quot;payload&quot;: {
+    &quot;proposal_id&quot;: 36,
+    &quot;confidence&quot;: 0.67
+  },
+  &quot;rationale&quot;: &quot;Whiteboard proposal #43 is visible in frame 29, establishing the whiteboard side. Across frames 100-101 and the provided keyframes, file cabinet #36 is under the right-side desk and is paired with dark chairs #34/#37, while the visible red chair #13 belongs to the other desk area. File cabinet #29 appears in a different region/frames and is not supported as the whiteboard-side cabinet without the red chair. Thus #36 is the best match.&quot;,
+  &quot;evidence_refs&quot;: [],
+  &quot;tool_override_reason&quot;: null,
+  &quot;tadg_blocked&quot;: false,
+  &quot;tadg_force_passed&quot;: false,
+  &quot;tadg_top1_pid&quot;: null,
+  &quot;tadg_submitted_pid&quot;: null,
+  &quot;tadg_relation&quot;: null,
+  &quot;tadg_anchor_id&quot;: null,
+  &quot;tadg_subcase&quot;: null,
+  &quot;tadg_ranked_ids&quot;: null,
+  &quot;tadg_message&quot;: null,
+  &quot;no_match_guard_blocked&quot;: false,
+  &quot;no_match_guard_force_passed&quot;: false,
+  &quot;no_match_guard_category_candidate_ids&quot;: null,
+  &quot;no_match_guard_category_candidate_labels&quot;: null,
+  &quot;no_match_guard_viewed_uninspected_ids&quot;: null,
+  &quot;no_match_guard_viewed_uninspected_labels&quot;: null,
+  &quot;no_match_guard_message&quot;: null,
+  &quot;evidence_frame_guard_blocked&quot;: true,
+  &quot;evidence_frame_guard_submitted_pid&quot;: 36,
+  &quot;evidence_frame_guard_cited_frame_ids&quot;: [
+    29
+  ],
+  &quot;evidence_frame_guard_visible_proposal_ids&quot;: [
+    1,
+    43
+  ],
+  &quot;evidence_frame_guard_visible_proposal_labels&quot;: [
+    &quot;couch&quot;,
+    &quot;whiteboard&quot;
+  ],
+  &quot;evidence_frame_guard_relative_position_conflict&quot;: false,
+  &quot;evidence_frame_guard_relative_position_direction&quot;: null,
+  &quot;evidence_frame_guard_relative_position_alternatives&quot;: null,
+  &quot;evidence_frame_guard_relative_position_alternative_labels&quot;: null,
+  &quot;evidence_frame_guard_message&quot;: &quot;EVIDENCE_FRAME_GUARD: rationale/evidence cites marked frame(s) 29, but submitted proposal 36 is not visible there. Visible proposals in cited frame(s): 1:couch, 43:whiteboard. If a cited marked frame shows the target, submit the proposal id whose mark directly covers the target in that frame; proposal labels are weak priors, so a mislabeled proposal covering the target beats a semantically named proposal from another frame.&quot;
+}</pre></div>
+                  <div><h4>Response summary / raw</h4><pre>EVIDENCE_FRAME_GUARD: rationale/evidence cites marked frame(s) 29, but submitted proposal 36 is not visible there. Visible proposals in cited frame(s): 1:couch, 43:whiteboard. If a cited marked frame shows the target, submit the proposal id whose mark directly covers the target in that frame; proposal labels are weak priors, so a mislabeled proposal covering the target beats a semantically named proposal from another frame.</pre></div>
+                </div>
+                
+              </div>
+            </details>
+            
+
+            <details class="tool" open>
+              <summary><span class="tool-index">21</span> <span class="tool-name">submit_final</span> <span>submit_final payload={&#x27;proposal_id&#x27;: 36, &#x27;confidence&#x27;: 0.64}; rationale=In marked frame 101, proposal #36 directly covers the small file cabinet under the right-hand desk. In the provided keyframes (101/104/122), the only visible red chair is proposal #13 at the other desk, while the desk above #36 is associated with dark chairs #34/#37 rather than the red chair. Therefore the cabinet under the desk that does not have a red chair is proposal #36.</span></summary>
+              <div class="tool-body">
+                <div class="cols">
+                  <div><h4>Input</h4><pre>{
+  &quot;payload&quot;: {
+    &quot;proposal_id&quot;: 36,
+    &quot;confidence&quot;: 0.64
+  },
+  &quot;rationale&quot;: &quot;In marked frame 101, proposal #36 directly covers the small file cabinet under the right-hand desk. In the provided keyframes (101/104/122), the only visible red chair is proposal #13 at the other desk, while the desk above #36 is associated with dark chairs #34/#37 rather than the red chair. Therefore the cabinet under the desk that does not have a red chair is proposal #36.&quot;,
+  &quot;evidence_refs&quot;: [],
+  &quot;tadg_blocked&quot;: false,
+  &quot;tadg_force_passed&quot;: false,
+  &quot;tadg_top1_pid&quot;: null,
+  &quot;tadg_submitted_pid&quot;: null,
+  &quot;tadg_relation&quot;: null,
+  &quot;tadg_anchor_id&quot;: null,
+  &quot;tadg_subcase&quot;: null,
+  &quot;tadg_ranked_ids&quot;: null,
+  &quot;tadg_message&quot;: null,
+  &quot;no_match_guard_blocked&quot;: false,
+  &quot;no_match_guard_force_passed&quot;: false,
+  &quot;no_match_guard_category_candidate_ids&quot;: null,
+  &quot;no_match_guard_category_candidate_labels&quot;: null,
+  &quot;no_match_guard_viewed_uninspected_ids&quot;: null,
+  &quot;no_match_guard_viewed_uninspected_labels&quot;: null,
+  &quot;no_match_guard_message&quot;: null,
+  &quot;evidence_frame_guard_blocked&quot;: false,
+  &quot;evidence_frame_guard_submitted_pid&quot;: 36,
+  &quot;evidence_frame_guard_cited_frame_ids&quot;: [
+    101
+  ],
+  &quot;evidence_frame_guard_visible_proposal_ids&quot;: null,
+  &quot;evidence_frame_guard_visible_proposal_labels&quot;: null,
+  &quot;evidence_frame_guard_relative_position_conflict&quot;: false,
+  &quot;evidence_frame_guard_relative_position_direction&quot;: &quot;right&quot;,
+  &quot;evidence_frame_guard_relative_position_alternatives&quot;: null,
+  &quot;evidence_frame_guard_relative_position_alternative_labels&quot;: null,
+  &quot;evidence_frame_guard_message&quot;: null
+}</pre></div>
+                  <div><h4>Response summary / raw</h4><pre>submitted; rationale=&#x27;In marked frame 101, proposal #36 directly covers the small file cabinet under the right-hand desk. In the provided keyframes (101/104/122), the only visible red chair is proposal #13 at the other desk, while the desk above #36 is associated with dark chairs #34/#37 rather than the red chair. Therefore the cabinet under the desk that does not have a red chair is proposal #36.&#x27;; evidence_refs=0</pre></div>
+                </div>
+                
+              </div>
+            </details>
+            
+
+            <details class="tool" open>
+              <summary><span class="tool-index">22</span> <span class="tool-name">view_keyframe_marked</span> <span>Viewed marked frame 100. [&#x27;chair&#x27;, &#x27;table&#x27;, &#x27;file cabinet&#x27;, &#x27;monitor&#x27;, &#x27;shelf&#x27;, &#x27;chair&#x27;, &#x27;file cabinet&#x27;]</span></summary>
+              <div class="tool-body">
+                <div class="cols">
+                  <div><h4>Input</h4><pre>{
+  &quot;frame_id&quot;: 100
+}</pre></div>
+                  <div><h4>Response summary / raw</h4><pre>frame_id=100 marked image at data/nr3d/scannet/scene0329_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_100.png; visible_proposals=[13, 7, 29, 30, 11, 34, 36]; categories=[&#x27;chair&#x27;, &#x27;table&#x27;, &#x27;file cabinet&#x27;, &#x27;monitor&#x27;, &#x27;shelf&#x27;, &#x27;chair&#x27;, &#x27;file cabinet&#x27;]</pre></div>
+                </div>
+                <div class="image-grid">
+            <figure class="image-card">
+              <img src="assets/v6_random100_case_studies_20260513/case04_scene0329_00_36_tool22_00_frame_100_562f9c54.jpg" alt="data/nr3d/scannet/scene0329_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_100.png" loading="lazy">
+              <figcaption>
+                <div><strong>frame 100</strong> <span class="muted">tool #22: view_keyframe_marked</span></div>
+                <div><span class="chip target">target visible</span><span class="chip selected">selected visible</span></div>
+                <div class="small">13:chair, 7:table, 29:file cabinet, 30:monitor, 11:shelf, 34:chair, 36:file cabinet</div>
+                <code>data/nr3d/scannet/scene0329_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_100.png</code>
+              </figcaption>
+            </figure>
+            </div>
+              </div>
+            </details>
+            
+
+            <details class="tool" open>
+              <summary><span class="tool-index">23</span> <span class="tool-name">view_keyframe_marked</span> <span>Viewed marked frame 91. [&#x27;door&#x27;, &#x27;trash can&#x27;, &#x27;doorframe&#x27;, &#x27;trash can&#x27;, &#x27;trash can&#x27;, &#x27;file cabinet&#x27;, &#x27;table&#x27;]</span></summary>
+              <div class="tool-body">
+                <div class="cols">
+                  <div><h4>Input</h4><pre>{
+  &quot;frame_id&quot;: 91
+}</pre></div>
+                  <div><h4>Response summary / raw</h4><pre>frame_id=91 marked image at data/nr3d/scannet/scene0329_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_91.png; visible_proposals=[5, 25, 26, 27, 14, 29, 7]; categories=[&#x27;door&#x27;, &#x27;trash can&#x27;, &#x27;doorframe&#x27;, &#x27;trash can&#x27;, &#x27;trash can&#x27;, &#x27;file cabinet&#x27;, &#x27;table&#x27;]</pre></div>
+                </div>
+                <div class="image-grid">
+            <figure class="image-card">
+              <img src="assets/v6_random100_case_studies_20260513/case04_scene0329_00_36_tool23_00_frame_91_9e967327.jpg" alt="data/nr3d/scannet/scene0329_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_91.png" loading="lazy">
+              <figcaption>
+                <div><strong>frame 91</strong> <span class="muted">tool #23: view_keyframe_marked</span></div>
+                <div><span class="chip selected">selected visible</span></div>
+                <div class="small">5:door, 25:trash can, 26:doorframe, 27:trash can, 14:trash can, 29:file cabinet, 7:table</div>
+                <code>data/nr3d/scannet/scene0329_00/pack_nr3d_v6_inline_labels_depth_visible/annotated/frame_91.png</code>
+              </figcaption>
+            </figure>
+            </div>
+              </div>
+            </details>
+            
+
+            <details class="tool" open>
+              <summary><span class="tool-index">24</span> <span class="tool-name">inspect_proposal</span> <span>Proposal 29 label=file cabinet frames=10</span></summary>
+              <div class="tool-body">
+                <div class="cols">
+                  <div><h4>Input</h4><pre>{
+  &quot;proposal_id&quot;: 29
+}</pre></div>
+                  <div><h4>Response summary / raw</h4><pre>{&quot;proposal_id&quot;: 29, &quot;category&quot;: &quot;file cabinet&quot;, &quot;score&quot;: 1.0, &quot;bbox_3d_9dof&quot;: [1.9330277587394984, -2.026218380781784, 0.5760864795843793, 0.3717576806041232, 0.0913680823429138, 0.5145134791257311, -0.1841107956764439, -0.06432338430232987, 0.008174887579394316], &quot;frames_appeared&quot;: [91, 92, 93, 94, 95, 96, 97, 98, 99, 100], &quot;source&quot;: &quot;gt&quot;}</pre></div>
+                </div>
+                
+              </div>
+            </details>
+            
+
+            <details class="tool" open>
+              <summary><span class="tool-index">25</span> <span class="tool-name">inspect_proposal</span> <span>Proposal 36 label=file cabinet frames=11</span></summary>
+              <div class="tool-body">
+                <div class="cols">
+                  <div><h4>Input</h4><pre>{
+  &quot;proposal_id&quot;: 36
+}</pre></div>
+                  <div><h4>Response summary / raw</h4><pre>{&quot;proposal_id&quot;: 36, &quot;category&quot;: &quot;file cabinet&quot;, &quot;score&quot;: 1.0, &quot;bbox_3d_9dof&quot;: [-0.9682896815475391, -2.169542590724004, 0.4230071434560042, 0.5133770997294556, 0.179446667428381, 0.4631423656665833, 0.17194674800662407, -0.05485304645486, -0.2896162779535787], &quot;frames_appeared&quot;: [100, 101, 120, 131, 132, 133, 134, 135, 136, 137, 138], &quot;source&quot;: &quot;gt&quot;}</pre></div>
+                </div>
+                
+              </div>
+            </details>
+            
+
+            <details class="tool" open>
+              <summary><span class="tool-index">26</span> <span class="tool-name">submit_final</span> <span>submit_final payload={&#x27;proposal_id&#x27;: 29, &#x27;confidence&#x27;: 0.85}; rationale=In the newly provided marked views, proposal #29 directly covers the file cabinet under desk/table #7 and is shown on the same side of the office as whiteboard #43. One new image shows whiteboard #43 on that side of the office, and the adjacent office-side view shows proposal #29 under the desk. Another new crop-like view shows the red chair #13 positioned over file cabinet #29, meaning #29 is the cabinet under the d</span></summary>
+              <div class="tool-body">
+                <div class="cols">
+                  <div><h4>Input</h4><pre>{
+  &quot;payload&quot;: {
+    &quot;proposal_id&quot;: 29,
+    &quot;confidence&quot;: 0.85
+  },
+  &quot;rationale&quot;: &quot;In the newly provided marked views, proposal #29 directly covers the file cabinet under desk/table #7 and is shown on the same side of the office as whiteboard #43. One new image shows whiteboard #43 on that side of the office, and the adjacent office-side view shows proposal #29 under the desk. Another new crop-like view shows the red chair #13 positioned over file cabinet #29, meaning #29 is the cabinet under the desk that has a red chair. By contrast, proposal #36 is a different cabinet under a separate desk with dark chair #34. Because the query asks for the cabinet under the desk that does NOT have a red chair, the correct target is the other under-desk cabinet proposal #36, which directly covers the small cabinet under the right-hand desk in marked frame 100.&quot;,
+  &quot;evidence_refs&quot;: [],
+  &quot;tadg_blocked&quot;: false,
+  &quot;tadg_force_passed&quot;: false,
+  &quot;tadg_top1_pid&quot;: null,
+  &quot;tadg_submitted_pid&quot;: null,
+  &quot;tadg_relation&quot;: null,
+  &quot;tadg_anchor_id&quot;: null,
+  &quot;tadg_subcase&quot;: null,
+  &quot;tadg_ranked_ids&quot;: null,
+  &quot;tadg_message&quot;: null,
+  &quot;no_match_guard_blocked&quot;: false,
+  &quot;no_match_guard_force_passed&quot;: false,
+  &quot;no_match_guard_category_candidate_ids&quot;: null,
+  &quot;no_match_guard_category_candidate_labels&quot;: null,
+  &quot;no_match_guard_viewed_uninspected_ids&quot;: null,
+  &quot;no_match_guard_viewed_uninspected_labels&quot;: null,
+  &quot;no_match_guard_message&quot;: null,
+  &quot;evidence_frame_guard_blocked&quot;: false,
+  &quot;evidence_frame_guard_submitted_pid&quot;: 29,
+  &quot;evidence_frame_guard_cited_frame_ids&quot;: [
+    100
+  ],
+  &quot;evidence_frame_guard_visible_proposal_ids&quot;: null,
+  &quot;evidence_frame_guard_visible_proposal_labels&quot;: null,
+  &quot;evidence_frame_guard_relative_position_conflict&quot;: false,
+  &quot;evidence_frame_guard_relative_position_direction&quot;: &quot;right&quot;,
+  &quot;evidence_frame_guard_relative_position_alternatives&quot;: null,
+  &quot;evidence_frame_guard_relative_position_alternative_labels&quot;: null,
+  &quot;evidence_frame_guard_message&quot;: null
+}</pre></div>
+                  <div><h4>Response summary / raw</h4><pre>submitted; rationale=&#x27;In the newly provided marked views, proposal #29 directly covers the file cabinet under desk/table #7 and is shown on the same side of the office as whiteboard #43. One new image shows whiteboard #43 on that side of the office, and the adjacent office-side view shows proposal #29 under the desk. Another new crop-like view shows the red chair #13 positioned over file cabinet #29, meaning #29 is the cabinet under the desk that has a red chair. By contrast, proposal #36 is a different cabinet under a separate desk with dark chair #34. Because the query asks for the cabinet under the desk that does NOT have a red chair, the correct target is the other under-desk cabinet proposal #36, which directly covers the small cabinet under the right-hand desk in marked frame 100.&#x27;; evidence_refs=0</pre></div>
+                </div>
+                
+              </div>
+            </details>
+            </div>
+    </section>
+    
+</main>
+</body>
+</html>
