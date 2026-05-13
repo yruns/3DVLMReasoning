@@ -16,10 +16,24 @@ task-pack pipeline.
 | [v2_phase8_full](v2_phase8_full_20260501.md) | 2026-05-01 | Acc@0.25=**0.7767**, Acc@0.50=**0.7762**, mean IoU=**0.7800** | 8584Q full test | First full NR3D test sweep — 130/130 scenes, gpt-5.4 backend, 32 workers. 5150/8584 IoU=1.0 (60%, GT-pool). 287 failed (3.3%, mostly upstream image-500). Bug fixes: bg-skip in pack prep + failed-sentinel in runner. |
 | [v3_referit3d_track](v3_referit3d_track_20260501.md) | 2026-05-01 | Overall=**0.8079**, Easy=**0.8606**, Hard=**0.7587**, V-Dep=**0.7246**, V-Indep=**0.8534** | 8584Q (n_filtered=7805) | **First leaderboard-comparable NR3D run** — canonical filter chain (`mentions_target_class_only=True`), classification accuracy as headline, 5-column SOTA-aligned table. Post-aggregated from v2 outputs (no agent re-run). Pool / fold equivalence empirically verified (see `pool_equivalence_log_20260501.md`). |
 | [v4_agent_guards_fair_views](v4_agent_guards_fair_views_20260512.md) | 2026-05-12 | Overall=**0.7100**, Easy=**0.8293**, Hard=**0.6271**, V-Dep=**0.6765**, V-Indep=**0.7273** | 100Q partial pilot | Query-driven fair keyframes plus TADG / no-match / evidence-frame guards. Same-fold baseline was Overall=0.8000, so v4 is -9.00 pp overall; no LLM/service failures while ramping workers 30 -> 60 -> 100. **Partial diagnostic, not a public leaderboard replacement.** |
+| [v5_agent_guards_fair_views_full](v5_agent_guards_fair_views_full_20260513.md) | 2026-05-13 | Overall=**0.6653**, Easy=**0.7609**, Hard=**0.5759**, V-Dep=**0.5574**, V-Indep=**0.7241** | 8584Q full test (n_filtered=7805) | Full fair-view query-driven run with TADG / no-match / evidence-frame guards. 8343 completed + 241 failed sentinels (2.81%). Stage2 workers=100 finished in about 7h25m under a 15GB RSS guard. Post-run hardening added lightweight ConceptGraph caches after identifying expanded `mask` fields as the high-concurrency memory root cause. |
 
 ## Current Interpretation
 
-**Latest full-test leaderboard row (v3_referit3d_track, 2026-05-01)**:
+**Latest full-test fair-view diagnostic (v5_agent_guards_fair_views_full, 2026-05-13)**:
+full NR3D test split with query-driven keyframes and the ScanRefer guard stack.
+Headline classification accuracy is **66.53 %** on n_filtered=7805
+(Easy=76.09, Hard=57.59, V-Dep=55.74, V-Indep=72.41). This is lower than the
+historical v3 row because v3 used the older GT-target-visible keyframe path;
+v5 is the cleaner no-GT-view evidence-selection measurement. Stage2 completed
+8584 checkpoints at workers=100 in about 7h25m, with 241 failed sentinels
+(2.81%) and no RSS guard trip. The post-run memory audit found that raw
+ConceptGraph pkl files expand about 258.9GB of unused `mask` arrays across
+local scenes; v5 hardening now adds lightweight sidecar caches and
+`--ensure-lightweight-cache` for future high-concurrency prep. Missing caches
+are auto-built under a cross-process lock and do not change or drop samples.
+
+**Best historical full-test leaderboard row (v3_referit3d_track, 2026-05-01)**:
 post-aggregation of v2
 predictions under the canonical ReferIt3D leaderboard protocol — the
 **first apples-to-apples NR3D number** for our pipeline. Headline:
@@ -38,6 +52,7 @@ the same-fold v1/v3 baseline is **80.00 %**. This is intentionally not a public
 leaderboard replacement: it measures the cost of removing GT-target-visible
 keyframe selection and running the guarded agent on NR3D. All 100 samples
 completed with zero LLM/service failures while ramping workers from 30 to 100.
+It is superseded by v5 for full-test fair-view reporting.
 
 The v2 numbers (Acc@0.25/0.50 = 77.67/77.62) remain valid as the IoU-on-GT-pool
 proxy of classification accuracy, but they are **superseded by v3** as the
@@ -119,6 +134,25 @@ PYTHONPATH=src python src/evaluation/scripts/prepare_pack_v1_inputs_nr3d.py \
     --data-root data/nr3d/scannet \
     --pack-name pack_nr3d_v1 \
     --split test
+```
+
+For high-concurrency query-driven prep, build lightweight ConceptGraph object
+caches once, then enable the ensure flag during prep. If a cache is still
+missing, it is built under a cross-process lock and the sample continues:
+
+```bash
+PYTHONPATH=src python src/evaluation/scripts/prepare_pack_v1_inputs_nr3d.py \
+    --sample-ids tmp/nr3d_artifacts/full_test_sample_ids.json \
+    --data-root data/nr3d/scannet \
+    --build-lightweight-cache-only
+
+PYTHONPATH=src python src/evaluation/scripts/prepare_pack_v1_inputs_nr3d.py \
+    --sample-ids tmp/nr3d_artifacts/full_test_sample_ids.json \
+    --data-root data/nr3d/scannet \
+    --pack-name pack_nr3d_v4_agent_guards_fair_views \
+    --split test \
+    --keyframe-mode query_driven \
+    --ensure-lightweight-cache
 ```
 
 Run the pack-v1 Stage 2 runner:

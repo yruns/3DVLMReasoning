@@ -23,7 +23,6 @@ Usage:
 
 from __future__ import annotations
 
-import gzip
 import importlib.util
 import json
 import pickle
@@ -56,6 +55,7 @@ from .core import (
     QueryHypothesis,
     QueryNode,
 )
+from .lightweight_conceptgraph import load_conceptgraph_objects
 from .parsing import QueryParser
 from .query_executor import ExecutionResult, QueryExecutor
 from .retrieval.spatial_checker import SpatialRelationChecker
@@ -238,6 +238,8 @@ class KeyframeSelector:
         stride: int = 5,
         llm_model: str = None,
         use_pool: bool | None = None,
+        prefer_lightweight_pcd: bool = True,
+        ensure_lightweight_pcd: bool = False,
     ):
         """Initialize keyframe selector.
 
@@ -253,6 +255,8 @@ class KeyframeSelector:
         self.scene_path = Path(scene_path)
         self.stride = stride
         self.llm_model = llm_model
+        self.prefer_lightweight_pcd = prefer_lightweight_pcd
+        self.ensure_lightweight_pcd = ensure_lightweight_pcd
         self.use_pool = (
             llm_model is not None and llm_model.strip().lower() == "gemini-2.5-pro"
             if use_pool is None
@@ -398,20 +402,40 @@ class KeyframeSelector:
 
     def _load_objects_from_pcd(self, pcd_file: Path) -> None:
         """Load objects from ConceptGraphs PCD file."""
-        with gzip.open(pcd_file, "rb") as f:
-            data = pickle.load(f)
-
-        raw_objects = data.get("objects", [])
+        raw_objects = load_conceptgraph_objects(
+            pcd_file,
+            prefer_lightweight=self.prefer_lightweight_pcd,
+            ensure_lightweight=self.ensure_lightweight_pcd,
+        )
         features = []
 
         for i, obj in enumerate(raw_objects):
-            # Get point cloud for centroid
+            # Get centroid from the lightweight cache when possible. The raw
+            # ConceptGraph pkl also contains per-detection masks that can expand
+            # to many GB during pickle.load, so high-concurrency prep should use
+            # the stripped sidecar cache and avoid requiring pcd_np here.
             pcd_np = obj.get("pcd_np")
-            if pcd_np is None or len(pcd_np) == 0:
+            bbox_np_raw = obj.get("bbox_np")
+            centroid_raw = obj.get("centroid")
+            if pcd_np is not None and len(pcd_np) > 0:
+                pcd_np = np.asarray(pcd_np, dtype=np.float32)
+                centroid = pcd_np.mean(axis=0)
+            elif centroid_raw is not None:
+                centroid_arr = np.asarray(centroid_raw, dtype=np.float32).reshape(-1)
+                if centroid_arr.size < 3:
+                    continue
+                centroid = centroid_arr[:3]
+                pcd_np = None
+            elif bbox_np_raw is not None:
+                bbox_for_centroid = np.asarray(bbox_np_raw, dtype=np.float32)
+                if bbox_for_centroid.size == 0 or bbox_for_centroid.shape[-1] < 3:
+                    continue
+                centroid = bbox_for_centroid.reshape(-1, bbox_for_centroid.shape[-1])[
+                    :, :3
+                ].mean(axis=0)
+                pcd_np = None
+            else:
                 continue
-
-            pcd_np = np.asarray(pcd_np, dtype=np.float32)
-            centroid = pcd_np.mean(axis=0)
 
             # Get CLIP feature
             clip_ft = obj.get("clip_ft")
@@ -440,7 +464,6 @@ class KeyframeSelector:
             xyxy = obj.get("xyxy", [])
 
             # Keep bbox for downstream VG proposal/candidate formatting.
-            bbox_np_raw = obj.get("bbox_np")
             bbox_np_arr = (
                 np.asarray(bbox_np_raw, dtype=np.float32)
                 if bbox_np_raw is not None

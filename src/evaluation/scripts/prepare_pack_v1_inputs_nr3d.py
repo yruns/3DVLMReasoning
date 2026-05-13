@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import argparse
 import gc
-import gzip
 import json
 import pickle
 from collections import Counter, OrderedDict
@@ -28,6 +27,10 @@ from evaluation.scripts.prepare_pack_v1_inputs import (
     normalize_prepared_keyframes,
     validate_bbox_9dof,
     validate_matrix_4x4,
+)
+from query_scene.lightweight_conceptgraph import (
+    load_conceptgraph_objects,
+    write_lightweight_conceptgraph_cache,
 )
 
 PHASE8_PCD_REL = Path("conceptgraph/pcd_saves/full_pcd_gt_axisaligned_post.pkl.gz")
@@ -122,6 +125,33 @@ def parse_args() -> argparse.Namespace:
             "normally sufficient."
         ),
     )
+    parser.add_argument(
+        "--build-lightweight-cache-only",
+        action="store_true",
+        default=False,
+        help=(
+            "Only build stripped ConceptGraph object caches for requested scenes. "
+            "Run this with low concurrency before high-worker prep."
+        ),
+    )
+    parser.add_argument(
+        "--overwrite-lightweight-cache",
+        action="store_true",
+        default=False,
+        help="Rewrite existing stripped ConceptGraph object caches.",
+    )
+    parser.add_argument(
+        "--ensure-lightweight-cache",
+        "--require-lightweight-cache",
+        dest="ensure_lightweight_cache",
+        action="store_true",
+        default=False,
+        help=(
+            "Ensure stripped ConceptGraph object caches before loading objects. "
+            "Missing caches are built under a cross-process lock, so final "
+            "sample results do not fail because a cache was absent."
+        ),
+    )
     return parser.parse_args()
 
 
@@ -137,6 +167,7 @@ def prepare_pack_v1_inputs_nr3d(
     keyframe_llm_model: str = "gemini-2.5-pro",
     max_selector_cache_size: int = 1,
     max_scene_artifact_cache_size: int = 1,
+    ensure_lightweight_cache: bool = False,
 ) -> list[Path]:
     if keyframe_mode not in ("gt_target", "query_driven"):
         raise ValueError(
@@ -182,6 +213,7 @@ def prepare_pack_v1_inputs_nr3d(
                 scene_id=request.scene_id,
                 data_root=data_root,
                 pack_name=pack_name,
+                ensure_lightweight_cache=ensure_lightweight_cache,
             )
             evict_lru_cache(scene_artifacts, max_scene_artifact_cache_size)
         else:
@@ -196,9 +228,34 @@ def prepare_pack_v1_inputs_nr3d(
                 keyframe_llm_model=keyframe_llm_model,
                 selector_cache=selector_cache,
                 max_selector_cache_size=max_selector_cache_size,
+                ensure_lightweight_cache=ensure_lightweight_cache,
             )
         )
     return written_samples
+
+
+def build_lightweight_caches_for_sample_ids(
+    *,
+    sample_ids_path: Path,
+    data_root: Path,
+    max_samples: int | None = None,
+    overwrite: bool = False,
+) -> list[Path]:
+    requests = load_sample_requests(sample_ids_path)
+    if max_samples is not None:
+        if max_samples <= 0:
+            raise ValueError("max_samples must be positive when provided")
+        requests = requests[:max_samples]
+
+    paths: list[Path] = []
+    for scene_id in sorted({request.scene_id for request in requests}):
+        paths.append(
+            write_lightweight_conceptgraph_cache(
+                data_root / scene_id / PHASE8_PCD_REL,
+                overwrite=overwrite,
+            )
+        )
+    return paths
 
 
 def evict_lru_cache(cache: OrderedDict[str, Any], max_size: int) -> None:
@@ -279,9 +336,13 @@ def prepare_scene_artifacts(
     scene_id: str,
     data_root: Path,
     pack_name: str = "pack_nr3d_v1",
+    ensure_lightweight_cache: bool = False,
 ) -> SceneArtifacts:
     scene_root = data_root / scene_id
-    objects = load_phase8_objects(scene_root)
+    objects = load_phase8_objects(
+        scene_root,
+        ensure_lightweight_cache=ensure_lightweight_cache,
+    )
     proposals = build_proposals_from_phase8_objects(objects=objects, scene_id=scene_id)
     if not proposals:
         raise ValueError(f"scene has no Phase 8 objects: {scene_id}")
@@ -414,6 +475,7 @@ def write_sample_artifact(
     keyframe_llm_model: str = "gemini-2.5-pro",
     selector_cache: OrderedDict[str, Any] | None = None,
     max_selector_cache_size: int = 1,
+    ensure_lightweight_cache: bool = False,
 ) -> Path:
     visibility = load_phase8_visibility_index(data_root / request.scene_id)
     query = getattr(sample, "query", "") or getattr(sample, "text", "")
@@ -439,6 +501,7 @@ def write_sample_artifact(
                 str(data_root / request.scene_id / "conceptgraph"),
                 stride=1,
                 llm_model=keyframe_llm_model,
+                ensure_lightweight_pcd=ensure_lightweight_cache,
             )
             selector_cache[request.scene_id] = selector
             evict_lru_cache(selector_cache, max_selector_cache_size)
@@ -688,16 +751,19 @@ def load_raw_scene_info(scene_root: Path) -> dict[str, Any]:
     return payload
 
 
-def load_phase8_objects(scene_root: Path) -> list[dict[str, Any]]:
+def load_phase8_objects(
+    scene_root: Path,
+    *,
+    ensure_lightweight_cache: bool = False,
+) -> list[dict[str, Any]]:
     pkl_path = scene_root / PHASE8_PCD_REL
     if not pkl_path.exists():
         raise FileNotFoundError(f"Missing Phase 8 GT-CG pkl: {pkl_path}")
-    with gzip.open(pkl_path, "rb") as f:
-        payload = pickle.load(f)
-    objects = payload.get("objects")
-    if not isinstance(objects, list):
-        raise ValueError(f"{pkl_path} must contain an objects list")
-    return objects
+    return load_conceptgraph_objects(
+        pkl_path,
+        prefer_lightweight=True,
+        ensure_lightweight=ensure_lightweight_cache,
+    )
 
 
 def load_phase8_visibility_index(scene_root: Path) -> Phase8Visibility:
@@ -804,6 +870,16 @@ def _required_nonempty_str(row: dict[str, Any], key: str, row_index: int) -> str
 
 def main() -> None:
     args = parse_args()
+    if args.build_lightweight_cache_only:
+        written_caches = build_lightweight_caches_for_sample_ids(
+            sample_ids_path=args.sample_ids,
+            data_root=args.data_root,
+            max_samples=args.max_samples,
+            overwrite=args.overwrite_lightweight_cache,
+        )
+        print(f"wrote {len(written_caches)} lightweight ConceptGraph cache(s)")
+        return
+
     written = prepare_pack_v1_inputs_nr3d(
         sample_ids_path=args.sample_ids,
         data_root=args.data_root,
@@ -815,6 +891,7 @@ def main() -> None:
         keyframe_llm_model=args.keyframe_llm_model,
         max_selector_cache_size=args.max_selector_cache_size,
         max_scene_artifact_cache_size=args.max_scene_artifact_cache_size,
+        ensure_lightweight_cache=args.ensure_lightweight_cache,
     )
     print(
         f"wrote {len(written)} sample artifacts under "
@@ -832,6 +909,7 @@ __all__ = [
     "SceneArtifacts",
     "SceneFrame",
     "build_proposals_from_phase8_objects",
+    "build_lightweight_caches_for_sample_ids",
     "load_phase8_visibility_index",
     "load_sample_lookup",
     "load_sample_requests",

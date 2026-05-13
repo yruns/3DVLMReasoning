@@ -187,6 +187,50 @@ def test_prepare_pack_v1_inputs_nr3d_smoke(tmp_path, monkeypatch) -> None:
     ]
 
 
+def test_lightweight_cache_drops_masks_and_auto_builds_when_required(tmp_path) -> None:
+    from evaluation.scripts.prepare_pack_v1_inputs_nr3d import load_phase8_objects
+    from query_scene.lightweight_conceptgraph import (
+        lightweight_pcd_path,
+        write_lightweight_conceptgraph_cache,
+    )
+
+    data_root = tmp_path / "scannet"
+    scene_root = _write_phase8_tree(
+        data_root,
+        objects=[
+            {
+                "bbox_np": _corners(center=(2.0, 0.0, 5.0)),
+                "class_name": ["chair"],
+                "class_id": [7],
+                "mask": [np.ones((20, 30), dtype=np.bool_)],
+                "pcd_np": np.array([[1.0, 0.0, 5.0], [3.0, 0.0, 5.0]]),
+                "pcd_color_np": np.ones((2, 3), dtype=np.float32),
+                "clip_ft": np.ones(4, dtype=np.float32),
+            }
+        ],
+    )
+
+    pkl_path = (
+        scene_root
+        / "conceptgraph"
+        / "pcd_saves"
+        / "full_pcd_gt_axisaligned_post.pkl.gz"
+    )
+    cache_path = lightweight_pcd_path(pkl_path)
+    assert not cache_path.exists()
+
+    loaded = load_phase8_objects(scene_root, ensure_lightweight_cache=True)
+    assert cache_path.exists()
+    assert len(loaded) == 1
+    assert "mask" not in loaded[0]
+    assert "pcd_np" not in loaded[0]
+    assert "pcd_color_np" not in loaded[0]
+    assert loaded[0]["class_name"] == ["chair"]
+    np.testing.assert_allclose(loaded[0]["centroid"], [2.0, 0.0, 5.0])
+
+    assert write_lightweight_conceptgraph_cache(pkl_path) == cache_path
+
+
 def test_sample_artifact_path_sanitizes_scannet_sample_id(tmp_path) -> None:
     from evaluation.scripts.prepare_pack_v1_inputs_nr3d import (
         SampleRequest,
@@ -395,7 +439,13 @@ def test_prepare_query_driven_groups_by_scene_and_bounds_selector_cache(
 
     class FakeKeyframeSelector:
         @staticmethod
-        def from_scene_path(path: str, *, stride: int, llm_model: str) -> FakeSelector:
+        def from_scene_path(
+            path: str,
+            *,
+            stride: int,
+            llm_model: str,
+            ensure_lightweight_pcd: bool = False,
+        ) -> FakeSelector:
             built_scenes.append(Path(path).parent.name)
             return FakeSelector()
 
