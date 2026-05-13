@@ -63,6 +63,11 @@ checkpoint set.
   `tmp/nr3d_eval_v5_failed_rerun_merged_20260513/leaderboard_metrics.json`
 - Visual stage1+stage2 case-study HTML:
   `docs/benchmark/nr3d/v5p1_case_studies_20260513.html`
+  - The HTML was regenerated after the post-run bbox-rendering fix that
+    requires in-image bbox surface samples before drawing a 2D mark. Raw tool
+    responses still show the original annotated-frame paths; the displayed
+    images are the corrected visualization of the same trace, not a new model
+    run.
 - Merge / metrics logs:
   - `tmp/nr3d_eval_v5_failed_rerun_merged_20260513_assemble.log`
   - `tmp/nr3d_eval_v5_failed_rerun_merged_20260513_metrics.log`
@@ -306,3 +311,10 @@ The result is still substantially below the historical v3 GT-visible row, as
 expected after removing the target-visible view shortcut. It is now above the
 current public Nr3D SOTA row on every official slice, with the caveat that our
 pipeline is a zero-shot RGB+VLM agent rather than a trained 3D model.
+
+Post-run visualization audit found that the v5.1 annotated frames drew full
+clamped 3D bboxes for every proposal listed in `visibility.json`. The
+underlying `object_to_views` / `view_to_objects` index is point-projection
+based, but the renderer treated it as permission to draw the whole 3D bbox in
+the 2D frame. Current docs use corrected in-frustum rendering; a full rerun is
+needed before claiming metrics for corrected agent-visible images.

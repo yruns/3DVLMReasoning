@@ -376,6 +376,58 @@ def test_query_driven_helper_falls_back_to_density(tmp_path) -> None:
     assert used_fallback is True
 
 
+def test_render_annotated_frames_uses_visible_bbox_projection(
+    tmp_path, monkeypatch
+) -> None:
+    import numpy as np
+
+    from evaluation.scripts import prepare_pack_v1_inputs_nr3d as prep
+
+    rgb = tmp_path / "frame.png"
+    Image.new("RGB", (64, 48), "white").save(rgb)
+
+    calls: list[dict[str, Any]] = []
+
+    def fake_project_visible_bbox_3d_to_2d(*args: Any, **kwargs: Any):
+        if args[0][0] == 1:
+            return (5, 6, 30, 32)
+        return None
+
+    def fake_render_marked_keyframe(**kwargs: Any) -> None:
+        calls.append(kwargs)
+
+    monkeypatch.setattr(
+        prep,
+        "project_visible_bbox_3d_to_2d",
+        fake_project_visible_bbox_3d_to_2d,
+    )
+    monkeypatch.setattr(prep, "render_marked_keyframe", fake_render_marked_keyframe)
+
+    prep.render_annotated_frames(
+        proposal_by_id={
+            1: {"id": 1, "bbox_3d": [1.0] * 9, "label": "chair"},
+            2: {"id": 2, "bbox_3d": [2.0] * 9, "label": "wall"},
+        },
+        frame_visibility={0: [1, 2]},
+        frame_by_id={
+            0: prep.SceneFrame(
+                frame_id=0,
+                raw_frame_id=0,
+                rgb_path=rgb,
+                extrinsic_world_to_cam=np.eye(4),
+            )
+        },
+        intrinsic=np.eye(3),
+        image_size=(64, 48),
+        annotated_dir=tmp_path / "annotated",
+    )
+
+    assert len(calls) == 1
+    assert calls[0]["marks"] == [
+        {"proposal_id": 1, "label": "chair", "bbox_2d": (5, 6, 30, 32)}
+    ]
+
+
 def test_prepare_query_driven_groups_by_scene_and_bounds_selector_cache(
     tmp_path,
     monkeypatch,

@@ -36,6 +36,7 @@ from benchmarks.embodiedscan_bbox_feasibility.render_marks import (
 from benchmarks.embodiedscan_bbox_feasibility.vdetr import class_name_from_id
 from benchmarks.embodiedscan_bbox_feasibility.visibility_index import (
     project_bbox_3d_to_2d,
+    project_visible_bbox_3d_to_2d,
 )
 
 
@@ -682,7 +683,7 @@ def visible_projected_rect(
     image_size: tuple[int, int],
     visibility_min_area: float,
 ) -> tuple[int, int, int, int] | None:
-    rect = project_bbox_3d_to_2d(
+    rect = project_visible_bbox_3d_to_2d(
         bbox_9dof,
         intrinsic,
         extrinsic_world_to_cam,

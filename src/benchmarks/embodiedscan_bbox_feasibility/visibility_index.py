@@ -94,6 +94,71 @@ def project_bbox_3d_to_2d(
     return x1, y1, x2, y2
 
 
+def project_visible_bbox_3d_to_2d(
+    bbox_9dof: list[float],
+    intrinsic: np.ndarray,
+    extrinsic_world_to_cam: np.ndarray,
+    image_size: tuple[int, int],
+    depth_max: float = 10.0,
+    min_in_bounds_samples: int = 1,
+) -> tuple[int, int, int, int] | None:
+    """Project only the in-image portion of a 3D bbox surface.
+
+    ``project_bbox_3d_to_2d`` returns the full clamped rectangle whenever the
+    projected 3D box overlaps the image. That is useful for broad geometric
+    feasibility, but noisy for set-of-marks frames: a near-plane or mostly
+    off-screen object can become a full-image rectangle even when no sampled
+    bbox surface point lands inside the image. This helper requires actual
+    in-image surface samples and builds the mark from those samples only.
+    """
+    bbox_arr = np.asarray(bbox_9dof, dtype=float)
+    intrinsic = np.asarray(intrinsic, dtype=float)
+    extrinsic_world_to_cam = np.asarray(extrinsic_world_to_cam, dtype=float)
+    if bbox_arr.ndim != 1 or bbox_arr.shape[0] < 6:
+        raise ValueError("bbox_9dof must be a 1D sequence with at least 6 values")
+    if intrinsic.shape != (3, 3):
+        raise ValueError("intrinsic must have shape (3, 3)")
+    if extrinsic_world_to_cam.shape != (4, 4):
+        raise ValueError("extrinsic_world_to_cam must have shape (4, 4)")
+    if len(image_size) != 2:
+        raise ValueError("image_size must be a (width, height) tuple")
+    w, h = image_size
+    if w <= 0 or h <= 0:
+        raise ValueError("image_size dimensions must be positive")
+    if depth_max <= 0:
+        raise ValueError("depth_max must be positive")
+    if min_in_bounds_samples <= 0:
+        raise ValueError("min_in_bounds_samples must be positive")
+
+    samples_world = _bbox_surface_samples(bbox_arr.tolist())
+    samples_h = np.hstack([samples_world, np.ones((len(samples_world), 1))])
+    cam = (extrinsic_world_to_cam @ samples_h.T).T[:, :3]
+    valid_depth = (cam[:, 2] > 0) & (cam[:, 2] < depth_max)
+    if not np.any(valid_depth):
+        return None
+
+    cam = cam[valid_depth]
+    px = (intrinsic @ cam.T).T
+    uv = px[:, :2] / px[:, 2:3]
+    in_bounds = (
+        (uv[:, 0] >= 0)
+        & (uv[:, 0] < w)
+        & (uv[:, 1] >= 0)
+        & (uv[:, 1] < h)
+    )
+    if int(np.count_nonzero(in_bounds)) < min_in_bounds_samples:
+        return None
+
+    visible_uv = uv[in_bounds]
+    x1 = int(np.clip(np.floor(visible_uv[:, 0].min()), 0, w - 1))
+    y1 = int(np.clip(np.floor(visible_uv[:, 1].min()), 0, h - 1))
+    x2 = int(np.clip(np.ceil(visible_uv[:, 0].max()), 0, w - 1))
+    y2 = int(np.clip(np.ceil(visible_uv[:, 1].max()), 0, h - 1))
+    if x2 <= x1 or y2 <= y1:
+        return None
+    return x1, y1, x2, y2
+
+
 def bbox_visible_in_frustum(
     bbox_9dof: list[float],
     intrinsic: np.ndarray,
@@ -156,4 +221,5 @@ __all__ = [
     "bbox_visible_in_frustum",
     "build_frame_visibility",
     "project_bbox_3d_to_2d",
+    "project_visible_bbox_3d_to_2d",
 ]

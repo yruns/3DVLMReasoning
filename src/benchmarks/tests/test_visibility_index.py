@@ -7,6 +7,7 @@ from benchmarks.embodiedscan_bbox_feasibility.visibility_index import (
     bbox_visible_in_frustum,
     build_frame_visibility,
     project_bbox_3d_to_2d,
+    project_visible_bbox_3d_to_2d,
 )
 
 
@@ -126,3 +127,34 @@ def test_project_bbox_3d_to_2d_handles_near_plane_box_with_no_visible_corners() 
     x1, y1, x2, y2 = rect
     assert 0 <= x1 < x2 <= 1295
     assert 0 <= y1 < y2 <= 967
+
+
+def test_project_visible_bbox_3d_to_2d_rejects_rect_with_no_in_image_samples() -> None:
+    intrinsic = np.array([[500, 0, 320], [0, 500, 240], [0, 0, 1]], dtype=float)
+    extrinsic = np.eye(4)
+    bbox = [-10, -10, 0.5, 40, 40, 40, 0, 0, 0]
+
+    assert project_bbox_3d_to_2d(bbox, intrinsic, extrinsic, (640, 480)) == (
+        0,
+        0,
+        639,
+        479,
+    )
+    assert project_visible_bbox_3d_to_2d(
+        bbox, intrinsic, extrinsic, (640, 480)
+    ) is None
+
+
+def test_project_visible_bbox_3d_to_2d_uses_only_in_image_samples() -> None:
+    intrinsic = np.array([[500, 0, 320], [0, 500, 240], [0, 0, 1]], dtype=float)
+    extrinsic = np.eye(4)
+    bbox = [5, 0, 5, 4, 4, 1, 0, 0, 0]
+
+    rect = project_visible_bbox_3d_to_2d(
+        bbox, intrinsic, extrinsic, (640, 480), depth_max=10.0
+    )
+
+    assert rect is not None
+    x1, y1, x2, y2 = rect
+    assert 590 <= x1 < x2 <= 639
+    assert 0 <= y1 < y2 <= 479

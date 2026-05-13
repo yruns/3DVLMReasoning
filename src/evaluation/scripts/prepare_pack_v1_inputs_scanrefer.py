@@ -24,7 +24,7 @@ from benchmarks.embodiedscan_bbox_feasibility.render_marks import (
     render_marked_keyframe,
 )
 from benchmarks.embodiedscan_bbox_feasibility.visibility_index import (
-    project_bbox_3d_to_2d,
+    project_visible_bbox_3d_to_2d,
 )
 from benchmarks.scanrefer_loader import (
     ScanRefVGDataset,
@@ -923,7 +923,7 @@ def compute_proposal_frame_views(
             prop = proposal_by_id.get(int(prop_id))
             if prop is None:
                 raise ValueError(f"unknown proposal_id={prop_id}")
-            rect = project_bbox_3d_to_2d(
+            rect = project_visible_bbox_3d_to_2d(
                 prop["bbox_3d"],
                 intrinsic,
                 frame.extrinsic_world_to_cam,
@@ -968,7 +968,7 @@ def render_annotated_frames(
             prop = proposal_by_id.get(int(prop_id))
             if prop is None:
                 raise ValueError(f"unknown proposal_id={prop_id}")
-            rect = project_bbox_3d_to_2d(
+            rect = project_visible_bbox_3d_to_2d(
                 prop["bbox_3d"],
                 intrinsic,
                 frame.extrinsic_world_to_cam,

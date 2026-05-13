@@ -271,7 +271,7 @@ def test_compute_proposal_frame_views_emits_per_frame_metadata(
         cx = float(bbox_3d[0])
         return (int(cx) * 10, int(cx) * 10, int(cx) * 10 + 50, int(cx) * 10 + 30)
     monkeypatch.setattr(
-        "evaluation.scripts.prepare_pack_v1_inputs_scanrefer.project_bbox_3d_to_2d",
+        "evaluation.scripts.prepare_pack_v1_inputs_scanrefer.project_visible_bbox_3d_to_2d",
         _stub_project,
     )
 
@@ -340,7 +340,7 @@ def test_compute_proposal_frame_views_skips_collapsed_projection(
     raw_root, scene_id = _build_scene_for_cvra(tmp_path)
 
     monkeypatch.setattr(
-        "evaluation.scripts.prepare_pack_v1_inputs_scanrefer.project_bbox_3d_to_2d",
+        "evaluation.scripts.prepare_pack_v1_inputs_scanrefer.project_visible_bbox_3d_to_2d",
         lambda *a, **kw: None,
     )
 
@@ -377,7 +377,7 @@ def test_compute_proposal_frame_views_normalizes_swapped_coords(
     raw_root, scene_id = _build_scene_for_cvra(tmp_path)
 
     monkeypatch.setattr(
-        "evaluation.scripts.prepare_pack_v1_inputs_scanrefer.project_bbox_3d_to_2d",
+        "evaluation.scripts.prepare_pack_v1_inputs_scanrefer.project_visible_bbox_3d_to_2d",
         lambda *a, **kw: (200, 100, 50, 40),  # x2<x1 and y2<y1
     )
 
@@ -418,7 +418,7 @@ def test_compute_proposal_frame_views_omits_visibility_weight_when_missing(
 
     raw_root, scene_id = _build_scene_for_cvra(tmp_path)
     monkeypatch.setattr(
-        "evaluation.scripts.prepare_pack_v1_inputs_scanrefer.project_bbox_3d_to_2d",
+        "evaluation.scripts.prepare_pack_v1_inputs_scanrefer.project_visible_bbox_3d_to_2d",
         lambda *a, **kw: (10, 20, 100, 200),
     )
 

@@ -25,6 +25,18 @@ from typing import Any
 
 from PIL import Image
 
+from benchmarks.embodiedscan_bbox_feasibility.render_marks import (
+    render_marked_keyframe,
+)
+from benchmarks.embodiedscan_bbox_feasibility.visibility_index import (
+    project_visible_bbox_3d_to_2d,
+)
+from evaluation.scripts.prepare_pack_v1_inputs_nr3d import (
+    load_image_size,
+    scene_frames,
+    scene_intrinsic,
+)
+
 DEFAULT_CASES = [
     (
         "scannet/scene0474_00::9::27195",
@@ -59,6 +71,16 @@ class CaseSpec:
     sample_id: str
     title: str
     why: str
+
+
+@dataclass
+class FrameRenderContext:
+    scene_id: str
+    proposals: dict[int, dict[str, Any]]
+    visibility: dict[int, list[int]]
+    frame_by_id: dict[int, Any]
+    intrinsic: Any
+    image_size: tuple[int, int]
 
 
 def esc(value: Any) -> str:
@@ -162,6 +184,78 @@ def make_thumb(
         img = Image.open(src).convert("RGB")
         img.thumbnail(max_size)
         img.save(out, "JPEG", quality=86, optimize=True)
+    return str(out.relative_to(html_dir))
+
+
+def build_frame_render_context(
+    *,
+    data_root: Path,
+    scene_id: str,
+    proposals: dict[int, dict[str, Any]],
+    visibility: dict[int, list[int]],
+) -> FrameRenderContext:
+    frames = scene_frames(data_root / scene_id, sorted(visibility))
+    if not frames:
+        raise ValueError(f"no frames available for {scene_id}")
+    return FrameRenderContext(
+        scene_id=scene_id,
+        proposals=proposals,
+        visibility=visibility,
+        frame_by_id={frame.frame_id: frame for frame in frames},
+        intrinsic=scene_intrinsic(data_root / scene_id),
+        image_size=load_image_size(frames[0].rgb_path),
+    )
+
+
+def make_corrected_marked_thumb(
+    frame_id: int,
+    *,
+    render_ctx: FrameRenderContext,
+    assets_dir: Path,
+    html_dir: Path,
+    prefix: str,
+    max_size: tuple[int, int] = (760, 540),
+) -> str:
+    frame = render_ctx.frame_by_id.get(int(frame_id))
+    if frame is None:
+        return ""
+    digest = hashlib.sha1(
+        f"{render_ctx.scene_id}:{frame_id}:visible-v1".encode()
+    ).hexdigest()[:8]
+    out = assets_dir / f"{prefix}_frame_{frame_id}_visible_{digest}.jpg"
+    if not out.exists():
+        marks = []
+        for proposal_id in render_ctx.visibility.get(int(frame_id), []):
+            proposal = render_ctx.proposals.get(int(proposal_id))
+            if proposal is None:
+                continue
+            rect = project_visible_bbox_3d_to_2d(
+                proposal["bbox_3d"],
+                render_ctx.intrinsic,
+                frame.extrinsic_world_to_cam,
+                render_ctx.image_size,
+            )
+            if rect is None:
+                continue
+            marks.append(
+                {
+                    "proposal_id": int(proposal_id),
+                    "label": proposal["label"],
+                    "bbox_2d": rect,
+                }
+            )
+
+        tmp_png = out.with_suffix(".tmp.png")
+        render_marked_keyframe(
+            rgb_path=frame.rgb_path,
+            out_path=tmp_png,
+            marks=marks,
+        )
+        img = Image.open(tmp_png).convert("RGB")
+        img.thumbnail(max_size)
+        out.parent.mkdir(parents=True, exist_ok=True)
+        img.save(out, "JPEG", quality=86, optimize=True)
+        tmp_png.unlink(missing_ok=True)
     return str(out.relative_to(html_dir))
 
 
@@ -285,6 +379,7 @@ def render_image_grid(
     proposals: dict[int, dict[str, Any]],
     target_id: int,
     selected_id: int | None,
+    render_ctx: FrameRenderContext | None,
 ) -> str:
     cards = []
     seen = set()
@@ -293,18 +388,28 @@ def render_image_grid(
             continue
         seen.add(path)
         src = Path(path)
-        rel = make_thumb(
-            src,
-            assets_dir=assets_dir,
-            html_dir=html_dir,
-            prefix=f"{case_prefix}_{idx:02d}",
+        fid = int(frame_id) if frame_id is not None else None
+        rel = (
+            make_corrected_marked_thumb(
+                fid,
+                render_ctx=render_ctx,
+                assets_dir=assets_dir,
+                html_dir=html_dir,
+                prefix=f"{case_prefix}_{idx:02d}",
+            )
+            if fid is not None and render_ctx is not None
+            else make_thumb(
+                src,
+                assets_dir=assets_dir,
+                html_dir=html_dir,
+                prefix=f"{case_prefix}_{idx:02d}",
+            )
         )
         if not rel:
             cards.append(
                 f'<div class="image-card missing"><div>Missing image</div><code>{esc(path)}</code></div>'
             )
             continue
-        fid = int(frame_id) if frame_id is not None else None
         ids = visibility.get(fid, []) if fid is not None else []
         chips = []
         if target_id in ids:
@@ -367,6 +472,7 @@ def render_tool_timeline(
     proposals: dict[int, dict[str, Any]],
     target_id: int,
     selected_id: int | None,
+    render_ctx: FrameRenderContext | None,
 ) -> str:
     blocks = []
     for i, call in enumerate(trace, start=1):
@@ -385,6 +491,7 @@ def render_tool_timeline(
                 proposals=proposals,
                 target_id=target_id,
                 selected_id=selected_id,
+                render_ctx=render_ctx,
             )
         blocks.append(
             f"""
@@ -452,6 +559,12 @@ def build_case_html(
     sample = read_json(sample_path)
     proposals = load_proposals(pack_dir)
     visibility = load_visibility(pack_dir)
+    render_ctx = build_frame_render_context(
+        data_root=data_root,
+        scene_id=scene_id,
+        proposals=proposals,
+        visibility=visibility,
+    )
     trace = checkpoint.get("tool_trace") or []
     selected_id = checkpoint.get("selected_object_id")
     correct = bool(metric["is_correct"])
@@ -538,7 +651,7 @@ def build_case_html(
         target id and GT bbox are kept for scoring, not for view selection.
       </p>
       {stage1_table}
-      {render_image_grid(stage1_refs, case_prefix=case_prefix + "_stage1", assets_dir=assets_dir, html_dir=html_dir, visibility=visibility, proposals=proposals, target_id=target_id, selected_id=selected_id)}
+      {render_image_grid(stage1_refs, case_prefix=case_prefix + "_stage1", assets_dir=assets_dir, html_dir=html_dir, visibility=visibility, proposals=proposals, target_id=target_id, selected_id=selected_id, render_ctx=render_ctx)}
 
       <h3>Candidate proposals touched by Stage 2</h3>
       <p>The table includes the target, final selected proposal if any, category-search hits, and inspected proposals.</p>
@@ -551,8 +664,8 @@ def build_case_html(
         Every call below is rendered in chronological order with input, response,
         and any referenced marked frame image.
       </p>
-      {render_image_grid(stage2_refs, case_prefix=case_prefix + "_stage2refs", assets_dir=assets_dir, html_dir=html_dir, visibility=visibility, proposals=proposals, target_id=target_id, selected_id=selected_id)}
-      {render_tool_timeline(trace, case_prefix=case_prefix, assets_dir=assets_dir, html_dir=html_dir, visibility=visibility, proposals=proposals, target_id=target_id, selected_id=selected_id)}
+      {render_image_grid(stage2_refs, case_prefix=case_prefix + "_stage2refs", assets_dir=assets_dir, html_dir=html_dir, visibility=visibility, proposals=proposals, target_id=target_id, selected_id=selected_id, render_ctx=render_ctx)}
+      {render_tool_timeline(trace, case_prefix=case_prefix, assets_dir=assets_dir, html_dir=html_dir, visibility=visibility, proposals=proposals, target_id=target_id, selected_id=selected_id, render_ctx=render_ctx)}
     </section>
     """
 
@@ -660,6 +773,7 @@ def build_html(
 <header>
   <h1>NR3D v5.1 Stage1 + Stage2 Reasoning Case Studies</h1>
   <p>Generated from persisted artifacts only. No model calls are made by this report.</p>
+  <p>Frame images are re-rendered from raw RGB, <code>visibility.json</code>, and proposals with in-frustum 2D bbox marks; the raw tool responses still show the original annotated-frame paths used by the run.</p>
   <p>Run branch: <code>feat/nr3d-v4-agent-guards-fair-views</code>; run-time code commit: <code>c404536</code>; report-generation repo commit: <code>{esc(git_short())}</code>.</p>
   <p>Source run: <code>v5p1_failed_rerun_full_20260513</code>; output: <code>tmp/nr3d_eval_v5_failed_rerun_merged_20260513/</code>; pack: <code>{esc(pack_name)}</code>.</p>
 </header>
