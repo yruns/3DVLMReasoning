@@ -28,6 +28,10 @@ ordered cheapest-first:
   specific instance — e.g. you have category candidates from
   `find_proposals_by_category` and want to verify each in a frame
   where Mask3D actually marked it.
+  The marked image draws one colored 2D box per visible candidate
+  proposal. Each box is labeled directly as `#proposal_id category`;
+  submit the integer after `#` when that box covers the referent. The
+  category text is a weak detector label, not ground truth.
 - **`request_more_views(request_text, mode="targeted"|"explore"|"temporal_fan", object_terms=[...], frame_indices=[...])`**
   — Stage-1 visibility-driven view fetch. Cheap (no LLM). Use when
   you need additional views *centered on specific scene objects*
@@ -120,6 +124,12 @@ typically 50-300 frames per scene).
 Returns a text body summarizing the chosen frame:
 `frame_id=N marked image at <path>; visible_proposals=[...]; categories=[...];
 left_to_right=[...]; boxes_2d={...}`.
+
+The injected image for that frame contains colored 2D proposal boxes.
+Each visible box is labeled `#proposal_id category`; the same ids appear
+in `visible_proposals` and `boxes_2d`. The 2D box is only the visible
+image evidence for that proposal, while the final answer must be the
+3D `proposal_id` submitted through `submit_final`.
 
 For left/right referring expressions, use `left_to_right` before
 submitting. It sorts the visible marked proposal ids by 2D image center

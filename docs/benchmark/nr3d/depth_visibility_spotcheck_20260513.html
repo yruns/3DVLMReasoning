@@ -10,7 +10,7 @@ code{background:#eee;padding:1px 4px;border-radius:3px}
 .meta{font-size:13px;color:#4b5563;line-height:1.45}
 </style></head><body>
 <h1>NR3D Depth Visibility Spotcheck</h1>
-<p>Frames below are rendered from raw RGB plus the rebuilt <code>metadata.use_depth=true</code> visibility indices. Only objects present in the current depth-aware <code>view_to_objects</code> entry for that frame are drawn; structural background objects marked by <code>is_background=1</code> are suppressed.</p>
+<p>Frames below are rendered from raw RGB plus the rebuilt <code>metadata.use_depth=true</code> visibility indices. Only objects present in the current depth-aware <code>view_to_objects</code> entry for that frame are drawn; structural background objects marked by <code>is_background=1</code> are suppressed. Each colored box is a candidate proposal's visible 2D image region and is labeled directly as <code>#proposal_id category</code>.</p>
 <p class='meta'>Rebuild summary: 141 scenes, old mappings=224664, new mappings=192090.</p>
 <div class='grid'>
 <div class='card'>

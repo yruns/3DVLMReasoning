@@ -187,7 +187,9 @@ def _write_html(rows: list[dict[str, Any]], out_html: Path, report: dict[str, An
         "<code>metadata.use_depth=true</code> visibility indices. Only objects "
         "present in the current depth-aware <code>view_to_objects</code> entry "
         "for that frame are drawn; structural background objects marked by "
-        "<code>is_background=1</code> are suppressed.</p>",
+        "<code>is_background=1</code> are suppressed. Each colored box is a "
+        "candidate proposal's visible 2D image region and is labeled directly "
+        "as <code>#proposal_id category</code>.</p>",
     ]
     if report:
         parts.append(
