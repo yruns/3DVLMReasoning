@@ -119,7 +119,7 @@ def test_run_one_sample_scores_agent_bbox(monkeypatch, tmp_path) -> None:
     data_root = _write_nr3d_pack_inputs(tmp_path)
 
     class FakeAgent:
-        def __init__(self, config):
+        def __init__(self, config, **_kwargs):
             assert config.vg_backend == "pack_v1"
 
         def run(self, task, bundle):
@@ -141,6 +141,11 @@ def test_run_one_sample_scores_agent_bbox(monkeypatch, tmp_path) -> None:
         runner,
         "build_pack_v1_bundle",
         lambda **kwargs: SimpleNamespace(scene_id=kwargs["scene_id"]),
+    )
+    monkeypatch.setattr(
+        runner,
+        "_get_or_build_keyframe_selector",
+        lambda *a, **kw: object(),
     )
 
     out = runner.run_one_sample(
@@ -168,7 +173,7 @@ def test_run_one_sample_preserves_tool_trace(monkeypatch, tmp_path) -> None:
             }
 
     class FakeAgent:
-        def __init__(self, config):
+        def __init__(self, config, **_kwargs):
             pass
 
         def run(self, task, bundle):
@@ -197,6 +202,11 @@ def test_run_one_sample_preserves_tool_trace(monkeypatch, tmp_path) -> None:
         "build_pack_v1_bundle",
         lambda **kwargs: SimpleNamespace(scene_id=kwargs["scene_id"]),
     )
+    monkeypatch.setattr(
+        runner,
+        "_get_or_build_keyframe_selector",
+        lambda *a, **kw: object(),
+    )
 
     out = runner.run_one_sample(
         "scannet/scene0001_00::72::A1",
@@ -216,6 +226,64 @@ def test_run_one_sample_preserves_tool_trace(monkeypatch, tmp_path) -> None:
             "response_text": "accepted",
         },
     ]
+
+
+def test_nr3d_pack_wires_stage1_callbacks(monkeypatch, tmp_path) -> None:
+    import agents.stage1_callbacks as callbacks
+    from evaluation.scripts import run_nr3d_vg_side_by_side as runner
+
+    selector = object()
+    captured = {}
+
+    class FakeAgent:
+        def __init__(self, **kwargs):
+            captured["agent_kwargs"] = kwargs
+
+        def run(self, *, task, bundle):
+            captured["task"] = task
+            captured["bundle"] = bundle
+            return "ok"
+
+    monkeypatch.setattr(runner, "Stage2DeepResearchAgent", FakeAgent)
+    monkeypatch.setattr(
+        runner,
+        "build_pack_v1_bundle_from_sample",
+        lambda *a, **kw: SimpleNamespace(scene_id="scene0001_00"),
+    )
+    monkeypatch.setattr(
+        runner,
+        "_get_or_build_keyframe_selector",
+        lambda *a, **kw: selector,
+        raising=False,
+    )
+    monkeypatch.setattr(
+        callbacks, "create_more_views_callback", lambda *a, **kw: "more"
+    )
+    monkeypatch.setattr(callbacks, "create_crop_callback", lambda *a, **kw: "crop")
+
+    def fake_create_hypothesis_callback(*args, **kwargs):
+        captured["hypothesis_args"] = args
+        captured["hypothesis_kwargs"] = kwargs
+        return "hypothesis"
+
+    monkeypatch.setattr(
+        callbacks,
+        "create_hypothesis_callback",
+        fake_create_hypothesis_callback,
+    )
+
+    result = runner.run_pack_v1_sample(
+        {"scene_id": "scene0001_00", "query": "the chair"},
+        data_root=tmp_path,
+        config=SimpleNamespace(),
+    )
+
+    assert result == "ok"
+    assert captured["agent_kwargs"]["more_views_callback"] == "more"
+    assert captured["agent_kwargs"]["crop_callback"] == "crop"
+    assert captured["agent_kwargs"]["hypothesis_callback"] == "hypothesis"
+    assert captured["hypothesis_args"][0] is selector
+    assert captured["hypothesis_kwargs"]["use_visual_context"] is False
 
 
 def test_extract_result_tool_trace_accepts_raw_dict() -> None:

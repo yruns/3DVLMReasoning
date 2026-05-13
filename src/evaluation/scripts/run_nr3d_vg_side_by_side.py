@@ -8,7 +8,9 @@ import hashlib
 import json
 import math
 import statistics
+import threading
 import time
+from collections import OrderedDict
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -21,6 +23,58 @@ from benchmarks.embodiedscan_eval import compute_oriented_iou_3d
 BackendName = Literal["pack_v1"]
 Stage2DeepResearchAgent: Any | None = None
 build_pack_v1_bundle: Any | None = None
+
+# Per-scene selector cache for the Stage 2 -> Stage 1 callback loop. Selector
+# construction can load ConceptGraph object metadata, so keep the cache bounded
+# and serialize cold builds to avoid high-concurrency memory spikes.
+_MAX_SELECTOR_CACHE_SIZE = 8
+_SELECTOR_CACHE: OrderedDict[str, Any] = OrderedDict()
+_SELECTOR_CACHE_LOCK = threading.Lock()
+_SELECTOR_BUILD_LOCK = threading.Lock()
+
+
+def _remember_keyframe_selector(scene_id: str, selector: Any) -> None:
+    _SELECTOR_CACHE[scene_id] = selector
+    _SELECTOR_CACHE.move_to_end(scene_id)
+    while len(_SELECTOR_CACHE) > _MAX_SELECTOR_CACHE_SIZE:
+        _SELECTOR_CACHE.popitem(last=False)
+
+
+def _get_or_build_keyframe_selector(
+    scene_id: str,
+    phase8_data_root: Path,
+    llm_model: str = "gemini-2.5-pro",
+) -> Any:
+    with _SELECTOR_CACHE_LOCK:
+        if scene_id in _SELECTOR_CACHE:
+            _SELECTOR_CACHE.move_to_end(scene_id)
+            return _SELECTOR_CACHE[scene_id]
+
+    with _SELECTOR_BUILD_LOCK:
+        with _SELECTOR_CACHE_LOCK:
+            if scene_id in _SELECTOR_CACHE:
+                _SELECTOR_CACHE.move_to_end(scene_id)
+                return _SELECTOR_CACHE[scene_id]
+
+        cg_root = Path(phase8_data_root) / scene_id / "conceptgraph"
+        enriched = cg_root / "enriched_objects.json"
+        if not enriched.exists():
+            raise FileNotFoundError(
+                f"Stage1 callbacks require enriched object metadata: {enriched}"
+            )
+
+        from query_scene.keyframe_selector import KeyframeSelector
+
+        selector = KeyframeSelector.from_scene_path(
+            str(cg_root),
+            stride=1,
+            llm_model=llm_model,
+            prefer_lightweight_pcd=True,
+            ensure_lightweight_pcd=True,
+        )
+        with _SELECTOR_CACHE_LOCK:
+            _remember_keyframe_selector(scene_id, selector)
+        return selector
 
 
 @dataclass(frozen=True)
@@ -244,6 +298,8 @@ def run_pack_v1_sample(
     config: Stage2DeepAgentConfig,
     *,
     pack_name: str = "pack_nr3d_v1",
+    phase8_data_root: Path | None = None,
+    enable_stage1_callback: bool = True,
 ) -> Any:
     bundle = build_pack_v1_bundle_from_sample(sample, data_root, pack_name=pack_name)
     task = Stage2TaskSpec(
@@ -254,7 +310,44 @@ def run_pack_v1_sample(
     if agent_cls is None:
         from agents.stage2_deep_agent import Stage2DeepResearchAgent as agent_cls
 
-    agent = agent_cls(config=config)
+    more_views_callback = None
+    crop_callback = None
+    hypothesis_callback = None
+    if enable_stage1_callback:
+        scene_id = str(sample["scene_id"])
+        selector = _get_or_build_keyframe_selector(
+            scene_id,
+            data_root if phase8_data_root is None else phase8_data_root,
+        )
+        from agents.stage1_callbacks import (
+            create_crop_callback,
+            create_hypothesis_callback,
+            create_more_views_callback,
+        )
+
+        more_views_callback = create_more_views_callback(
+            selector,
+            scene_id=scene_id,
+            max_additional_views=3,
+        )
+        crop_callback = create_crop_callback(
+            selector,
+            scene_id=scene_id,
+            crop_scale=2.0,
+        )
+        hypothesis_callback = create_hypothesis_callback(
+            selector,
+            scene_id=scene_id,
+            max_new_keyframes=3,
+            use_visual_context=False,
+        )
+
+    agent = agent_cls(
+        config=config,
+        more_views_callback=more_views_callback,
+        crop_callback=crop_callback,
+        hypothesis_callback=hypothesis_callback,
+    )
     return agent.run(task=task, bundle=bundle)
 
 
