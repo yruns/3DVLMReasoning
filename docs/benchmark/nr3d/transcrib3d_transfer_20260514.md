@@ -105,3 +105,55 @@ Run the current v7 3DVLMReasoning agent on the fixed 281-sample fold:
   `docs/benchmark/nr3d/assets/transcrib3d_first300_valid_sample_ids_20260514.json`
 
 This establishes the true gap before porting Transcrib3D-style prompt/tools.
+
+## Baseline Pack Preparation
+
+The v8 baseline pack was prepared with query-driven Stage1 keyframes, not
+GT-target-visible keyframes.
+
+Command shape:
+
+```bash
+./scripts/run_with_rss_guard.sh --rss-limit-mb 15000 --check-interval-sec 60 -- \
+  bash tmp/nr3d_artifacts/run_v8_first300_prep_shards.sh
+```
+
+The shard runner split the 281 samples into four scene-disjoint shards:
+
+| Shard | Samples | Scenes |
+|---|---:|---:|
+| `shard_00.json` | 71 | 27 |
+| `shard_01.json` | 70 | 27 |
+| `shard_02.json` | 70 | 27 |
+| `shard_03.json` | 70 | 27 |
+
+Prepared artifacts:
+
+- Pack:
+  `data/nr3d/scannet/<scene>/pack_nr3d_v8_transcrib3d_first300_baseline/`
+- Main log:
+  `tmp/nr3d_v8_transcrib3d_first300_prep4_20260514.log`
+- Shard logs:
+  `tmp/nr3d_v8_transcrib3d_first300_prep_shard_{00..03}_20260514.log`
+- Earlier single-process warmup log:
+  `tmp/nr3d_v8_transcrib3d_first300_prep_20260514.log`
+
+Validation:
+
+- Sample artifacts present: 281/281
+- `keyframe_mode`: `query_driven` for 281/281
+- `keyframe_selection_uses_gt_target`: 0/281
+- Keyframes per sample: 3/281
+- `keyframe_selection_used_fallback`: 79/281
+- Log checks across warmup + shard logs:
+  - `Traceback`: 0
+  - `ERROR`: 0
+  - `rss_guard`: 0
+  - retryable `429`: 0
+  - retryable `503`: 0
+  - missing depth-aware visibility: 0
+  - projection fallback visibility: 0
+
+The next step is Stage2 evaluation into:
+
+`tmp/nr3d_eval_v8_transcrib3d_first300_baseline_20260514/`
