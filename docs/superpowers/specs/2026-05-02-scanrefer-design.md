@@ -389,7 +389,7 @@ Sections:
    - Input modality asymmetry — zero-shot RGB+VLM agent vs trained 3D model class
    - Mask3D pool quality bounds the upper limit (instances mis-segmented by Mask3D are unrecoverable)
    - 287-class wall/floor/ceiling filter (matches ZSVG3D `keep_background=False`)
-   - GT bbox source = Phase 8 GT-CG pkl (functionally Vil3dRef-equivalent; pool_equivalence_log_20260501.md proves NR3D coverage)
+   - GT bbox source = Phase 8 GT-CG pkl (functionally Vil3dRef-equivalent; `docs/benchmark/nr3d/protocol.md` records the NR3D coverage check)
 7. Cross-version comparison (NR3D v3 vs ScanRefer v1 — different benchmarks, listed for narrative continuity)
 8. SQLite reproduction query
 9. Raw artifact paths

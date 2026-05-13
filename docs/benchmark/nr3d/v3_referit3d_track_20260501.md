@@ -117,8 +117,8 @@ methods report on their full test set.
   add-on. Applying it would inflate our number by dropping human-failed
   utterances; leaderboard methods don't drop those.
 - **130 / 130 NR3D test scene coverage**: see
-  `docs/benchmark/nr3d/pool_equivalence_log_20260501.md` for the empirical
-  proof that our pool, fold, and indexing are bit-equal to canonical.
+  [protocol.md](protocol.md) for the consolidated proof that our pool, fold,
+  and indexing match the canonical GT-track dimensions.
 
 ## Cross-Version Comparison (NR3D-only)
 

@@ -1,101 +1,82 @@
-# NR3D VG Evaluation Results
+# NR3D VG Benchmark Archive
 
-This directory tracks NR3D visual-grounding evaluations for the Stage-2
-task-pack pipeline.
+This directory is the permanent process archive for NR3D visual grounding
+evaluations in this repo. Keep the version docs immutable; use this README as
+the current human-facing index.
 
-**Benchmark:** NR3D ScanNet visual grounding (test split now has Phase 8 GT-CG bboxes for local scoring)
-**Metric (v3, leaderboard track):** classification accuracy = `selected_object_id == target_id`, with Easy/Hard + View-Dep/View-Indep slicing — matches the public ReferIt3D leaderboard
-**Metric (v1/v2, GT-pool IoU track):** 9-DoF oriented 3D IoU, reported as Acc@0.25 / Acc@0.50 / mean IoU
-**Judge:** none; scoring is fully programmatic
+## Entry Points
+
+| File | Purpose |
+|---|---|
+| [leaderboard.md](leaderboard.md) | Public SOTA comparison plus our current fair-view and historical rows. |
+| [protocol.md](protocol.md) | Consolidated protocol notes: metric family, fold/filter rules, candidate-pool equivalence, fairness boundary. |
+| [v5p1_failed_rerun_full_20260513.md](v5p1_failed_rerun_full_20260513.md) | Latest full-test fair-view result and detailed reproduction record. |
+| [runs.sqlite](runs.sqlite) | Queryable per-run and per-sample metrics. |
+
+## Current Result
+
+Latest fair-view full-test row:
+
+- Version: `v5p1_failed_rerun_full_20260513`
+- Branch: `feat/nr3d-v4-agent-guards-fair-views`
+- Run-time code commit: `c404536`
+- Documentation commit introducing the v5.1 record: `6000e2b`
+- Fold: 8584 NR3D test utterances; n_filtered=7805 after canonical
+  `mentions_target_class=True`
+- Evidence selection: query-driven fair keyframes; target id / GT bbox used
+  only for scoring
+- Stage 2 backend: `gpt-5.4-2026-03-05`
+- Raw merged artifacts: `tmp/nr3d_eval_v5_failed_rerun_merged_20260513/`
+- SQLite run id: `v5p1_failed_rerun_full_20260513`
+
+| Metric | v5.1 fair-view | v5 before failed-rerun | v3 GT-visible | UniVLG public SOTA |
+|---|---:|---:|---:|---:|
+| Overall | **68.48** | 66.53 | 80.79 | 65.20 |
+| Easy | **78.43** | 76.09 | 86.06 | 73.30 |
+| Hard | **59.18** | 57.59 | 75.87 | 57.00 |
+| View-Dep | **57.38** | 55.74 | 72.46 | 55.10 |
+| View-Indep | **74.53** | 72.41 | 85.34 | 69.90 |
+
+The v5.1 run reran all 241 failed sentinels from v5. Of those, 240 recovered
+to completed outputs and 1 persisted as no-match. That persistent row is
+filtered out of the 7805Q headline because `mentions_target_class=false`.
+The rerun adds 152 correct samples inside the filtered fold and moves overall
+from 66.53 to 68.48.
+
+Interpretation:
+
+- v5.1 is the current fair-view NR3D result.
+- It is +3.28 pp above the current public Nr3D UniVLG SOTA row.
+- It remains 12.31 pp below v3 because v3 used the historical
+  GT-target-visible keyframe shortcut.
 
 ## Version Timeline
 
-| Version | Date | Headline | Eval Scale | Key Change |
-|---------|------|----------|------------|------------|
-| [v1_phase8_smoke20_mac](v1_phase8_smoke20_mac_20260430.md) | 2026-04-30 | Acc@0.25=0.7000, Acc@0.50=0.6500, mean IoU=0.6701 | 20Q smoke | First green pack_v1 numbers on Mac (PCA-aligned 9-DoF, endpoint reachable). 13/20 IoU=1.0 (GT-pool inflation). Linux side of same fold had hit SSL EOF on every retry — failure mode summarized in the `What Changed vs Prior Smoke` section of the Mac doc. |
-| [v2_phase8_full](v2_phase8_full_20260501.md) | 2026-05-01 | Acc@0.25=**0.7767**, Acc@0.50=**0.7762**, mean IoU=**0.7800** | 8584Q full test | First full NR3D test sweep — 130/130 scenes, gpt-5.4 backend, 32 workers. 5150/8584 IoU=1.0 (60%, GT-pool). 287 failed (3.3%, mostly upstream image-500). Bug fixes: bg-skip in pack prep + failed-sentinel in runner. |
-| [v3_referit3d_track](v3_referit3d_track_20260501.md) | 2026-05-01 | Overall=**0.8079**, Easy=**0.8606**, Hard=**0.7587**, V-Dep=**0.7246**, V-Indep=**0.8534** | 8584Q (n_filtered=7805) | **First leaderboard-comparable NR3D run** — canonical filter chain (`mentions_target_class_only=True`), classification accuracy as headline, 5-column SOTA-aligned table. Post-aggregated from v2 outputs (no agent re-run). Pool / fold equivalence empirically verified (see `pool_equivalence_log_20260501.md`). |
-| [v4_agent_guards_fair_views](v4_agent_guards_fair_views_20260512.md) | 2026-05-12 | Overall=**0.7100**, Easy=**0.8293**, Hard=**0.6271**, V-Dep=**0.6765**, V-Indep=**0.7273** | 100Q partial pilot | Query-driven fair keyframes plus TADG / no-match / evidence-frame guards. Same-fold baseline was Overall=0.8000, so v4 is -9.00 pp overall; no LLM/service failures while ramping workers 30 -> 60 -> 100. **Partial diagnostic, not a public leaderboard replacement.** |
-| [v5_agent_guards_fair_views_full](v5_agent_guards_fair_views_full_20260513.md) | 2026-05-13 | Overall=**0.6653**, Easy=**0.7609**, Hard=**0.5759**, V-Dep=**0.5574**, V-Indep=**0.7241** | 8584Q full test (n_filtered=7805) | Full fair-view query-driven run with TADG / no-match / evidence-frame guards. 8343 completed + 241 failed sentinels (2.81%). Stage2 workers=100 finished in about 7h25m under a 15GB RSS guard. Post-run hardening added lightweight ConceptGraph caches after identifying expanded `mask` fields as the high-concurrency memory root cause. |
-| [v5p1_failed_rerun_full](v5p1_failed_rerun_full_20260513.md) | 2026-05-13 | Overall=**0.6848**, Easy=**0.7843**, Hard=**0.5918**, V-Dep=**0.5738**, V-Indep=**0.7453** | 8584Q full test (n_filtered=7805) | Reran all 241 v5 failed sentinels and merged them back into the full fold. 240 recovered to completed, 1 persistent no-match filtered out by the canonical target-class filter. +1.95 pp overall vs v5; +3.28 pp vs public Nr3D UniVLG SOTA; still -12.31 pp vs historical v3 GT-visible row. |
+| Version | Date | Branch / commit | Headline | Scope | Status |
+|---|---|---|---:|---|---|
+| [v1_phase8_smoke20_mac](v1_phase8_smoke20_mac_20260430.md) | 2026-04-30 | `feat/nr3d-vg-benchmark` / `9115fd7` | Acc@0.50=65.00 | 20Q smoke | Historical smoke |
+| [v2_phase8_full](v2_phase8_full_20260501.md) | 2026-05-01 | `feat/nr3d-vg-benchmark` / `ad8d439` plus in-flight fixes | Acc@0.50=77.62 | 8584Q full | Superseded IoU-proxy row |
+| [v3_referit3d_track](v3_referit3d_track_20260501.md) | 2026-05-01 | `feat/nr3d-vg-benchmark` / `b6f211a` | Overall=80.79 | 8584Q / 7805Q filtered | Historical GT-visible upper-bound |
+| [v4_agent_guards_fair_views](v4_agent_guards_fair_views_20260512.md) | 2026-05-12 | `feat/nr3d-v4-agent-guards-fair-views` / `3f1c6d8` | Overall=71.00 | 100Q pilot | Partial diagnostic |
+| [v5_agent_guards_fair_views_full](v5_agent_guards_fair_views_full_20260513.md) | 2026-05-13 | `feat/nr3d-v4-agent-guards-fair-views` / `7c996ad` | Overall=66.53 | 8584Q / 7805Q filtered | Superseded by v5.1 failed-rerun |
+| [v5p1_failed_rerun_full](v5p1_failed_rerun_full_20260513.md) | 2026-05-13 | `feat/nr3d-v4-agent-guards-fair-views` / `c404536` | Overall=68.48 | 8584Q / 7805Q filtered | Current fair-view full row |
 
-## Current Interpretation
+## Protocol Summary
 
-**Latest full-test fair-view diagnostic (v5p1_failed_rerun_full, 2026-05-13)**:
-full NR3D test split with query-driven keyframes and the ScanRefer guard stack,
-after rerunning every failed sentinel from v5. Headline classification accuracy
-is **68.48 %** on n_filtered=7805 (Easy=78.43, Hard=59.18, V-Dep=57.38,
-V-Indep=74.53). This is **+1.95 pp** overall vs the first v5 full pass because
-the 241 failed sentinels were rerun and 240 recovered to completed outputs. One
-sample still submitted no-match after a single-worker retry; it is filtered out
-by the canonical `mentions_target_class` rule. v5.1 is the current fair-view
-row: it is **+3.28 pp** above the public Nr3D UniVLG SOTA row, but **12.31 pp
-below** the historical v3 GT-visible row. v3 remains an upper-bound style
-number because it used the older GT-target-visible keyframe path.
+- Public NR3D leaderboard headline is classification accuracy:
+  `selected_object_id == target_id`.
+- Canonical local full fold: 8584 utterances, 130 scenes.
+- Canonical filtered fold: 7805 utterances after `mentions_target_class=True`.
+- Easy/Hard split: `n_objects <= 2`.
+- View-Dep split: canonical 10-token literal set from ReferIt3D.
+- Candidate pool: full-scene GT segmented / object proposals; the old
+  "target-type-only public pool" assumption is retracted.
+- Fairness boundary: v3 uses GT-target-visible keyframes; v5/v5.1 use
+  query-driven fair keyframes.
 
-The v5 post-run memory audit found that raw ConceptGraph pkl files expand
-about 258.9GB of unused `mask` arrays across local scenes. The branch now adds
-lightweight sidecar caches and `--ensure-lightweight-cache` for future
-high-concurrency prep. Missing caches are auto-built under a cross-process lock
-and do not change or drop samples.
+See [protocol.md](protocol.md) for the consolidated evidence and caveats.
 
-**Best historical full-test leaderboard row (v3_referit3d_track, 2026-05-01)**:
-post-aggregation of v2
-predictions under the canonical ReferIt3D leaderboard protocol — the
-**first apples-to-apples NR3D number** for our pipeline. Headline:
-**classification_acc = 80.79 %** (Easy=86.06, Hard=75.87, V-Dep=72.46,
-V-Indep=85.34) on n_filtered=7805 (after canonical
-`mentions_target_class_only=True` filter), with full Easy/Hard +
-View-Dep/View-Indep breakdown. Pool / fold equivalence to canonical is
-verified empirically in `pool_equivalence_log_20260501.md`. See
-`v3_referit3d_track_20260501.md` for the historical SOTA comparison table
-against ReferIt3DNet, BUTD-DETR, MVT, 3D-VisTA, MiKASA, and UniVLG GT-track.
-
-**Latest diagnostic pilot (v4_agent_guards_fair_views, 2026-05-12)**:
-100-sample fixed fold with fair query-driven keyframes and the ScanRefer guard
-stack. Overall classification accuracy is **71.00 %** on the 100Q fold, while
-the same-fold v1/v3 baseline is **80.00 %**. This is intentionally not a public
-leaderboard replacement: it measures the cost of removing GT-target-visible
-keyframe selection and running the guarded agent on NR3D. All 100 samples
-completed with zero LLM/service failures while ramping workers from 30 to 100.
-It is superseded by v5/v5.1 for full-test fair-view reporting.
-
-The v2 numbers (Acc@0.25/0.50 = 77.67/77.62) remain valid as the IoU-on-GT-pool
-proxy of classification accuracy, but they are **superseded by v3** as the
-leaderboard-comparable headline going forward. Empirically,
-`classification_acc_full = 0.7762` matches `v2 Acc@0.50 = 0.7762` to four
-decimals — confirming that under GT-pool, IoU ≥ 0.50 ⟺ correct ID, and the
-v2 number was already a classification accuracy in disguise.
-
-**Earlier (v2_phase8_full, 2026-05-01)**: full NR3D test split (8584
-utterances, 130/130 scenes) scored end-to-end on Stage 1 + Stage 2 with
-`gpt-5.4-2026-03-05` and the Phase 8 GT-CG candidate pool. Acc@0.25 =
-77.67%, Acc@0.50 = 77.62%, mean IoU = 0.7800 (8297 completed + 287 failed,
-3.34% failure rate, mostly upstream image-500). The IoU distribution is
-bi-modal — 60% at 1.0, 21% at 0.0 — which is the GT-pool signature. v3 makes
-this explicit by reporting classification accuracy directly.
-
-An earlier Linux-side attempt on the 20-sample fold (commit `3c491a9`)
-reached the first Stage 2 chat-completion call but the internal ModelHub
-endpoint returned `[SSL: UNEXPECTED_EOF_WHILE_READING]` on every retry, so
-no metric was produced and no separate doc was kept; the failure context is
-embedded in `v1_phase8_smoke20_mac_20260430.md` instead.
-
-The Mac re-run (v1_phase8_smoke20_mac, 2026-04-30) on tip `9115fd7` (which
-adds the loader's PCA-aligned 9-DoF OBB recovery for Phase 8 corners)
-produced the first green pack_v1 numbers: **Acc@0.25 = 70.0 %**, **Acc@0.50 =
-65.0 %**, **mean IoU = 0.6701** on 19 completed + 1 failed samples. Of the
-14 IoU ≥ 0.25 hits, 13 are exactly IoU = 1.0 because the GT-pool setup
-includes every aggregation instance (including the GT itself) as a
-candidate; a detector-pool variant is tracked separately.
-
-The Phase-2 plumbing path loads the canonical NR3D CSV, derives train/test
-membership from upstream scene lists, filters bad contexts and clothing rows by
-default, and can still score train split predictions against EmbodiedScan PKL
-boxes. The Phase-8 path adds local test split GT boxes from
-`data/nr3d/scannet/<scene>/conceptgraph/pcd_saves/full_pcd_gt_axisaligned_post.pkl.gz`.
-
-## Reproduction Pattern
+## Reproduction
 
 Download the raw NR3D annotation files:
 
@@ -172,6 +153,19 @@ PYTHONPATH=src python src/evaluation/scripts/run_nr3d_vg_side_by_side.py \
     --workers 1
 ```
 
+Run the v5.1 reproduction path from the version doc:
+
+- Failed rerun subset:
+  `tmp/nr3d_artifacts/v5_failed241_sample_ids_20260513.json`
+- Base full output:
+  `tmp/nr3d_eval_v4_agent_guards_fair_views_full/`
+- Failed rerun output:
+  `tmp/nr3d_eval_v5_failed_rerun_20260513/`
+- Merged output:
+  `tmp/nr3d_eval_v5_failed_rerun_merged_20260513/`
+- Detailed CLI and ingest commands:
+  [v5p1_failed_rerun_full_20260513.md](v5p1_failed_rerun_full_20260513.md)
+
 ## SQLite
 
 Canonical DB: `docs/benchmark/nr3d/runs.sqlite`
@@ -186,16 +180,32 @@ SELECT run_id, n,
 FROM runs;
 ```
 
-## Caveats
+Current headline query:
 
-- EmbodiedScan PKL boxes remain available through
-  `bbox_source="embodiedscan_pkl"` for the train split.
-- NR3D test split local scoring now uses Phase 8 GT-CG boxes through
-  `bbox_source="phase8_gt_cg"`.
-- Pool / fold equivalence to canonical referit3d is empirically verified
-  in `pool_equivalence_log_20260501.md` (8584 utterances, 130/130 scenes,
-  100% target_id ↔ ScanNet objectId class match).
-- View-dep / view-indep breakdown — implemented in v3 via the canonical
-  10-token literal set from `referit3d/analysis/utterances.py:103-105`.
-- Easy / Hard breakdown — implemented in v3 via `n_objects ≤ 2`, matching
-  `referit3d/analysis/deepnet_predictions.py:34-36`.
+```sql
+SELECT run_id, n, n_filtered,
+       printf('%.4f', classification_acc_filtered) AS overall,
+       printf('%.4f', acc_easy) AS easy,
+       printf('%.4f', acc_hard) AS hard,
+       printf('%.4f', acc_view_dep) AS vdep,
+       printf('%.4f', acc_view_indep) AS vind
+FROM runs
+WHERE run_id='v5p1_failed_rerun_full_20260513';
+-- v5p1_failed_rerun_full_20260513|8584|7805|0.6848|0.7843|0.5918|0.5738|0.7453
+```
+
+## Retained / Deleted Docs
+
+Retained:
+
+- README, leaderboard, protocol, runs.sqlite
+- one version doc per evaluated run: v1, v2, v3, v4, v5, v5.1
+
+Deleted during consolidation:
+
+- `protocol_audit_20260501.md`
+- `paper_crosscheck_20260501.md`
+- `pool_equivalence_log_20260501.md`
+
+Their durable conclusions were merged into [protocol.md](protocol.md),
+[leaderboard.md](leaderboard.md), and the current-result section above.

@@ -20,17 +20,12 @@ delivers the missing classification-accuracy track.
 
 ## Background
 
-Two parallel investigations established the canonical NR3D protocol:
-
-- `docs/benchmark/nr3d/protocol_audit_20260501.md` (Claude Code worker, 752 lines) —
-  audits `https://github.com/referit3d/referit3d` and answers 8 protocol
-  questions with verbatim source citations.
-- `docs/benchmark/nr3d/paper_crosscheck_20260501.md` (Codex worker) — independently confirms
-  protocol via ReferIt3D ECCV 2020 + UniVLG papers + UniVLG repo.
-- `docs/benchmark/nr3d/pool_equivalence_log_20260501.md` — empirical
-  verification that our Phase 8 GT-CG pool and 130-scene fold are bit-equal
-  to the canonical NR3D test setup (8584 utts, 100 % `target_id` ↔ ScanNet
-  `objectId` alignment).
+The canonical NR3D protocol is now summarized in
+`docs/benchmark/nr3d/protocol.md`, merged from the older ReferIt3D code audit,
+paper crosscheck, and pool-equivalence notes. That consolidated note records
+the empirical verification that our Phase 8 GT-CG pool and 130-scene fold match
+the canonical NR3D GT-track dimensions (8584 utts, 100 % `target_id` class
+alignment).
 
 Key takeaways from the audits:
 
@@ -344,8 +339,7 @@ Untouched (despite being adjacent):
 - `src/agents/**` (Stage 2 agent code)
 - Phase 8 packages under `data/nr3d/scannet/<scene>/conceptgraph/`
 
-Reference artifacts:
+Reference artifact:
 
-- `docs/benchmark/nr3d/protocol_audit_20260501.md` — referit3d code audit
-- `docs/benchmark/nr3d/paper_crosscheck_20260501.md` — paper crosscheck + UniVLG repo addendum
-- `docs/benchmark/nr3d/pool_equivalence_log_20260501.md` — empirical pool / fold equivalence verification
+- `docs/benchmark/nr3d/protocol.md` — consolidated protocol, paper, and
+  pool/fold-equivalence summary

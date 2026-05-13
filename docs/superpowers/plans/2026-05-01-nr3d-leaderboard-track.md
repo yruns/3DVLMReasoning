@@ -10,9 +10,9 @@
 
 **Context references:**
 - Design spec: `docs/superpowers/specs/2026-05-01-nr3d-fairness-design.md` (commit `2fead86`)
-- ReferIt3D code audit: `docs/benchmark/nr3d/protocol_audit_20260501.md` (752 lines, file:line cited)
-- Paper crosscheck: `docs/benchmark/nr3d/paper_crosscheck_20260501.md`
-- Pool equivalence: `docs/benchmark/nr3d/pool_equivalence_log_20260501.md`
+- Consolidated NR3D protocol note:
+  `docs/benchmark/nr3d/protocol.md` (merged from the older protocol audit,
+  paper crosscheck, and pool-equivalence files)
 - Branch: `feat/nr3d-vg-benchmark`, baseline tip: `2fead86`
 
 **Date placeholder:** Use `YYYYMMDD = 20260501` throughout (the date this plan was authored). If implementation lands on a different date, replace `20260501` with that date in file names and run IDs.
@@ -276,7 +276,7 @@ spec at ``docs/superpowers/specs/2026-05-01-nr3d-fairness-design.md``.
 
 Source citations
 ----------------
-- Pool / metric / filter protocol: ``docs/benchmark/nr3d/protocol_audit_20260501.md``
+- Pool / metric / filter protocol: ``docs/benchmark/nr3d/protocol.md``
 - View-dep keyword set: ``referit3d/analysis/utterances.py:103-105``
 - Easy / hard definition: ``referit3d/analysis/deepnet_predictions.py:34-36``
 - Filter chain: ``referit3d/in_out/neural_net_oriented.py:55-105``
@@ -1225,8 +1225,8 @@ them, matching how leaderboard methods report on their full test set.
   add-on. Applying it would inflate our number by dropping human-failed
   utterances; leaderboard methods don't drop those.
 - **130 / 130 NR3D test scene coverage**: see
-  `docs/benchmark/nr3d/pool_equivalence_log_20260501.md` for the empirical
-  proof that our pool, fold, and indexing are bit-equal to canonical.
+  `docs/benchmark/nr3d/protocol.md` for the empirical proof that our pool,
+  fold, and indexing match the canonical GT-track dimensions.
 
 ## Cross-Version Comparison (NR3D-only)
 
@@ -1337,7 +1337,7 @@ predictions under the canonical ReferIt3D leaderboard protocol — the
 **classification_acc = [OVERALL]** on n=[N_FILTERED] (after canonical
 `mentions_target_class_only=True` filter), with full Easy/Hard +
 View-Dep/View-Indep breakdown. The pool/fold equivalence to canonical is
-verified empirically in `pool_equivalence_log_20260501.md`. See
+verified empirically in `protocol.md`. See
 `v3_referit3d_track_20260501.md` for the full SOTA comparison table.
 
 The v2 numbers (Acc@0.25/0.50 = 77.67/77.62) remain valid as the IoU-on-GT-pool
@@ -1347,7 +1347,7 @@ leaderboard-comparable number going forward.
 
 Replace the literal text "Latest (v2_phase8_full, 2026-05-01)" paragraph with this — keep the original v2 paragraph as a "v2 (now superseded)" subsection if useful, or remove it. Trust your judgment on length; the goal is a clear single source of truth.
 
-Update the Caveats section: drop the now-obsolete bullet "Pool comparability with public leaderboard: published NR3D numbers use ReferIt3D's target-type-only candidate pool (only same-class distractors). Our pool is wider (all instances); the two are not directly comparable." — replace with: "Pool / fold equivalence is empirically verified — see `pool_equivalence_log_20260501.md`. The earlier 'wider pool' caveat in v2 was based on an incorrect assumption and is retracted."
+Update the Caveats section: drop the now-obsolete bullet "Pool comparability with public leaderboard: published NR3D numbers use ReferIt3D's target-type-only candidate pool (only same-class distractors). Our pool is wider (all instances); the two are not directly comparable." — replace with: "Pool / fold equivalence is empirically verified — see `protocol.md`. The earlier 'wider pool' caveat in v2 was based on an incorrect assumption and is retracted."
 
 - [ ] **Step 5.2: Update `docs/benchmark/README.md` NR3D row**
 

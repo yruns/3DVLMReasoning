@@ -1,4 +1,4 @@
-# NR3D Public Leaderboard (reference)
+# NR3D Leaderboard Reference
 
 Source: https://referit3d.github.io/benchmarks.html and the NR3D paper.
 Numbers are GT-classification overall accuracy unless noted; some recent
@@ -20,15 +20,14 @@ full-scene GT-instance pool and leaderboard slicing, but without the
 GT-target-visible keyframe shortcut used by the historical v3 run. It reruns
 and merges all 241 failed v5 sentinels, recovering 240 completed outputs. The
 v3 row is retained as the best historical number and GT-visible evidence
-upper-bound. Pool / fold equivalence is empirically verified in
-[pool_equivalence_log_20260501.md](pool_equivalence_log_20260501.md). The
-remaining asymmetry vs the published rows is paradigm (zero-shot RGB+VLM vs
-trained 3D-point-cloud model), not metric slicing.
+upper-bound. Candidate-pool and fold equivalence are summarized in
+[protocol.md](protocol.md). The remaining asymmetry vs the published rows is
+paradigm (zero-shot RGB+VLM vs trained 3D-point-cloud model), not metric
+slicing.
 
-Reference table for the separate detection-mode track (NR3D Det Acc@0.25 /
-Acc@0.50 — distinct from the classification leaderboard above): see
-[paper_crosscheck_20260501.md](paper_crosscheck_20260501.md) §Q7 for
-UniVLG / MCLN / 3D-VisTA-reeval / BUTD-DETR-reeval / PQ3D numbers.
+Detection-mode NR3D rows such as Acc@0.25 / Acc@0.50 are a separate protocol
+and should not be mixed with this classification table. See
+[protocol.md](protocol.md) for the metric distinction.
 
 ## Internal Partial Pilots (not leaderboard rows)
 
