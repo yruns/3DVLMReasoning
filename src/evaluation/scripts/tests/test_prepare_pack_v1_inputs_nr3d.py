@@ -254,6 +254,37 @@ def test_lightweight_cache_drops_masks_and_auto_builds_when_required(tmp_path) -
     assert write_lightweight_conceptgraph_cache(pkl_path) == cache_path
 
 
+def test_prepare_scene_artifacts_uses_full_points_when_lightweight_cache_exists(
+    tmp_path,
+) -> None:
+    from evaluation.scripts import prepare_pack_v1_inputs_nr3d as prep
+    from query_scene.lightweight_conceptgraph import (
+        load_conceptgraph_objects,
+        write_lightweight_conceptgraph_cache,
+    )
+
+    data_root = tmp_path / "scannet"
+    scene_root = _write_phase8_tree(data_root)
+    pkl_path = scene_root / prep.PHASE8_PCD_REL
+
+    cache_path = write_lightweight_conceptgraph_cache(pkl_path)
+    cached_objects = load_conceptgraph_objects(pkl_path, prefer_lightweight=True)
+    assert cache_path.exists()
+    assert "pcd_np" not in cached_objects[0]
+
+    artifacts = prep.prepare_scene_artifacts(
+        scene_id="scene0001_00",
+        data_root=data_root,
+        ensure_lightweight_cache=True,
+    )
+
+    assert json.loads(artifacts.visibility_json.read_text()) == {
+        "0": [0],
+        "1": [0, 1],
+    }
+    assert (artifacts.annotated_dir / "frame_0.png").exists()
+
+
 def test_sample_artifact_path_sanitizes_scannet_sample_id(tmp_path) -> None:
     from evaluation.scripts.prepare_pack_v1_inputs_nr3d import (
         SampleRequest,

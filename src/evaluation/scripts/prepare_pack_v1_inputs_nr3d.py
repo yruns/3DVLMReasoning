@@ -343,6 +343,7 @@ def prepare_scene_artifacts(
     objects = load_phase8_objects(
         scene_root,
         ensure_lightweight_cache=ensure_lightweight_cache,
+        prefer_lightweight=False,
     )
     proposals = build_proposals_from_phase8_objects(objects=objects, scene_id=scene_id)
     if not proposals:
@@ -776,13 +777,14 @@ def load_phase8_objects(
     scene_root: Path,
     *,
     ensure_lightweight_cache: bool = False,
+    prefer_lightweight: bool = True,
 ) -> list[dict[str, Any]]:
     pkl_path = scene_root / PHASE8_PCD_REL
     if not pkl_path.exists():
         raise FileNotFoundError(f"Missing Phase 8 GT-CG pkl: {pkl_path}")
     return load_conceptgraph_objects(
         pkl_path,
-        prefer_lightweight=True,
+        prefer_lightweight=prefer_lightweight,
         ensure_lightweight=ensure_lightweight_cache,
     )
 
