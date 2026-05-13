@@ -1,0 +1,2812 @@
+[
+  {
+    "sample_id": "scannet/scene0203_00::15::27491",
+    "line_number": 2,
+    "scene_id": "scene0203_00",
+    "target_id": 15,
+    "assignment_id": "27491",
+    "instance_type": "pillow",
+    "utterance": "the blue pillow on top of the chair",
+    "stimulus_id": "scene0203_00-pillow-4-15-14-17-25"
+  },
+  {
+    "sample_id": "scannet/scene0653_00::30::39071",
+    "line_number": 3,
+    "scene_id": "scene0653_00",
+    "target_id": 30,
+    "assignment_id": "39071",
+    "instance_type": "file cabinet",
+    "utterance": "the file cabinet that has a colorful case on top of it there is also a white box the desk.",
+    "stimulus_id": "scene0653_00-file_cabinet-6-30-0-1-27-39-44"
+  },
+  {
+    "sample_id": "scannet/scene0208_00::1::19926",
+    "line_number": 4,
+    "scene_id": "scene0208_00",
+    "target_id": 1,
+    "assignment_id": "19926",
+    "instance_type": "bookshelf",
+    "utterance": "When standing in the room, facing the bookshelves in the corner, the correct one is to the left of the corner.",
+    "stimulus_id": "scene0208_00-bookshelf-5-1-0-2-3-106"
+  },
+  {
+    "sample_id": "scannet/scene0221_00::3::23651",
+    "line_number": 5,
+    "scene_id": "scene0221_00",
+    "target_id": 3,
+    "assignment_id": "23651",
+    "instance_type": "chair",
+    "utterance": "The larger of the chairs near the octagonal table.",
+    "stimulus_id": "scene0221_00-chair-2-3-29"
+  },
+  {
+    "sample_id": "scannet/scene0353_00::14::19411",
+    "line_number": 6,
+    "scene_id": "scene0353_00",
+    "target_id": 14,
+    "assignment_id": "19411",
+    "instance_type": "book",
+    "utterance": "The book closest to the grey couch",
+    "stimulus_id": "scene0353_00-book-4-14-35-36-52"
+  },
+  {
+    "sample_id": "scannet/scene0593_00::18::5947",
+    "line_number": 7,
+    "scene_id": "scene0593_00",
+    "target_id": 18,
+    "assignment_id": "5947",
+    "instance_type": "cabinet",
+    "utterance": "Bottom cabinet with a printer next to the standing fan",
+    "stimulus_id": "scene0593_00-cabinet-4-18-0-12-17"
+  },
+  {
+    "sample_id": "scannet/scene0653_00::11::39597",
+    "line_number": 8,
+    "scene_id": "scene0653_00",
+    "target_id": 11,
+    "assignment_id": "39597",
+    "instance_type": "board",
+    "utterance": "The board closest to the whiteboard on the wall.",
+    "stimulus_id": "scene0653_00-board-2-11-8"
+  },
+  {
+    "sample_id": "scannet/scene0574_00::26::32972",
+    "line_number": 9,
+    "scene_id": "scene0574_00",
+    "target_id": 26,
+    "assignment_id": "32972",
+    "instance_type": "mirror",
+    "utterance": "mirror above the sink",
+    "stimulus_id": "scene0574_00-mirror-2-26-27"
+  },
+  {
+    "sample_id": "scannet/scene0629_00::17::4280",
+    "line_number": 10,
+    "scene_id": "scene0629_00",
+    "target_id": 17,
+    "assignment_id": "4280",
+    "instance_type": "shelf",
+    "utterance": "larger shelf up on the wall.",
+    "stimulus_id": "scene0629_00-shelf-2-17-27"
+  },
+  {
+    "sample_id": "scannet/scene0077_00::20::16367",
+    "line_number": 11,
+    "scene_id": "scene0077_00",
+    "target_id": 20,
+    "assignment_id": "16367",
+    "instance_type": "door",
+    "utterance": "the door leading to the outside of the room",
+    "stimulus_id": "scene0077_00-door-2-20-9"
+  },
+  {
+    "sample_id": "scannet/scene0549_00::5::39650",
+    "line_number": 12,
+    "scene_id": "scene0549_00",
+    "target_id": 5,
+    "assignment_id": "39650",
+    "instance_type": "end table",
+    "utterance": "End table with flowers on it",
+    "stimulus_id": "scene0549_00-end_table-4-5-4-6-7"
+  },
+  {
+    "sample_id": "scannet/scene0652_00::13::13100",
+    "line_number": 13,
+    "scene_id": "scene0652_00",
+    "target_id": 13,
+    "assignment_id": "13100",
+    "instance_type": "pillow",
+    "utterance": "Facing bed, this pillow is on the right and closest to you.",
+    "stimulus_id": "scene0652_00-pillow-6-13-11-12-14-15-17"
+  },
+  {
+    "sample_id": "scannet/scene0077_00::9::24809",
+    "line_number": 14,
+    "scene_id": "scene0077_00",
+    "target_id": 9,
+    "assignment_id": "24809",
+    "instance_type": "door",
+    "utterance": "the door directly opposite the window",
+    "stimulus_id": "scene0077_00-door-2-9-20"
+  },
+  {
+    "sample_id": "scannet/scene0203_00::14::18184",
+    "line_number": 15,
+    "scene_id": "scene0203_00",
+    "target_id": 14,
+    "assignment_id": "18184",
+    "instance_type": "pillow",
+    "utterance": "The white pillow on the chair",
+    "stimulus_id": "scene0203_00-pillow-4-14-15-17-25"
+  },
+  {
+    "sample_id": "scannet/scene0618_00::24::7010",
+    "line_number": 16,
+    "scene_id": "scene0618_00",
+    "target_id": 24,
+    "assignment_id": "7010",
+    "instance_type": "table",
+    "utterance": "The correct table is to the direct right of the window and radiator on the wall.",
+    "stimulus_id": "scene0618_00-table-6-24-16-18-20-26-27"
+  },
+  {
+    "sample_id": "scannet/scene0015_00::2::10537",
+    "line_number": 17,
+    "scene_id": "scene0015_00",
+    "target_id": 2,
+    "assignment_id": "10537",
+    "instance_type": "window",
+    "utterance": "The window closest to the whiteboard.",
+    "stimulus_id": "scene0015_00-window-2-2-6"
+  },
+  {
+    "sample_id": "scannet/scene0030_00::26::30435",
+    "line_number": 18,
+    "scene_id": "scene0030_00",
+    "target_id": 26,
+    "assignment_id": "30435",
+    "instance_type": "window",
+    "utterance": "the window is the one that is to the left of the others, close to the green chalkboard.",
+    "stimulus_id": "scene0030_00-window-3-26-27-58"
+  },
+  {
+    "sample_id": "scannet/scene0256_00::9::8641",
+    "line_number": 19,
+    "scene_id": "scene0256_00",
+    "target_id": 9,
+    "assignment_id": "8641",
+    "instance_type": "curtain",
+    "utterance": "the curtains are white",
+    "stimulus_id": "scene0256_00-curtain-2-9-7"
+  },
+  {
+    "sample_id": "scannet/scene0251_00::7::35732",
+    "line_number": 20,
+    "scene_id": "scene0251_00",
+    "target_id": 7,
+    "assignment_id": "35732",
+    "instance_type": "chair",
+    "utterance": "Choose the chair closest to the exit door with a long metal handle across it.",
+    "stimulus_id": "scene0251_00-chair-2-7-6"
+  },
+  {
+    "sample_id": "scannet/scene0663_00::10::8563",
+    "line_number": 21,
+    "scene_id": "scene0663_00",
+    "target_id": 10,
+    "assignment_id": "8563",
+    "instance_type": "monitor",
+    "utterance": "The monitor closest to the window.",
+    "stimulus_id": "scene0663_00-monitor-3-10-11-28"
+  },
+  {
+    "sample_id": "scannet/scene0558_00::1::17631",
+    "line_number": 22,
+    "scene_id": "scene0558_00",
+    "target_id": 1,
+    "assignment_id": "17631",
+    "instance_type": "chair",
+    "utterance": "The chair with a blue backpack on it.",
+    "stimulus_id": "scene0558_00-chair-2-1-2"
+  },
+  {
+    "sample_id": "scannet/scene0699_00::28::17503",
+    "line_number": 23,
+    "scene_id": "scene0699_00",
+    "target_id": 28,
+    "assignment_id": "17503",
+    "instance_type": "window",
+    "utterance": "The smaller of the two windows.",
+    "stimulus_id": "scene0699_00-window-2-28-22"
+  },
+  {
+    "sample_id": "scannet/scene0621_00::3::37657",
+    "line_number": 24,
+    "scene_id": "scene0621_00",
+    "target_id": 3,
+    "assignment_id": "37657",
+    "instance_type": "table",
+    "utterance": "The last table on the end of the room with the blackboard.",
+    "stimulus_id": "scene0621_00-table-5-3-0-1-2-4"
+  },
+  {
+    "sample_id": "scannet/scene0607_00::9::13468",
+    "line_number": 25,
+    "scene_id": "scene0607_00",
+    "target_id": 9,
+    "assignment_id": "13468",
+    "instance_type": "chair",
+    "utterance": "The chair that closet to the refrigerator",
+    "stimulus_id": "scene0607_00-chair-6-9-6-7-8-10-11"
+  },
+  {
+    "sample_id": "scannet/scene0645_00::55::35213",
+    "line_number": 26,
+    "scene_id": "scene0645_00",
+    "target_id": 55,
+    "assignment_id": "35213",
+    "instance_type": "window",
+    "utterance": "if you are standing facing the foot of the beds, the window to the right.",
+    "stimulus_id": "scene0645_00-window-2-55-42"
+  },
+  {
+    "sample_id": "scannet/scene0699_00::15::26656",
+    "line_number": 27,
+    "scene_id": "scene0699_00",
+    "target_id": 15,
+    "assignment_id": "26656",
+    "instance_type": "box",
+    "utterance": "A brown box with a white sticker in the upper left corner, in the closet below hanging clothes.",
+    "stimulus_id": "scene0699_00-box-2-15-14"
+  },
+  {
+    "sample_id": "scannet/scene0084_00::35::7464",
+    "line_number": 29,
+    "scene_id": "scene0084_00",
+    "target_id": 35,
+    "assignment_id": "7464",
+    "instance_type": "toilet paper",
+    "utterance": "The toilet paper that is on a roll next to the toilet.",
+    "stimulus_id": "scene0084_00-toilet_paper-4-35-6-7-8"
+  },
+  {
+    "sample_id": "scannet/scene0329_00::37::24849",
+    "line_number": 30,
+    "scene_id": "scene0329_00",
+    "target_id": 37,
+    "assignment_id": "24849",
+    "instance_type": "chair",
+    "utterance": "black chair closest to the large whiteboard",
+    "stimulus_id": "scene0329_00-chair-3-37-13-34"
+  },
+  {
+    "sample_id": "scannet/scene0690_00::22::21069",
+    "line_number": 31,
+    "scene_id": "scene0690_00",
+    "target_id": 22,
+    "assignment_id": "21069",
+    "instance_type": "chair",
+    "utterance": "This chair is directly behind an armchair.",
+    "stimulus_id": "scene0690_00-chair-2-22-23"
+  },
+  {
+    "sample_id": "scannet/scene0050_00::14::27981",
+    "line_number": 32,
+    "scene_id": "scene0050_00",
+    "target_id": 14,
+    "assignment_id": "27981",
+    "instance_type": "backpack",
+    "utterance": "When facing the two brown doors, the backpack that is on the left side of the ottoman.",
+    "stimulus_id": "scene0050_00-backpack-2-14-18"
+  },
+  {
+    "sample_id": "scannet/scene0329_00::34::16819",
+    "line_number": 33,
+    "scene_id": "scene0329_00",
+    "target_id": 34,
+    "assignment_id": "16819",
+    "instance_type": "chair",
+    "utterance": "Facing the chairs, the middle one",
+    "stimulus_id": "scene0329_00-chair-3-34-13-37"
+  },
+  {
+    "sample_id": "scannet/scene0131_00::20::4795",
+    "line_number": 34,
+    "scene_id": "scene0131_00",
+    "target_id": 20,
+    "assignment_id": "4795",
+    "instance_type": "monitor",
+    "utterance": "This is the middle of the 3 monitors.",
+    "stimulus_id": "scene0131_00-monitor-3-20-12-13"
+  },
+  {
+    "sample_id": "scannet/scene0458_00::24::17392",
+    "line_number": 35,
+    "scene_id": "scene0458_00",
+    "target_id": 24,
+    "assignment_id": "17392",
+    "instance_type": "toilet paper",
+    "utterance": "Left roll of toilet paper directly on top of the toilet.",
+    "stimulus_id": "scene0458_00-toilet_paper-3-24-4-5"
+  },
+  {
+    "sample_id": "scannet/scene0221_00::22::3181",
+    "line_number": 36,
+    "scene_id": "scene0221_00",
+    "target_id": 22,
+    "assignment_id": "3181",
+    "instance_type": "picture",
+    "utterance": "The picture closest to the air conditioner.",
+    "stimulus_id": "scene0221_00-picture-2-22-21"
+  },
+  {
+    "sample_id": "scannet/scene0207_00::5::12864",
+    "line_number": 37,
+    "scene_id": "scene0207_00",
+    "target_id": 5,
+    "assignment_id": "12864",
+    "instance_type": "door",
+    "utterance": "open door the the bathroom",
+    "stimulus_id": "scene0207_00-door-3-5-20-50"
+  },
+  {
+    "sample_id": "scannet/scene0629_00::24::7584",
+    "line_number": 38,
+    "scene_id": "scene0629_00",
+    "target_id": 24,
+    "assignment_id": "7584",
+    "instance_type": "picture",
+    "utterance": "The thin, white picture next to the door.",
+    "stimulus_id": "scene0629_00-picture-4-24-14-25-32"
+  },
+  {
+    "sample_id": "scannet/scene0030_00::51::24881",
+    "line_number": 39,
+    "scene_id": "scene0030_00",
+    "target_id": 51,
+    "assignment_id": "24881",
+    "instance_type": "table",
+    "utterance": "Facing the bookshelves, the table in the top right corner.",
+    "stimulus_id": "scene0030_00-table-5-51-47-48-49-50"
+  },
+  {
+    "sample_id": "scannet/scene0203_00::25::32771",
+    "line_number": 40,
+    "scene_id": "scene0203_00",
+    "target_id": 25,
+    "assignment_id": "32771",
+    "instance_type": "pillow",
+    "utterance": "Please select the grey pillow on the floor behind the blue couch",
+    "stimulus_id": "scene0203_00-pillow-4-25-14-15-17"
+  },
+  {
+    "sample_id": "scannet/scene0222_00::17::1952",
+    "line_number": 41,
+    "scene_id": "scene0222_00",
+    "target_id": 17,
+    "assignment_id": "1952",
+    "instance_type": "trash can",
+    "utterance": "The green box is the trashcan that is tan/grey in color. Not a recycling bin.",
+    "stimulus_id": "scene0222_00-trash_can-3-17-16-34"
+  },
+  {
+    "sample_id": "scannet/scene0246_00::36::450",
+    "line_number": 42,
+    "scene_id": "scene0246_00",
+    "target_id": 36,
+    "assignment_id": "450",
+    "instance_type": "mirror",
+    "utterance": "The mirror above the dressing table.",
+    "stimulus_id": "scene0246_00-mirror-2-36-32"
+  },
+  {
+    "sample_id": "scannet/scene0671_00::18::38762",
+    "line_number": 43,
+    "scene_id": "scene0671_00",
+    "target_id": 18,
+    "assignment_id": "38762",
+    "instance_type": "backpack",
+    "utterance": "the backpack is yellow",
+    "stimulus_id": "scene0671_00-backpack-3-18-16-22"
+  },
+  {
+    "sample_id": "scannet/scene0011_00::28::24035",
+    "line_number": 44,
+    "scene_id": "scene0011_00",
+    "target_id": 28,
+    "assignment_id": "24035",
+    "instance_type": "cabinet",
+    "utterance": "cabinet next to the doors.",
+    "stimulus_id": "scene0011_00-cabinet-2-28-20"
+  },
+  {
+    "sample_id": "scannet/scene0678_00::31::30978",
+    "line_number": 45,
+    "scene_id": "scene0678_00",
+    "target_id": 31,
+    "assignment_id": "30978",
+    "instance_type": "door",
+    "utterance": "The door that is closer to the vending machine, pepsi",
+    "stimulus_id": "scene0678_00-door-3-31-8-21"
+  },
+  {
+    "sample_id": "scannet/scene0139_00::15::28907",
+    "line_number": 46,
+    "scene_id": "scene0139_00",
+    "target_id": 15,
+    "assignment_id": "28907",
+    "instance_type": "pipe",
+    "utterance": "The lower set of pipes.",
+    "stimulus_id": "scene0139_00-pipe-2-15-7"
+  },
+  {
+    "sample_id": "scannet/scene0658_00::8::32776",
+    "line_number": 47,
+    "scene_id": "scene0658_00",
+    "target_id": 8,
+    "assignment_id": "32776",
+    "instance_type": "cabinet",
+    "utterance": "the cabinet in the closet",
+    "stimulus_id": "scene0658_00-cabinet-2-8-4"
+  },
+  {
+    "sample_id": "scannet/scene0648_00::10::27171",
+    "line_number": 48,
+    "scene_id": "scene0648_00",
+    "target_id": 10,
+    "assignment_id": "27171",
+    "instance_type": "plant",
+    "utterance": "Face the bed, and look at the bookshelf to the left. The plant is the one on the left on top of the shelf.",
+    "stimulus_id": "scene0648_00-plant-2-10-9"
+  },
+  {
+    "sample_id": "scannet/scene0357_00::13::11919",
+    "line_number": 49,
+    "scene_id": "scene0357_00",
+    "target_id": 13,
+    "assignment_id": "11919",
+    "instance_type": "cabinet",
+    "utterance": "The wooden cabinet that reaches from the floor to the roof",
+    "stimulus_id": "scene0357_00-cabinet-2-13-15"
+  },
+  {
+    "sample_id": "scannet/scene0552_00::30::16282",
+    "line_number": 50,
+    "scene_id": "scene0552_00",
+    "target_id": 30,
+    "assignment_id": "16282",
+    "instance_type": "box",
+    "utterance": "The top box.",
+    "stimulus_id": "scene0552_00-box-2-30-31"
+  },
+  {
+    "sample_id": "scannet/scene0030_00::25::18430",
+    "line_number": 51,
+    "scene_id": "scene0030_00",
+    "target_id": 25,
+    "assignment_id": "18430",
+    "instance_type": "book",
+    "utterance": "Choose the books on the top shelf.",
+    "stimulus_id": "scene0030_00-book-3-25-23-24"
+  },
+  {
+    "sample_id": "scannet/scene0231_00::73::39617",
+    "line_number": 52,
+    "scene_id": "scene0231_00",
+    "target_id": 73,
+    "assignment_id": "39617",
+    "instance_type": "sink",
+    "utterance": "The sink in the middle island",
+    "stimulus_id": "scene0231_00-sink-2-73-57"
+  },
+  {
+    "sample_id": "scannet/scene0653_00::44::18781",
+    "line_number": 53,
+    "scene_id": "scene0653_00",
+    "target_id": 44,
+    "assignment_id": "18781",
+    "instance_type": "file cabinet",
+    "utterance": "The filing cabinet completely under the desk.",
+    "stimulus_id": "scene0653_00-file_cabinet-6-44-0-1-27-30-39"
+  },
+  {
+    "sample_id": "scannet/scene0574_00::9::23151",
+    "line_number": 54,
+    "scene_id": "scene0574_00",
+    "target_id": 9,
+    "assignment_id": "23151",
+    "instance_type": "door",
+    "utterance": "Looking for a white door with two brown papers on it, it also have a circle door knob.",
+    "stimulus_id": "scene0574_00-door-2-9-10"
+  },
+  {
+    "sample_id": "scannet/scene0139_00::15::806",
+    "line_number": 55,
+    "scene_id": "scene0139_00",
+    "target_id": 15,
+    "assignment_id": "806",
+    "instance_type": "pipe",
+    "utterance": "The pipe is located in between the laundry machines and sink",
+    "stimulus_id": "scene0139_00-pipe-2-15-7"
+  },
+  {
+    "sample_id": "scannet/scene0086_00::13::5591",
+    "line_number": 56,
+    "scene_id": "scene0086_00",
+    "target_id": 13,
+    "assignment_id": "5591",
+    "instance_type": "trash can",
+    "utterance": "The metal trash can closest to the exit",
+    "stimulus_id": "scene0086_00-trash_can-2-13-14"
+  },
+  {
+    "sample_id": "scannet/scene0144_00::4::7171",
+    "line_number": 57,
+    "scene_id": "scene0144_00",
+    "target_id": 4,
+    "assignment_id": "7171",
+    "instance_type": "chair",
+    "utterance": "facing the desk the chair on the right.",
+    "stimulus_id": "scene0144_00-chair-2-4-3"
+  },
+  {
+    "sample_id": "scannet/scene0249_00::23::40899",
+    "line_number": 58,
+    "scene_id": "scene0249_00",
+    "target_id": 23,
+    "assignment_id": "40899",
+    "instance_type": "trash can",
+    "utterance": "The tall recycling bin against the wall.",
+    "stimulus_id": "scene0249_00-trash_can-6-23-26-27-28-30-36"
+  },
+  {
+    "sample_id": "scannet/scene0690_00::13::12736",
+    "line_number": 59,
+    "scene_id": "scene0690_00",
+    "target_id": 13,
+    "assignment_id": "12736",
+    "instance_type": "table",
+    "utterance": "Table on the left of the love seat.",
+    "stimulus_id": "scene0690_00-table-2-13-14"
+  },
+  {
+    "sample_id": "scannet/scene0644_00::46::8517",
+    "line_number": 60,
+    "scene_id": "scene0644_00",
+    "target_id": 46,
+    "assignment_id": "8517",
+    "instance_type": "computer tower",
+    "utterance": "When standing back to the door and facing the windows. The correct computer tower is on the right and closest to the window.",
+    "stimulus_id": "scene0644_00-computer_tower-5-46-48-49-50-51"
+  },
+  {
+    "sample_id": "scannet/scene0351_00::23::17854",
+    "line_number": 61,
+    "scene_id": "scene0351_00",
+    "target_id": 23,
+    "assignment_id": "17854",
+    "instance_type": "monitor",
+    "utterance": "if looking at the window from the middle of the room, the back left monitor.",
+    "stimulus_id": "scene0351_00-monitor-4-23-13-20-22"
+  },
+  {
+    "sample_id": "scannet/scene0355_00::16::30296",
+    "line_number": 62,
+    "scene_id": "scene0355_00",
+    "target_id": 16,
+    "assignment_id": "30296",
+    "instance_type": "table",
+    "utterance": "The table next to the plant.",
+    "stimulus_id": "scene0355_00-table-2-16-15"
+  },
+  {
+    "sample_id": "scannet/scene0644_00::30::32373",
+    "line_number": 63,
+    "scene_id": "scene0644_00",
+    "target_id": 30,
+    "assignment_id": "32373",
+    "instance_type": "radiator",
+    "utterance": "As you walk in the door the radiator is infront of you to the right.",
+    "stimulus_id": "scene0644_00-radiator-2-30-33"
+  },
+  {
+    "sample_id": "scannet/scene0231_00::45::23306",
+    "line_number": 64,
+    "scene_id": "scene0231_00",
+    "target_id": 45,
+    "assignment_id": "23306",
+    "instance_type": "picture",
+    "utterance": "painting on the wall between the kitchen and livingroom",
+    "stimulus_id": "scene0231_00-picture-3-45-16-20"
+  },
+  {
+    "sample_id": "scannet/scene0689_00::0::22301",
+    "line_number": 65,
+    "scene_id": "scene0689_00",
+    "target_id": 0,
+    "assignment_id": "22301",
+    "instance_type": "window",
+    "utterance": "The window is the one on the long side of the room, behind the three red chairs.",
+    "stimulus_id": "scene0689_00-window-2-0-17"
+  },
+  {
+    "sample_id": "scannet/scene0550_00::14::39759",
+    "line_number": 66,
+    "scene_id": "scene0550_00",
+    "target_id": 14,
+    "assignment_id": "39759",
+    "instance_type": "sink",
+    "utterance": "Facing the sinks, choose the one on the left.",
+    "stimulus_id": "scene0550_00-sink-2-14-15"
+  },
+  {
+    "sample_id": "scannet/scene0011_00::32::8956",
+    "line_number": 68,
+    "scene_id": "scene0011_00",
+    "target_id": 32,
+    "assignment_id": "8956",
+    "instance_type": "trash can",
+    "utterance": "This trashcan is by a double door.",
+    "stimulus_id": "scene0011_00-trash_can-2-32-15"
+  },
+  {
+    "sample_id": "scannet/scene0329_00::29::35625",
+    "line_number": 72,
+    "scene_id": "scene0329_00",
+    "target_id": 29,
+    "assignment_id": "35625",
+    "instance_type": "file cabinet",
+    "utterance": "The file cabinet next to the red chair.",
+    "stimulus_id": "scene0329_00-file_cabinet-2-29-36"
+  },
+  {
+    "sample_id": "scannet/scene0357_00::14::13784",
+    "line_number": 73,
+    "scene_id": "scene0357_00",
+    "target_id": 14,
+    "assignment_id": "13784",
+    "instance_type": "door",
+    "utterance": "the door in front of the stairs",
+    "stimulus_id": "scene0357_00-door-2-14-5"
+  },
+  {
+    "sample_id": "scannet/scene0704_00::10::3739",
+    "line_number": 74,
+    "scene_id": "scene0704_00",
+    "target_id": 10,
+    "assignment_id": "3739",
+    "instance_type": "picture",
+    "utterance": "The correct picture is on the wall with the three pictures and it is in the middle.",
+    "stimulus_id": "scene0704_00-picture-4-10-11-22-25"
+  },
+  {
+    "sample_id": "scannet/scene0222_00::20::14909",
+    "line_number": 75,
+    "scene_id": "scene0222_00",
+    "target_id": 20,
+    "assignment_id": "14909",
+    "instance_type": "pillow",
+    "utterance": "The pillow on the bed that is furthest from the door.",
+    "stimulus_id": "scene0222_00-pillow-2-20-19"
+  },
+  {
+    "sample_id": "scannet/scene0645_00::46::36848",
+    "line_number": 76,
+    "scene_id": "scene0645_00",
+    "target_id": 46,
+    "assignment_id": "36848",
+    "instance_type": "ottoman",
+    "utterance": "ottoman nearest the sofa",
+    "stimulus_id": "scene0645_00-ottoman-2-46-50"
+  },
+  {
+    "sample_id": "scannet/scene0314_00::10::23959",
+    "line_number": 77,
+    "scene_id": "scene0314_00",
+    "target_id": 10,
+    "assignment_id": "23959",
+    "instance_type": "monitor",
+    "utterance": "it is the monitor directly in front of the chair",
+    "stimulus_id": "scene0314_00-monitor-3-10-1-2"
+  },
+  {
+    "sample_id": "scannet/scene0578_00::5::10860",
+    "line_number": 78,
+    "scene_id": "scene0578_00",
+    "target_id": 5,
+    "assignment_id": "10860",
+    "instance_type": "chair",
+    "utterance": "The chair that is closest to the monitor",
+    "stimulus_id": "scene0578_00-chair-4-5-6-7-8"
+  },
+  {
+    "sample_id": "scannet/scene0231_00::16::12138",
+    "line_number": 79,
+    "scene_id": "scene0231_00",
+    "target_id": 16,
+    "assignment_id": "12138",
+    "instance_type": "picture",
+    "utterance": "Choose the smallest picture on the wall",
+    "stimulus_id": "scene0231_00-picture-3-16-20-45"
+  },
+  {
+    "sample_id": "scannet/scene0595_00::5::28001",
+    "line_number": 80,
+    "scene_id": "scene0595_00",
+    "target_id": 5,
+    "assignment_id": "28001",
+    "instance_type": "bag",
+    "utterance": "The bag on top of the washing machine.",
+    "stimulus_id": "scene0595_00-bag-2-5-6"
+  },
+  {
+    "sample_id": "scannet/scene0356_00::19::40774",
+    "line_number": 81,
+    "scene_id": "scene0356_00",
+    "target_id": 19,
+    "assignment_id": "40774",
+    "instance_type": "door",
+    "utterance": "The door closest to the bed.",
+    "stimulus_id": "scene0356_00-door-3-19-12-23"
+  },
+  {
+    "sample_id": "scannet/scene0426_00::33::34408",
+    "line_number": 82,
+    "scene_id": "scene0426_00",
+    "target_id": 33,
+    "assignment_id": "34408",
+    "instance_type": "box",
+    "utterance": "This box is furthest from the other 3 boxes and is on the floor by hanging clothing.",
+    "stimulus_id": "scene0426_00-box-4-33-25-26-43"
+  },
+  {
+    "sample_id": "scannet/scene0685_00::16::13969",
+    "line_number": 83,
+    "scene_id": "scene0685_00",
+    "target_id": 16,
+    "assignment_id": "13969",
+    "instance_type": "box",
+    "utterance": "You want the box closest to the center of the room, not the one against the wall.",
+    "stimulus_id": "scene0685_00-box-2-16-17"
+  },
+  {
+    "sample_id": "scannet/scene0549_00::5::9189",
+    "line_number": 85,
+    "scene_id": "scene0549_00",
+    "target_id": 5,
+    "assignment_id": "9189",
+    "instance_type": "end table",
+    "utterance": "The end table has a vase with flowers in it",
+    "stimulus_id": "scene0549_00-end_table-4-5-4-6-7"
+  },
+  {
+    "sample_id": "scannet/scene0131_00::12::17041",
+    "line_number": 86,
+    "scene_id": "scene0131_00",
+    "target_id": 12,
+    "assignment_id": "17041",
+    "instance_type": "monitor",
+    "utterance": "The monitor that has two chairs pushed all the way in to the desk",
+    "stimulus_id": "scene0131_00-monitor-3-12-13-20"
+  },
+  {
+    "sample_id": "scannet/scene0458_00::32::13524",
+    "line_number": 87,
+    "scene_id": "scene0458_00",
+    "target_id": 32,
+    "assignment_id": "13524",
+    "instance_type": "bottle",
+    "utterance": "The bottle that is wedged on the ground between the shower and the sink cabinet",
+    "stimulus_id": "scene0458_00-bottle-5-32-18-25-28-29"
+  },
+  {
+    "sample_id": "scannet/scene0426_00::39::13302",
+    "line_number": 88,
+    "scene_id": "scene0426_00",
+    "target_id": 39,
+    "assignment_id": "13302",
+    "instance_type": "monitor",
+    "utterance": "choose the monitor on the floor under the desk closest to the window.",
+    "stimulus_id": "scene0426_00-monitor-4-39-16-37-38"
+  },
+  {
+    "sample_id": "scannet/scene0629_00::6::32839",
+    "line_number": 89,
+    "scene_id": "scene0629_00",
+    "target_id": 6,
+    "assignment_id": "32839",
+    "instance_type": "cabinet",
+    "utterance": "the cabinet thats closest to the CLOSED narrow white door",
+    "stimulus_id": "scene0629_00-cabinet-2-6-22"
+  },
+  {
+    "sample_id": "scannet/scene0488_00::11::39288",
+    "line_number": 90,
+    "scene_id": "scene0488_00",
+    "target_id": 11,
+    "assignment_id": "39288",
+    "instance_type": "kitchen counter",
+    "utterance": "The correct kitchen counter has a sink in it.",
+    "stimulus_id": "scene0488_00-kitchen_counter-2-11-10"
+  },
+  {
+    "sample_id": "scannet/scene0568_00::2::482",
+    "line_number": 91,
+    "scene_id": "scene0568_00",
+    "target_id": 2,
+    "assignment_id": "482",
+    "instance_type": "chair",
+    "utterance": "The blue chair closest to the curtain with animals on it.",
+    "stimulus_id": "scene0568_00-chair-4-2-0-1-15"
+  },
+  {
+    "sample_id": "scannet/scene0645_00::55::30320",
+    "line_number": 93,
+    "scene_id": "scene0645_00",
+    "target_id": 55,
+    "assignment_id": "30320",
+    "instance_type": "window",
+    "utterance": "The window closest to the bed.",
+    "stimulus_id": "scene0645_00-window-2-55-42"
+  },
+  {
+    "sample_id": "scannet/scene0430_00::31::36151",
+    "line_number": 94,
+    "scene_id": "scene0430_00",
+    "target_id": 31,
+    "assignment_id": "36151",
+    "instance_type": "whiteboard",
+    "utterance": "Standing in the middle of the room, looking at both white boards, its the board on the right",
+    "stimulus_id": "scene0430_00-whiteboard-2-31-32"
+  },
+  {
+    "sample_id": "scannet/scene0648_00::23::17055",
+    "line_number": 95,
+    "scene_id": "scene0648_00",
+    "target_id": 23,
+    "assignment_id": "17055",
+    "instance_type": "shelf",
+    "utterance": "The shelf above the bed.",
+    "stimulus_id": "scene0648_00-shelf-3-23-22-24"
+  },
+  {
+    "sample_id": "scannet/scene0329_00::37::40991",
+    "line_number": 96,
+    "scene_id": "scene0329_00",
+    "target_id": 37,
+    "assignment_id": "40991",
+    "instance_type": "chair",
+    "utterance": "seat nearer the doors were no bins are near",
+    "stimulus_id": "scene0329_00-chair-3-37-13-34"
+  },
+  {
+    "sample_id": "scannet/scene0458_00::30::18646",
+    "line_number": 97,
+    "scene_id": "scene0458_00",
+    "target_id": 30,
+    "assignment_id": "18646",
+    "instance_type": "trash can",
+    "utterance": "The trash can is inside the shower",
+    "stimulus_id": "scene0458_00-trash_can-2-30-8"
+  },
+  {
+    "sample_id": "scannet/scene0251_00::21::15145",
+    "line_number": 98,
+    "scene_id": "scene0251_00",
+    "target_id": 21,
+    "assignment_id": "15145",
+    "instance_type": "window",
+    "utterance": "The window on the opposite side of the other windows.",
+    "stimulus_id": "scene0251_00-window-3-21-18-19"
+  },
+  {
+    "sample_id": "scannet/scene0203_00::25::23530",
+    "line_number": 99,
+    "scene_id": "scene0203_00",
+    "target_id": 25,
+    "assignment_id": "23530",
+    "instance_type": "pillow",
+    "utterance": "the greenish grey pillow on the rug",
+    "stimulus_id": "scene0203_00-pillow-4-25-14-15-17"
+  },
+  {
+    "sample_id": "scannet/scene0670_00::24::26043",
+    "line_number": 100,
+    "scene_id": "scene0670_00",
+    "target_id": 24,
+    "assignment_id": "26043",
+    "instance_type": "trash can",
+    "utterance": "The largest trash can.",
+    "stimulus_id": "scene0670_00-trash_can-3-24-3-25"
+  },
+  {
+    "sample_id": "scannet/scene0598_00::2::27985",
+    "line_number": 101,
+    "scene_id": "scene0598_00",
+    "target_id": 2,
+    "assignment_id": "27985",
+    "instance_type": "monitor",
+    "utterance": "Facing the monitors, the monitor on the left.",
+    "stimulus_id": "scene0598_00-monitor-2-2-3"
+  },
+  {
+    "sample_id": "scannet/scene0329_00::34::2238",
+    "line_number": 102,
+    "scene_id": "scene0329_00",
+    "target_id": 34,
+    "assignment_id": "2238",
+    "instance_type": "chair",
+    "utterance": "It is the chair that is pushed in under the desk.",
+    "stimulus_id": "scene0329_00-chair-3-34-13-37"
+  },
+  {
+    "sample_id": "scannet/scene0645_00::7::37628",
+    "line_number": 103,
+    "scene_id": "scene0645_00",
+    "target_id": 7,
+    "assignment_id": "37628",
+    "instance_type": "door",
+    "utterance": "Choose the largest door that appears to lead out of the suite.",
+    "stimulus_id": "scene0645_00-door-3-7-5-38"
+  },
+  {
+    "sample_id": "scannet/scene0458_00::11::33032",
+    "line_number": 104,
+    "scene_id": "scene0458_00",
+    "target_id": 11,
+    "assignment_id": "33032",
+    "instance_type": "soap dish",
+    "utterance": "The lowest of the soap dishes.",
+    "stimulus_id": "scene0458_00-soap_dish-3-11-9-10"
+  },
+  {
+    "sample_id": "scannet/scene0084_00::8::25200",
+    "line_number": 105,
+    "scene_id": "scene0084_00",
+    "target_id": 8,
+    "assignment_id": "25200",
+    "instance_type": "toilet paper",
+    "utterance": "The toilet paper directly touching the counter.",
+    "stimulus_id": "scene0084_00-toilet_paper-4-8-6-7-35"
+  },
+  {
+    "sample_id": "scannet/scene0645_00::24::10759",
+    "line_number": 106,
+    "scene_id": "scene0645_00",
+    "target_id": 24,
+    "assignment_id": "10759",
+    "instance_type": "armchair",
+    "utterance": "The yellow window seat is directly behind this armchair.",
+    "stimulus_id": "scene0645_00-armchair-2-24-23"
+  },
+  {
+    "sample_id": "scannet/scene0663_00::30::18593",
+    "line_number": 107,
+    "scene_id": "scene0663_00",
+    "target_id": 30,
+    "assignment_id": "18593",
+    "instance_type": "shelf",
+    "utterance": "standing at the door, the farthest shelf on the left side.",
+    "stimulus_id": "scene0663_00-shelf-4-30-0-23-32"
+  },
+  {
+    "sample_id": "scannet/scene0591_00::30::8717",
+    "line_number": 108,
+    "scene_id": "scene0591_00",
+    "target_id": 30,
+    "assignment_id": "8717",
+    "instance_type": "cabinet",
+    "utterance": "cabinet at the end of the desk",
+    "stimulus_id": "scene0591_00-cabinet-3-30-4-31"
+  },
+  {
+    "sample_id": "scannet/scene0389_00::23::20819",
+    "line_number": 109,
+    "scene_id": "scene0389_00",
+    "target_id": 23,
+    "assignment_id": "20819",
+    "instance_type": "bag",
+    "utterance": "Where there is a white and green bag against the wall, select the white bag. It should be the bag closest to the window",
+    "stimulus_id": "scene0389_00-bag-2-23-22"
+  },
+  {
+    "sample_id": "scannet/scene0353_00::31::30629",
+    "line_number": 110,
+    "scene_id": "scene0353_00",
+    "target_id": 31,
+    "assignment_id": "30629",
+    "instance_type": "shoes",
+    "utterance": "black shoes next to the desk chair",
+    "stimulus_id": "scene0353_00-shoes-4-31-1-23-33"
+  },
+  {
+    "sample_id": "scannet/scene0025_00::10::19820",
+    "line_number": 111,
+    "scene_id": "scene0025_00",
+    "target_id": 10,
+    "assignment_id": "19820",
+    "instance_type": "desk",
+    "utterance": "The larger desk that has the curve in it.",
+    "stimulus_id": "scene0025_00-desk-2-10-9"
+  },
+  {
+    "sample_id": "scannet/scene0221_00::19::14421",
+    "line_number": 112,
+    "scene_id": "scene0221_00",
+    "target_id": 19,
+    "assignment_id": "14421",
+    "instance_type": "bag",
+    "utterance": "the first bag to the left of the bed",
+    "stimulus_id": "scene0221_00-bag-3-19-18-31"
+  },
+  {
+    "sample_id": "scannet/scene0203_00::3::40528",
+    "line_number": 113,
+    "scene_id": "scene0203_00",
+    "target_id": 3,
+    "assignment_id": "40528",
+    "instance_type": "couch",
+    "utterance": "couch that is multicolored pattern with two pillows",
+    "stimulus_id": "scene0203_00-couch-3-3-2-26"
+  },
+  {
+    "sample_id": "scannet/scene0357_00::0::30217",
+    "line_number": 114,
+    "scene_id": "scene0357_00",
+    "target_id": 0,
+    "assignment_id": "30217",
+    "instance_type": "box",
+    "utterance": "The dark plain green box on the table.",
+    "stimulus_id": "scene0357_00-box-2-0-1"
+  },
+  {
+    "sample_id": "scannet/scene0559_00::12::34760",
+    "line_number": 115,
+    "scene_id": "scene0559_00",
+    "target_id": 12,
+    "assignment_id": "34760",
+    "instance_type": "bench",
+    "utterance": "bench under the plastic bag with something blue in it",
+    "stimulus_id": "scene0559_00-bench-2-12-13"
+  },
+  {
+    "sample_id": "scannet/scene0609_00::5::23719",
+    "line_number": 116,
+    "scene_id": "scene0609_00",
+    "target_id": 5,
+    "assignment_id": "23719",
+    "instance_type": "table",
+    "utterance": "facing curtains, the right most table",
+    "stimulus_id": "scene0609_00-table-3-5-4-6"
+  },
+  {
+    "sample_id": "scannet/scene0063_00::5::2537",
+    "line_number": 117,
+    "scene_id": "scene0063_00",
+    "target_id": 5,
+    "assignment_id": "2537",
+    "instance_type": "chair",
+    "utterance": "The chair closest to the wall and not in front of a table, that we can see",
+    "stimulus_id": "scene0063_00-chair-4-5-4-6-7"
+  },
+  {
+    "sample_id": "scannet/scene0697_00::10::15577",
+    "line_number": 118,
+    "scene_id": "scene0697_00",
+    "target_id": 10,
+    "assignment_id": "15577",
+    "instance_type": "dresser",
+    "utterance": "The green box is the dresser on the wall opposite the bed.",
+    "stimulus_id": "scene0697_00-dresser-2-10-11"
+  },
+  {
+    "sample_id": "scannet/scene0222_00::17::31367",
+    "line_number": 119,
+    "scene_id": "scene0222_00",
+    "target_id": 17,
+    "assignment_id": "31367",
+    "instance_type": "trash can",
+    "utterance": "Facing the 2 cans next to one another, the can on the left.",
+    "stimulus_id": "scene0222_00-trash_can-3-17-16-34"
+  },
+  {
+    "sample_id": "scannet/scene0355_00::16::13945",
+    "line_number": 120,
+    "scene_id": "scene0355_00",
+    "target_id": 16,
+    "assignment_id": "13945",
+    "instance_type": "table",
+    "utterance": "Table nearest to the plant",
+    "stimulus_id": "scene0355_00-table-2-16-15"
+  },
+  {
+    "sample_id": "scannet/scene0699_00::17::4063",
+    "line_number": 121,
+    "scene_id": "scene0699_00",
+    "target_id": 17,
+    "assignment_id": "4063",
+    "instance_type": "door",
+    "utterance": "The larger door that's open.",
+    "stimulus_id": "scene0699_00-door-2-17-18"
+  },
+  {
+    "sample_id": "scannet/scene0357_00::19::22494",
+    "line_number": 122,
+    "scene_id": "scene0357_00",
+    "target_id": 19,
+    "assignment_id": "22494",
+    "instance_type": "shoes",
+    "utterance": "Facing the shoes, the shoes in the upper right corner.",
+    "stimulus_id": "scene0357_00-shoes-5-19-20-21-22-23"
+  },
+  {
+    "sample_id": "scannet/scene0050_00::18::19316",
+    "line_number": 123,
+    "scene_id": "scene0050_00",
+    "target_id": 18,
+    "assignment_id": "19316",
+    "instance_type": "backpack",
+    "utterance": "The backpack closest to the piano.",
+    "stimulus_id": "scene0050_00-backpack-2-18-14"
+  },
+  {
+    "sample_id": "scannet/scene0699_00::31::16911",
+    "line_number": 124,
+    "scene_id": "scene0699_00",
+    "target_id": 31,
+    "assignment_id": "16911",
+    "instance_type": "bag",
+    "utterance": "It is the bag against the wall, not in the closet.",
+    "stimulus_id": "scene0699_00-bag-4-31-33-34-37"
+  },
+  {
+    "sample_id": "scannet/scene0686_00::23::2182",
+    "line_number": 125,
+    "scene_id": "scene0686_00",
+    "target_id": 23,
+    "assignment_id": "2182",
+    "instance_type": "toilet",
+    "utterance": "The toilet is the one with the seat flipped up.",
+    "stimulus_id": "scene0686_00-toilet-2-23-24"
+  },
+  {
+    "sample_id": "scannet/scene0441_00::14::28044",
+    "line_number": 126,
+    "scene_id": "scene0441_00",
+    "target_id": 14,
+    "assignment_id": "28044",
+    "instance_type": "bar",
+    "utterance": "the bar not directly above the toilet over what looks like a sink",
+    "stimulus_id": "scene0441_00-bar-2-14-16"
+  },
+  {
+    "sample_id": "scannet/scene0334_00::3::2294",
+    "line_number": 127,
+    "scene_id": "scene0334_00",
+    "target_id": 3,
+    "assignment_id": "2294",
+    "instance_type": "couch",
+    "utterance": "It is the couch facing the wall of notices; there is a round table directly in front of it.",
+    "stimulus_id": "scene0334_00-couch-2-3-2"
+  },
+  {
+    "sample_id": "scannet/scene0599_00::12::17098",
+    "line_number": 128,
+    "scene_id": "scene0599_00",
+    "target_id": 12,
+    "assignment_id": "17098",
+    "instance_type": "window",
+    "utterance": "The window closest to the phones on the wall",
+    "stimulus_id": "scene0599_00-window-2-12-14"
+  },
+  {
+    "sample_id": "scannet/scene0249_00::25::8902",
+    "line_number": 131,
+    "scene_id": "scene0249_00",
+    "target_id": 25,
+    "assignment_id": "8902",
+    "instance_type": "table",
+    "utterance": "The table by itself.",
+    "stimulus_id": "scene0249_00-table-2-25-24"
+  },
+  {
+    "sample_id": "scannet/scene0338_00::21::37308",
+    "line_number": 132,
+    "scene_id": "scene0338_00",
+    "target_id": 21,
+    "assignment_id": "37308",
+    "instance_type": "box",
+    "utterance": "small box",
+    "stimulus_id": "scene0338_00-box-5-21-0-18-19-20"
+  },
+  {
+    "sample_id": "scannet/scene0648_00::6::25532",
+    "line_number": 133,
+    "scene_id": "scene0648_00",
+    "target_id": 6,
+    "assignment_id": "25532",
+    "instance_type": "book",
+    "utterance": "The black and white book on the outside.",
+    "stimulus_id": "scene0648_00-book-2-6-5"
+  },
+  {
+    "sample_id": "scannet/scene0203_00::26::28316",
+    "line_number": 134,
+    "scene_id": "scene0203_00",
+    "target_id": 26,
+    "assignment_id": "28316",
+    "instance_type": "couch",
+    "utterance": "Two couches are together.  You want the one facing the brown doors.",
+    "stimulus_id": "scene0203_00-couch-3-26-2-3"
+  },
+  {
+    "sample_id": "scannet/scene0693_00::18::18864",
+    "line_number": 135,
+    "scene_id": "scene0693_00",
+    "target_id": 18,
+    "assignment_id": "18864",
+    "instance_type": "soap dish",
+    "utterance": "The soap dish on the left side of the sink",
+    "stimulus_id": "scene0693_00-soap_dish-2-18-17"
+  },
+  {
+    "sample_id": "scannet/scene0169_00::14::22838",
+    "line_number": 136,
+    "scene_id": "scene0169_00",
+    "target_id": 14,
+    "assignment_id": "22838",
+    "instance_type": "window",
+    "utterance": "The interior window behind the gray trashcan",
+    "stimulus_id": "scene0169_00-window-2-14-28"
+  },
+  {
+    "sample_id": "scannet/scene0616_00::7::34453",
+    "line_number": 137,
+    "scene_id": "scene0616_00",
+    "target_id": 7,
+    "assignment_id": "34453",
+    "instance_type": "armchair",
+    "utterance": "The armchair furthest from the fireplace and closest to the exit door.",
+    "stimulus_id": "scene0616_00-armchair-2-7-8"
+  },
+  {
+    "sample_id": "scannet/scene0353_00::7::39043",
+    "line_number": 138,
+    "scene_id": "scene0353_00",
+    "target_id": 7,
+    "assignment_id": "39043",
+    "instance_type": "shelf",
+    "utterance": "Pick the shelves that are directly above the dark colored couch.",
+    "stimulus_id": "scene0353_00-shelf-3-7-44-49"
+  },
+  {
+    "sample_id": "scannet/scene0697_00::17::19853",
+    "line_number": 139,
+    "scene_id": "scene0697_00",
+    "target_id": 17,
+    "assignment_id": "19853",
+    "instance_type": "pillow",
+    "utterance": "The pillow not on the bed.",
+    "stimulus_id": "scene0697_00-pillow-3-17-18-25"
+  },
+  {
+    "sample_id": "scannet/scene0025_00::13::30246",
+    "line_number": 140,
+    "scene_id": "scene0025_00",
+    "target_id": 13,
+    "assignment_id": "30246",
+    "instance_type": "office chair",
+    "utterance": "if couches are left on screen, choose chair closest to you on right side",
+    "stimulus_id": "scene0025_00-office_chair-2-13-12"
+  },
+  {
+    "sample_id": "scannet/scene0648_00::7::34812",
+    "line_number": 141,
+    "scene_id": "scene0648_00",
+    "target_id": 7,
+    "assignment_id": "34812",
+    "instance_type": "picture",
+    "utterance": "choose the larger of the two picture box selections",
+    "stimulus_id": "scene0648_00-picture-2-7-8"
+  },
+  {
+    "sample_id": "scannet/scene0251_00::13::28980",
+    "line_number": 142,
+    "scene_id": "scene0251_00",
+    "target_id": 13,
+    "assignment_id": "28980",
+    "instance_type": "door",
+    "utterance": "The door to the left of the two long tables.",
+    "stimulus_id": "scene0251_00-door-3-13-14-15"
+  },
+  {
+    "sample_id": "scannet/scene0427_00::4::38833",
+    "line_number": 143,
+    "scene_id": "scene0427_00",
+    "target_id": 4,
+    "assignment_id": "38833",
+    "instance_type": "chair",
+    "utterance": "one of the office chair next to two other chairs, facing towards two other chairs in room corner",
+    "stimulus_id": "scene0427_00-chair-4-4-5-6-7"
+  },
+  {
+    "sample_id": "scannet/scene0663_00::3::36077",
+    "line_number": 144,
+    "scene_id": "scene0663_00",
+    "target_id": 3,
+    "assignment_id": "36077",
+    "instance_type": "desk",
+    "utterance": "The desk furthest from the door.",
+    "stimulus_id": "scene0663_00-desk-2-3-4"
+  },
+  {
+    "sample_id": "scannet/scene0565_00::24::6315",
+    "line_number": 145,
+    "scene_id": "scene0565_00",
+    "target_id": 24,
+    "assignment_id": "6315",
+    "instance_type": "chair",
+    "utterance": "The green chair next to the grey",
+    "stimulus_id": "scene0565_00-chair-4-24-0-1-25"
+  },
+  {
+    "sample_id": "scannet/scene0565_00::24::17139",
+    "line_number": 146,
+    "scene_id": "scene0565_00",
+    "target_id": 24,
+    "assignment_id": "17139",
+    "instance_type": "chair",
+    "utterance": "It's the dark greenish chair beside the gray chair.",
+    "stimulus_id": "scene0565_00-chair-4-24-0-1-25"
+  },
+  {
+    "sample_id": "scannet/scene0095_00::54::36286",
+    "line_number": 147,
+    "scene_id": "scene0095_00",
+    "target_id": 54,
+    "assignment_id": "36286",
+    "instance_type": "window",
+    "utterance": "the window higher on the wall.",
+    "stimulus_id": "scene0095_00-window-2-54-53"
+  },
+  {
+    "sample_id": "scannet/scene0644_00::25::29778",
+    "line_number": 148,
+    "scene_id": "scene0644_00",
+    "target_id": 25,
+    "assignment_id": "29778",
+    "instance_type": "table",
+    "utterance": "Facing the door, the table on the left.",
+    "stimulus_id": "scene0644_00-table-2-25-26"
+  },
+  {
+    "sample_id": "scannet/scene0606_00::28::13622",
+    "line_number": 150,
+    "scene_id": "scene0606_00",
+    "target_id": 28,
+    "assignment_id": "13622",
+    "instance_type": "chair",
+    "utterance": "Chair with it's back to the clock",
+    "stimulus_id": "scene0606_00-chair-4-28-4-27-29"
+  },
+  {
+    "sample_id": "scannet/scene0025_00::3::27653",
+    "line_number": 151,
+    "scene_id": "scene0025_00",
+    "target_id": 3,
+    "assignment_id": "27653",
+    "instance_type": "couch",
+    "utterance": "Black couch next to the tall filing cabinet.",
+    "stimulus_id": "scene0025_00-couch-2-3-4"
+  },
+  {
+    "sample_id": "scannet/scene0704_00::5::271",
+    "line_number": 152,
+    "scene_id": "scene0704_00",
+    "target_id": 5,
+    "assignment_id": "271",
+    "instance_type": "cabinets",
+    "utterance": "the floor cabinets.",
+    "stimulus_id": "scene0704_00-cabinets-3-5-14-15"
+  },
+  {
+    "sample_id": "scannet/scene0249_00::27::2098",
+    "line_number": 153,
+    "scene_id": "scene0249_00",
+    "target_id": 27,
+    "assignment_id": "2098",
+    "instance_type": "trash can",
+    "utterance": "It is the trash can in the corner with the rectangular table.",
+    "stimulus_id": "scene0249_00-trash_can-6-27-23-26-28-30-36"
+  },
+  {
+    "sample_id": "scannet/scene0222_00::7::9719",
+    "line_number": 154,
+    "scene_id": "scene0222_00",
+    "target_id": 7,
+    "assignment_id": "9719",
+    "instance_type": "chair",
+    "utterance": "This chair is pulled closer to a desk.",
+    "stimulus_id": "scene0222_00-chair-2-7-6"
+  },
+  {
+    "sample_id": "scannet/scene0389_00::27::17906",
+    "line_number": 155,
+    "scene_id": "scene0389_00",
+    "target_id": 27,
+    "assignment_id": "17906",
+    "instance_type": "backpack",
+    "utterance": "backpack closest to the window.",
+    "stimulus_id": "scene0389_00-backpack-2-27-18"
+  },
+  {
+    "sample_id": "scannet/scene0665_00::2::34825",
+    "line_number": 156,
+    "scene_id": "scene0665_00",
+    "target_id": 2,
+    "assignment_id": "34825",
+    "instance_type": "desk",
+    "utterance": "it is the desk closet to the brown door",
+    "stimulus_id": "scene0665_00-desk-4-2-20-29-31"
+  },
+  {
+    "sample_id": "scannet/scene0578_00::19::39136",
+    "line_number": 157,
+    "scene_id": "scene0578_00",
+    "target_id": 19,
+    "assignment_id": "39136",
+    "instance_type": "window",
+    "utterance": "Window to the left of the other near the whiteboard",
+    "stimulus_id": "scene0578_00-window-3-19-9-13"
+  },
+  {
+    "sample_id": "scannet/scene0527_00::27::41084",
+    "line_number": 158,
+    "scene_id": "scene0527_00",
+    "target_id": 27,
+    "assignment_id": "41084",
+    "instance_type": "towel",
+    "utterance": "The towel at the bottom of the closet",
+    "stimulus_id": "scene0527_00-towel-3-27-11-23"
+  },
+  {
+    "sample_id": "scannet/scene0019_00::19::805",
+    "line_number": 159,
+    "scene_id": "scene0019_00",
+    "target_id": 19,
+    "assignment_id": "805",
+    "instance_type": "door",
+    "utterance": "Find the door that is closest to the vending machine.",
+    "stimulus_id": "scene0019_00-door-2-19-10"
+  },
+  {
+    "sample_id": "scannet/scene0474_00::36::4725",
+    "line_number": 160,
+    "scene_id": "scene0474_00",
+    "target_id": 36,
+    "assignment_id": "4725",
+    "instance_type": "window",
+    "utterance": "the window furthest from the door.",
+    "stimulus_id": "scene0474_00-window-2-36-23"
+  },
+  {
+    "sample_id": "scannet/scene0461_00::1::27672",
+    "line_number": 161,
+    "scene_id": "scene0461_00",
+    "target_id": 1,
+    "assignment_id": "27672",
+    "instance_type": "armchair",
+    "utterance": "Facing the chairs, the chair on the left.",
+    "stimulus_id": "scene0461_00-armchair-2-1-2"
+  },
+  {
+    "sample_id": "scannet/scene0699_00::14::25850",
+    "line_number": 162,
+    "scene_id": "scene0699_00",
+    "target_id": 14,
+    "assignment_id": "25850",
+    "instance_type": "box",
+    "utterance": "The box that is outside of the closet.",
+    "stimulus_id": "scene0699_00-box-2-14-15"
+  },
+  {
+    "sample_id": "scannet/scene0655_00::19::31620",
+    "line_number": 163,
+    "scene_id": "scene0655_00",
+    "target_id": 19,
+    "assignment_id": "31620",
+    "instance_type": "chair",
+    "utterance": "The chair not near the table. The chair nearest the white board.",
+    "stimulus_id": "scene0655_00-chair-2-19-21"
+  },
+  {
+    "sample_id": "scannet/scene0328_00::28::41335",
+    "line_number": 164,
+    "scene_id": "scene0328_00",
+    "target_id": 28,
+    "assignment_id": "41335",
+    "instance_type": "sign",
+    "utterance": "the sign directly to the right of the sink and not hanging",
+    "stimulus_id": "scene0328_00-sign-4-28-27-29-30"
+  },
+  {
+    "sample_id": "scannet/scene0221_00::30::25410",
+    "line_number": 165,
+    "scene_id": "scene0221_00",
+    "target_id": 30,
+    "assignment_id": "25410",
+    "instance_type": "trash can",
+    "utterance": "The trash can underneath the right side of the desk.",
+    "stimulus_id": "scene0221_00-trash_can-3-30-17-48"
+  },
+  {
+    "sample_id": "scannet/scene0084_00::45::5450",
+    "line_number": 166,
+    "scene_id": "scene0084_00",
+    "target_id": 45,
+    "assignment_id": "5450",
+    "instance_type": "rail",
+    "utterance": "It's the vertical rail",
+    "stimulus_id": "scene0084_00-rail-5-45-34-39-43-44"
+  },
+  {
+    "sample_id": "scannet/scene0300_00::2::3774",
+    "line_number": 167,
+    "scene_id": "scene0300_00",
+    "target_id": 2,
+    "assignment_id": "3774",
+    "instance_type": "monitor",
+    "utterance": "monitor on the left side of the desk",
+    "stimulus_id": "scene0300_00-monitor-2-2-1"
+  },
+  {
+    "sample_id": "scannet/scene0591_00::27::25147",
+    "line_number": 168,
+    "scene_id": "scene0591_00",
+    "target_id": 27,
+    "assignment_id": "25147",
+    "instance_type": "plant",
+    "utterance": "Facing the window, the leftmost plant.",
+    "stimulus_id": "scene0591_00-plant-2-27-26"
+  },
+  {
+    "sample_id": "scannet/scene0621_00::2::26721",
+    "line_number": 170,
+    "scene_id": "scene0621_00",
+    "target_id": 2,
+    "assignment_id": "26721",
+    "instance_type": "table",
+    "utterance": "The correct table is closer to the middle of the room, it has four chairs around it and is light grey.",
+    "stimulus_id": "scene0621_00-table-5-2-0-1-3-4"
+  },
+  {
+    "sample_id": "scannet/scene0664_00::15::39236",
+    "line_number": 171,
+    "scene_id": "scene0664_00",
+    "target_id": 15,
+    "assignment_id": "39236",
+    "instance_type": "towel",
+    "utterance": "The long towel hanging in the shower closest to the shower curtain.",
+    "stimulus_id": "scene0664_00-towel-3-15-14-24"
+  },
+  {
+    "sample_id": "scannet/scene0221_00::29::26619",
+    "line_number": 172,
+    "scene_id": "scene0221_00",
+    "target_id": 29,
+    "assignment_id": "26619",
+    "instance_type": "chair",
+    "utterance": "The correct chair is tucked into the desk. It is NOT black.",
+    "stimulus_id": "scene0221_00-chair-2-29-3"
+  },
+  {
+    "sample_id": "scannet/scene0207_00::47::22682",
+    "line_number": 173,
+    "scene_id": "scene0207_00",
+    "target_id": 47,
+    "assignment_id": "22682",
+    "instance_type": "towel",
+    "utterance": "The towel that is not in the bathroom",
+    "stimulus_id": "scene0207_00-towel-2-47-70"
+  },
+  {
+    "sample_id": "scannet/scene0300_00::2::26246",
+    "line_number": 174,
+    "scene_id": "scene0300_00",
+    "target_id": 2,
+    "assignment_id": "26246",
+    "instance_type": "monitor",
+    "utterance": "The monitor further from the window on the left of the table",
+    "stimulus_id": "scene0300_00-monitor-2-2-1"
+  },
+  {
+    "sample_id": "scannet/scene0193_00::2::35462",
+    "line_number": 175,
+    "scene_id": "scene0193_00",
+    "target_id": 2,
+    "assignment_id": "35462",
+    "instance_type": "door",
+    "utterance": "The door that is to the immediate left of the desk",
+    "stimulus_id": "scene0193_00-door-2-2-13"
+  },
+  {
+    "sample_id": "scannet/scene0458_00::31::17850",
+    "line_number": 176,
+    "scene_id": "scene0458_00",
+    "target_id": 31,
+    "assignment_id": "17850",
+    "instance_type": "box",
+    "utterance": "the box on the bottom of the stack",
+    "stimulus_id": "scene0458_00-box-3-31-0-27"
+  },
+  {
+    "sample_id": "scannet/scene0086_00::19::41297",
+    "line_number": 177,
+    "scene_id": "scene0086_00",
+    "target_id": 19,
+    "assignment_id": "41297",
+    "instance_type": "sink",
+    "utterance": "Facing the sinks select the sink on the left.",
+    "stimulus_id": "scene0086_00-sink-2-19-20"
+  },
+  {
+    "sample_id": "scannet/scene0500_00::25::21110",
+    "line_number": 178,
+    "scene_id": "scene0500_00",
+    "target_id": 25,
+    "assignment_id": "21110",
+    "instance_type": "window",
+    "utterance": "The lowest window directly behind the row of chairs that are along the wall.",
+    "stimulus_id": "scene0500_00-window-5-25-23-26-27-28"
+  },
+  {
+    "sample_id": "scannet/scene0565_00::4::14021",
+    "line_number": 180,
+    "scene_id": "scene0565_00",
+    "target_id": 4,
+    "assignment_id": "14021",
+    "instance_type": "monitor",
+    "utterance": "The monitor on the floor underneath another monitor.",
+    "stimulus_id": "scene0565_00-monitor-4-4-2-3-5"
+  },
+  {
+    "sample_id": "scannet/scene0427_00::6::22545",
+    "line_number": 181,
+    "scene_id": "scene0427_00",
+    "target_id": 6,
+    "assignment_id": "22545",
+    "instance_type": "chair",
+    "utterance": "The chair directly under the whiteboard.",
+    "stimulus_id": "scene0427_00-chair-4-6-4-5-7"
+  },
+  {
+    "sample_id": "scannet/scene0246_00::39::21215",
+    "line_number": 182,
+    "scene_id": "scene0246_00",
+    "target_id": 39,
+    "assignment_id": "21215",
+    "instance_type": "pillow",
+    "utterance": "the pillow is the under the other blue pillow",
+    "stimulus_id": "scene0246_00-pillow-6-39-38-40-41-42-43"
+  },
+  {
+    "sample_id": "scannet/scene0256_00::4::40234",
+    "line_number": 183,
+    "scene_id": "scene0256_00",
+    "target_id": 4,
+    "assignment_id": "40234",
+    "instance_type": "box",
+    "utterance": "The box at the bottom of the stack",
+    "stimulus_id": "scene0256_00-box-3-4-3-12"
+  },
+  {
+    "sample_id": "scannet/scene0500_00::25::11746",
+    "line_number": 184,
+    "scene_id": "scene0500_00",
+    "target_id": 25,
+    "assignment_id": "11746",
+    "instance_type": "window",
+    "utterance": "The correct window is the one in the center of the long table. About 2-3 chairs sit under it.",
+    "stimulus_id": "scene0500_00-window-5-25-23-26-27-28"
+  },
+  {
+    "sample_id": "scannet/scene0203_00::17::18879",
+    "line_number": 185,
+    "scene_id": "scene0203_00",
+    "target_id": 17,
+    "assignment_id": "18879",
+    "instance_type": "pillow",
+    "utterance": "The gray pillow on the floor, in the corner next to the chair.",
+    "stimulus_id": "scene0203_00-pillow-4-17-14-15-25"
+  },
+  {
+    "sample_id": "scannet/scene0203_00::17::8817",
+    "line_number": 186,
+    "scene_id": "scene0203_00",
+    "target_id": 17,
+    "assignment_id": "8817",
+    "instance_type": "pillow",
+    "utterance": "The grey pillow under the brown blanket near the papason",
+    "stimulus_id": "scene0203_00-pillow-4-17-14-15-25"
+  },
+  {
+    "sample_id": "scannet/scene0699_00::14::19903",
+    "line_number": 187,
+    "scene_id": "scene0699_00",
+    "target_id": 14,
+    "assignment_id": "19903",
+    "instance_type": "box",
+    "utterance": "Choose the box that is closest to the table.",
+    "stimulus_id": "scene0699_00-box-2-14-15"
+  },
+  {
+    "sample_id": "scannet/scene0011_00::20::28662",
+    "line_number": 188,
+    "scene_id": "scene0011_00",
+    "target_id": 20,
+    "assignment_id": "28662",
+    "instance_type": "cabinet",
+    "utterance": "If you are facing the cabinets, it's the one on the right.",
+    "stimulus_id": "scene0011_00-cabinet-2-20-28"
+  },
+  {
+    "sample_id": "scannet/scene0353_00::33::8542",
+    "line_number": 189,
+    "scene_id": "scene0353_00",
+    "target_id": 33,
+    "assignment_id": "8542",
+    "instance_type": "shoes",
+    "utterance": "This shoe is completely under the desk.",
+    "stimulus_id": "scene0353_00-shoes-4-33-1-23-31"
+  },
+  {
+    "sample_id": "scannet/scene0307_00::2::27482",
+    "line_number": 190,
+    "scene_id": "scene0307_00",
+    "target_id": 2,
+    "assignment_id": "27482",
+    "instance_type": "door",
+    "utterance": "It is the door next to the washing machine.",
+    "stimulus_id": "scene0307_00-door-4-2-0-33-35"
+  },
+  {
+    "sample_id": "scannet/scene0621_00::4::14108",
+    "line_number": 191,
+    "scene_id": "scene0621_00",
+    "target_id": 4,
+    "assignment_id": "14108",
+    "instance_type": "table",
+    "utterance": "This is one of two tables on the same wall, and it is not in the corner.",
+    "stimulus_id": "scene0621_00-table-5-4-0-1-2-3"
+  },
+  {
+    "sample_id": "scannet/scene0030_00::23::34637",
+    "line_number": 192,
+    "scene_id": "scene0030_00",
+    "target_id": 23,
+    "assignment_id": "34637",
+    "instance_type": "book",
+    "utterance": "The lowest box of books.",
+    "stimulus_id": "scene0030_00-book-3-23-24-25"
+  },
+  {
+    "sample_id": "scannet/scene0591_00::21::37966",
+    "line_number": 193,
+    "scene_id": "scene0591_00",
+    "target_id": 21,
+    "assignment_id": "37966",
+    "instance_type": "monitor",
+    "utterance": "The monitor in the middle of the three.",
+    "stimulus_id": "scene0591_00-monitor-3-21-8-22"
+  },
+  {
+    "sample_id": "scannet/scene0030_00::21::18959",
+    "line_number": 194,
+    "scene_id": "scene0030_00",
+    "target_id": 21,
+    "assignment_id": "18959",
+    "instance_type": "blackboard",
+    "utterance": "the blackboard behind the recliner",
+    "stimulus_id": "scene0030_00-blackboard-2-21-22"
+  },
+  {
+    "sample_id": "scannet/scene0580_00::8::1907",
+    "line_number": 195,
+    "scene_id": "scene0580_00",
+    "target_id": 8,
+    "assignment_id": "1907",
+    "instance_type": "pillow",
+    "utterance": "the pillow closer to the window",
+    "stimulus_id": "scene0580_00-pillow-2-8-17"
+  },
+  {
+    "sample_id": "scannet/scene0558_00::4::19976",
+    "line_number": 197,
+    "scene_id": "scene0558_00",
+    "target_id": 4,
+    "assignment_id": "19976",
+    "instance_type": "bookshelf",
+    "utterance": "The correct bookshelf meets another bookshelf in the corner of the room.",
+    "stimulus_id": "scene0558_00-bookshelf-2-4-5"
+  },
+  {
+    "sample_id": "scannet/scene0653_00::30::14681",
+    "line_number": 198,
+    "scene_id": "scene0653_00",
+    "target_id": 30,
+    "assignment_id": "14681",
+    "instance_type": "file cabinet",
+    "utterance": "File cabinet drawer under middle desk",
+    "stimulus_id": "scene0653_00-file_cabinet-6-30-0-1-27-39-44"
+  },
+  {
+    "sample_id": "scannet/scene0644_00::34::37947",
+    "line_number": 199,
+    "scene_id": "scene0644_00",
+    "target_id": 34,
+    "assignment_id": "37947",
+    "instance_type": "whiteboard",
+    "utterance": "The whiteboard is longer than it is wider. It also has a chair very near it.",
+    "stimulus_id": "scene0644_00-whiteboard-3-34-35-60"
+  },
+  {
+    "sample_id": "scannet/scene0697_00::6::39137",
+    "line_number": 200,
+    "scene_id": "scene0697_00",
+    "target_id": 6,
+    "assignment_id": "39137",
+    "instance_type": "nightstand",
+    "utterance": "The nightstand on the right when facing the head of the bed.",
+    "stimulus_id": "scene0697_00-nightstand-2-6-7"
+  },
+  {
+    "sample_id": "scannet/scene0568_00::2::31914",
+    "line_number": 201,
+    "scene_id": "scene0568_00",
+    "target_id": 2,
+    "assignment_id": "31914",
+    "instance_type": "chair",
+    "utterance": "The chair underneath the window next to the green table.",
+    "stimulus_id": "scene0568_00-chair-4-2-0-1-15"
+  },
+  {
+    "sample_id": "scannet/scene0671_00::5::35175",
+    "line_number": 202,
+    "scene_id": "scene0671_00",
+    "target_id": 5,
+    "assignment_id": "35175",
+    "instance_type": "chair",
+    "utterance": "Facing the green wall, the leftmost chair,.",
+    "stimulus_id": "scene0671_00-chair-5-5-1-2-3-4"
+  },
+  {
+    "sample_id": "scannet/scene0690_00::23::737",
+    "line_number": 203,
+    "scene_id": "scene0690_00",
+    "target_id": 23,
+    "assignment_id": "737",
+    "instance_type": "chair",
+    "utterance": "When standing in the middle of the room facing the two chairs, the correct one is on the left.",
+    "stimulus_id": "scene0690_00-chair-2-23-22"
+  },
+  {
+    "sample_id": "scannet/scene0663_00::37::7924",
+    "line_number": 204,
+    "scene_id": "scene0663_00",
+    "target_id": 37,
+    "assignment_id": "7924",
+    "instance_type": "trash can",
+    "utterance": "The trash can closest to the door.",
+    "stimulus_id": "scene0663_00-trash_can-2-37-16"
+  },
+  {
+    "sample_id": "scannet/scene0084_00::26::34100",
+    "line_number": 205,
+    "scene_id": "scene0084_00",
+    "target_id": 26,
+    "assignment_id": "34100",
+    "instance_type": "trash can",
+    "utterance": "The trash can next to the toilet.",
+    "stimulus_id": "scene0084_00-trash_can-3-26-10-25"
+  },
+  {
+    "sample_id": "scannet/scene0606_00::23::27910",
+    "line_number": 206,
+    "scene_id": "scene0606_00",
+    "target_id": 23,
+    "assignment_id": "27910",
+    "instance_type": "sofa chair",
+    "utterance": "The chair farthest from the clock.",
+    "stimulus_id": "scene0606_00-sofa_chair-2-23-21"
+  },
+  {
+    "sample_id": "scannet/scene0187_00::13::13003",
+    "line_number": 207,
+    "scene_id": "scene0187_00",
+    "target_id": 13,
+    "assignment_id": "13003",
+    "instance_type": "chair",
+    "utterance": "There are 2 chairs beside each other at a table, I am the chair closer to the center of the room",
+    "stimulus_id": "scene0187_00-chair-4-13-0-1-14"
+  },
+  {
+    "sample_id": "scannet/scene0144_00::17::37726",
+    "line_number": 208,
+    "scene_id": "scene0144_00",
+    "target_id": 17,
+    "assignment_id": "37726",
+    "instance_type": "curtain",
+    "utterance": "The curtains on the right, closest to the pillow.",
+    "stimulus_id": "scene0144_00-curtain-2-17-2"
+  },
+  {
+    "sample_id": "scannet/scene0207_00::39::25152",
+    "line_number": 209,
+    "scene_id": "scene0207_00",
+    "target_id": 39,
+    "assignment_id": "25152",
+    "instance_type": "backpack",
+    "utterance": "The backpack on the ground",
+    "stimulus_id": "scene0207_00-backpack-2-39-37"
+  },
+  {
+    "sample_id": "scannet/scene0462_00::10::5919",
+    "line_number": 210,
+    "scene_id": "scene0462_00",
+    "target_id": 10,
+    "assignment_id": "5919",
+    "instance_type": "trash can",
+    "utterance": "The black trash can at the end of the counter",
+    "stimulus_id": "scene0462_00-trash_can-2-10-8"
+  },
+  {
+    "sample_id": "scannet/scene0169_00::26::10915",
+    "line_number": 211,
+    "scene_id": "scene0169_00",
+    "target_id": 26,
+    "assignment_id": "10915",
+    "instance_type": "cabinet",
+    "utterance": "the cabinet in the corner of two walls on the left side of the red chair along the wall",
+    "stimulus_id": "scene0169_00-cabinet-2-26-12"
+  },
+  {
+    "sample_id": "scannet/scene0025_00::9::2844",
+    "line_number": 212,
+    "scene_id": "scene0025_00",
+    "target_id": 9,
+    "assignment_id": "2844",
+    "instance_type": "desk",
+    "utterance": "With your back to the door, it's the desk on the right side.",
+    "stimulus_id": "scene0025_00-desk-2-9-10"
+  },
+  {
+    "sample_id": "scannet/scene0377_00::3::8935",
+    "line_number": 213,
+    "scene_id": "scene0377_00",
+    "target_id": 3,
+    "assignment_id": "8935",
+    "instance_type": "shelf",
+    "utterance": "The shelf hanging in the middle of the room on the wall",
+    "stimulus_id": "scene0377_00-shelf-2-3-4"
+  },
+  {
+    "sample_id": "scannet/scene0700_00::17::37009",
+    "line_number": 214,
+    "scene_id": "scene0700_00",
+    "target_id": 17,
+    "assignment_id": "37009",
+    "instance_type": "monitor",
+    "utterance": "This is the rightmost monitor of the workstation.",
+    "stimulus_id": "scene0700_00-monitor-2-17-16"
+  },
+  {
+    "sample_id": "scannet/scene0207_00::11::17231",
+    "line_number": 215,
+    "scene_id": "scene0207_00",
+    "target_id": 11,
+    "assignment_id": "17231",
+    "instance_type": "chair",
+    "utterance": "The black chair with wheels.",
+    "stimulus_id": "scene0207_00-chair-2-11-10"
+  },
+  {
+    "sample_id": "scannet/scene0558_00::5::26505",
+    "line_number": 216,
+    "scene_id": "scene0558_00",
+    "target_id": 5,
+    "assignment_id": "26505",
+    "instance_type": "bookshelf",
+    "utterance": "The bookshelf close to the blue backpack",
+    "stimulus_id": "scene0558_00-bookshelf-2-5-4"
+  },
+  {
+    "sample_id": "scannet/scene0353_00::5::38824",
+    "line_number": 217,
+    "scene_id": "scene0353_00",
+    "target_id": 5,
+    "assignment_id": "38824",
+    "instance_type": "chair",
+    "utterance": "orange chair near the couch",
+    "stimulus_id": "scene0353_00-chair-3-5-3-4"
+  },
+  {
+    "sample_id": "scannet/scene0251_00::17::40148",
+    "line_number": 218,
+    "scene_id": "scene0251_00",
+    "target_id": 17,
+    "assignment_id": "40148",
+    "instance_type": "table",
+    "utterance": "The table in the shape of a half circle.",
+    "stimulus_id": "scene0251_00-table-2-17-16"
+  },
+  {
+    "sample_id": "scannet/scene0063_00::6::19101",
+    "line_number": 219,
+    "scene_id": "scene0063_00",
+    "target_id": 6,
+    "assignment_id": "19101",
+    "instance_type": "chair",
+    "utterance": "The chair is closest to the silver fridge",
+    "stimulus_id": "scene0063_00-chair-4-6-4-5-7"
+  },
+  {
+    "sample_id": "scannet/scene0462_00::8::2403",
+    "line_number": 220,
+    "scene_id": "scene0462_00",
+    "target_id": 8,
+    "assignment_id": "2403",
+    "instance_type": "trash can",
+    "utterance": "Small white trash can.",
+    "stimulus_id": "scene0462_00-trash_can-2-8-10"
+  },
+  {
+    "sample_id": "scannet/scene0568_00::9::21752",
+    "line_number": 221,
+    "scene_id": "scene0568_00",
+    "target_id": 9,
+    "assignment_id": "21752",
+    "instance_type": "table",
+    "utterance": "Table closest to red couch",
+    "stimulus_id": "scene0568_00-table-2-9-6"
+  },
+  {
+    "sample_id": "scannet/scene0086_00::6::34791",
+    "line_number": 222,
+    "scene_id": "scene0086_00",
+    "target_id": 6,
+    "assignment_id": "34791",
+    "instance_type": "toilet",
+    "utterance": "The toilet in the large ADA bathroom.",
+    "stimulus_id": "scene0086_00-toilet-2-6-7"
+  },
+  {
+    "sample_id": "scannet/scene0343_00::15::34865",
+    "line_number": 223,
+    "scene_id": "scene0343_00",
+    "target_id": 15,
+    "assignment_id": "34865",
+    "instance_type": "table",
+    "utterance": "This white table is in the center of the room.",
+    "stimulus_id": "scene0343_00-table-6-15-3-11-12-14-16"
+  },
+  {
+    "sample_id": "scannet/scene0256_00::7::3804",
+    "line_number": 224,
+    "scene_id": "scene0256_00",
+    "target_id": 7,
+    "assignment_id": "3804",
+    "instance_type": "curtain",
+    "utterance": "the darker set of curtains",
+    "stimulus_id": "scene0256_00-curtain-2-7-9"
+  },
+  {
+    "sample_id": "scannet/scene0496_00::26::7486",
+    "line_number": 225,
+    "scene_id": "scene0496_00",
+    "target_id": 26,
+    "assignment_id": "7486",
+    "instance_type": "window",
+    "utterance": "Window to the right when facing the blue chairs",
+    "stimulus_id": "scene0496_00-window-4-26-25-27-29"
+  },
+  {
+    "sample_id": "scannet/scene0246_00::26::13654",
+    "line_number": 226,
+    "scene_id": "scene0246_00",
+    "target_id": 26,
+    "assignment_id": "13654",
+    "instance_type": "light",
+    "utterance": "small light in the batchroom",
+    "stimulus_id": "scene0246_00-light-2-26-2"
+  },
+  {
+    "sample_id": "scannet/scene0307_00::4::6747",
+    "line_number": 227,
+    "scene_id": "scene0307_00",
+    "target_id": 4,
+    "assignment_id": "6747",
+    "instance_type": "sink",
+    "utterance": "The sink that is closest to the washer machine",
+    "stimulus_id": "scene0307_00-sink-2-4-5"
+  },
+  {
+    "sample_id": "scannet/scene0647_00::0::21075",
+    "line_number": 228,
+    "scene_id": "scene0647_00",
+    "target_id": 0,
+    "assignment_id": "21075",
+    "instance_type": "stool",
+    "utterance": "This stool is in the corner under the TV.",
+    "stimulus_id": "scene0647_00-stool-4-0-8-12-13"
+  },
+  {
+    "sample_id": "scannet/scene0426_00::4::25083",
+    "line_number": 229,
+    "scene_id": "scene0426_00",
+    "target_id": 4,
+    "assignment_id": "25083",
+    "instance_type": "chair",
+    "utterance": "The chair by itself near the door",
+    "stimulus_id": "scene0426_00-chair-3-4-3-7"
+  },
+  {
+    "sample_id": "scannet/scene0314_00::2::2978",
+    "line_number": 230,
+    "scene_id": "scene0314_00",
+    "target_id": 2,
+    "assignment_id": "2978",
+    "instance_type": "monitor",
+    "utterance": "If you were looking at the correct monitor, the shelving unit is on your right",
+    "stimulus_id": "scene0314_00-monitor-3-2-1-10"
+  },
+  {
+    "sample_id": "scannet/scene0063_00::4::7661",
+    "line_number": 231,
+    "scene_id": "scene0063_00",
+    "target_id": 4,
+    "assignment_id": "7661",
+    "instance_type": "chair",
+    "utterance": "There is a small square table/counter jutting out from against the wall; this chair is the only one at that table.",
+    "stimulus_id": "scene0063_00-chair-4-4-5-6-7"
+  },
+  {
+    "sample_id": "scannet/scene0077_00::13::34942",
+    "line_number": 233,
+    "scene_id": "scene0077_00",
+    "target_id": 13,
+    "assignment_id": "34942",
+    "instance_type": "trash can",
+    "utterance": "The small black trash can on floor",
+    "stimulus_id": "scene0077_00-trash_can-2-13-8"
+  },
+  {
+    "sample_id": "scannet/scene0685_00::17::11789",
+    "line_number": 234,
+    "scene_id": "scene0685_00",
+    "target_id": 17,
+    "assignment_id": "11789",
+    "instance_type": "box",
+    "utterance": "Choose the cardboard box in the back that has black markings on it.",
+    "stimulus_id": "scene0685_00-box-2-17-16"
+  },
+  {
+    "sample_id": "scannet/scene0552_00::11::12528",
+    "line_number": 235,
+    "scene_id": "scene0552_00",
+    "target_id": 11,
+    "assignment_id": "12528",
+    "instance_type": "table",
+    "utterance": "Facing he copiers, the table by itself.",
+    "stimulus_id": "scene0552_00-table-3-11-9-10"
+  },
+  {
+    "sample_id": "scannet/scene0565_00::23::25609",
+    "line_number": 236,
+    "scene_id": "scene0565_00",
+    "target_id": 23,
+    "assignment_id": "25609",
+    "instance_type": "cart",
+    "utterance": "select the cart furthest from the bin",
+    "stimulus_id": "scene0565_00-cart-3-23-22-40"
+  },
+  {
+    "sample_id": "scannet/scene0458_00::32::25539",
+    "line_number": 237,
+    "scene_id": "scene0458_00",
+    "target_id": 32,
+    "assignment_id": "25539",
+    "instance_type": "bottle",
+    "utterance": "The bottle on the floor next to the sink.",
+    "stimulus_id": "scene0458_00-bottle-5-32-18-25-28-29"
+  },
+  {
+    "sample_id": "scannet/scene0663_00::36::40685",
+    "line_number": 238,
+    "scene_id": "scene0663_00",
+    "target_id": 36,
+    "assignment_id": "40685",
+    "instance_type": "file cabinet",
+    "utterance": "the file cabinet that is closest to the door",
+    "stimulus_id": "scene0663_00-file_cabinet-2-36-24"
+  },
+  {
+    "sample_id": "scannet/scene0648_00::24::4813",
+    "line_number": 239,
+    "scene_id": "scene0648_00",
+    "target_id": 24,
+    "assignment_id": "4813",
+    "instance_type": "shelf",
+    "utterance": "the shelf next to the bed on the desk",
+    "stimulus_id": "scene0648_00-shelf-3-24-22-23"
+  },
+  {
+    "sample_id": "scannet/scene0334_00::2::14117",
+    "line_number": 240,
+    "scene_id": "scene0334_00",
+    "target_id": 2,
+    "assignment_id": "14117",
+    "instance_type": "couch",
+    "utterance": "Couch that does NOT contain a small circular table in front of it.",
+    "stimulus_id": "scene0334_00-couch-2-2-3"
+  },
+  {
+    "sample_id": "scannet/scene0700_00::6::697",
+    "line_number": 241,
+    "scene_id": "scene0700_00",
+    "target_id": 6,
+    "assignment_id": "697",
+    "instance_type": "backpack",
+    "utterance": "choose the backpack on the floor under the whiteboard.",
+    "stimulus_id": "scene0700_00-backpack-2-6-5"
+  },
+  {
+    "sample_id": "scannet/scene0081_00::6::13675",
+    "line_number": 242,
+    "scene_id": "scene0081_00",
+    "target_id": 6,
+    "assignment_id": "13675",
+    "instance_type": "table",
+    "utterance": "it is the table in the middle",
+    "stimulus_id": "scene0081_00-table-3-6-4-5"
+  },
+  {
+    "sample_id": "scannet/scene0095_00::24::33940",
+    "line_number": 243,
+    "scene_id": "scene0095_00",
+    "target_id": 24,
+    "assignment_id": "33940",
+    "instance_type": "mouse",
+    "utterance": "the corner mouse, very close to the corner edge of the table",
+    "stimulus_id": "scene0095_00-mouse-3-24-20-27"
+  },
+  {
+    "sample_id": "scannet/scene0647_00::17::335",
+    "line_number": 244,
+    "scene_id": "scene0647_00",
+    "target_id": 17,
+    "assignment_id": "335",
+    "instance_type": "picture",
+    "utterance": "the large blue painting",
+    "stimulus_id": "scene0647_00-picture-3-17-18-19"
+  },
+  {
+    "sample_id": "scannet/scene0412_00::14::16119",
+    "line_number": 245,
+    "scene_id": "scene0412_00",
+    "target_id": 14,
+    "assignment_id": "16119",
+    "instance_type": "trash can",
+    "utterance": "The big plastic trash bin covered by a lid, behind the green and circular trash cans.",
+    "stimulus_id": "scene0412_00-trash_can-4-14-5-13-15"
+  },
+  {
+    "sample_id": "scannet/scene0412_00::28::24330",
+    "line_number": 246,
+    "scene_id": "scene0412_00",
+    "target_id": 28,
+    "assignment_id": "24330",
+    "instance_type": "table",
+    "utterance": "The cluttered table, to the left of the boxes.",
+    "stimulus_id": "scene0412_00-table-2-28-4"
+  },
+  {
+    "sample_id": "scannet/scene0671_00::9::32606",
+    "line_number": 247,
+    "scene_id": "scene0671_00",
+    "target_id": 9,
+    "assignment_id": "32606",
+    "instance_type": "book",
+    "utterance": "Facing the table with the books on the far end, choose the book on the right.",
+    "stimulus_id": "scene0671_00-book-2-9-21"
+  },
+  {
+    "sample_id": "scannet/scene0665_00::2::38846",
+    "line_number": 249,
+    "scene_id": "scene0665_00",
+    "target_id": 2,
+    "assignment_id": "38846",
+    "instance_type": "desk",
+    "utterance": "It's the desk that's closest to the door, and by itself.",
+    "stimulus_id": "scene0665_00-desk-4-2-20-29-31"
+  },
+  {
+    "sample_id": "scannet/scene0645_00::17::11769",
+    "line_number": 250,
+    "scene_id": "scene0645_00",
+    "target_id": 17,
+    "assignment_id": "11769",
+    "instance_type": "curtain",
+    "utterance": "The larger curtains with the pelmet and tie backs.",
+    "stimulus_id": "scene0645_00-curtain-3-17-40-41"
+  },
+  {
+    "sample_id": "scannet/scene0535_00::10::31495",
+    "line_number": 251,
+    "scene_id": "scene0535_00",
+    "target_id": 10,
+    "assignment_id": "31495",
+    "instance_type": "desk",
+    "utterance": "Desk on the right, furthest from window.",
+    "stimulus_id": "scene0535_00-desk-2-10-11"
+  },
+  {
+    "sample_id": "scannet/scene0633_00::22::16059",
+    "line_number": 252,
+    "scene_id": "scene0633_00",
+    "target_id": 22,
+    "assignment_id": "16059",
+    "instance_type": "curtain",
+    "utterance": "It's the large curtain on the window with a small white table in front of it.",
+    "stimulus_id": "scene0633_00-curtain-2-22-8"
+  },
+  {
+    "sample_id": "scannet/scene0077_00::9::36722",
+    "line_number": 253,
+    "scene_id": "scene0077_00",
+    "target_id": 9,
+    "assignment_id": "36722",
+    "instance_type": "door",
+    "utterance": "the door in the hallway",
+    "stimulus_id": "scene0077_00-door-2-9-20"
+  },
+  {
+    "sample_id": "scannet/scene0389_00::27::31910",
+    "line_number": 254,
+    "scene_id": "scene0389_00",
+    "target_id": 27,
+    "assignment_id": "31910",
+    "instance_type": "backpack",
+    "utterance": "Backpack in front of door",
+    "stimulus_id": "scene0389_00-backpack-2-27-18"
+  },
+  {
+    "sample_id": "scannet/scene0025_00::30::25001",
+    "line_number": 255,
+    "scene_id": "scene0025_00",
+    "target_id": 30,
+    "assignment_id": "25001",
+    "instance_type": "keyboard",
+    "utterance": "The black keyboard.",
+    "stimulus_id": "scene0025_00-keyboard-2-30-34"
+  },
+  {
+    "sample_id": "scannet/scene0458_00::0::13098",
+    "line_number": 256,
+    "scene_id": "scene0458_00",
+    "target_id": 0,
+    "assignment_id": "13098",
+    "instance_type": "box",
+    "utterance": "In the stack of boxes, it's the middle one.",
+    "stimulus_id": "scene0458_00-box-3-0-27-31"
+  },
+  {
+    "sample_id": "scannet/scene0169_00::28::5124",
+    "line_number": 257,
+    "scene_id": "scene0169_00",
+    "target_id": 28,
+    "assignment_id": "5124",
+    "instance_type": "window",
+    "utterance": "the window by the row of chairs",
+    "stimulus_id": "scene0169_00-window-2-28-14"
+  },
+  {
+    "sample_id": "scannet/scene0015_00::47::40015",
+    "line_number": 258,
+    "scene_id": "scene0015_00",
+    "target_id": 47,
+    "assignment_id": "40015",
+    "instance_type": "whiteboard",
+    "utterance": "The larger whiteboard next to the square table in the corner.",
+    "stimulus_id": "scene0015_00-whiteboard-2-47-40"
+  },
+  {
+    "sample_id": "scannet/scene0046_00::21::23622",
+    "line_number": 259,
+    "scene_id": "scene0046_00",
+    "target_id": 21,
+    "assignment_id": "23622",
+    "instance_type": "door",
+    "utterance": "main door into the room",
+    "stimulus_id": "scene0046_00-door-2-21-26"
+  },
+  {
+    "sample_id": "scannet/scene0131_00::20::17918",
+    "line_number": 260,
+    "scene_id": "scene0131_00",
+    "target_id": 20,
+    "assignment_id": "17918",
+    "instance_type": "monitor",
+    "utterance": "The computer screen to the right of the landscape picture on the wall.",
+    "stimulus_id": "scene0131_00-monitor-3-20-12-13"
+  },
+  {
+    "sample_id": "scannet/scene0629_00::2::23894",
+    "line_number": 261,
+    "scene_id": "scene0629_00",
+    "target_id": 2,
+    "assignment_id": "23894",
+    "instance_type": "door",
+    "utterance": "the door that is closed",
+    "stimulus_id": "scene0629_00-door-2-2-0"
+  },
+  {
+    "sample_id": "scannet/scene0643_00::4::39918",
+    "line_number": 262,
+    "scene_id": "scene0643_00",
+    "target_id": 4,
+    "assignment_id": "39918",
+    "instance_type": "chair",
+    "utterance": "It's the wooden chair across from the mini fridge.",
+    "stimulus_id": "scene0643_00-chair-5-4-2-3-5-6"
+  },
+  {
+    "sample_id": "scannet/scene0616_00::30::22388",
+    "line_number": 263,
+    "scene_id": "scene0616_00",
+    "target_id": 30,
+    "assignment_id": "22388",
+    "instance_type": "picture",
+    "utterance": "This is a large mural depicting a tree and mushroom.",
+    "stimulus_id": "scene0616_00-picture-4-30-26-27-29"
+  },
+  {
+    "sample_id": "scannet/scene0591_00::27::31552",
+    "line_number": 264,
+    "scene_id": "scene0591_00",
+    "target_id": 27,
+    "assignment_id": "31552",
+    "instance_type": "plant",
+    "utterance": "the plant closest to the wall with the whiteboard.",
+    "stimulus_id": "scene0591_00-plant-2-27-26"
+  },
+  {
+    "sample_id": "scannet/scene0435_00::11::15849",
+    "line_number": 265,
+    "scene_id": "scene0435_00",
+    "target_id": 11,
+    "assignment_id": "15849",
+    "instance_type": "bed",
+    "utterance": "the bed closer to the window",
+    "stimulus_id": "scene0435_00-bed-2-11-10"
+  },
+  {
+    "sample_id": "scannet/scene0552_00::13::14948",
+    "line_number": 266,
+    "scene_id": "scene0552_00",
+    "target_id": 13,
+    "assignment_id": "14948",
+    "instance_type": "kitchen cabinets",
+    "utterance": "cabinet on the floor next to the sink",
+    "stimulus_id": "scene0552_00-kitchen_cabinets-2-13-27"
+  },
+  {
+    "sample_id": "scannet/scene0221_00::45::25442",
+    "line_number": 267,
+    "scene_id": "scene0221_00",
+    "target_id": 45,
+    "assignment_id": "25442",
+    "instance_type": "pillow",
+    "utterance": "Standing at the foot of the beds. The bed on the right, you want the pillow in the back, on the nightstand side.",
+    "stimulus_id": "scene0221_00-pillow-6-45-39-40-41-44-46"
+  },
+  {
+    "sample_id": "scannet/scene0645_00::34::41278",
+    "line_number": 268,
+    "scene_id": "scene0645_00",
+    "target_id": 34,
+    "assignment_id": "41278",
+    "instance_type": "lamp",
+    "utterance": "It is the lamp in the nook with the windows.",
+    "stimulus_id": "scene0645_00-lamp-3-34-12-33"
+  },
+  {
+    "sample_id": "scannet/scene0353_00::27::9807",
+    "line_number": 269,
+    "scene_id": "scene0353_00",
+    "target_id": 27,
+    "assignment_id": "9807",
+    "instance_type": "pillow",
+    "utterance": "The pillow is sitting on top of couch",
+    "stimulus_id": "scene0353_00-pillow-4-27-28-41-48"
+  },
+  {
+    "sample_id": "scannet/scene0671_00::2::34652",
+    "line_number": 271,
+    "scene_id": "scene0671_00",
+    "target_id": 2,
+    "assignment_id": "34652",
+    "instance_type": "chair",
+    "utterance": "the chair with a red backpack",
+    "stimulus_id": "scene0671_00-chair-5-2-1-3-4-5"
+  },
+  {
+    "sample_id": "scannet/scene0647_00::16::2371",
+    "line_number": 272,
+    "scene_id": "scene0647_00",
+    "target_id": 16,
+    "assignment_id": "2371",
+    "instance_type": "door",
+    "utterance": "The door that is on the same wall as the large blue and orange wall art.",
+    "stimulus_id": "scene0647_00-door-2-16-22"
+  },
+  {
+    "sample_id": "scannet/scene0591_00::5::25220",
+    "line_number": 273,
+    "scene_id": "scene0591_00",
+    "target_id": 5,
+    "assignment_id": "25220",
+    "instance_type": "desk",
+    "utterance": "While standing at the front entrance, you want the desk to the right with the cabinet on the side of it",
+    "stimulus_id": "scene0591_00-desk-2-5-19"
+  },
+  {
+    "sample_id": "scannet/scene0549_00::4::4616",
+    "line_number": 274,
+    "scene_id": "scene0549_00",
+    "target_id": 4,
+    "assignment_id": "4616",
+    "instance_type": "end table",
+    "utterance": "The end table closest to the hallway entrance.",
+    "stimulus_id": "scene0549_00-end_table-4-4-5-6-7"
+  },
+  {
+    "sample_id": "scannet/scene0329_00::14::18061",
+    "line_number": 275,
+    "scene_id": "scene0329_00",
+    "target_id": 14,
+    "assignment_id": "18061",
+    "instance_type": "trash can",
+    "utterance": "I am a blue trashcan next to the middle door.",
+    "stimulus_id": "scene0329_00-trash_can-3-14-25-27"
+  },
+  {
+    "sample_id": "scannet/scene0696_00::32::3945",
+    "line_number": 276,
+    "scene_id": "scene0696_00",
+    "target_id": 32,
+    "assignment_id": "3945",
+    "instance_type": "cabinet",
+    "utterance": "On the side of the room with one closed cabinet and one with open and cluttered shelves, it is the closed cabinet.",
+    "stimulus_id": "scene0696_00-cabinet-4-32-0-21-22"
+  },
+  {
+    "sample_id": "scannet/scene0458_00::27::9356",
+    "line_number": 277,
+    "scene_id": "scene0458_00",
+    "target_id": 27,
+    "assignment_id": "9356",
+    "instance_type": "box",
+    "utterance": "The box that is on top.",
+    "stimulus_id": "scene0458_00-box-3-27-0-31"
+  },
+  {
+    "sample_id": "scannet/scene0608_00::14::35982",
+    "line_number": 278,
+    "scene_id": "scene0608_00",
+    "target_id": 14,
+    "assignment_id": "35982",
+    "instance_type": "plant",
+    "utterance": "plant behind the tv.",
+    "stimulus_id": "scene0608_00-plant-3-14-4-18"
+  },
+  {
+    "sample_id": "scannet/scene0221_00::47::4274",
+    "line_number": 280,
+    "scene_id": "scene0221_00",
+    "target_id": 47,
+    "assignment_id": "4274",
+    "instance_type": "table",
+    "utterance": "The correct table is square and close to the door.",
+    "stimulus_id": "scene0221_00-table-2-47-6"
+  },
+  {
+    "sample_id": "scannet/scene0645_00::42::34900",
+    "line_number": 281,
+    "scene_id": "scene0645_00",
+    "target_id": 42,
+    "assignment_id": "34900",
+    "instance_type": "window",
+    "utterance": "The object in the bay window.",
+    "stimulus_id": "scene0645_00-window-2-42-55"
+  },
+  {
+    "sample_id": "scannet/scene0568_00::1::32352",
+    "line_number": 282,
+    "scene_id": "scene0568_00",
+    "target_id": 1,
+    "assignment_id": "32352",
+    "instance_type": "chair",
+    "utterance": "it is the chair closest to the television.",
+    "stimulus_id": "scene0568_00-chair-4-1-0-2-15"
+  },
+  {
+    "sample_id": "scannet/scene0690_00::15::4351",
+    "line_number": 283,
+    "scene_id": "scene0690_00",
+    "target_id": 15,
+    "assignment_id": "4351",
+    "instance_type": "armchair",
+    "utterance": "Walking towards the sofas, it's the left sofa furthest away from wooden cabinets",
+    "stimulus_id": "scene0690_00-armchair-4-15-16-17-18"
+  },
+  {
+    "sample_id": "scannet/scene0246_00::38::429",
+    "line_number": 284,
+    "scene_id": "scene0246_00",
+    "target_id": 38,
+    "assignment_id": "429",
+    "instance_type": "pillow",
+    "utterance": "The blue pillow that is on top of all the other pillows",
+    "stimulus_id": "scene0246_00-pillow-6-38-39-40-41-42-43"
+  },
+  {
+    "sample_id": "scannet/scene0131_00::43::19830",
+    "line_number": 285,
+    "scene_id": "scene0131_00",
+    "target_id": 43,
+    "assignment_id": "19830",
+    "instance_type": "whiteboard",
+    "utterance": "the whiteboard that is actually on the floor",
+    "stimulus_id": "scene0131_00-whiteboard-2-43-38"
+  },
+  {
+    "sample_id": "scannet/scene0357_00::13::13418",
+    "line_number": 286,
+    "scene_id": "scene0357_00",
+    "target_id": 13,
+    "assignment_id": "13418",
+    "instance_type": "cabinet",
+    "utterance": "Biggest cabinet located just by stairs",
+    "stimulus_id": "scene0357_00-cabinet-2-13-15"
+  },
+  {
+    "sample_id": "scannet/scene0652_00::15::23368",
+    "line_number": 287,
+    "scene_id": "scene0652_00",
+    "target_id": 15,
+    "assignment_id": "23368",
+    "instance_type": "pillow",
+    "utterance": "Facing bed, it's the furthest back left-hand white pillow [under other white pillow].",
+    "stimulus_id": "scene0652_00-pillow-6-15-11-12-13-14-17"
+  },
+  {
+    "sample_id": "scannet/scene0328_00::30::3374",
+    "line_number": 288,
+    "scene_id": "scene0328_00",
+    "target_id": 30,
+    "assignment_id": "3374",
+    "instance_type": "sign",
+    "utterance": "The sign on the far right when facing the double kitchen cabinet.",
+    "stimulus_id": "scene0328_00-sign-4-30-27-28-29"
+  },
+  {
+    "sample_id": "scannet/scene0249_00::33::38507",
+    "line_number": 289,
+    "scene_id": "scene0249_00",
+    "target_id": 33,
+    "assignment_id": "38507",
+    "instance_type": "window",
+    "utterance": "The window closest to the blue recycle bin",
+    "stimulus_id": "scene0249_00-window-2-33-34"
+  },
+  {
+    "sample_id": "scannet/scene0046_00::48::14497",
+    "line_number": 290,
+    "scene_id": "scene0046_00",
+    "target_id": 48,
+    "assignment_id": "14497",
+    "instance_type": "shoes",
+    "utterance": "the shoes closest to the door",
+    "stimulus_id": "scene0046_00-shoes-2-48-49"
+  },
+  {
+    "sample_id": "scannet/scene0231_00::57::20770",
+    "line_number": 291,
+    "scene_id": "scene0231_00",
+    "target_id": 57,
+    "assignment_id": "20770",
+    "instance_type": "sink",
+    "utterance": "It is the sink under the window, not the one on the island.",
+    "stimulus_id": "scene0231_00-sink-2-57-73"
+  },
+  {
+    "sample_id": "scannet/scene0357_00::22::17250",
+    "line_number": 292,
+    "scene_id": "scene0357_00",
+    "target_id": 22,
+    "assignment_id": "17250",
+    "instance_type": "shoes",
+    "utterance": "the shoes are under the large messy shelf next to the staircase",
+    "stimulus_id": "scene0357_00-shoes-5-22-19-20-21-23"
+  },
+  {
+    "sample_id": "scannet/scene0357_00::5::23532",
+    "line_number": 293,
+    "scene_id": "scene0357_00",
+    "target_id": 5,
+    "assignment_id": "23532",
+    "instance_type": "door",
+    "utterance": "The door that is on the same wall as the staircase.",
+    "stimulus_id": "scene0357_00-door-2-5-14"
+  },
+  {
+    "sample_id": "scannet/scene0488_00::19::3244",
+    "line_number": 295,
+    "scene_id": "scene0488_00",
+    "target_id": 19,
+    "assignment_id": "3244",
+    "instance_type": "kitchen cabinets",
+    "utterance": "Choose the low cabinets with the sink.",
+    "stimulus_id": "scene0488_00-kitchen_cabinets-3-19-3-18"
+  },
+  {
+    "sample_id": "scannet/scene0095_00::53::23944",
+    "line_number": 296,
+    "scene_id": "scene0095_00",
+    "target_id": 53,
+    "assignment_id": "23944",
+    "instance_type": "window",
+    "utterance": "The window on your left",
+    "stimulus_id": "scene0095_00-window-2-53-54"
+  },
+  {
+    "sample_id": "scannet/scene0643_00::4::27146",
+    "line_number": 298,
+    "scene_id": "scene0643_00",
+    "target_id": 4,
+    "assignment_id": "27146",
+    "instance_type": "chair",
+    "utterance": "Find the only brown wooden chair.",
+    "stimulus_id": "scene0643_00-chair-5-4-2-3-5-6"
+  },
+  {
+    "sample_id": "scannet/scene0648_00::25::7427",
+    "line_number": 299,
+    "scene_id": "scene0648_00",
+    "target_id": 25,
+    "assignment_id": "7427",
+    "instance_type": "chair",
+    "utterance": "it is the chair closest to the exit doorway",
+    "stimulus_id": "scene0648_00-chair-2-25-26"
+  },
+  {
+    "sample_id": "scannet/scene0648_00::7::7730",
+    "line_number": 300,
+    "scene_id": "scene0648_00",
+    "target_id": 7,
+    "assignment_id": "7730",
+    "instance_type": "picture",
+    "utterance": "The larger of the two blue framed pictures, closer to the closet.",
+    "stimulus_id": "scene0648_00-picture-2-7-8"
+  },
+  {
+    "sample_id": "scannet/scene0338_00::21::35740",
+    "line_number": 301,
+    "scene_id": "scene0338_00",
+    "target_id": 21,
+    "assignment_id": "35740",
+    "instance_type": "box",
+    "utterance": "Facing the boxes, the box in the back on the left side.",
+    "stimulus_id": "scene0338_00-box-5-21-0-18-19-20"
+  }
+]
