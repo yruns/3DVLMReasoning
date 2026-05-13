@@ -279,3 +279,52 @@ Transcrib3D-only wins point to the next transfer target: deterministic helper
 logic for same-category superlatives, under/above/left/right relations, and
 attribute disambiguation, rather than only asking the LLM to infer these from
 the inventory table.
+
+## v10 Transfer Step: Deterministic Geometry Ranking
+
+Implemented next because v9 still lost Transcrib3D-only cases involving
+same-category geometry and superlatives:
+
+- line 5: larger chair near octagonal table
+- line 75: pillow farthest from door
+- line 111: larger curved desk
+- line 46: lower set of pipes
+
+v10 adds a new VG tool:
+
+- `rank_proposals_by_geometry(candidate_ids, criterion)`
+- supported criteria:
+  `largest`, `smallest`, `tallest`, `shortest`, `highest`, `lowest`,
+  `widest`, `narrowest`
+- returned evidence:
+  ranked proposal ids, volumes, footprint areas, heights, center z values,
+  sizes, centers, and per-proposal rows
+
+The playbook now instructs the agent to call this tool for deterministic
+same-category size/height superlatives after building a candidate shortlist.
+For combined expressions such as "the larger chair near the octagonal table",
+the intended workflow is: find chair candidates, use spatial/visual evidence to
+narrow chairs near the table, then rank that shortlist by `largest`.
+
+`chassis_tools_version` was bumped from 19 to 20 because the VG tool surface
+changed.
+
+Verification:
+
+```bash
+PYTHONPATH=src .venv/bin/python -m pytest \
+  src/agents/packs/vg_embodiedscan/tests/test_tools.py \
+  src/agents/tests/test_agent_config_flags.py \
+  src/agents/tests/test_stage2_deep_agent.py::test_pack_v1_vg_tool_list_snapshot \
+  src/agents/tests/test_stage2_deep_agent.py::test_vg_prompt_formats_proposal_inventory_from_pack_pool \
+  -q
+```
+
+Result: 42 passed.
+
+Next evaluation should reuse the same first300 pack and only rerun Stage 2:
+
+- Output dir:
+  `tmp/nr3d_eval_v10_geometry_first300_20260514/`
+- Pack:
+  `pack_nr3d_v8_transcrib3d_first300_baseline`

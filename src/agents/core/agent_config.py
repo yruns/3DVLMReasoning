@@ -94,7 +94,7 @@ class Stage2DeepAgentConfig(BaseModel):
         description="VG backend. Only 'pack_v1' is supported after Plan C.",
     )
     chassis_tools_version: int = Field(
-        default=19,
+        default=20,
         ge=1,
         description="Bump when chassis tool surface changes; folded into "
         "derive_eval_session_id so prompt-cache invalidates correctly. "
@@ -115,7 +115,8 @@ class Stage2DeepAgentConfig(BaseModel):
         "v16 hard-blocks narrow unsafe TADG overrides; v17 blocks "
         "left/right submissions with untested ambiguous anchors; v18 "
         "blocks relation-rationale frame citations missing the spatial anchor; "
-        "v19 injects a compact VG proposal inventory into the prompt.",
+        "v19 injects a compact VG proposal inventory into the prompt; v20 "
+        "adds deterministic VG proposal geometry ranking.",
     )
     use_clip_visible_aug: bool = Field(
         default=False,

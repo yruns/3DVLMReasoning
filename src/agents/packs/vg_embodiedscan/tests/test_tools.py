@@ -435,6 +435,56 @@ def test_compare_proposals_spatial_unknown_relation_errors(tmp_path: Path) -> No
     assert response.startswith("ERROR")
 
 
+def test_rank_proposals_by_geometry_gates_on_skill(tmp_path: Path) -> None:
+    rs = _runtime(tmp_path)
+    tool = next(t for t in build_vg_tools(rs) if t.name == "rank_proposals_by_geometry")
+
+    response = tool.invoke({"candidate_ids": [0, 2], "criterion": "largest"})
+
+    assert response.startswith("ERROR")
+    assert "vg-grounding-playbook" in response
+
+
+def test_rank_proposals_by_geometry_size_and_height(tmp_path: Path) -> None:
+    rs = _runtime(tmp_path)
+    rs.skills_loaded.add("vg-grounding-playbook")
+    rs.task_ctx.proposals = [
+        Proposal(
+            id=0,
+            bbox_3d_9dof=[0, 0, 2, 1, 2, 1, 0, 0, 0],
+            category="chair",
+            score=0.9,
+        ),
+        Proposal(
+            id=1,
+            bbox_3d_9dof=[1, 0, 5, 2, 2, 2, 0, 0, 0],
+            category="chair",
+            score=0.7,
+        ),
+        Proposal(
+            id=2,
+            bbox_3d_9dof=[2, 0, -1, 1, 1, 3, 0, 0, 0],
+            category="chair",
+            score=0.6,
+        ),
+    ]
+    tool = next(t for t in build_vg_tools(rs) if t.name == "rank_proposals_by_geometry")
+
+    largest = json.loads(
+        tool.invoke({"candidate_ids": [0, 1, 2], "criterion": "largest"})
+    )
+    lowest = json.loads(
+        tool.invoke({"candidate_ids": [0, 1, 2], "criterion": "lowest"})
+    )
+
+    assert largest["ranked_ids"] == [1, 2, 0]
+    assert largest["volumes"] == [8.0, 3.0, 2.0]
+    assert largest["heights"] == [2.0, 3.0, 1.0]
+    assert largest["centers_z"] == [5.0, -1.0, 2.0]
+    assert lowest["ranked_ids"] == [2, 0, 1]
+    assert lowest["centers_z"] == [-1.0, 2.0, 5.0]
+
+
 # ---------------------------------------------------------------------------
 # CVRA (find_proposals_by_category with clip_visible augmentation)
 #

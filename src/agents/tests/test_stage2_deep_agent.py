@@ -1800,6 +1800,7 @@ def test_pack_v1_vg_tool_list_snapshot(tmp_path) -> None:
             "inspect_proposal",
             "find_proposals_by_category",
             "compare_proposals_spatial",
+            "rank_proposals_by_geometry",
             # chassis
             "list_skills",
             "load_skill",

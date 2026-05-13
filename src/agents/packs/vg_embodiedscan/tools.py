@@ -111,6 +111,48 @@ def _norm_category(category: str) -> str:
     return " ".join(str(category).strip().lower().split())
 
 
+def _proposal_geometry_row(proposal: Any) -> dict[str, Any]:
+    bbox = [float(x) for x in proposal.bbox_3d_9dof]
+    cx, cy, cz, dx, dy, dz = bbox[:6]
+    volume = float(dx * dy * dz)
+    footprint_area = float(dx * dy)
+    return {
+        "proposal_id": proposal.id,
+        "category": proposal.category,
+        "center": [cx, cy, cz],
+        "size": [dx, dy, dz],
+        "volume": volume,
+        "footprint_area": footprint_area,
+        "height": float(dz),
+        "max_horizontal_extent": float(max(dx, dy)),
+    }
+
+
+def _sort_geometry_rows(rows: list[dict[str, Any]], criterion: str) -> None:
+    if criterion == "largest":
+        rows.sort(key=lambda r: (-r["volume"], r["proposal_id"]))
+    elif criterion == "smallest":
+        rows.sort(key=lambda r: (r["volume"], r["proposal_id"]))
+    elif criterion == "tallest":
+        rows.sort(key=lambda r: (-r["height"], r["proposal_id"]))
+    elif criterion == "shortest":
+        rows.sort(key=lambda r: (r["height"], r["proposal_id"]))
+    elif criterion == "highest":
+        rows.sort(key=lambda r: (-r["center"][2], r["proposal_id"]))
+    elif criterion == "lowest":
+        rows.sort(key=lambda r: (r["center"][2], r["proposal_id"]))
+    elif criterion == "widest":
+        rows.sort(key=lambda r: (-r["max_horizontal_extent"], r["proposal_id"]))
+    elif criterion == "narrowest":
+        rows.sort(key=lambda r: (r["max_horizontal_extent"], r["proposal_id"]))
+    else:
+        raise ValueError(
+            "unsupported criterion "
+            f"{criterion!r}; allowed: largest | smallest | tallest | shortest | "
+            "highest | lowest | widest | narrowest"
+        )
+
+
 def _coerce_category_list(value: Any) -> list[str]:
     if value is None:
         return []
@@ -671,12 +713,51 @@ def build_vg_tools(runtime: Any) -> list[BaseTool]:
         runtime.record("compare_proposals_spatial", request, text)
         return text
 
+    @tool
+    def rank_proposals_by_geometry(candidate_ids: list[int], criterion: str) -> str:
+        """VG tool. Rank same-category candidates by deterministic bbox geometry."""
+        gate = _gate(runtime)
+        request = {"candidate_ids": candidate_ids, "criterion": criterion}
+        if gate is not None:
+            runtime.record("rank_proposals_by_geometry", request, gate)
+            return gate
+        criterion_norm = str(criterion).strip().lower()
+        candidates = [p for p in ctx.proposals if p.id in set(candidate_ids)]
+        missing = sorted(set(candidate_ids) - {p.id for p in candidates})
+        if missing:
+            err = f"ERROR: candidate ids not in pool: {missing}"
+            runtime.record("rank_proposals_by_geometry", request, err)
+            return err
+        rows = [_proposal_geometry_row(p) for p in candidates]
+        try:
+            _sort_geometry_rows(rows, criterion_norm)
+        except ValueError as exc:
+            err = f"ERROR: {exc}"
+            runtime.record("rank_proposals_by_geometry", request, err)
+            return err
+
+        payload = {
+            "criterion": criterion_norm,
+            "ranked_ids": [row["proposal_id"] for row in rows],
+            "volumes": [row["volume"] for row in rows],
+            "footprint_areas": [row["footprint_area"] for row in rows],
+            "heights": [row["height"] for row in rows],
+            "centers_z": [row["center"][2] for row in rows],
+            "sizes": [row["size"] for row in rows],
+            "centers": [row["center"] for row in rows],
+            "rows": rows,
+        }
+        text = json.dumps(payload, ensure_ascii=False)
+        runtime.record("rank_proposals_by_geometry", request, text)
+        return text
+
     return [
         list_keyframes_with_proposals,
         view_keyframe_marked,
         inspect_proposal,
         find_proposals_by_category,
         compare_proposals_spatial,
+        rank_proposals_by_geometry,
     ]
 
 

@@ -31,7 +31,8 @@ Transcrib3D-style candidate discipline:
   submit it unless the visual evidence contradicts the query.
 - For same-category superlatives ("larger", "smallest", "closest", "farthest",
   "leftmost", "rightmost"), compare candidate centers/sizes before requesting
-  more views. Use `compare_proposals_spatial` for anchor-based relations.
+  more views. Use `rank_proposals_by_geometry` for size/height superlatives
+  and `compare_proposals_spatial` for anchor-based relations.
 - Treat detector categories as weak priors: a proposal with the right geometry
   and marked-frame coverage can beat a semantically cleaner label.
 
@@ -312,6 +313,42 @@ known contradictory frame evidence ranks last. Read
 Errors: bad relation, missing anchor, or any candidate not in the pool
 all FAIL-LOUD with explicit error strings. See the
 `vg_spatial_disambiguation` skill for the full workflow.
+
+## tool: rank_proposals_by_geometry
+
+Inputs:
+- `candidate_ids: list[int]`
+- `criterion: "largest" | "smallest" | "tallest" | "shortest" |
+  "highest" | "lowest" | "widest" | "narrowest"`
+
+Returns JSON:
+```
+{"criterion": str,
+ "ranked_ids": list[int],
+ "volumes": list[float],
+ "footprint_areas": list[float],
+ "heights": list[float],
+ "centers_z": list[float],
+ "sizes": list[list[float]],
+ "centers": list[list[float]],
+ "rows": [...]}
+```
+
+Use this for deterministic same-category superlatives before submitting:
+
+- "larger"/"largest"/"biggest" -> `criterion="largest"`
+- "smaller"/"smallest" -> `criterion="smallest"`
+- "taller"/"tallest" -> `criterion="tallest"`
+- "shorter"/"shortest" -> `criterion="shortest"`
+- "upper"/"higher"/"top" -> `criterion="highest"`
+- "lower"/"bottom" -> `criterion="lowest"`
+
+If the query combines an anchor relation and a size/height superlative, first
+use `compare_proposals_spatial` to narrow candidates by the anchor relation,
+then call `rank_proposals_by_geometry` on the remaining same-category shortlist.
+Example: for "the larger chair near the octagonal table", find chair
+candidates, use spatial evidence to identify chairs near the table, then rank
+those chair ids by `largest`.
 
 ## tool: switch_or_expand_hypothesis (chassis tool, Stage 2 → Stage 1 callback)
 
