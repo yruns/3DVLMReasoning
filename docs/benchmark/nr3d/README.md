@@ -12,6 +12,7 @@ the current human-facing index.
 | [protocol.md](protocol.md) | Consolidated protocol notes: metric family, fold/filter rules, candidate-pool equivalence, fairness boundary. |
 | [depth_visibility_rebuild_20260513.md](depth_visibility_rebuild_20260513.md) | Root-cause record and rebuild summary for depth-aware NR3D visibility indices. |
 | [depth_visibility_spotcheck_20260513.html](depth_visibility_spotcheck_20260513.html) | Visual spotcheck frames rendered from rebuilt depth-aware `view_to_objects`. |
+| [v9_inventory_random100](v9_inventory_random100_20260514.md) | Proposal-inventory prompt rerun on the fixed depth-aware random100 fold. |
 | [v7p1_callbacks_noclip_random100_rerun](v7p1_callbacks_noclip_random100_rerun_20260514.md) | Current-code rerun of the v7 depth-aware callback-wired random100 pilot. |
 | [v7_stage1_callbacks_noclip_random100](v7_stage1_callbacks_noclip_random100_20260513.md) | Initial depth-aware random100 callback-wired pilot. |
 | [v6_inline_labels_depth_visible_random100](v6_inline_labels_depth_visible_random100_20260513.md) | Depth-aware random100 no-NMS rerender pilot before NR3D callbacks were wired. |
@@ -82,18 +83,18 @@ Latest depth-aware Transcrib3D-matched pilot:
 
 Latest depth-aware random100 partial pilot rerun:
 
-- Version: `v7p1_callbacks_noclip_random100_rerun`
-- Branch / commit: `feat/nr3d-transcrib3d-first300` / `101acaa`
+- Version: `v9_inventory_random100`
+- Branch / commit: `feat/nr3d-transcrib3d-first300` / `db95169`
 - Scope: same v4 random100 fold; preserved v4 keyframe frame ids; no selector
   NMS
-- Result: Overall 71.00, Easy 82.93, Hard 62.71, View-Dep 61.76,
+- Result: Overall 71.00, Easy 85.37, Hard 61.02, View-Dep 61.76,
   View-Indep 75.76
 - Raw artifacts:
-  `tmp/nr3d_eval_v7_callbacks_noclip_random100_rerun_20260514/`
-- Note: this rerun uses the same runtime code path as v7. The final result has
-  100/100 completed checkpoints after rerunning 3 initial `invalid_prompt`
-  sentinels. It is -2pp versus the original v7 random100 result, showing the
-  fold has visible LLM nondeterminism.
+  `tmp/nr3d_eval_v9_inventory_random100_20260514/`
+- Note: v9 injects a compact proposal inventory into the VG prompt. The final
+  result has 100/100 completed checkpoints after rerunning 2 initial
+  `invalid_prompt` sentinels. It is tied with v7.1 overall and -2pp versus the
+  original v7 random100 result.
 
 ## Version Timeline
 
@@ -109,6 +110,7 @@ Latest depth-aware random100 partial pilot rerun:
 | [v7_stage1_callbacks_noclip_random100](v7_stage1_callbacks_noclip_random100_20260513.md) | 2026-05-13 | `feat/nr3d-v4-agent-guards-fair-views` / `690cbf6` | Overall=73.00 | 100Q pilot | Depth-aware partial, callbacks wired, no NMS |
 | [v7p1_callbacks_noclip_random100_rerun](v7p1_callbacks_noclip_random100_rerun_20260514.md) | 2026-05-14 | `feat/nr3d-transcrib3d-first300` / `101acaa` | Overall=71.00 | 100Q pilot | Depth-aware partial rerun, callbacks wired, no NMS |
 | [v8_transcrib3d_first300_baseline](v8_transcrib3d_first300_baseline_20260514.md) | 2026-05-14 | `feat/nr3d-transcrib3d-first300` / `f90be6d` | Overall=74.38 | 281Q Transcrib3D first300-valid fold | Depth-aware partial, +1 sample vs Transcrib3D GPT-4o, not a clear win |
+| [v9_inventory_random100](v9_inventory_random100_20260514.md) | 2026-05-14 | `feat/nr3d-transcrib3d-first300` / `db95169` | Overall=71.00 | 100Q pilot | Depth-aware partial, proposal inventory prompt, tied with v7.1 |
 
 ## Protocol Summary
 
@@ -125,6 +127,8 @@ Latest depth-aware random100 partial pilot rerun:
   visibility was projection-only. v6/v7 are depth-aware but partial and
   preserve v4 keyframe choices to isolate Stage2/runtime changes before NMS.
   v7.1 is a same-code rerun of v7 and shows a -2pp drift on the 100Q fold.
+  v9 adds a proposal-inventory prompt prior but ties v7.1 overall on the same
+  fold.
 
 See [protocol.md](protocol.md) for the consolidated evidence and caveats.
 

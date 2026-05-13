@@ -234,3 +234,25 @@ Next evaluation should reuse the same prepared v8 pack and only rerun Stage2:
   `tmp/nr3d_eval_v9_inventory_first300_20260514/`
 - Pack:
   `pack_nr3d_v8_transcrib3d_first300_baseline`
+
+### Random100 Sanity Rerun
+
+Before rerunning the Transcrib3D first300-valid fold, v9 was rerun on the fixed
+depth-aware NR3D random100 fold to check that the prompt change did not break
+the established pilot:
+
+- Version doc: [v9_inventory_random100_20260514](v9_inventory_random100_20260514.md)
+- Branch / commit: `feat/nr3d-transcrib3d-first300` / `db95169`
+- Fold / pack:
+  `tmp/nr3d_artifacts/v4_agent_guards_fair_views_random100_sample_ids.json` +
+  `pack_nr3d_v6_inline_labels_depth_visible`
+- Result: Overall 71.00, Easy 85.37, Hard 61.02, View-Dep 61.76,
+  View-Indep 75.76
+- Comparison: tied with v7.1 overall; eight v7.1 misses became correct and
+  eight v7.1 correct samples regressed.
+
+Interpretation: the compact proposal inventory is stable and memory-safe on
+random100, but it is not an accuracy win by itself. The next transfer step
+should still rerun first300-valid for direct Transcrib3D comparison, then move
+to deterministic candidate-ranking helpers if the first300 result is also
+neutral.
