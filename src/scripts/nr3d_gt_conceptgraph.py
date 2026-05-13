@@ -501,7 +501,7 @@ def build_scene(
     nr3d_root: Path = DEFAULT_NR3D_ROOT,
     scannet_root: Path = DEFAULT_SCANNET_ROOT,
     clip_runtime: dict[str, Any],
-    use_depth: bool = False,
+    use_depth: bool = True,
     max_distance: float = 5.0,
     min_visible_ratio: float = 0.03,
     min_visible_points: int = 5,
@@ -537,12 +537,19 @@ def build_scene(
     )
     visibility_elapsed = time.time() - visibility_start
 
-    fallback_objects, unobserved_objects = _add_projection_fallback_views(
-        gt_objects=gt_objects,
-        raw_scene=raw_scene,
-        object_to_views=object_to_views,
-        view_to_objects=view_to_objects,
-    )
+    if use_depth:
+        fallback_objects, unobserved_objects = _validate_depth_visibility_coverage(
+            gt_objects=gt_objects,
+            scene_id=scene_id,
+            object_to_views=object_to_views,
+        )
+    else:
+        fallback_objects, unobserved_objects = _add_projection_fallback_views(
+            gt_objects=gt_objects,
+            raw_scene=raw_scene,
+            object_to_views=object_to_views,
+            view_to_objects=view_to_objects,
+        )
 
     conceptgraph_dir = nr3d_root / "scannet" / scene_id / "conceptgraph"
     indices_dir = conceptgraph_dir / "indices"
@@ -558,6 +565,11 @@ def build_scene(
             "stride": 1,
             "max_distance": max_distance,
             "use_depth": use_depth,
+            "visibility_kind": (
+                "depth_occlusion_point_visibility"
+                if use_depth
+                else "projection_only_with_fallback"
+            ),
             "num_objects": len(gt_objects),
             "num_views": len(raw_scene.poses),
             "num_object_mappings": sum(len(v) for v in object_to_views.values()),
@@ -910,11 +922,23 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--scenes", nargs="*", default=None)
     parser.add_argument("--gpu", type=int, default=0)
-    parser.add_argument(
+    depth_group = parser.add_mutually_exclusive_group()
+    depth_group.add_argument(
         "--use-depth",
+        dest="use_depth",
         action="store_true",
-        help="Enable depth occlusion in visibility. Default is off to match the local OpenEQA reference.",
+        help="Enable depth occlusion in visibility. This is the default.",
     )
+    depth_group.add_argument(
+        "--no-depth",
+        dest="use_depth",
+        action="store_false",
+        help=(
+            "Build a projection-only diagnostic index. Do not use this for "
+            "NR3D benchmark packs."
+        ),
+    )
+    parser.set_defaults(use_depth=True)
     parser.add_argument("--max-distance", type=float, default=5.0)
     parser.add_argument("--min-visible-ratio", type=float, default=0.03)
     parser.add_argument("--min-visible-points", type=int, default=5)
@@ -1216,6 +1240,34 @@ def _add_projection_fallback_views(
     for view_id in view_to_objects:
         view_to_objects[view_id].sort(key=lambda item: item[1], reverse=True)
     return fallback_objects, unobserved_objects
+
+
+def _validate_depth_visibility_coverage(
+    *,
+    gt_objects: list[GtObject],
+    scene_id: str,
+    object_to_views: dict[int, list[tuple[int, float]]],
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Reject synthetic visibility fallbacks for foreground objects."""
+    unobserved_objects: list[dict[str, Any]] = []
+    for obj_idx, gt_object in enumerate(gt_objects):
+        if object_to_views.get(obj_idx):
+            continue
+        if gt_object.is_background:
+            unobserved_objects.append(
+                {
+                    "object_index": obj_idx,
+                    "object_id": gt_object.object_id,
+                    "label": gt_object.label,
+                    "reason": "no depth-visible points in kept frames",
+                }
+            )
+            continue
+        raise ValueError(
+            f"{scene_id} objectId {gt_object.object_id}: no depth-visible views; "
+            "refusing to synthesize projection-only object-frame mappings"
+        )
+    return [], unobserved_objects
 
 
 def _build_projection_draft(

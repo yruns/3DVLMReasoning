@@ -8,15 +8,23 @@ the current human-facing index.
 
 | File | Purpose |
 |---|---|
-| [leaderboard.md](leaderboard.md) | Public SOTA comparison plus our current fair-view and historical rows. |
+| [leaderboard.md](leaderboard.md) | Public SOTA context plus our invalidated v5.1 audit row and historical rows. |
 | [protocol.md](protocol.md) | Consolidated protocol notes: metric family, fold/filter rules, candidate-pool equivalence, fairness boundary. |
-| [v5p1_failed_rerun_full_20260513.md](v5p1_failed_rerun_full_20260513.md) | Latest full-test fair-view result and detailed reproduction record. |
+| [depth_visibility_rebuild_20260513.md](depth_visibility_rebuild_20260513.md) | Root-cause record and rebuild summary for depth-aware NR3D visibility indices. |
+| [depth_visibility_spotcheck_20260513.html](depth_visibility_spotcheck_20260513.html) | Visual spotcheck frames rendered from rebuilt depth-aware `view_to_objects`. |
+| [v5p1_failed_rerun_full_20260513.md](v5p1_failed_rerun_full_20260513.md) | Latest full-test audit record; invalidated pending depth-aware rerun. |
 | [v5p1_case_studies_20260513.html](v5p1_case_studies_20260513.html) | Visual stage1+stage2 reasoning walkthrough for selected correct and failed cases. |
 | [runs.sqlite](runs.sqlite) | Queryable per-run and per-sample metrics. |
 
-## Current Result
+## Current Result Status
 
-Latest fair-view full-test row:
+The latest recorded full-test row is now **invalidated pending rerun**. The
+v5/v5.1 packs were built from NR3D `visibility_index.pkl` files whose metadata
+records `use_depth=False`, so `view_to_objects` / `object_to_views` encoded
+projection/frustum candidates rather than depth-occlusion visibility. Those
+indices are not valid as agent-visible evidence.
+
+Latest recorded, invalidated fair-view full-test row:
 
 - Version: `v5p1_failed_rerun_full_20260513`
 - Branch: `feat/nr3d-v4-agent-guards-fair-views`
@@ -32,7 +40,7 @@ Latest fair-view full-test row:
 - Case-study HTML:
   [v5p1_case_studies_20260513.html](v5p1_case_studies_20260513.html)
 
-| Metric | v5.1 fair-view | v5 before failed-rerun | v3 GT-visible | UniVLG public SOTA |
+| Metric | v5.1 recorded, invalidated | v5 before failed-rerun | v3 recorded, invalidated | UniVLG public SOTA |
 |---|---:|---:|---:|---:|
 | Overall | **68.48** | 66.53 | 80.79 | 65.20 |
 | Easy | **78.43** | 76.09 | 86.06 | 73.30 |
@@ -48,21 +56,23 @@ from 66.53 to 68.48.
 
 Interpretation:
 
-- v5.1 is the current fair-view NR3D result.
-- It is +3.28 pp above the current public Nr3D UniVLG SOTA row.
-- It remains 12.31 pp below v3 because v3 used the historical
-  GT-target-visible keyframe shortcut.
+- v5.1 is no longer a valid fair-view NR3D result because the underlying
+  object-frame visibility index did not use depth occlusion.
+- Do not compare v5.1 against UniVLG or any other SOTA row until the depth-aware
+  visibility indices are rebuilt, packs regenerated, and the full run rerun.
+- v3 is also invalidated as a benchmark claim because its GT-target-visible
+  shortcut used the same projection-only visibility source.
 
 ## Version Timeline
 
 | Version | Date | Branch / commit | Headline | Scope | Status |
 |---|---|---|---:|---|---|
-| [v1_phase8_smoke20_mac](v1_phase8_smoke20_mac_20260430.md) | 2026-04-30 | `feat/nr3d-vg-benchmark` / `9115fd7` | Acc@0.50=65.00 | 20Q smoke | Historical smoke |
-| [v2_phase8_full](v2_phase8_full_20260501.md) | 2026-05-01 | `feat/nr3d-vg-benchmark` / `ad8d439` plus in-flight fixes | Acc@0.50=77.62 | 8584Q full | Superseded IoU-proxy row |
-| [v3_referit3d_track](v3_referit3d_track_20260501.md) | 2026-05-01 | `feat/nr3d-vg-benchmark` / `b6f211a` | Overall=80.79 | 8584Q / 7805Q filtered | Historical GT-visible upper-bound |
-| [v4_agent_guards_fair_views](v4_agent_guards_fair_views_20260512.md) | 2026-05-12 | `feat/nr3d-v4-agent-guards-fair-views` / `3f1c6d8` | Overall=71.00 | 100Q pilot | Partial diagnostic |
-| [v5_agent_guards_fair_views_full](v5_agent_guards_fair_views_full_20260513.md) | 2026-05-13 | `feat/nr3d-v4-agent-guards-fair-views` / `7c996ad` | Overall=66.53 | 8584Q / 7805Q filtered | Superseded by v5.1 failed-rerun |
-| [v5p1_failed_rerun_full](v5p1_failed_rerun_full_20260513.md) | 2026-05-13 | `feat/nr3d-v4-agent-guards-fair-views` / `c404536` | Overall=68.48 | 8584Q / 7805Q filtered | Current fair-view full row |
+| [v1_phase8_smoke20_mac](v1_phase8_smoke20_mac_20260430.md) | 2026-04-30 | `feat/nr3d-vg-benchmark` / `9115fd7` | Acc@0.50=65.00 | 20Q smoke | Invalidated: projection-only visibility |
+| [v2_phase8_full](v2_phase8_full_20260501.md) | 2026-05-01 | `feat/nr3d-vg-benchmark` / `ad8d439` plus in-flight fixes | Acc@0.50=77.62 | 8584Q full | Invalidated: projection-only visibility |
+| [v3_referit3d_track](v3_referit3d_track_20260501.md) | 2026-05-01 | `feat/nr3d-vg-benchmark` / `b6f211a` | Overall=80.79 | 8584Q / 7805Q filtered | Invalidated: projection-only GT-visible source |
+| [v4_agent_guards_fair_views](v4_agent_guards_fair_views_20260512.md) | 2026-05-12 | `feat/nr3d-v4-agent-guards-fair-views` / `3f1c6d8` | Overall=71.00 | 100Q pilot | Invalidated: projection-only visibility |
+| [v5_agent_guards_fair_views_full](v5_agent_guards_fair_views_full_20260513.md) | 2026-05-13 | `feat/nr3d-v4-agent-guards-fair-views` / `7c996ad` | Overall=66.53 | 8584Q / 7805Q filtered | Invalidated: projection-only visibility |
+| [v5p1_failed_rerun_full](v5p1_failed_rerun_full_20260513.md) | 2026-05-13 | `feat/nr3d-v4-agent-guards-fair-views` / `c404536` | Overall=68.48 | 8584Q / 7805Q filtered | Invalidated: projection-only visibility |
 
 ## Protocol Summary
 
@@ -75,7 +85,8 @@ Interpretation:
 - Candidate pool: full-scene GT segmented / object proposals; the old
   "target-type-only public pool" assumption is retracted.
 - Fairness boundary: v3 uses GT-target-visible keyframes; v5/v5.1 use
-  query-driven fair keyframes.
+  query-driven keyframes. All three are invalidated until the underlying
+  object-frame visibility is rebuilt with depth occlusion.
 
 See [protocol.md](protocol.md) for the consolidated evidence and caveats.
 

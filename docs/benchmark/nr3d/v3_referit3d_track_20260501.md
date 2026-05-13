@@ -5,6 +5,11 @@ protocol (classification accuracy on the GT-pool, with the canonical
 filter chain applied). Built by post-aggregating the v2 full-test
 `selected_object_id` predictions — no Stage 2 agent re-run.
 
+**Status update on 2026-05-13:** invalidated as a benchmark claim. This run
+inherited the NR3D Phase 8 `visibility_index.pkl` files with
+`metadata.use_depth=false`, so its GT-target-visible evidence path used
+projection/frustum candidates rather than depth-occlusion visibility.
+
 ## Run Identity
 
 - Branch: `feat/nr3d-vg-benchmark`

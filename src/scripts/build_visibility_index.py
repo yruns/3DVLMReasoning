@@ -322,9 +322,17 @@ def build_visibility_index(
     K = intrinsics[:3, :3] if intrinsics.shape[0] >= 4 else intrinsics
     img_area = img_w * img_h
 
-    do_depth = use_depth and depth_paths is not None and len(depth_paths) > 0
+    if use_depth:
+        if depth_paths is None or len(depth_paths) == 0:
+            raise ValueError("use_depth=True requires depth_paths for occlusion checks")
+        if len(depth_paths) < len(poses):
+            raise ValueError(
+                "use_depth=True requires one depth map per pose; "
+                f"got {len(depth_paths)} depth maps for {len(poses)} poses"
+            )
+    do_depth = use_depth
     logger.info(
-        f"Building projection-based visibility index: "
+        f"Building visibility index: "
         f"{len(objects)} objects × {len(poses)} views, "
         f"depth_occlusion={'ON' if do_depth else 'OFF'}"
     )
@@ -390,25 +398,39 @@ def build_visibility_index(
             if n_in_bounds < min_visible_points:
                 continue
 
-            # Depth occlusion check
+            # Depth occlusion check. When enabled, depth is mandatory: an
+            # unreadable depth map must not silently turn this into a
+            # projection-only visibility index.
             n_visible = n_in_bounds
+            visibility_mask = in_bounds
             if do_depth and view_id < len(depth_paths):
                 depth_map = cv2.imread(str(depth_paths[view_id]), cv2.IMREAD_UNCHANGED)
-                if depth_map is not None:
-                    depth_m = depth_map.astype(np.float32) / depth_scale
-                    dh, dw = depth_m.shape[:2]
-                    # Scale projection coords from RGB resolution to depth resolution
-                    scale_u = dw / img_w
-                    scale_v = dh / img_h
-                    u_d = np.clip((u[in_bounds] * scale_u).astype(int), 0, dw - 1)
-                    v_d = np.clip((v[in_bounds] * scale_v).astype(int), 0, dh - 1)
-                    z_proj = z_valid[in_bounds]
-                    measured = depth_m[v_d, u_d]
-                    # Point is visible if depth is valid and not occluded
-                    valid_depth = measured > 0.1
-                    not_occluded = measured >= (z_proj - depth_tolerance)
-                    visible_mask = valid_depth & not_occluded
-                    n_visible = int(visible_mask.sum())
+                if depth_map is None:
+                    raise FileNotFoundError(
+                        f"Failed to read depth map for view {view_id}: "
+                        f"{depth_paths[view_id]}"
+                    )
+                depth_m = depth_map.astype(np.float32) / depth_scale
+                dh, dw = depth_m.shape[:2]
+                # Scale projection coords from RGB resolution to depth resolution
+                scale_u = dw / img_w
+                scale_v = dh / img_h
+                u_d = np.clip((u[in_bounds] * scale_u).astype(int), 0, dw - 1)
+                v_d = np.clip((v[in_bounds] * scale_v).astype(int), 0, dh - 1)
+                z_proj = z_valid[in_bounds]
+                measured = depth_m[v_d, u_d]
+                # Point is visible if depth is valid and not occluded
+                valid_depth = measured > 0.1
+                not_occluded = measured >= (z_proj - depth_tolerance)
+                depth_visible_mask = valid_depth & not_occluded
+                n_visible = int(depth_visible_mask.sum())
+                visibility_mask = np.zeros_like(in_bounds, dtype=bool)
+                visibility_mask[np.nonzero(in_bounds)[0]] = depth_visible_mask
+            elif do_depth:
+                raise ValueError(
+                    "use_depth=True requires one depth map per pose; "
+                    f"missing depth map for view {view_id}"
+                )
 
             if n_visible < min_visible_points:
                 continue
@@ -418,8 +440,8 @@ def build_visibility_index(
                 continue
 
             # Coverage score: projected bbox area / image area (capped)
-            u_vis = u[in_bounds]
-            v_vis = v[in_bounds]
+            u_vis = u[visibility_mask]
+            v_vis = v[visibility_mask]
             bbox_area = (u_vis.max() - u_vis.min()) * (v_vis.max() - v_vis.min())
             coverage = min(1.0, bbox_area / (img_area * 0.3))
 
@@ -448,7 +470,7 @@ def build_visibility_index(
 
     total_mappings = sum(len(v) for v in object_to_views.values())
     logger.success(
-        f"Built projection-based index: {len(object_to_views)} objects, "
+        f"Built visibility index: {len(object_to_views)} objects, "
         f"{len(view_to_objects)} views, {total_mappings} mappings"
     )
 
@@ -559,7 +581,9 @@ def main():
             depth_paths = depth_files[:: args.stride]
             logger.info(f"Found {len(depth_paths)} depth images for occlusion check")
         else:
-            logger.warning("No depth images found, disabling occlusion check")
+            raise FileNotFoundError(
+                f"--use_depth was set but no depth images were found in {depth_dir}"
+            )
 
     # Build bidirectional index
     start_time = time.time()

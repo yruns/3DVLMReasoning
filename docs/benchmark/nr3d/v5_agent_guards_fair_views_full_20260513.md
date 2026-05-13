@@ -4,6 +4,11 @@
 > [v5p1_failed_rerun_full_20260513.md](v5p1_failed_rerun_full_20260513.md),
 > which reruns all 241 failed v5 sentinels and raises the filtered overall
 > from 66.53 to 68.48.
+>
+> Status update on 2026-05-13: this row is also invalidated pending rerun.
+> The underlying NR3D `view_to_objects` / `object_to_views` indices were built
+> with `metadata.use_depth=false`, so they are projection/frustum candidates
+> rather than depth-occlusion visibility.
 
 Full NR3D test run using the v4 fair-view evidence path and ScanRefer-derived
 agent guard stack. This is the first full-test NR3D row without the historical

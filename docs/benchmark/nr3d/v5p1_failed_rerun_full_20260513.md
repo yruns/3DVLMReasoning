@@ -4,6 +4,13 @@ Full NR3D result after rerunning every failed sentinel from
 `v5_agent_guards_fair_views_full_20260513` and merging the recovered
 checkpoints back into the same full-test fold.
 
+**Status update on 2026-05-13:** this row is invalidated pending rerun. The
+NR3D `visibility_index.pkl` files used by the packs have
+`metadata.use_depth=false`, so their `view_to_objects` / `object_to_views`
+mappings are projection/frustum candidates rather than depth-occlusion
+visibility. The numbers below are kept as an audit record only and must not be
+quoted as a valid fair-view or SOTA comparison.
+
 ## Run Identity
 
 - Branch: `feat/nr3d-v4-agent-guards-fair-views`
@@ -34,6 +41,9 @@ checkpoint set.
   - `--use-evidence-frame-guard`
 - Keyframes remain fair query-driven evidence. The target id and GT bbox are
   used for scoring only, not for keyframe selection.
+- Later audit found that the object-frame visibility source was not fair
+  enough: it did not use depth occlusion. This invalidates the run even though
+  the target id / GT bbox were not used for keyframe selection.
 
 ## Fold
 
@@ -68,6 +78,9 @@ checkpoint set.
     responses still show the original annotated-frame paths; the displayed
     images are the corrected visualization of the same trace, not a new model
     run.
+  - The corrected HTML still uses the same recorded trace. It does not repair
+    the underlying v5.1 run, because the agent-visible frame/object mappings
+    came from projection-only visibility.
 - Merge / metrics logs:
   - `tmp/nr3d_eval_v5_failed_rerun_merged_20260513_assemble.log`
   - `tmp/nr3d_eval_v5_failed_rerun_merged_20260513_metrics.log`
@@ -263,16 +276,20 @@ order.
 | View-Dep | 72.46 | 57.38 | -15.08 pp |
 | View-Indep | 85.34 | 74.53 | -10.81 pp |
 
-v3 remains the historical upper-bound row, but it inherited the older
-GT-target-visible keyframe shortcut. v5.1 is the cleaner fair-view measurement
-for the current agent framework.
+v3 remains the historical recorded high row, but it inherited the older
+GT-target-visible keyframe shortcut and the same projection-only visibility
+source. The v5.1 numbers are no longer treated as a valid fair-view
+measurement because their object-frame visibility source was projection-only.
 
-## Comparison to Public Nr3D SOTA
+## Public Nr3D SOTA Context
 
 Source: https://referit3d.github.io/benchmarks.html, checked on 2026-05-13.
 The current public Nr3D top row there is UniVLG at 65.2 overall.
 
-| Metric | UniVLG public SOTA | v5.1 fair-view full | Delta |
+The table below is retained only to show what was originally reported before
+the visibility audit. It must not be used as a valid SOTA comparison.
+
+| Metric | UniVLG public SOTA | v5.1 recorded, invalidated | Delta |
 |---|---:|---:|---:|
 | Overall | 65.20 | 68.48 | +3.28 pp |
 | Easy | 73.30 | 78.43 | +5.13 pp |
@@ -280,11 +297,10 @@ The current public Nr3D top row there is UniVLG at 65.2 overall.
 | View-Dep | 55.10 | 57.38 | +2.28 pp |
 | View-Indep | 69.90 | 74.53 | +4.63 pp |
 
-This comparison uses the same canonical NR3D target-instance classification
-headline and Easy/Hard + View-Dep/View-Indep slicing. The remaining protocol
-difference is model paradigm: our row is zero-shot RGB+VLM over fair
-query-driven views and GT object candidates, while the public rows are trained
-3D methods.
+Metric slicing matched the canonical NR3D target-instance classification
+headline, but the evidence source did not: v5.1 used projection-only
+object-frame mappings. A new depth-aware full run is required before comparing
+against UniVLG or other public rows.
 
 ## SQLite Reproduction Query
 
@@ -302,19 +318,19 @@ WHERE run_id='v5p1_failed_rerun_full_20260513';
 
 ## Interpretation
 
-The original v5 aggregate understated the fair-view pipeline because 241
-service / checkpoint sentinels were still counted as failures. Rerunning all
-of them recovers most of the lost metric mass and moves the fair-view headline
-from 66.53 to 68.48 overall.
+The original v5 aggregate understated the recorded pipeline because 241 service
+/ checkpoint sentinels were still counted as failures. Rerunning all of them
+recovers most of the lost metric mass and moves the recorded headline from
+66.53 to 68.48 overall.
 
-The result is still substantially below the historical v3 GT-visible row, as
-expected after removing the target-visible view shortcut. It is now above the
-current public Nr3D SOTA row on every official slice, with the caveat that our
-pipeline is a zero-shot RGB+VLM agent rather than a trained 3D model.
+The result is still substantially below the historical v3 GT-visible row, but
+it is not currently comparable to public Nr3D SOTA rows because the
+object-frame visibility data was not depth-aware.
 
-Post-run visualization audit found that the v5.1 annotated frames drew full
-clamped 3D bboxes for every proposal listed in `visibility.json`. The
-underlying `object_to_views` / `view_to_objects` index is point-projection
-based, but the renderer treated it as permission to draw the whole 3D bbox in
-the 2D frame. Current docs use corrected in-frustum rendering; a full rerun is
-needed before claiming metrics for corrected agent-visible images.
+Post-run visualization audit found two related issues. First, the v5.1
+annotated frames drew full clamped 3D bboxes for every proposal listed in
+`visibility.json`. Second, and more importantly, the underlying
+`object_to_views` / `view_to_objects` index was built with `use_depth=false`,
+so it never encoded occlusion-aware visibility. Current code rejects such NR3D
+indices and requires depth-aware visibility before pack generation. A full
+rerun is needed before claiming any corrected agent-visible metric.

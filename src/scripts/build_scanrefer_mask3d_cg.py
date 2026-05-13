@@ -267,6 +267,13 @@ def build_mask3d_cg_for_scene(
         object_to_views=object_to_views,
         view_to_objects=view_to_objects,
         output_path=output_visibility,
+        metadata={
+            "use_depth": True,
+            "visibility_kind": "depth_occlusion_point_visibility",
+            "num_objects": len(objects),
+            "num_view_mappings": n_visibility_mappings,
+            "num_object_mappings": sum(len(v) for v in object_to_views.values()),
+        },
     )
 
     output_scene_info.parent.mkdir(parents=True, exist_ok=True)

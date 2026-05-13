@@ -37,6 +37,7 @@ dependencies = [
     "matplotlib>=3.7.0",
     "opencv-python>=4.8.0",
     "jsonschema>=4.0.0",
+    "plyfile>=1.0.0",
 ]
 
 [project.optional-dependencies]

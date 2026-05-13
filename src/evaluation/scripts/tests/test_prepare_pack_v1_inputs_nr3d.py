@@ -97,7 +97,7 @@ def _write_phase8_tree(
             or {
                 "object_to_views": {0: [(0, 0.9), (1, 0.8)], 1: [(1, 0.7)]},
                 "view_to_objects": {0: [(0, 0.9)], 1: [(0, 0.8), (1, 0.7)]},
-                "metadata": {},
+                "metadata": {"use_depth": True},
             },
             f,
         )
@@ -274,7 +274,7 @@ def test_select_keyframes_uses_phase8_object_to_views(tmp_path) -> None:
                 4: [(0, 0.9)],
                 9: [(0, 0.7)],
             },
-            "metadata": {},
+            "metadata": {"use_depth": True},
         },
     )
     raw = data_root / "scene0001_00" / "raw"
@@ -354,7 +354,7 @@ def test_query_driven_helper_falls_back_to_density(tmp_path) -> None:
         visibility={
             "object_to_views": {0: [(0, 0.9)], 1: [(1, 0.7)]},
             "view_to_objects": {0: [(0, 0.9)], 1: [(0, 0.8), (1, 0.7)]},
-            "metadata": {},
+            "metadata": {"use_depth": True},
         },
     )
     visibility = load_phase8_visibility_index(data_root / "scene0001_00")
@@ -374,6 +374,25 @@ def test_query_driven_helper_falls_back_to_density(tmp_path) -> None:
 
     assert [item["frame_id"] for item in keyframes] == [1, 0]
     assert used_fallback is True
+
+
+def test_load_phase8_visibility_index_rejects_projection_only_index(tmp_path) -> None:
+    from evaluation.scripts.prepare_pack_v1_inputs_nr3d import (
+        load_phase8_visibility_index,
+    )
+
+    data_root = tmp_path / "scannet"
+    _write_phase8_tree(
+        data_root,
+        visibility={
+            "object_to_views": {0: [(0, 0.9)]},
+            "view_to_objects": {0: [(0, 0.9)]},
+            "metadata": {"use_depth": False},
+        },
+    )
+
+    with pytest.raises(ValueError, match="not depth-aware"):
+        load_phase8_visibility_index(data_root / "scene0001_00")
 
 
 def test_render_annotated_frames_uses_visible_bbox_projection(

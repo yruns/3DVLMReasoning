@@ -70,10 +70,10 @@ the visual evidence selection path:
 
 | Row | Evidence selection | Interpretation |
 |---|---|---|
-| v3 | Historical GT-target-visible keyframe path | Best historical / GT-visible upper-bound row |
-| v5 / v5.1 | Query-driven fair keyframes; target id and GT bbox used only for scoring | Current fair-view measurement |
+| v3 | Historical GT-target-visible keyframe path, but visibility index was projection-only | Invalidated historical row |
+| v5 / v5.1 | Query-driven keyframes; target id and GT bbox used only for scoring, but visibility index was projection-only | Invalidated pending depth-aware rerun |
 
-The latest fair-view row is v5.1:
+The latest recorded v5.1 row is retained as an invalidated audit record:
 
 - Branch: `feat/nr3d-v4-agent-guards-fair-views`
 - Run-time code commit: `c404536`
@@ -81,18 +81,23 @@ The latest fair-view row is v5.1:
 - Headline: 68.48 overall on n_filtered=7805
 - Raw artifacts: `tmp/nr3d_eval_v5_failed_rerun_merged_20260513/`
 - Version doc: `v5p1_failed_rerun_full_20260513.md`
+- Invalidation reason: NR3D `visibility_index.pkl` metadata has
+  `use_depth=false`; `view_to_objects` / `object_to_views` were not
+  depth-occlusion visibility.
 
 ## Public Reference Points
 
 The official ReferIt3D benchmark page reports NR3D as classification accuracy:
 https://referit3d.github.io/benchmarks.html
 
-The current top public NR3D row used for comparison here is UniVLG:
+The current top public NR3D row retained for context here is UniVLG. The local
+v5.1 row below is invalidated and must not be used as a SOTA comparison until
+depth-aware visibility is rebuilt and the full fold is rerun:
 
 | Method | Overall | Easy | Hard | View-Dep | View-Indep |
 |---|---:|---:|---:|---:|---:|
 | UniVLG | 65.20 | 73.30 | 57.00 | 55.10 | 69.90 |
-| Ours v5.1 fair-view | 68.48 | 78.43 | 59.18 | 57.38 | 74.53 |
+| Ours v5.1 recorded, invalidated | 68.48 | 78.43 | 59.18 | 57.38 | 74.53 |
 
 Detection-mode NR3D numbers such as Acc@0.25 / Acc@0.50 from recent papers are
 separate from the public classification leaderboard and should not be mixed

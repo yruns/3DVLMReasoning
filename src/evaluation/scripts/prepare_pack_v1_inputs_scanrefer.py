@@ -1058,6 +1058,12 @@ def load_mask3d_visibility_index(scene_root: Path) -> Mask3dVisibility:
         raise FileNotFoundError(f"Missing Mask3D visibility: {p}")
     with open(p, "rb") as f:
         payload = pickle.load(f)
+    metadata = payload.get("metadata")
+    if isinstance(metadata, dict) and metadata.get("use_depth") is False:
+        raise ValueError(
+            f"{p} is projection-only. ScanRefer view_to_objects/object_to_views "
+            "must include depth-occlusion checks."
+        )
     return Mask3dVisibility(
         object_to_views=_coerce_visibility(payload.get("object_to_views"), p),
         view_to_objects=_coerce_visibility(payload.get("view_to_objects"), p),

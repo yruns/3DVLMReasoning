@@ -1,5 +1,9 @@
 # v1 Phase8 Smoke (Mac) - 2026-04-30
 
+**Status update on 2026-05-13:** invalidated as a benchmark claim. This smoke
+used the NR3D Phase 8 visibility source later found to have
+`metadata.use_depth=false`.
+
 ## Run Identity
 
 - Branch: `feat/nr3d-vg-benchmark`

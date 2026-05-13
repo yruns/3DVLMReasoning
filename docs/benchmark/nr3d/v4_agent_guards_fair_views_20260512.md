@@ -4,6 +4,10 @@ NR3D pilot run using the optimized ScanRefer-style VG agent framework while
 removing the previous GT-target-visible keyframe shortcut. This is a
 100-sample partial pilot, not a full public leaderboard row.
 
+**Status update on 2026-05-13:** invalidated as a fair-view diagnostic because
+the underlying NR3D object-frame visibility source was built with
+`metadata.use_depth=false`.
+
 ## Run Identity
 
 - Branch: `feat/nr3d-v4-agent-guards-fair-views`

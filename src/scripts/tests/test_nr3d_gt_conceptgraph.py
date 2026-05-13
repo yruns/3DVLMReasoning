@@ -13,6 +13,7 @@ from scripts.nr3d_gt_conceptgraph import (
     GtObject,
     RawScene,
     _add_projection_fallback_views,
+    _validate_depth_visibility_coverage,
     build_cfg,
     build_gt_objects_for_scene,
     build_object_dict,
@@ -197,9 +198,7 @@ def test_build_payload_round_trips_with_open_eqa_top_level_shape(tmp_path: Path)
     cfg = build_cfg(scene_id="scene0001_00", image_width=100, image_height=80)
     class_names = ["chair"]
     class_colors = stable_class_colors(class_names)
-    obj = {
-        field: None for field in CONCEPTGRAPH_OBJECT_FIELDS
-    }
+    obj = dict.fromkeys(CONCEPTGRAPH_OBJECT_FIELDS)
     obj.update(
         {
             "bbox_np": np.zeros((8, 3), dtype=np.float64),
@@ -333,3 +332,43 @@ def test_projection_fallback_allows_unobserved_background_object(
 
     assert fallbacks == []
     assert unobserved[0]["object_id"] == 28
+
+
+def test_depth_visibility_coverage_rejects_foreground_projection_fallback() -> None:
+    gt = GtObject(
+        object_id=7,
+        label="chair",
+        class_id=0,
+        bbox_np=np.zeros((8, 3), dtype=np.float64),
+        pcd_np=np.zeros((1, 3), dtype=np.float64),
+        pcd_color_np=np.ones((1, 3), dtype=np.float64),
+        is_background=0,
+    )
+
+    with pytest.raises(ValueError, match="no depth-visible views"):
+        _validate_depth_visibility_coverage(
+            gt_objects=[gt],
+            scene_id="scene0001_00",
+            object_to_views={0: []},
+        )
+
+
+def test_depth_visibility_coverage_keeps_background_unobserved() -> None:
+    gt = GtObject(
+        object_id=28,
+        label="ceiling",
+        class_id=0,
+        bbox_np=np.zeros((8, 3), dtype=np.float64),
+        pcd_np=np.zeros((1, 3), dtype=np.float64),
+        pcd_color_np=np.ones((1, 3), dtype=np.float64),
+        is_background=1,
+    )
+
+    fallbacks, unobserved = _validate_depth_visibility_coverage(
+        gt_objects=[gt],
+        scene_id="scene0001_00",
+        object_to_views={0: []},
+    )
+
+    assert fallbacks == []
+    assert unobserved[0]["reason"] == "no depth-visible points in kept frames"

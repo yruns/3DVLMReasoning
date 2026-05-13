@@ -12,18 +12,18 @@ papers also report Acc@0.25 / Acc@0.5 in a separate detection-mode track.
 | 3D-VisTA | classification | 64.2 | 72.1 | 56.7 | 61.5 | 65.1 | leaderboard |
 | MiKASA | classification | 64.4 | 69.7 | 59.4 | 65.4 | 64.0 | leaderboard |
 | UniVLG | classification | 65.2 | 73.3 | 57.0 | 55.1 | 69.9 | leaderboard 2026 |
-| **Ours (v5.1, zero-shot RGB+VLM, fair-view)** | classification, no GT-visible keyframes | **68.48** | **78.43** | **59.18** | **57.38** | **74.53** | [v5p1_failed_rerun_full_20260513.md](v5p1_failed_rerun_full_20260513.md) |
-| **Ours (v3, zero-shot RGB+VLM)** | classification | **80.79** | **86.06** | **75.87** | **72.46** | **85.34** | [v3_referit3d_track_20260501.md](v3_referit3d_track_20260501.md) |
+| Ours (v5.1, zero-shot RGB+VLM, invalidated) | classification, projection-only visibility index | 68.48 | 78.43 | 59.18 | 57.38 | 74.53 | [v5p1_failed_rerun_full_20260513.md](v5p1_failed_rerun_full_20260513.md) |
+| Ours (v3, zero-shot RGB+VLM, invalidated) | classification, GT-target-visible but projection-only visibility index | 80.79 | 86.06 | 75.87 | 72.46 | 85.34 | [v3_referit3d_track_20260501.md](v3_referit3d_track_20260501.md) |
 
-The v5.1 "Ours" row is the latest fair-view measurement: same canonical
-full-scene GT-instance pool and leaderboard slicing, but without the
-GT-target-visible keyframe shortcut used by the historical v3 run. It reruns
-and merges all 241 failed v5 sentinels, recovering 240 completed outputs. The
-v3 row is retained as the best historical number and GT-visible evidence
-upper-bound. Candidate-pool and fold equivalence are summarized in
-[protocol.md](protocol.md). The remaining asymmetry vs the published rows is
-paradigm (zero-shot RGB+VLM vs trained 3D-point-cloud model), not metric
-slicing.
+The v5.1 row is retained only as an audit trail. It must not be quoted as a
+valid fair-view or SOTA comparison because the NR3D
+`view_to_objects` / `object_to_views` files used by the pack were built with
+`use_depth=False`; they encode projection/frustum candidates, not
+depth-occlusion visibility. A valid comparison requires rebuilding the
+visibility indices with depth occlusion, regenerating packs, and rerunning the
+full fold. The v3 row is also invalidated as a benchmark claim because its
+GT-target-visible shortcut used the same projection-only visibility source.
+Candidate-pool and fold equivalence are summarized in [protocol.md](protocol.md).
 
 Detection-mode NR3D rows such as Acc@0.25 / Acc@0.50 are a separate protocol
 and should not be mixed with this classification table. See
@@ -36,8 +36,8 @@ only. They must not be quoted as public NR3D leaderboard results.
 
 | Run | Setup | Fold | Overall | Easy | Hard | View-dep | View-indep | Notes |
 |---|---|---:|---:|---:|---:|---:|---:|---|
-| Same-fold v1/v3 baseline | GT-visible keyframes + GT-pool classification | 100 | 80.00 | 85.37 | 76.27 | 61.76 | 89.39 | Post-aggregated from `tmp/nr3d_eval_v1_full/side_by_side.json` restricted to v4 random100. |
-| [v4 fair-view + guards](v4_agent_guards_fair_views_20260512.md) | query-driven keyframes + TADG/no-match/evidence-frame guards | 100 | 71.00 | 82.93 | 62.71 | 67.65 | 72.73 | Partial diagnostic: -9.00 pp overall vs same-fold baseline; no LLM/service failures. |
+| Same-fold v1/v3 baseline | GT-visible keyframes + GT-pool classification | 100 | 80.00 | 85.37 | 76.27 | 61.76 | 89.39 | Invalidated: projection-only visibility source. |
+| [v4 fair-view + guards](v4_agent_guards_fair_views_20260512.md) | query-driven keyframes + TADG/no-match/evidence-frame guards | 100 | 71.00 | 82.93 | 62.71 | 67.65 | 72.73 | Invalidated: same projection-only visibility source as v5/v5.1. |
 
 ## Memory / Throughput Note
 

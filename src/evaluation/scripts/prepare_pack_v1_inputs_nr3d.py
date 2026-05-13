@@ -772,6 +772,18 @@ def load_phase8_visibility_index(scene_root: Path) -> Phase8Visibility:
         raise FileNotFoundError(f"Missing Phase 8 visibility index: {vis_path}")
     with open(vis_path, "rb") as f:
         payload = pickle.load(f)
+    metadata = payload.get("metadata")
+    if not isinstance(metadata, dict) or metadata.get("use_depth") is not True:
+        raise ValueError(
+            f"{vis_path} is not depth-aware. NR3D view_to_objects/object_to_views "
+            "must include depth-occlusion checks; rebuild the scene visibility with "
+            "src/scripts/nr3d_gt_conceptgraph.py build-scenes --use-depth."
+        )
+    if int(metadata.get("num_projection_fallback_objects") or 0) > 0:
+        raise ValueError(
+            f"{vis_path} contains projection fallback mappings. NR3D visibility "
+            "must not synthesize object-frame mappings without depth support."
+        )
     raw_object_to_views = payload.get("object_to_views")
     raw_view_to_objects = payload.get("view_to_objects")
     if not isinstance(raw_object_to_views, dict) or not isinstance(

@@ -27,6 +27,31 @@ def test_safe_sample_id_normalizes_separators():
     assert safe_sample_id("scannet/scene0088_00::5::3") == "scannet__scene0088_00__5__3"
 
 
+def test_load_mask3d_visibility_index_rejects_projection_only_metadata(
+    tmp_path: Path,
+) -> None:
+    import pickle
+
+    from evaluation.scripts.prepare_pack_v1_inputs_scanrefer import (
+        load_mask3d_visibility_index,
+    )
+
+    path = tmp_path / "scene0001_00" / "conceptgraph" / "indices"
+    path.mkdir(parents=True)
+    with (path / "visibility_index.pkl").open("wb") as f:
+        pickle.dump(
+            {
+                "object_to_views": {0: [(0, 0.9)]},
+                "view_to_objects": {0: [(0, 0.9)]},
+                "metadata": {"use_depth": False},
+            },
+            f,
+        )
+
+    with pytest.raises(ValueError, match="projection-only"):
+        load_mask3d_visibility_index(tmp_path / "scene0001_00")
+
+
 def test_load_sample_requests_validates_per_row(tmp_path: Path):
     from evaluation.scripts.prepare_pack_v1_inputs_scanrefer import load_sample_requests
     p = tmp_path / "ids.json"
