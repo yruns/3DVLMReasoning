@@ -32,7 +32,7 @@ benchmark's version). Always include:
 |-----------|--------|------|-----------|
 | **OpenEQA ScanNet EM-EQA** | live | [`openeqa/`](openeqa/) | v15 stage2 MNAS **74.33** (`s1_l1`, frozen 1050Q, Gemini 2.5 Pro) |
 | **EmbodiedScan VG** | smoke | [`embodiedscan/`](embodiedscan/) | v3 GT-pool pack_v1 2k smoke: 2000Q, Acc@0.25/0.50 **89.15** |
-| **NR3D VG** | live | [`nr3d/`](nr3d/) | Latest depth-aware random100 rerun v9: **71.00** overall with proposal-inventory prompt, tied with v7.1. Latest full row v5.1 is **invalidated** pending depth-aware full rerun. |
+| **NR3D VG** | live | [`nr3d/`](nr3d/) | Latest matched Transcrib3D first300 run v9: **75.09** overall, +3 samples vs Transcrib3D GPT-4o. Latest full row v5.1 is **invalidated** pending depth-aware full rerun. |
 | **ScanRefer VG** | live | [`scanrefer/`](scanrefer/) | v3.20 full-val no-GT consensus3: Overall@0.25 **55.36**, Overall@0.50 **49.57** (`9508`Q, `mask3d_query_driven`; consensus caveat). Historical v2 remains **69.92 / 62.79** but used a GT-view-oracle keyframe selector. |
 
 ## Pending Migrations

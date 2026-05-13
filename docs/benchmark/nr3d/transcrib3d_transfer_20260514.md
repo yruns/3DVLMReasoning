@@ -228,7 +228,8 @@ PYTHONPATH=src .venv/bin/python -m pytest \
 
 Result: 9 passed.
 
-Next evaluation should reuse the same prepared v8 pack and only rerun Stage2:
+The first300 evaluation should reuse the same prepared v8 pack and only rerun
+Stage2:
 
 - Output dir:
   `tmp/nr3d_eval_v9_inventory_first300_20260514/`
@@ -242,7 +243,8 @@ depth-aware NR3D random100 fold to check that the prompt change did not break
 the established pilot:
 
 - Version doc: [v9_inventory_random100_20260514](v9_inventory_random100_20260514.md)
-- Branch / commit: `feat/nr3d-transcrib3d-first300` / `db95169`
+- Branch / commit: `feat/nr3d-transcrib3d-first300` / `9eaf05d`
+  (code change: `db95169`)
 - Fold / pack:
   `tmp/nr3d_artifacts/v4_agent_guards_fair_views_random100_sample_ids.json` +
   `pack_nr3d_v6_inline_labels_depth_visible`
@@ -252,7 +254,28 @@ the established pilot:
   eight v7.1 correct samples regressed.
 
 Interpretation: the compact proposal inventory is stable and memory-safe on
-random100, but it is not an accuracy win by itself. The next transfer step
-should still rerun first300-valid for direct Transcrib3D comparison, then move
-to deterministic candidate-ranking helpers if the first300 result is also
-neutral.
+random100, but it is not an accuracy win by itself. This made first300-valid
+the necessary direct comparison before deciding whether to invest in stronger
+deterministic candidate-ranking helpers.
+
+### First300-Valid Rerun
+
+v9 was then run on the Transcrib3D first300-valid matched fold:
+
+- Version doc: [v9_inventory_first300_20260514](v9_inventory_first300_20260514.md)
+- Branch / commit: `feat/nr3d-transcrib3d-first300` / `db95169`
+- Fold / pack:
+  `docs/benchmark/nr3d/assets/transcrib3d_first300_valid_sample_ids_20260514.json` +
+  `pack_nr3d_v8_transcrib3d_first300_baseline`
+- Result: 211/281 = 75.09 overall; Easy 80.14, Hard 70.00, local View-Dep
+  62.20, local View-Indep 80.40
+- Comparison:
+  - v8 baseline: 209/281 = 74.38
+  - Transcrib3D GPT-4o first300-valid: 208/281 = 74.02
+  - v9 is +2 samples over v8 and +3 samples over Transcrib3D
+
+This is a real improvement, but the margin is still small. The remaining
+Transcrib3D-only wins point to the next transfer target: deterministic helper
+logic for same-category superlatives, under/above/left/right relations, and
+attribute disambiguation, rather than only asking the LLM to infer these from
+the inventory table.

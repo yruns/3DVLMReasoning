@@ -43,6 +43,7 @@ only. They must not be quoted as public NR3D leaderboard results.
 | [v7.1 callback rerun](v7p1_callbacks_noclip_random100_rerun_20260514.md) | same code path as v7 on the same fixed fold/pack; 3 initial `invalid_prompt` sentinels rerun to completion; no NMS | 100 | 71.00 | 82.93 | 62.71 | 61.76 | 75.76 | Depth-aware repeatability check; -2pp vs original v7 random100. |
 | [v8 Transcrib3D first300 baseline](v8_transcrib3d_first300_baseline_20260514.md) | Transcrib3D `nr3d_first300_valid` matched fold; query-driven depth-aware pack + v7.1 Stage2 callbacks/guards; no NMS | 281 | 74.38 | 78.72 | 70.00 | 59.76 | 80.40 | +1 sample vs Transcrib3D GPT-4o first300-valid; not a clear win. |
 | [v9 proposal inventory random100](v9_inventory_random100_20260514.md) | same fixed random100 fold/pack as v7.1 + compact `Scene Proposal Inventory` prompt prior; no NMS | 100 | 71.00 | 85.37 | 61.02 | 61.76 | 75.76 | Tied with v7.1 overall; stable but not a random100 win. |
+| [v9 proposal inventory first300](v9_inventory_first300_20260514.md) | Transcrib3D first300-valid matched fold + compact `Scene Proposal Inventory` prompt prior; no NMS | 281 | 75.09 | 80.14 | 70.00 | 62.20 | 80.40 | +3 samples vs Transcrib3D GPT-4o first300-valid; modest win. |
 
 ## Memory / Throughput Note
 

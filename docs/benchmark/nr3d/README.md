@@ -12,6 +12,7 @@ the current human-facing index.
 | [protocol.md](protocol.md) | Consolidated protocol notes: metric family, fold/filter rules, candidate-pool equivalence, fairness boundary. |
 | [depth_visibility_rebuild_20260513.md](depth_visibility_rebuild_20260513.md) | Root-cause record and rebuild summary for depth-aware NR3D visibility indices. |
 | [depth_visibility_spotcheck_20260513.html](depth_visibility_spotcheck_20260513.html) | Visual spotcheck frames rendered from rebuilt depth-aware `view_to_objects`. |
+| [v9_inventory_first300](v9_inventory_first300_20260514.md) | Proposal-inventory prompt on the Transcrib3D first300-valid matched fold. |
 | [v9_inventory_random100](v9_inventory_random100_20260514.md) | Proposal-inventory prompt rerun on the fixed depth-aware random100 fold. |
 | [v7p1_callbacks_noclip_random100_rerun](v7p1_callbacks_noclip_random100_rerun_20260514.md) | Current-code rerun of the v7 depth-aware callback-wired random100 pilot. |
 | [v7_stage1_callbacks_noclip_random100](v7_stage1_callbacks_noclip_random100_20260513.md) | Initial depth-aware random100 callback-wired pilot. |
@@ -71,15 +72,17 @@ Interpretation:
 
 Latest depth-aware Transcrib3D-matched pilot:
 
-- Version: `v8_transcrib3d_first300_baseline`
-- Branch / commit: `feat/nr3d-transcrib3d-first300` / `f90be6d`
+- Version: `v9_inventory_first300`
+- Branch / commit: `feat/nr3d-transcrib3d-first300` / `9eaf05d`
+  (code change: `db95169`)
 - Scope: Transcrib3D `nr3d_first300_valid` fold, 281 samples
-- Result: Overall 74.38, Easy 78.72, Hard 70.00, View-Dep 59.76,
+- Result: Overall 75.09, Easy 80.14, Hard 70.00, View-Dep 62.20,
   View-Indep 80.40
 - Matched baseline: Transcrib3D GPT-4o text-only first300-valid is 74.02
-  overall, so v8 is only +1 sample and is not a clear win.
+  overall; v9 is +3 samples over it and +2 samples over v8, still a modest
+  rather than decisive margin.
 - Raw artifacts:
-  `tmp/nr3d_eval_v8_transcrib3d_first300_baseline_20260514/`
+  `tmp/nr3d_eval_v9_inventory_first300_20260514/`
 
 Latest depth-aware random100 partial pilot rerun:
 
@@ -111,6 +114,7 @@ Latest depth-aware random100 partial pilot rerun:
 | [v7p1_callbacks_noclip_random100_rerun](v7p1_callbacks_noclip_random100_rerun_20260514.md) | 2026-05-14 | `feat/nr3d-transcrib3d-first300` / `101acaa` | Overall=71.00 | 100Q pilot | Depth-aware partial rerun, callbacks wired, no NMS |
 | [v8_transcrib3d_first300_baseline](v8_transcrib3d_first300_baseline_20260514.md) | 2026-05-14 | `feat/nr3d-transcrib3d-first300` / `f90be6d` | Overall=74.38 | 281Q Transcrib3D first300-valid fold | Depth-aware partial, +1 sample vs Transcrib3D GPT-4o, not a clear win |
 | [v9_inventory_random100](v9_inventory_random100_20260514.md) | 2026-05-14 | `feat/nr3d-transcrib3d-first300` / `db95169` | Overall=71.00 | 100Q pilot | Depth-aware partial, proposal inventory prompt, tied with v7.1 |
+| [v9_inventory_first300](v9_inventory_first300_20260514.md) | 2026-05-14 | `feat/nr3d-transcrib3d-first300` / `9eaf05d` | Overall=75.09 | 281Q Transcrib3D first300-valid fold | +3 samples vs Transcrib3D GPT-4o; modest win |
 
 ## Protocol Summary
 
@@ -128,7 +132,7 @@ Latest depth-aware random100 partial pilot rerun:
   preserve v4 keyframe choices to isolate Stage2/runtime changes before NMS.
   v7.1 is a same-code rerun of v7 and shows a -2pp drift on the 100Q fold.
   v9 adds a proposal-inventory prompt prior but ties v7.1 overall on the same
-  fold.
+  fold, while improving the Transcrib3D first300-valid matched fold to 75.09.
 
 See [protocol.md](protocol.md) for the consolidated evidence and caveats.
 
