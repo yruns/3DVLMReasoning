@@ -19,6 +19,7 @@ the current human-facing index.
 | [v5p1_failed_rerun_full_20260513.md](v5p1_failed_rerun_full_20260513.md) | Latest full-test audit record; invalidated pending depth-aware rerun. |
 | [v5p1_case_studies_20260513.html](v5p1_case_studies_20260513.html) | Visual stage1+stage2 reasoning walkthrough for selected correct and failed cases. |
 | [runs.sqlite](runs.sqlite) | Queryable per-run and per-sample metrics. |
+| [transcrib3d_transfer_20260514](transcrib3d_transfer_20260514.md) | Branch-local transfer notes and first300-valid fold mapping. |
 
 ## Current Result Status
 
@@ -67,7 +68,19 @@ Interpretation:
 - v3 is also invalidated as a benchmark claim because its GT-target-visible
   shortcut used the same projection-only visibility source.
 
-Latest depth-aware partial pilot rerun:
+Latest depth-aware Transcrib3D-matched pilot:
+
+- Version: `v8_transcrib3d_first300_baseline`
+- Branch / commit: `feat/nr3d-transcrib3d-first300` / `f90be6d`
+- Scope: Transcrib3D `nr3d_first300_valid` fold, 281 samples
+- Result: Overall 74.38, Easy 78.72, Hard 70.00, View-Dep 59.76,
+  View-Indep 80.40
+- Matched baseline: Transcrib3D GPT-4o text-only first300-valid is 74.02
+  overall, so v8 is only +1 sample and is not a clear win.
+- Raw artifacts:
+  `tmp/nr3d_eval_v8_transcrib3d_first300_baseline_20260514/`
+
+Latest depth-aware random100 partial pilot rerun:
 
 - Version: `v7p1_callbacks_noclip_random100_rerun`
 - Branch / commit: `feat/nr3d-transcrib3d-first300` / `101acaa`
@@ -95,6 +108,7 @@ Latest depth-aware partial pilot rerun:
 | [v6_inline_labels_depth_visible_random100](v6_inline_labels_depth_visible_random100_20260513.md) | 2026-05-13 | `feat/nr3d-v4-agent-guards-fair-views` / `41253ad` | Overall=71.00 | 100Q pilot | Depth-aware partial, no NMS |
 | [v7_stage1_callbacks_noclip_random100](v7_stage1_callbacks_noclip_random100_20260513.md) | 2026-05-13 | `feat/nr3d-v4-agent-guards-fair-views` / `690cbf6` | Overall=73.00 | 100Q pilot | Depth-aware partial, callbacks wired, no NMS |
 | [v7p1_callbacks_noclip_random100_rerun](v7p1_callbacks_noclip_random100_rerun_20260514.md) | 2026-05-14 | `feat/nr3d-transcrib3d-first300` / `101acaa` | Overall=71.00 | 100Q pilot | Depth-aware partial rerun, callbacks wired, no NMS |
+| [v8_transcrib3d_first300_baseline](v8_transcrib3d_first300_baseline_20260514.md) | 2026-05-14 | `feat/nr3d-transcrib3d-first300` / `f90be6d` | Overall=74.38 | 281Q Transcrib3D first300-valid fold | Depth-aware partial, +1 sample vs Transcrib3D GPT-4o, not a clear win |
 
 ## Protocol Summary
 

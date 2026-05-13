@@ -157,3 +157,36 @@ Validation:
 The next step is Stage2 evaluation into:
 
 `tmp/nr3d_eval_v8_transcrib3d_first300_baseline_20260514/`
+
+## Baseline Stage2 Result
+
+Run ID:
+
+`v8_transcrib3d_first300_baseline_20260514`
+
+Artifacts:
+
+- Output dir:
+  `tmp/nr3d_eval_v8_transcrib3d_first300_baseline_20260514/`
+- Metrics:
+  `tmp/nr3d_eval_v8_transcrib3d_first300_baseline_20260514/leaderboard_metrics.json`
+- Comparison:
+  `tmp/nr3d_eval_v8_transcrib3d_first300_baseline_20260514/comparison_vs_transcrib3d.json`
+
+Matched comparison:
+
+| Method | Correct / Total | Overall | Easy | Hard | View-dep | View-indep |
+|---|---:|---:|---:|---:|---:|---:|
+| Transcrib3D GPT-4o text-only | 208/281 | 74.02 | 78.72 | 69.29 | 57.47 | 81.44 |
+| Ours v8 baseline | 209/281 | 74.38 | 78.72 | 70.00 | 59.76 | 80.40 |
+
+This is not a clear win: it is only +1 sample overall. Per-sample agreement:
+
+- both correct: 166
+- ours correct, Transcrib3D wrong: 43
+- Transcrib3D correct, ours wrong: 42
+- both wrong: 30
+
+The next transfer step should target the 42 Transcrib3D-only wins, especially
+candidate ranking by category-compatible object tables, distance/superlative
+relations, color/size comparison, and left/right viewpoint language.
