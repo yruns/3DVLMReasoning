@@ -48,6 +48,7 @@ def _write_phase8_tree(
         Image.new("RGB", (100, 100), color="white").save(
             raw / f"{frame_id:06d}-rgb.png"
         )
+        Image.new("I;16", (100, 100), 5000).save(raw / f"{frame_id:06d}-depth.png")
         np.savetxt(raw / f"{frame_id:06d}.txt", np.eye(4))
     np.savetxt(
         raw / "intrinsic_color.txt",
@@ -72,13 +73,35 @@ def _write_phase8_tree(
                 or [
                     {
                         "bbox_np": _corners(center=(0.0, 0.0, 5.0)),
+                        "pcd_np": np.array(
+                            [
+                                [-0.1, 0.0, 5.0],
+                                [0.0, 0.0, 5.0],
+                                [0.1, 0.0, 5.0],
+                                [0.0, -0.1, 5.0],
+                                [0.0, 0.1, 5.0],
+                            ],
+                            dtype=np.float64,
+                        ),
                         "class_name": ["chair"],
                         "class_id": [7],
+                        "is_background": 0,
                     },
                     {
                         "bbox_np": _corners(center=(1.0, 0.0, 5.0)),
+                        "pcd_np": np.array(
+                            [
+                                [0.9, 0.0, 5.0],
+                                [1.0, 0.0, 5.0],
+                                [1.1, 0.0, 5.0],
+                                [1.0, -0.1, 5.0],
+                                [1.0, 0.1, 5.0],
+                            ],
+                            dtype=np.float64,
+                        ),
                         "class_name": ["table"],
                         "class_id": [12],
+                        "is_background": 0,
                     },
                 ],
                 "bg_objects": None,
@@ -395,6 +418,64 @@ def test_load_phase8_visibility_index_rejects_projection_only_index(tmp_path) ->
         load_phase8_visibility_index(data_root / "scene0001_00")
 
 
+def test_prepare_scene_artifacts_filters_background_from_visibility_json(
+    tmp_path,
+) -> None:
+    from evaluation.scripts import prepare_pack_v1_inputs_nr3d as prep
+
+    data_root = tmp_path / "scannet"
+    _write_phase8_tree(
+        data_root,
+        objects=[
+            {
+                "bbox_np": _corners(center=(0.0, 0.0, 5.0)),
+                "pcd_np": np.array(
+                    [
+                        [-0.1, 0.0, 5.0],
+                        [0.0, 0.0, 5.0],
+                        [0.1, 0.0, 5.0],
+                        [0.0, -0.1, 5.0],
+                        [0.0, 0.1, 5.0],
+                    ],
+                    dtype=np.float64,
+                ),
+                "class_name": ["chair"],
+                "class_id": [7],
+                "is_background": 0,
+            },
+            {
+                "bbox_np": _corners(center=(0.0, 0.0, 5.0), size=(10.0, 0.1, 4.0)),
+                "pcd_np": np.array(
+                    [
+                        [-1.0, 0.0, 5.0],
+                        [-0.5, 0.0, 5.0],
+                        [0.0, 0.0, 5.0],
+                        [0.5, 0.0, 5.0],
+                        [1.0, 0.0, 5.0],
+                    ],
+                    dtype=np.float64,
+                ),
+                "class_name": ["wall"],
+                "class_id": [1],
+                "is_background": 1,
+            },
+        ],
+        visibility={
+            "object_to_views": {0: [(0, 0.9)], 1: [(0, 0.8)]},
+            "view_to_objects": {0: [(0, 0.9), (1, 0.8)]},
+            "metadata": {"use_depth": True},
+        },
+    )
+
+    artifacts = prep.prepare_scene_artifacts(
+        scene_id="scene0001_00",
+        data_root=data_root,
+    )
+
+    visibility = json.loads(artifacts.visibility_json.read_text())
+    assert visibility == {"0": [0]}
+
+
 def test_render_annotated_frames_uses_visible_bbox_projection(
     tmp_path, monkeypatch
 ) -> None:
@@ -404,11 +485,12 @@ def test_render_annotated_frames_uses_visible_bbox_projection(
 
     rgb = tmp_path / "frame.png"
     Image.new("RGB", (64, 48), "white").save(rgb)
+    Image.new("I;16", (64, 48), 1000).save(tmp_path / "000000-depth.png")
 
     calls: list[dict[str, Any]] = []
 
-    def fake_project_visible_bbox_3d_to_2d(*args: Any, **kwargs: Any):
-        if args[0][0] == 1:
+    def fake_project_depth_visible_points_to_2d(*args: Any, **kwargs: Any):
+        if args[0][0][0] == 1:
             return (5, 6, 30, 32)
         return None
 
@@ -417,8 +499,8 @@ def test_render_annotated_frames_uses_visible_bbox_projection(
 
     monkeypatch.setattr(
         prep,
-        "project_visible_bbox_3d_to_2d",
-        fake_project_visible_bbox_3d_to_2d,
+        "project_depth_visible_points_to_2d",
+        fake_project_depth_visible_points_to_2d,
     )
     monkeypatch.setattr(prep, "render_marked_keyframe", fake_render_marked_keyframe)
 
@@ -426,6 +508,10 @@ def test_render_annotated_frames_uses_visible_bbox_projection(
         proposal_by_id={
             1: {"id": 1, "bbox_3d": [1.0] * 9, "label": "chair"},
             2: {"id": 2, "bbox_3d": [2.0] * 9, "label": "wall"},
+        },
+        proposal_points_by_id={
+            1: np.array([[1.0, 0.0, 1.0]], dtype=float),
+            2: np.array([[2.0, 0.0, 1.0]], dtype=float),
         },
         frame_visibility={0: [1, 2]},
         frame_by_id={

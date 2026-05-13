@@ -7,6 +7,7 @@ from benchmarks.embodiedscan_bbox_feasibility.visibility_index import (
     bbox_visible_in_frustum,
     build_frame_visibility,
     project_bbox_3d_to_2d,
+    project_depth_visible_points_to_2d,
     project_visible_bbox_3d_to_2d,
 )
 
@@ -158,3 +159,46 @@ def test_project_visible_bbox_3d_to_2d_uses_only_in_image_samples() -> None:
     x1, y1, x2, y2 = rect
     assert 590 <= x1 < x2 <= 639
     assert 0 <= y1 < y2 <= 479
+
+
+def test_project_depth_visible_points_to_2d_rejects_occluded_points() -> None:
+    intrinsic = np.array([[50, 0, 50], [0, 50, 50], [0, 0, 1]], dtype=float)
+    extrinsic = np.eye(4)
+    points = np.array([[0.0, 0.0, 5.0], [0.5, 0.0, 5.0]], dtype=float)
+    depth_map = np.full((100, 100), 1000, dtype=np.uint16)  # 1m surface in front
+
+    assert project_depth_visible_points_to_2d(
+        points,
+        intrinsic,
+        extrinsic,
+        depth_map,
+        image_size=(100, 100),
+        min_visible_points=1,
+    ) is None
+
+
+def test_project_depth_visible_points_to_2d_uses_only_depth_visible_points() -> None:
+    intrinsic = np.array([[50, 0, 50], [0, 50, 50], [0, 0, 1]], dtype=float)
+    extrinsic = np.eye(4)
+    points = np.array(
+        [
+            [-1.0, 0.0, 5.0],
+            [0.0, 0.0, 5.0],
+            [1.0, 0.0, 5.0],
+        ],
+        dtype=float,
+    )
+    depth_map = np.full((100, 100), 5000, dtype=np.uint16)
+    # Occlude the leftmost projected point near u=40, v=50.
+    depth_map[50, 40] = 1000
+
+    rect = project_depth_visible_points_to_2d(
+        points,
+        intrinsic,
+        extrinsic,
+        depth_map,
+        image_size=(100, 100),
+        min_visible_points=1,
+    )
+
+    assert rect == (50, 50, 60, 51)

@@ -16,9 +16,8 @@ from PIL import Image
 
 from benchmarks.embodiedscan_bbox_feasibility.render_marks import render_marked_keyframe
 from benchmarks.embodiedscan_bbox_feasibility.visibility_index import (
-    project_visible_bbox_3d_to_2d,
+    project_depth_visible_points_to_2d,
 )
-from benchmarks.nr3d_loader import _phase8_corners_to_9dof
 
 
 def parse_args() -> argparse.Namespace:
@@ -92,6 +91,11 @@ def _render_scene(
     scene_root = data_root / scene_id
     objects = _load_objects(scene_root)
     view_to_objects, metadata = _load_visibility(scene_root)
+    visible_mark_ids = {
+        obj_id
+        for obj_id, obj in enumerate(objects)
+        if not bool(int(obj.get("is_background") or 0))
+    }
     raw_dir = scene_root / "raw"
     intrinsic = np.loadtxt(raw_dir / "intrinsic_color.txt").astype(float)[:3, :3]
     rgb_paths = sorted(raw_dir.glob("[0-9][0-9][0-9][0-9][0-9][0-9]-rgb.png"))
@@ -99,27 +103,35 @@ def _render_scene(
     frame_ids = [
         frame_id
         for frame_id, _entries in sorted(
-            view_to_objects.items(),
+            (
+                (frame_id, [entry for entry in entries if entry[0] in visible_mark_ids])
+                for frame_id, entries in view_to_objects.items()
+            ),
             key=lambda item: (-len(item[1]), item[0]),
         )[:frames_per_scene]
+        if _entries
     ]
     rows: list[dict[str, Any]] = []
     for rank, frame_id in enumerate(frame_ids):
         rgb_path = rgb_paths[frame_id]
         pose_path = pose_paths[frame_id]
+        depth_path = raw_dir / f"{rgb_path.name[:6]}-depth.png"
         raw_frame_id = rgb_path.name[:6]
         width, height = Image.open(rgb_path).size
+        depth_map = np.asarray(Image.open(depth_path))
         world_to_cam = np.linalg.inv(np.loadtxt(pose_path).astype(float))
         marks = []
-        for obj_id, score in view_to_objects[frame_id][:max_marks]:
+        visible_entries = [
+            entry for entry in view_to_objects[frame_id] if entry[0] in visible_mark_ids
+        ]
+        for obj_id, score in visible_entries[:max_marks]:
             obj = objects[obj_id]
-            bbox = _phase8_corners_to_9dof(np.asarray(obj["bbox_np"], dtype=float))
-            rect = project_visible_bbox_3d_to_2d(
-                bbox,
+            rect = project_depth_visible_points_to_2d(
+                np.asarray(obj["pcd_np"], dtype=float),
                 intrinsic,
                 world_to_cam,
+                depth_map,
                 image_size=(width, height),
-                depth_max=20.0,
             )
             if rect is None:
                 continue
@@ -140,7 +152,7 @@ def _render_scene(
                 "frame_id": frame_id,
                 "raw_frame_id": raw_frame_id,
                 "image": out_path,
-                "visible_count": len(view_to_objects[frame_id]),
+                "visible_count": len(visible_entries),
                 "drawn_count": len(marks),
                 "metadata": metadata,
                 "marks": marks,
@@ -174,7 +186,8 @@ def _write_html(rows: list[dict[str, Any]], out_html: Path, report: dict[str, An
         "<p>Frames below are rendered from raw RGB plus the rebuilt "
         "<code>metadata.use_depth=true</code> visibility indices. Only objects "
         "present in the current depth-aware <code>view_to_objects</code> entry "
-        "for that frame are drawn.</p>",
+        "for that frame are drawn; structural background objects marked by "
+        "<code>is_background=1</code> are suppressed.</p>",
     ]
     if report:
         parts.append(

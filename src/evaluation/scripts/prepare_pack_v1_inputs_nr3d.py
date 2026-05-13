@@ -13,13 +13,14 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
+from PIL import Image
 
 from agents.adapters.nr3d_adapter import Nr3dVGAdapter
 from benchmarks.embodiedscan_bbox_feasibility.render_marks import (
     render_marked_keyframe,
 )
 from benchmarks.embodiedscan_bbox_feasibility.visibility_index import (
-    project_visible_bbox_3d_to_2d,
+    project_depth_visible_points_to_2d,
 )
 from benchmarks.nr3d_loader import Nr3dVGSample, _phase8_corners_to_9dof
 from evaluation.scripts.prepare_pack_v1_inputs import (
@@ -347,10 +348,16 @@ def prepare_scene_artifacts(
     if not proposals:
         raise ValueError(f"scene has no Phase 8 objects: {scene_id}")
     visibility = load_phase8_visibility_index(scene_root)
-    frame_visibility = {
-        frame_id: [obj_id for obj_id, _score in entries]
-        for frame_id, entries in visibility.view_to_objects.items()
+    visible_mark_ids = {
+        int(proposal["id"])
+        for proposal in proposals
+        if not bool(proposal.get("is_background", False))
     }
+    frame_visibility = {}
+    for frame_id, entries in visibility.view_to_objects.items():
+        ids = [obj_id for obj_id, _score in entries if obj_id in visible_mark_ids]
+        if ids:
+            frame_visibility[frame_id] = ids
     proposal_ids = [int(proposal["id"]) for proposal in proposals]
     valid_ids = set(proposal_ids)
     for frame_id, ids in frame_visibility.items():
@@ -397,6 +404,10 @@ def prepare_scene_artifacts(
     annotated_dir = scene_dir / "annotated"
     render_annotated_frames(
         proposal_by_id={int(p["id"]): p for p in proposals},
+        proposal_points_by_id={
+            int(obj_id): np.asarray(objects[int(obj_id)]["pcd_np"], dtype=np.float64)
+            for obj_id in proposal_ids
+        },
         frame_visibility=frame_visibility,
         frame_by_id=frame_by_id,
         intrinsic=intrinsic,
@@ -460,6 +471,7 @@ def build_proposals_from_phase8_objects(
                 "score": 1.0,
                 "label": label,
                 "label_idx": label_idx,
+                "is_background": bool(int(obj.get("is_background") or 0)),
             }
         )
     return proposals
@@ -647,6 +659,7 @@ def select_keyframes_query_driven(
 def render_annotated_frames(
     *,
     proposal_by_id: dict[int, dict[str, Any]],
+    proposal_points_by_id: dict[int, np.ndarray],
     frame_visibility: dict[int, list[int]],
     frame_by_id: dict[int, SceneFrame],
     intrinsic: np.ndarray,
@@ -664,11 +677,19 @@ def render_annotated_frames(
                 raise ValueError(
                     f"visibility refers to unknown proposal_id={proposal_id}"
                 )
-            rect = project_visible_bbox_3d_to_2d(
-                proposal["bbox_3d"],
+            points = proposal_points_by_id.get(int(proposal_id))
+            if points is None:
+                raise ValueError(f"missing pcd_np for proposal_id={proposal_id}")
+            depth_path = frame.rgb_path.with_name(f"{frame.raw_frame_id:06d}-depth.png")
+            if not depth_path.exists():
+                raise FileNotFoundError(f"Missing depth image: {depth_path}")
+            depth_map = np.asarray(Image.open(depth_path))
+            rect = project_depth_visible_points_to_2d(
+                points,
                 intrinsic,
                 frame.extrinsic_world_to_cam,
-                image_size,
+                depth_map,
+                image_size=image_size,
             )
             if rect is None:
                 continue
