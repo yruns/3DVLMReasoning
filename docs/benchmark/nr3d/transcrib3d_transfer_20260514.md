@@ -190,3 +190,47 @@ This is not a clear win: it is only +1 sample overall. Per-sample agreement:
 The next transfer step should target the 42 Transcrib3D-only wins, especially
 candidate ranking by category-compatible object tables, distance/superlative
 relations, color/size comparison, and left/right viewpoint language.
+
+## v9 Transfer Step: Compact Proposal Inventory
+
+Implemented first because it is the lowest-risk Transcrib3D idea:
+Transcrib3D gives GPT-4o a compact full-scene object table before reasoning,
+while our v8 prompt only exposed the proposal pool through tools. v9 injects a
+compact `Scene Proposal Inventory` into the VG user message directly from
+`bundle.extra_metadata["vg_proposal_pool"]`.
+
+Injected fields per proposal:
+
+- `proposal_id`
+- category label
+- 3D center `(cx, cy, cz)`
+- 3D size `(dx, dy, dz)`
+- visible view count
+
+Prompt/playbook changes:
+
+- The VG protocol now tells the agent to use the inventory as a text-first
+  candidate prior before spending turns on more images.
+- The playbook now mirrors Transcrib3D's candidate discipline: identify focal
+  category, form a category-compatible candidate set, use size/center for
+  simple superlatives, and then use marked frames for ambiguous visual checks.
+- `chassis_tools_version` was bumped from 18 to 19 so prompt-cache keys do not
+  mix v8 and v9 prompts.
+
+Verification:
+
+```bash
+PYTHONPATH=src .venv/bin/python -m pytest \
+  src/agents/tests/test_agent_config_flags.py \
+  src/agents/tests/test_stage2_deep_agent.py::test_vg_prompt_formats_proposal_inventory_from_pack_pool \
+  -q
+```
+
+Result: 9 passed.
+
+Next evaluation should reuse the same prepared v8 pack and only rerun Stage2:
+
+- Output dir:
+  `tmp/nr3d_eval_v9_inventory_first300_20260514/`
+- Pack:
+  `pack_nr3d_v8_transcrib3d_first300_baseline`

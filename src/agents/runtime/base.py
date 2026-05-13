@@ -316,20 +316,79 @@ class BaseStage2Runtime(ABC):
     ) -> str:
         """Format VG candidate objects with 3D positions for the prompt."""
         candidates = extra_metadata.get("vg_candidates", [])
-        if not candidates:
+        if candidates:
+            lines = ["## Object Candidates for Grounding\n"]
+            for c in candidates:
+                line = (
+                    f"- [ID={c['obj_id']}] {c['category']}: "
+                    f"position=({c['cx']:.2f}, {c['cy']:.2f}, {c['cz']:.2f}), "
+                    f"size=({c['dx']:.2f}, {c['dy']:.2f}, {c['dz']:.2f})"
+                )
+                desc = c.get("description", "")
+                if desc:
+                    line += f"\n  Description: {desc[:100]}"
+                lines.append(line)
+            return "\n".join(lines) + "\n\n"
+
+        pool = extra_metadata.get("vg_proposal_pool")
+        if not isinstance(pool, dict):
             return ""
-        lines = ["## Object Candidates for Grounding\n"]
-        for c in candidates:
-            line = (
-                f"- [ID={c['obj_id']}] {c['category']}: "
-                f"position=({c['cx']:.2f}, {c['cy']:.2f}, {c['cz']:.2f}), "
-                f"size=({c['dx']:.2f}, {c['dy']:.2f}, {c['dz']:.2f})"
+        proposals = pool.get("proposals")
+        if not isinstance(proposals, list) or not proposals:
+            return ""
+        proposal_index = pool.get("proposal_index")
+        if not isinstance(proposal_index, dict):
+            proposal_index = {}
+
+        rows: list[tuple[int, str]] = []
+        for raw in proposals:
+            if not isinstance(raw, dict):
+                continue
+            try:
+                proposal_id = int(raw["id"])
+                bbox = [float(x) for x in raw["bbox_3d_9dof"]]
+            except (KeyError, TypeError, ValueError):
+                continue
+            if len(bbox) < 6:
+                continue
+            category = str(raw.get("category") or "unknown")
+            frame_ids = proposal_index.get(
+                proposal_id, proposal_index.get(str(proposal_id), [])
             )
-            desc = c.get("description", "")
-            if desc:
-                line += f"\n  Description: {desc[:100]}"
-            lines.append(line)
-        return "\n".join(lines) + "\n\n"
+            visible_views = len(frame_ids) if isinstance(frame_ids, list) else 0
+            rows.append(
+                (
+                    proposal_id,
+                    (
+                        f"- [ID={proposal_id}] {category}: "
+                        f"center=({bbox[0]:.2f}, {bbox[1]:.2f}, {bbox[2]:.2f}), "
+                        f"size=({bbox[3]:.2f}, {bbox[4]:.2f}, {bbox[5]:.2f}), "
+                        f"visible_views={visible_views}"
+                    ),
+                )
+            )
+        if not rows:
+            return ""
+
+        rows.sort(key=lambda item: item[0])
+        max_rows = 120
+        header = [
+            "## Scene Proposal Inventory",
+            "",
+            "Use this compact object table as a text-first candidate prior before "
+            "spending turns on more images. It lists every proposal id available "
+            "to submit; category labels are weak priors, while center/size values "
+            "are useful for same-category ranking, superlatives, and spatial "
+            "relations. Cross-check ambiguous candidates with marked frames.",
+            "",
+        ]
+        body = [text for _, text in rows[:max_rows]]
+        if len(rows) > max_rows:
+            body.append(
+                f"- ... omitted {len(rows) - max_rows} additional proposals; "
+                "use find_proposals_by_category for category-specific ids."
+            )
+        return "\n".join([*header, *body]) + "\n\n"
 
     def _format_vg_section(self, extra_schema: dict[str, Any]) -> str:
         """Build the VG-specific system prompt section."""
@@ -354,7 +413,11 @@ class BaseStage2Runtime(ABC):
             "`load_skill('vg-grounding-playbook')`; it explains every VG tool "
             "and the `submit_final` payload schema. The 5 VG tools refuse to run "
             "until that skill is loaded.\n"
-            "3. Follow the playbook's decision tree, then call "
+            "3. Use the Scene Proposal Inventory in the user message as a "
+            "text-first candidate prior: identify category-compatible proposal "
+            "ids, compare center/size for simple superlatives, and only then "
+            "request more marked views for ambiguous visual checks.\n"
+            "4. Follow the playbook's decision tree, then call "
             '`submit_final({"proposal_id": int, "confidence": float}, '
             "rationale=...)` to terminate.\n\n"
             "### MANDATORY rules\n"

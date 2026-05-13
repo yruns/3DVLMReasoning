@@ -1700,6 +1700,42 @@ def test_runtime_build_agent_rejects_removed_vg_backend() -> None:
         runtime_agent.build_agent(task, bundle)
 
 
+def test_vg_prompt_formats_proposal_inventory_from_pack_pool(tmp_path) -> None:
+    from agents.runtime.base import BaseStage2Runtime
+
+    extra_metadata = {
+        "vg_proposal_pool": {
+            "source": "gt",
+            "proposals": [
+                {
+                    "id": 7,
+                    "bbox_3d_9dof": [1, 2, 3, 4, 5, 6, 0, 0, 0],
+                    "category": "chair",
+                    "score": 1.0,
+                },
+                {
+                    "id": 2,
+                    "bbox_3d_9dof": [-1, 0, 0.5, 0.4, 0.5, 0.6, 0, 0, 0],
+                    "category": "book",
+                    "score": 1.0,
+                },
+            ],
+            "frame_index": {10: [2, 7], 11: [7]},
+            "proposal_index": {2: [10], 7: [10, 11]},
+            "annotated_image_dir": str(tmp_path),
+        }
+    }
+
+    text = BaseStage2Runtime._format_vg_candidates(extra_metadata)
+
+    assert "## Scene Proposal Inventory" in text
+    assert "[ID=2] book: center=(-1.00, 0.00, 0.50)" in text
+    assert "size=(0.40, 0.50, 0.60), visible_views=1" in text
+    assert "[ID=7] chair: center=(1.00, 2.00, 3.00)" in text
+    assert "size=(4.00, 5.00, 6.00), visible_views=2" in text
+    assert text.index("[ID=2]") < text.index("[ID=7]")
+
+
 def test_pack_v1_vg_tool_list_snapshot(tmp_path) -> None:
     """Lock VG tool name list under vg_backend='pack_v1'."""
     import importlib

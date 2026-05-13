@@ -18,7 +18,24 @@ mark the sample as failed if no proposal in the pool plausibly matches.
 ## Decision tree
 
 This is a ReAct loop. The 1-3 initial keyframes are a *starting point*,
-not the final evidence. You have **four independent paths** to acquire
+not the final evidence. The user message also includes a **Scene Proposal
+Inventory**: a compact table of every submit-able proposal id with category,
+3D center, 3D size, and visible-view count. Use that table as a text-first
+candidate prior before spending turns on more images.
+
+Transcrib3D-style candidate discipline:
+
+- Identify the focal object category first, then build the same-category or
+  category-compatible candidate set from the inventory / `find_proposals_by_category`.
+- If only one category-compatible candidate exists, inspect it briefly and
+  submit it unless the visual evidence contradicts the query.
+- For same-category superlatives ("larger", "smallest", "closest", "farthest",
+  "leftmost", "rightmost"), compare candidate centers/sizes before requesting
+  more views. Use `compare_proposals_spatial` for anchor-based relations.
+- Treat detector categories as weak priors: a proposal with the right geometry
+  and marked-frame coverage can beat a semantically cleaner label.
+
+You have **four independent paths** to acquire
 fresh visual evidence when the initial keyframes don't show the target,
 ordered cheapest-first:
 
