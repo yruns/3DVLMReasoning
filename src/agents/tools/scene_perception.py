@@ -6,11 +6,12 @@ All tools share the `scene-exploration-playbook` skill gate.
 from __future__ import annotations
 
 import json
+from pathlib import Path
 from typing import Any
 
 from langchain_core.tools import BaseTool, tool
 
-from agents.runtime.scene_runtime import get_scene_catalog
+from agents.runtime.scene_runtime import get_scene_catalog, queue_pending_image
 
 SCENE_EXPLORATION_SKILL = "scene-exploration-playbook"
 
@@ -26,7 +27,73 @@ def _in_bev_box(position_3d: tuple[float, float, float], box: list[float]) -> bo
     return xmin <= position_3d[0] <= xmax and ymin <= position_3d[1] <= ymax
 
 
+def _render_highlighted_bev(catalog, highlight_ids: list[int], output_path: Path) -> Path:
+    """Render a focused BEV. Uses the legacy unmodified BEV as a backdrop and
+    overlays only the highlighted proposal labels via the v9 BEV builder.
+
+    Implemented as a thin function so tests can monkeypatch it without touching
+    open3d / cv2 / mesh assets.
+    """
+    import cv2
+
+    from query_scene.scene_bev_builder import (
+        ScanNetSceneBEVBuilderBase,
+        SceneBEVConfig,
+    )
+
+    class _BackdropBuilder(ScanNetSceneBEVBuilderBase):
+        benchmark = "backdrop"
+
+        def resolve_paths(self, scene_id, data_root):
+            raise NotImplementedError
+
+    base = cv2.imread(str(catalog.bev_image_path))
+    if base is None:
+        raise FileNotFoundError(
+            f"backing BEV image not readable: {catalog.bev_image_path}"
+        )
+    img = cv2.cvtColor(base, cv2.COLOR_BGR2RGB)
+    builder = _BackdropBuilder(config=SceneBEVConfig(image_size=img.shape[1]))
+    xs = [p.position_3d[0] for p in catalog.proposals] or [0.0, 1.0]
+    ys = [p.position_3d[1] for p in catalog.proposals] or [0.0, 1.0]
+    scene_bounds = (min(xs), min(ys), max(xs), max(ys))
+    out = builder._overlay_proposal_labels(
+        img, catalog.proposals, scene_bounds, list(highlight_ids)
+    )
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    cv2.imwrite(str(output_path), cv2.cvtColor(out, cv2.COLOR_RGB2BGR))
+    return output_path
+
+
 def build_scene_perception_tools(runtime: Any) -> list[BaseTool]:
+    @tool
+    def view_bev(highlight: list[int] | None = None) -> str:
+        """Inject the scene BEV image. Detailed usage in 'scene-exploration-playbook'."""
+        request = {"highlight": list(highlight) if highlight else None}
+        gate = _gate(runtime)
+        if gate is not None:
+            runtime.record("view_bev", request, gate)
+            return gate
+        catalog = get_scene_catalog(runtime)
+        if highlight is None or not highlight:
+            queue_pending_image(runtime, catalog.bev_image_path)
+            text = (
+                f"bev image at {catalog.bev_image_path}; "
+                f"highlight=ALL ({len(catalog.proposals)} proposals)"
+            )
+            runtime.record("view_bev", request, text)
+            return text
+        cache_dir = Path(catalog.bev_image_path).parent / "highlights"
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        ids = "_".join(str(int(i)) for i in highlight)
+        out_path = cache_dir / f"bev_h_{ids}.png"
+        if not out_path.exists():
+            _render_highlighted_bev(catalog, list(highlight), out_path)
+        queue_pending_image(runtime, str(out_path))
+        text = f"bev image at {out_path}; highlight={list(highlight)}"
+        runtime.record("view_bev", request, text)
+        return text
+
     @tool
     def list_scene_proposals(
         category: str | None = None,
@@ -97,7 +164,7 @@ def build_scene_perception_tools(runtime: Any) -> list[BaseTool]:
         runtime.record("inspect_proposal", request, text)
         return text
 
-    return [list_scene_proposals, inspect_proposal]
+    return [view_bev, list_scene_proposals, inspect_proposal]
 
 
 __all__ = [
