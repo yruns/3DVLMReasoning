@@ -42,6 +42,7 @@ only. They must not be quoted as public NR3D leaderboard results.
 | [v7 Stage1 callbacks no-CLIP](v7_stage1_callbacks_noclip_random100_20260513.md) | v6 fixed fold/pack + NR3D Stage1 callbacks wired + no per-selector CLIP fallback in `request_more_views`; no NMS | 100 | 73.00 | 82.93 | 66.10 | 70.59 | 74.24 | Depth-aware partial pilot; not a full leaderboard row. |
 | [v8 clean initial marked-on-demand](v8_clean_initial_marked_on_demand_random100_20260514.md) | clean initial RGB keyframes + text-only left-to-right proposal inventory; marked images only via `view_keyframe_marked`; same guards; no NMS | 100 | 67.00 | 85.37 | 54.24 | 58.82 | 71.21 | Negative ablation vs v7; not a full leaderboard row. |
 | [v9 selective marked images](v9_selective_mark_random100_20260514.md) | v8 clean initial contract + `list_frame_proposals` text inventory + filtered `view_keyframe_marked(categories/proposal_ids)` rendering; same guards; no NMS | 100 | 74.00 | 90.24 | 62.71 | 64.71 | 78.79 | Best depth-aware random100 pilot so far; still not a full leaderboard row. |
+| [v10 GPT-4o request](v10_gpt4o_request_random100_20260515.md) | v9 selective-mark code/fold + requested ModelHub GPT-4o model strings; same guards; no NMS | 100 | 65.00 | 75.61 | 57.63 | 55.88 | 69.70 | ModelHub routing caveat: smoke metadata did not confirm pure public GPT-4o; -9.00 pp vs v9. |
 
 ## Memory / Throughput Note
 
@@ -68,3 +69,9 @@ throughput limit on this fold is qpm/tpm rather than local memory.
 The v9 selective-mark run also completed 100/100 checkpoints under the 15GB RSS
 guard with no failed sentinels. It produced 212 retryable ModelHub `429` lines;
 the local memory issue did not recur, and throughput remained LLM-limit bound.
+
+The v10 GPT-4o-request run initially used two 50-worker shards, but endpoint
+timeouts/structured-output failures left 30 missing and 6 failed checkpoints.
+Rerunning the missing/failed set at 10+10 workers under 9GB per-shard RSS
+guards, then rerunning the final failed sample at one worker, recovered 100/100
+completed checkpoints. Observed controlled-rerun RSS stayed below 20GB.

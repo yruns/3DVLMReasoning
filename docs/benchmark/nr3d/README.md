@@ -12,6 +12,7 @@ the current human-facing index.
 | [protocol.md](protocol.md) | Consolidated protocol notes: metric family, fold/filter rules, candidate-pool equivalence, fairness boundary. |
 | [depth_visibility_rebuild_20260513.md](depth_visibility_rebuild_20260513.md) | Root-cause record and rebuild summary for depth-aware NR3D visibility indices. |
 | [depth_visibility_spotcheck_20260513.html](depth_visibility_spotcheck_20260513.html) | Visual spotcheck frames rendered from rebuilt depth-aware `view_to_objects`. |
+| [v10_gpt4o_request_random100](v10_gpt4o_request_random100_20260515.md) | ModelHub GPT-4o request random100 pilot on the v9 selective-mark code/fold. |
 | [v9_selective_mark_random100](v9_selective_mark_random100_20260514.md) | Latest clean-initial + selective marked-image random100 pilot. |
 | [v9_selective_mark_trace_2t2f_20260514.html](v9_selective_mark_trace_2t2f_20260514.html) | Static VG agent trace viewer for 2 correct and 2 failed v9 random100 cases. |
 | [v8_clean_initial_marked_on_demand_random100](v8_clean_initial_marked_on_demand_random100_20260514.md) | Clean-initial/marked-on-demand negative random100 ablation. |
@@ -70,7 +71,22 @@ Interpretation:
 - v3 is also invalidated as a benchmark claim because its GT-target-visible
   shortcut used the same projection-only visibility source.
 
-Latest depth-aware partial pilot:
+Latest model-swap partial pilot:
+
+- Version: `v10_gpt4o_request_random100`
+- Branch / commit: `feat/nr3d-v4-agent-guards-fair-views` /
+  `efb7bb4-dirty-modelhub-model-env`
+- Scope: same v9 selective-mark random100 fold/code; requested ModelHub
+  GPT-4o model strings via user-provided AK groups
+- Result: Overall 65.00, Easy 75.61, Hard 57.63, View-Dep 55.88,
+  View-Indep 69.70
+- Raw artifacts:
+  `tmp/nr3d_eval_v9_selective_mark_gpt4o_random100_20260514/`
+- Note: ModelHub smoke responses reported routed model metadata rather than a
+  confirmed pure public GPT-4o backend. This run is -9.00 pp vs v9 and does not
+  support switching the default away from gpt-5.4.
+
+Best depth-aware partial pilot:
 
 - Version: `v9_selective_mark_random100`
 - Branch / commit: `feat/nr3d-v4-agent-guards-fair-views` /
@@ -129,6 +145,7 @@ Previous best depth-aware random100 pilot:
 | [v7_stage1_callbacks_noclip_random100](v7_stage1_callbacks_noclip_random100_20260513.md) | 2026-05-13 | `feat/nr3d-v4-agent-guards-fair-views` / `690cbf6` | Overall=73.00 | 100Q pilot | Depth-aware partial, callbacks wired, no NMS |
 | [v8_clean_initial_marked_on_demand_random100](v8_clean_initial_marked_on_demand_random100_20260514.md) | 2026-05-14 | `feat/nr3d-v4-agent-guards-fair-views` / `f86c161` | Overall=67.00 | 100Q pilot | Depth-aware partial, negative clean-initial ablation |
 | [v9_selective_mark_random100](v9_selective_mark_random100_20260514.md) | 2026-05-14 | `feat/nr3d-v4-agent-guards-fair-views` / `4a1fba1-dirty-selective-mark` | Overall=74.00 | 100Q pilot | Depth-aware partial, selective marked-image rendering |
+| [v10_gpt4o_request_random100](v10_gpt4o_request_random100_20260515.md) | 2026-05-15 | `feat/nr3d-v4-agent-guards-fair-views` / `efb7bb4-dirty-modelhub-model-env` | Overall=65.00 | 100Q pilot | Depth-aware partial, ModelHub GPT-4o request model-swap ablation |
 
 ## Protocol Summary
 
@@ -142,7 +159,7 @@ Previous best depth-aware random100 pilot:
   "target-type-only public pool" assumption is retracted.
 - Fairness boundary: v3 uses GT-target-visible keyframes; v5/v5.1 use
   query-driven keyframes but are invalidated because their object-frame
-  visibility was projection-only. v6/v7/v8/v9 are depth-aware but partial and
+  visibility was projection-only. v6/v7/v8/v9/v10 are depth-aware but partial and
   preserve v4 keyframe choices to isolate Stage2/runtime changes before NMS.
 
 See [protocol.md](protocol.md) for the consolidated evidence and caveats.
