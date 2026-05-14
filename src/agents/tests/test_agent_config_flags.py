@@ -34,6 +34,14 @@ def test_default_modelhub_pool_uses_three_weighted_gpt54_keys() -> None:
     assert cfg.api_key_initial_offset == 0
 
 
+def test_modelhub_model_name_can_come_from_env(monkeypatch) -> None:
+    monkeypatch.setenv("MODELHUB_MODEL_NAME", "gpt-4o-2024-08-06")
+
+    cfg = Stage2DeepAgentConfig()
+
+    assert cfg.model_name == "gpt-4o-2024-08-06"
+
+
 def test_modelhub_pool_initial_offset_can_come_from_env(monkeypatch) -> None:
     monkeypatch.setenv("MODELHUB_AK_INITIAL_OFFSET", "2")
 
