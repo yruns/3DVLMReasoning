@@ -46,7 +46,8 @@ Agent 通过 **catalog-first 初始状态**（BEV 图 + SceneCatalog 文本）�
 ┌─ 场景认知层 ──────────────────────────────────────┐
 │ • 初始 HumanMessage: BEV 图 + SceneCatalog(Cat-B) 文本
 │ • view_bev(highlight=[ids]?)         重渲聚焦 BEV
-│ • list_scene_proposals(category, region_bev, limit)
+│ • list_scene_proposals(category, region_bev, limit)   scene-scoped
+│ • list_frame_proposals(frame_id)     frame-scoped, text-only
 │ • inspect_proposal(proposal_id)
 └──────────────────────────────────────────────────┘
 ┌─ Selector 层 (A-F) ──────────────────────────────┐
@@ -58,8 +59,10 @@ Agent 通过 **catalog-first 初始状态**（BEV 图 + SceneCatalog 文本）�
 │ F • select_by_coverage(method, k, seen_frame_ids?)
 └──────────────────────────────────────────────────┘
 ┌─ 视觉证据层 ─────────────────────────────────────┐
-│ • view_keyframe(frame_id, mode=auto|"rgb"|"marked")
+│ • view_keyframe(frame_id, mode=auto|"rgb"|"marked",
+│                 categories=[...]?, proposal_ids=[...]?)
 │   ↳ runtime.task_type → default(VG="marked", QA="rgb")
+│   ↳ mode='marked' + 过滤 → 从 raw RGB 重渲，只画选中 (union)
 │ • request_crops(request_text, object_terms)
 └──────────────────────────────────────────────────┘
 ┌─ 空间推理 ─────────────────────────────────────┐
@@ -76,7 +79,7 @@ Agent 通过 **catalog-first 初始状态**（BEV 图 + SceneCatalog 文本）�
 └──────────────────────────────────────────────────┘
 ```
 
-工具总数：15。
+工具总数：16。
 
 ### 数据流（per sample）
 
@@ -260,8 +263,8 @@ class Sqa3dScanNetBEVBuilder(ScanNetSceneBEVBuilderBase): ...
 | 分类 | 工具 | 状态 |
 |---|---|---|
 | 元控制 (2) | `load_skill`, `list_skills` | 保留 |
-| 场景认知 (3) | `view_bev`, `list_scene_proposals`, `inspect_proposal` | view_bev/list 新；inspect 原 `inspect_proposal` 改读 SceneCatalog |
-| 视觉证据 (2) | `view_keyframe`, `request_crops` | view_keyframe 合并 view_keyframe_marked；crops 保留 |
+| 场景认知 (4) | `view_bev`, `list_scene_proposals`, `list_frame_proposals`, `inspect_proposal` | view_bev / list_scene_proposals 新；`list_frame_proposals` 已落地（commit `a5f3625`）；inspect 内部改读 SceneCatalog |
+| 视觉证据 (2) | `view_keyframe`, `request_crops` | `view_keyframe` 在合并 view_keyframe_marked 基础上引入 categories / proposal_ids 过滤（selective marking 已落地于 commit `a5f3625`）；crops 保留 |
 | Selectors A-F (6) | `select_by_text`, `select_by_hypothesis`, `select_by_frame_neighbor`, `select_by_proposal`, `select_by_region`, `select_by_coverage` | 全新 |
 | 空间推理 (1) | `compare_proposals_spatial` | 保留，内部改读 SceneCatalog |
 | 终结 (1) | `submit_final` | 保留，三 guard 顺序不变 |
@@ -321,7 +324,13 @@ def list_scene_proposals(
     region_bev: list[float] | None = None,
     limit: int | None = None,
 ) -> str:
-    """过滤 SceneCatalog. category 精确匹配; region_bev=[xmin,ymin,xmax,ymax] 过滤 position_3d[:2]."""
+    """Scene-scoped. 过滤 SceneCatalog: category 精确匹配; region_bev=[xmin,ymin,xmax,ymax] 过滤 position_3d[:2]."""
+
+def list_frame_proposals(frame_id: int) -> str:
+    """Frame-scoped. 不注入图，返回该 frame 内所有 visible proposal 的紧凑摘要.
+    Returns: {frame_id, visible_proposal_ids, left_to_right, categories: {id: cat}, boxes_2d: {id: [x1,y1,x2,y2]}}.
+    用法：crowded marked frame 前先调它看 inventory，再用 view_keyframe(mode='marked', categories=..., proposal_ids=...)
+    selective rendering。已落地（commit a5f3625）。"""
 
 def inspect_proposal(proposal_id: int) -> str:
     """Returns: {proposal_id, category, position_3d, bbox_3d_9dof, frames_appeared, source}."""
@@ -333,8 +342,22 @@ def inspect_proposal(proposal_id: int) -> str:
 def view_keyframe(
     frame_id: int,
     mode: Literal["rgb", "marked", "auto"] = "auto",
+    categories: list[str] | None = None,
+    proposal_ids: list[int] | None = None,
 ) -> str:
     """mode='auto' → runtime.task_type (VG='marked', QA='rgb').
+
+    Filters (mode='marked' 才生效):
+    - 都为 None → 渲染全部 visible proposal（legacy 行为）
+    - 提供 categories=[...] 或 proposal_ids=[...] → union 过滤，从 raw RGB 重渲，
+      只画选中 box（更粗线条 + 黑底白字 label），缓存到 <scene>/filtered_marks/.
+    - 都为空集（过滤后无命中）→ FAIL-LOUD 报错带 available 列表
+
+    mode='rgb' 下 categories / proposal_ids 被忽略（raw RGB 没有 box 可过滤）.
+
+    Selective filtering 已落地（commit a5f3625）；v9 在合并 view_keyframe_marked 时
+    保留这两个参数 + filtered_marks/ 缓存路径。
+
     Queues image path to vg_pending_images."""
 
 def request_crops(request_text: str, object_terms: list[str]) -> str:
@@ -370,7 +393,7 @@ def submit_final(
 
 ### 关键行为合约
 
-**图像注入路径**：只有 3 个工具会把图加入 `vg_pending_images` 队列：`view_keyframe`、`view_bev`、`request_crops`。所有 `select_by_*` 工具不直接注入图（Path A 决策）。
+**图像注入路径**：只有 3 个工具会把图加入 `vg_pending_images` 队列：`view_keyframe`、`view_bev`、`request_crops`。所有 `select_by_*` 工具不直接注入图（Path A 决策）。`list_frame_proposals` 也不注入图——它是 selective marking 的前置文本侦察，agent 看完 inventory 再决定是否 view marked。
 
 **Skill gate**：所有 selector + view_keyframe + view_bev + list_scene_proposals + compare_proposals_spatial + inspect_proposal 被 `_gate(runtime)` 保护，必须先 `load_skill("scene-exploration-playbook")`。
 
@@ -481,6 +504,25 @@ Agent 必须先 `load_skill("scene-exploration-playbook")` 解所有 selector / 
 
 ## Section E — 迁移计划 + 测试 / Ablation 策略
 
+### 增量基线（v9 已经部分落地）
+
+在 spec 撰写期间，v9 的两个工具已在 `feat/nr3d-v4-agent-guards-fair-views` 上落地并经过 NR3D random100 验证：
+
+- `list_frame_proposals(frame_id)` — frame-scoped text inventory
+- `view_keyframe_marked(frame_id, categories=?, proposal_ids=?)` — selective marking (将合并入 v9 `view_keyframe(mode='marked', ...)`)
+
+NR3D random100 同 fold 结果（commit `a5f3625` + `f6cf53f`）：
+
+| Metric | v7 callbacks | v8 clean initial | **v9 selective mark** | Δ vs v8 | Δ vs v7 |
+|---|---:|---:|---:|---:|---:|
+| Overall | 73.00 | 67.00 | **74.00** | +7.00 pp | +1.00 pp |
+| Easy | 82.93 | 85.37 | **90.24** | +4.88 pp | +7.32 pp |
+| Hard | 66.10 | 54.24 | 62.71 | +8.47 pp | -3.39 pp |
+| View-Dep | 70.59 | 58.82 | 64.71 | +5.88 pp | -5.88 pp |
+| View-Indep | 74.24 | 71.21 | **78.79** | +7.58 pp | +4.55 pp |
+
+这是 v9 完整设计在 NR3D 上的**已验证下限**——剩下的 catalog-first / BEV / 6 selector / SceneCatalog / QA 是要在 74.00 基础上继续推。v9 完整实施的 Phase 1 上线门槛（Overall ≥ 73）已被 selective marking 单独满足，但 Hard 和 View-Dep 仍弱于 v7（-3.39 / -5.88），这正是完整 v9 catalog-first + by_proposal / by_region selector 期望改善的部分。
+
 ### 文件级 Migration 清单
 
 **删除（M1 硬切换）**：
@@ -497,8 +539,9 @@ src/agents/runtime/deepagents_agent.py
 
 src/agents/packs/vg_embodiedscan/tools.py
   ├─ list_keyframes_with_proposals     [删]
-  ├─ view_keyframe_marked              [删]
+  ├─ view_keyframe_marked              [合并入 view_keyframe(mode='marked', categories=?, proposal_ids=?)]
   ├─ find_proposals_by_category        [删]
+  ├─ list_frame_proposals              [保留 — 已 v9 part 1 落地]
   └─ (inspect_proposal / compare_proposals_spatial 保留，内部改读 SceneCatalog)
 
 src/agents/packs/qa_default/skills/evidence_scouting.md  [删]
@@ -575,13 +618,13 @@ src/agents/packs/qa_default/skills/qa_answering_playbook.md         [重写]
 #### Phase 1: VG headline (NR3D random100, 同 v7/v8 fold)
 
 ```
-v9_full         所有 6 selector + view_keyframe + view_bev + request_crops
+v9_full         所有 6 selector + view_keyframe(+filters) + view_bev + list_frame_proposals + request_crops
 v9_no_view_bev  禁用 view_bev 重渲
 v9_text_only    仅 select_by_text（砍 B/C/D/E/F）
-v9_no_selector  禁用 6 selector（agent 退化到只能看初始 BEV）
+v9_no_selector  禁用 6 selector（agent 退化到只能看初始 BEV + list_frame_proposals + view_keyframe）
 ```
 
-对照基线：v7 callbacks no-CLIP (73.00) / v8 clean initial (67.00)。
+对照基线：v7 callbacks (73.00) / v8 clean initial (67.00) / v9 selective mark already-landed (74.00, commit `f6cf53f`)。
 
 主表（同 NR3D random100 fold）：
 
@@ -589,6 +632,7 @@ v9_no_selector  禁用 6 selector（agent 退化到只能看初始 BEV）
 |---|---|---|---|---|---|
 | v7 callbacks no-CLIP | 73.00 | 82.93 | 66.10 | 70.59 | 74.24 |
 | v8 clean initial | 67.00 | 85.37 | 54.24 | 58.82 | 71.21 |
+| v9 selective mark only | 74.00 | 90.24 | 62.71 | 64.71 | 78.79 |
 | v9_full | TBD | | | | |
 | v9_no_view_bev | TBD | | | | |
 | v9_text_only | TBD | | | | |
@@ -635,10 +679,11 @@ leave-one-out：
 ### 上线门槛
 
 v9_full 必须满足以下才能 default-on：
-- NR3D random100 overall ≥ v7 (73.00)
+- NR3D random100 overall ≥ 74 (v9 selective mark-only baseline，**不允许回退到 v7/v8**)
+- NR3D Hard 不低于 v7 (66.10)；View-Dep 不低于 v7 (70.59) — selective mark only 在这两项弱于 v7，完整 catalog-first + selectors 必须修好
 - ScanRefer random100 overall ≥ 现有 v3.19 baseline
 - OpenEQA random100 MNAS ≥ 当前 chassis baseline
-- 单 run 平均 turn 数 ≤ v7 的 1.5x
+- 单 run 平均 turn 数 ≤ v9 selective mark only 的 1.5x
 
 不满足 → 调 prompt / playbook 不修工具；3 轮没改善则 escalate 到 design 复盘。
 
@@ -715,7 +760,7 @@ Cheapest-first principle:
 
 | 文件 | 当前引用的旧工具 | v9 动作 |
 |---|---|---|
-| `src/agents/packs/vg_embodiedscan/skills/vg_grounding_playbook.md` | `view_keyframe_marked`, `find_proposals_by_category`, `list_keyframes_with_proposals`, `inspect_proposal`, `compare_proposals_spatial`, `request_more_views`, `request_crops`, `switch_or_expand_hypothesis` | **整段重写**（保留 TADG / no_match_guard / evidence_frame_guard 流程描述）；改用新工具名 |
+| `src/agents/packs/vg_embodiedscan/skills/vg_grounding_playbook.md` | `view_keyframe_marked`, `find_proposals_by_category`, `list_keyframes_with_proposals`, `inspect_proposal`, `compare_proposals_spatial`, `request_more_views`, `request_crops`, `switch_or_expand_hypothesis`, `list_frame_proposals`（commit `a5f3625` 已新加） | **整段重写**（保留 TADG / no_match_guard / evidence_frame_guard 流程描述 + selective marking 两步流程：list_frame_proposals → view_keyframe(mode='marked', categories/proposal_ids)；改用新工具名 |
 | `src/agents/packs/vg_embodiedscan/skills/vg_spatial_disambiguation.md` | `compare_proposals_spatial`, possibly others | **小改**（工具名不变；删去 view_keyframe_marked 引用，改 view_keyframe(mode='marked')） |
 | `src/agents/packs/vg_embodiedscan/skills/evidence_scouting.md` | 旧 callback 流程 | **删除**（被 scene_exploration_playbook 取代） |
 | `src/agents/packs/qa_default/skills/qa_answering_playbook.md` | `request_more_views`, `request_crops`, `switch_or_expand_hypothesis`, `retrieve_object_context`, `inspect_stage1_metadata` | **整段重写**；改用 selector + view_keyframe(mode='rgb') |
@@ -742,14 +787,18 @@ Cheapest-first principle:
 
 ```bash
 # 在 src/ 和 docs/ 下都不应再有这些字符串
-rg -l 'request_more_views|switch_or_expand_hypothesis|view_keyframe_marked' src/ docs/
+rg -l 'request_more_views|switch_or_expand_hypothesis' src/ docs/
 rg -l 'find_proposals_by_category|list_keyframes_with_proposals|inspect_stage1_metadata' src/ docs/
 rg -l 'enable_temporal_fan|enable_stage1_callback' src/ docs/
 
-# 期望：全部返回 0 个文件（除了 v9 spec / migration doc / archived benchmark docs 本身）
+# view_keyframe_marked 是被"合并"而非删除；v9 完毕后该名仍可作为别名（向后兼容）或彻底改名
+rg -l 'view_keyframe_marked' src/ docs/
+
+# 期望：前三组应返回 0 个活跃代码文件（除 v9 spec / migration doc / archived benchmark docs）
+# view_keyframe_marked 的处理在 implementation phase 决定（保留别名 vs 改名）
 ```
 
-任何残留必须 fix 或在 deprecation 注释里显式标注（如老的 benchmark doc 引用历史工具名是允许的，但活跃代码不允许）。
+任何残留必须 fix 或在 deprecation 注释里显式标注。
 
 ### F.6 黄金原则
 
@@ -759,7 +808,7 @@ rg -l 'enable_temporal_fan|enable_stage1_callback' src/ docs/
 
 ## 风险 / 注意事项
 
-1. **catalog-first 第一轮全靠 BEV + 文本**：v8 random100 已经显示去掉 marked seed 会让 Hard/View-Dep 退步。v9 的赌注是：完整 catalog（含全部 #id label 在 BEV 上 + Cat-B 文本）比 v8 的局部 inventory 更强。如果 v9_full 在 NR3D random100 上仍然达不到 v7 水平，需要回炉考虑：(a) 在 BEV-only 初始之外加一张 BEV-traj-overhead 之类的辅助图；(b) 强制 playbook 在 view-dep 句子上必须先 view 一帧才能 submit。
+1. **catalog-first 第一轮全靠 BEV + 文本**：v8 random100 已经显示去掉 marked seed 会让 Hard/View-Dep 退步；v9 selective mark only 把 Overall 拉回 74.00 但 Hard / View-Dep 仍弱于 v7。v9 完整版的赌注是：catalog-first（带 #id label 的 BEV + Cat-B 文本）+ selectors（特别是 by_proposal / by_region）让 agent 在 Hard / View-Dep 上能精准跨 frame 找到目标。如果 v9_full 在 NR3D random100 上 Hard / View-Dep 仍达不到 v7 水平（66.10 / 70.59），考虑：(a) 在 BEV-only 初始之外加一张辅助图（如轨迹覆盖的 top-down rendering）；(b) 强制 playbook 在 view-dep 句子上必须先 view 一帧 marked frame 才能 submit；(c) 把 view_keyframe + selective mark 路径作为 default，agent 不主动 view 就 fail-loud。
 
 2. **BEV 标号过密**：NR3D 场景常 40-60 proposal。若全标在 1500×1500 BEV 上挤到不可读，agent 必须靠 `view_bev(highlight=...)` 重渲。如果 agent 不学这个习惯，初始 BEV 信息过载 → 降级到 v9_no_view_bev 路径。playbook 必须明确教这一招。
 
