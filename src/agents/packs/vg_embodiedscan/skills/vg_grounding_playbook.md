@@ -3,7 +3,7 @@
 ## When to use this skill
 
 Load this skill at the start of every visual-grounding task on
-EmbodiedScan ScanNet val. It is the prerequisite for the 5 VG-pack
+EmbodiedScan ScanNet val. It is the prerequisite for the VG-pack
 tools — every one of them returns
 `"ERROR: load_skill('vg-grounding-playbook') before calling this tool."`
 until this skill is loaded into `runtime.skills_loaded`.
@@ -20,21 +20,56 @@ mark the sample as failed if no proposal in the pool plausibly matches.
 This is a ReAct loop. The 1-3 initial keyframes are a *starting point*,
 not the final evidence. The user message also includes a **Scene Proposal
 Inventory**: a compact table of every submit-able proposal id with category,
-3D center, 3D size, and visible-view count. Use that table as a text-first
-candidate prior before spending turns on more images.
+3D center, 3D size, and visible-view count. Use that table as the first
+evidence source before spending turns on more images.
 
-Transcrib3D-style candidate discipline:
+### Structured-first VG pass
 
-- Identify the focal object category first, then build the same-category or
-  category-compatible candidate set from the inventory / `find_proposals_by_category`.
-- If only one category-compatible candidate exists, inspect it briefly and
-  submit it unless the visual evidence contradicts the query.
-- For same-category superlatives ("larger", "smallest", "closest", "farthest",
-  "leftmost", "rightmost"), compare candidate centers/sizes before requesting
-  more views. Use `rank_proposals_by_geometry` for size/height superlatives
-  and `compare_proposals_spatial` for anchor-based relations.
-- Treat detector categories as weak priors: a proposal with the right geometry
-  and marked-frame coverage can beat a semantically cleaner label.
+Do this pass before any new marked-frame, crop, or Stage-1 re-query request:
+
+1. Read the **Scene Proposal Inventory**.
+2. Identify the focal object category and obvious synonyms.
+3. Call `find_proposals_by_category("<category>")` for the focal class when the
+   query names an object type.
+4. Inspect the category-compatible candidates with `inspect_proposal`.
+5. If the query is a pure size/height/elevation superlative ("largest",
+   "smallest", "tallest", "highest", "lower"), call
+   `rank_proposals_by_geometry` on the same-category shortlist.
+6. If the query uses an anchor relation ("closest to the desk", "near the
+   door", "left of the sink"), build target and anchor candidate sets, then
+   call `compare_proposals_spatial`.
+7. Only request marked frames, more views, crops, or Stage-1 re-query after the
+   structured pass leaves ambiguity, the candidate set is empty, or the
+   language requires visual evidence.
+
+### Benchmark-specific candidate-pool rules
+
+- **Clean GT/object-pool VG**: NR3D-style and EmbodiedScan-style runs use
+  reliable object identities. If the structured pass produces a unique answer
+  for non-visual language, you may submit after inspecting the proposal
+  metadata. Visual confirmation is useful but not mandatory for pure
+  text/geometry cases.
+- **Noisy detector-pool VG**: ScanRefer-style runs use Mask3D detector
+  proposals. You must visually confirm the final proposal in a marked frame or
+  crop before submitting, unless the decision is a clear no-match/OOD. Detector
+  labels and large boxes are weak priors, so do not trust a single category
+  match without pixels.
+
+### When visual evidence is required
+
+Use `view_keyframe_marked`, `request_more_views`, or `request_crops` before the
+final answer when the query depends on:
+
+- color, material, texture, shape, state, or visible appearance;
+- left/right/front/back wording that is frame- or viewer-dependent;
+- occlusion, containment, support, or "on top of" relations that can be wrong
+  from 3D center-only comparisons;
+- label-noisy candidates where category labels conflict with visible marks;
+- ScanRefer / Mask3D detector-pool cases, even when the structured pass yields
+  one strong candidate.
+
+Treat detector categories as weak priors: a proposal with the right geometry and
+marked-frame coverage can beat a semantically cleaner label.
 
 You have **four independent paths** to acquire
 fresh visual evidence when the initial keyframes don't show the target,
@@ -74,37 +109,25 @@ Keep iterating with these four tools until you actually see the target
 clearly, or until you have proven the referent is not in the proposal
 pool. Prefer cheaper paths first.
 
-1. `list_keyframes_with_proposals()` — see which **initial** keyframes
-   carry which proposal ids and how many proposals each frame shows.
-2. **Identify target category and find ALL same-category candidates
-   scene-wide** — call `find_proposals_by_category("<category>")`. The
-   returned `proposal_ids` cover the whole scene's Mask3D pool, not
-   just the initial keyframes.
-3. **Decide where to look:**
-   - If the initial keyframes contain ≥ 1 same-category candidate
-     (overlap between their `visible_proposal_ids` and step-2 ids):
-     `view_keyframe_marked(frame_id=N)` on those frames.
-   - If the initial keyframes carry NO same-category candidate but
-     `find_proposals_by_category` returned a non-empty list (the
-     candidates exist in the pool, just not in your initial frames):
-     navigate via `inspect_proposal(K)` → `frames_appeared` →
-     `view_keyframe_marked(frame_id=M)` on those frames.
-   - If `find_proposals_by_category` ALSO returned an empty list (no
-     candidate of that category anywhere in the pool), use
-     `switch_or_expand_hypothesis(new_query="<a more general or
-     synonymous phrasing of the utterance>")` to ask Stage 1 for
-     entirely new keyframes. Stage 1's hypothesis parser may catch a
-     synonym or attribute the original parse missed.
-4. If you have ≥ 2 plausible candidates after looking at the marks,
-   call `inspect_proposal(proposal_id=K)` on each to disambiguate by
-   category, score, or which other frames the proposal appears in.
-5. If the query has a spatial constraint ("next to the desk", "left of
+1. `list_keyframes_with_proposals()` — see which **initial** keyframes carry
+   which proposal ids and how many proposals each frame shows.
+2. Run the **Structured-first VG pass** above.
+3. **Decide whether visual evidence is now needed:**
+   - Clean GT/object-pool, unique non-visual structured answer:
+     submit after `inspect_proposal`.
+   - ScanRefer / noisy detector-pool:
+     navigate to a supporting frame with `inspect_proposal(K)` →
+     `frames_appeared` → `view_keyframe_marked(frame_id=M)`, or request a crop.
+   - Empty category set:
+     try synonyms, then `switch_or_expand_hypothesis(new_query=...)`.
+   - Ambiguous or appearance-dependent set:
+     inspect candidate frames/crops until the target mark is visible.
+4. If the query has a complex spatial constraint ("next to the desk", "left of
    the sink", "above the refrigerator"), load the
-   `vg-spatial-disambiguation` skill and apply its workflow before
-   submitting.
-6. `submit_final({"proposal_id": K, "confidence": C}, rationale=...)`
+   `vg-spatial-disambiguation` skill and apply its workflow before submitting.
+5. `submit_final({"proposal_id": K, "confidence": C}, rationale=...)`
    — the chassis validator will reject any unknown id and FAIL-LOUD.
-7. If the referent genuinely is not in the proposal pool **after**
+6. If the referent genuinely is not in the proposal pool **after**
    exhausting same-category candidates, viewing 3+ frames, AND trying
    at least one `switch_or_expand_hypothesis` rewrite, submit the OOD
    marker (see "OOD handling" below). If the no-match candidate guard

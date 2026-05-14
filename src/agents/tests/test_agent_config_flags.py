@@ -20,9 +20,9 @@ def test_vg_backend_defaults_pack_v1() -> None:
 def test_chassis_tools_version_default_is_int() -> None:
     cfg = Stage2DeepAgentConfig()
     assert isinstance(cfg.chassis_tools_version, int)
-    # Bumped to 20 for deterministic VG proposal geometry ranking tool.
+    # Bumped to 21 for text-first VG candidate policy prompt changes.
     # (changes the chassis surface, must invalidate prompt cache).
-    assert cfg.chassis_tools_version == 20
+    assert cfg.chassis_tools_version == 21
 
 
 def test_default_modelhub_pool_uses_three_weighted_gpt54_keys() -> None:

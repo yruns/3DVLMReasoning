@@ -1662,6 +1662,7 @@ def test_wrapper_build_agent_supports_pack_v1(tmp_path) -> None:
             "inspect_proposal",
             "find_proposals_by_category",
             "compare_proposals_spatial",
+            "rank_proposals_by_geometry",
             "list_skills",
             "load_skill",
             "submit_final",
@@ -1734,6 +1735,38 @@ def test_vg_prompt_formats_proposal_inventory_from_pack_pool(tmp_path) -> None:
     assert "[ID=7] chair: center=(1.00, 2.00, 3.00)" in text
     assert "size=(4.00, 5.00, 6.00), visible_views=2" in text
     assert text.index("[ID=2]") < text.index("[ID=7]")
+
+
+def test_vg_system_prompt_requires_structured_first_policy() -> None:
+    from agents.runtime.deepagents_agent import DeepAgentsStage2Runtime
+
+    runtime = DeepAgentsStage2Runtime(config=Stage2DeepAgentConfig())
+
+    text = runtime._format_vg_section({})
+
+    assert "Structured-first VG pass" in text
+    assert "find_proposals_by_category" in text
+    assert "rank_proposals_by_geometry" in text
+    assert "compare_proposals_spatial" in text
+    assert "only after the structured pass" in text
+    assert "Noisy detector-pool VG" in text
+    assert "ScanRefer" in text
+    assert "visual confirmation" in text
+
+
+def test_vg_playbook_documents_scanrefer_text_first_guardrail() -> None:
+    playbook = Path(
+        "src/agents/packs/vg_embodiedscan/skills/vg_grounding_playbook.md"
+    ).read_text()
+
+    assert "Structured-first VG pass" in playbook
+    assert "Clean GT/object-pool VG" in playbook
+    assert "Noisy detector-pool VG" in playbook
+    assert "ScanRefer" in playbook
+    assert "must visually confirm" in playbook
+    assert (
+        "Only request marked frames, more views, crops, or Stage-1 re-query" in playbook
+    )
 
 
 def test_pack_v1_vg_tool_list_snapshot(tmp_path) -> None:
