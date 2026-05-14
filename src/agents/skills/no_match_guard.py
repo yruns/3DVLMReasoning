@@ -86,7 +86,7 @@ def _candidate_evidence(runtime: Any) -> dict[str, Any]:
                 inspected_ids.add(proposal_id)
             continue
 
-        if name == "find_proposals_by_category":
+        if name in ("list_scene_proposals", "find_proposals_by_category"):
             payload = _json_dict(_response_text(entry))
             proposal_ids = payload.get("proposal_ids") or []
             if not isinstance(proposal_ids, list):
@@ -100,7 +100,10 @@ def _candidate_evidence(runtime: Any) -> dict[str, Any]:
                     category_labels.append(label)
             continue
 
-        if name == "view_keyframe_marked":
+        if name == "view_keyframe" and (tool_input.get("mode") or "auto") in (
+            "marked",
+            "auto",
+        ):
             response = _response_text(entry)
             frame_id_raw = tool_input.get("frame_id")
             frame_id = frame_id_raw if isinstance(frame_id_raw, int) else None
@@ -157,7 +160,7 @@ def _format_message(
             for pid, label in zip(category_ids[:12], category_labels[:12], strict=False)
         ]
         chunks.append(
-            "category candidates from find_proposals_by_category: " + ", ".join(pairs)
+            "category candidates from list_scene_proposals: " + ", ".join(pairs)
         )
     viewed_ids = evidence["viewed_uninspected_ids"]
     viewed_labels = evidence["viewed_uninspected_labels"]

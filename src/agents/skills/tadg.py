@@ -347,7 +347,10 @@ def _ambiguous_anchor_gap(runtime: Any, compare: dict[str, Any]) -> str | None:
 
     anchor_candidates: list[int] = []
     for entry in reversed(trace):
-        if getattr(entry, "tool_name", None) != "find_proposals_by_category":
+        if getattr(entry, "tool_name", None) not in (
+            "list_scene_proposals",
+            "find_proposals_by_category",
+        ):
             continue
         response_text = getattr(entry, "response_text", "") or ""
         try:
@@ -415,7 +418,10 @@ def _candidate_coverage_gap(
     trace = list(getattr(runtime, "tool_trace", []) or [])
     window = max(int(getattr(runtime, "tadg_window", 32)), 1)
     for entry in reversed(trace[-window:]):
-        if getattr(entry, "tool_name", None) != "find_proposals_by_category":
+        if getattr(entry, "tool_name", None) not in (
+            "list_scene_proposals",
+            "find_proposals_by_category",
+        ):
             continue
         response_text = getattr(entry, "response_text", "") or ""
         try:

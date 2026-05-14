@@ -143,10 +143,17 @@ def _parse_boxes_2d(response: str) -> dict[int, tuple[float, float, float, float
     return boxes
 
 
+def _is_marked_view(entry: Any) -> bool:
+    if _tool_name(entry) != "view_keyframe":
+        return False
+    mode = (_tool_input(entry) or {}).get("mode")
+    return mode in ("marked", "auto")
+
+
 def _viewed_frame_map(runtime: Any) -> dict[int, dict[str, Any]]:
     frames: dict[int, dict[str, Any]] = {}
     for entry in list(getattr(runtime, "tool_trace", []) or []):
-        if _tool_name(entry) != "view_keyframe_marked":
+        if not _is_marked_view(entry):
             continue
         frame_id = _tool_input(entry).get("frame_id")
         if not isinstance(frame_id, int):
@@ -307,14 +314,15 @@ def _candidate_ids_for_submitted_pid(
 ) -> set[int] | None:
     """Return the category-candidate set that contains the submitted proposal.
 
-    `find_proposals_by_category` is the agent's trace-only record of the target
-    category shortlist. If the submitted proposal belongs to one of those
-    shortlists, relative-position guard alternatives should come from that same
-    shortlist; otherwise the guard can accidentally force the agent to pick an
-    anchor or unrelated object that merely lies farther left/right in the image.
+    `list_scene_proposals` (the v9 replacement for `find_proposals_by_category`)
+    is the agent's trace-only record of the target category shortlist. If the
+    submitted proposal belongs to one of those shortlists, relative-position
+    guard alternatives should come from that same shortlist; otherwise the
+    guard can accidentally force the agent to pick an anchor or unrelated
+    object that merely lies farther left/right in the image.
     """
     for entry in list(getattr(runtime, "tool_trace", []) or []):
-        if _tool_name(entry) != "find_proposals_by_category":
+        if _tool_name(entry) not in ("list_scene_proposals", "find_proposals_by_category"):
             continue
         try:
             response = json.loads(_response_text(entry))

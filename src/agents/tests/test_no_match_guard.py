@@ -70,8 +70,8 @@ def _record_view(
 ) -> None:
     rs.tool_trace.append(
         Stage2ToolObservation(
-            tool_name="view_keyframe_marked",
-            tool_input={"frame_id": frame_id},
+            tool_name="view_keyframe",
+            tool_input={"frame_id": frame_id, "mode": "marked"},
             response_text=(
                 f"frame_id={frame_id} marked image at frame_{frame_id}.png; "
                 f"visible_proposals={visible_ids}; categories={categories}"
