@@ -212,6 +212,40 @@ class ScanReferScanNetBEVBuilder(ScanNetSceneBEVBuilderBase):
         return mesh, traj, intr
 
 
+def _extract_scannet_scan_id(clip_name: str, cg_dir: Path) -> str:
+    info_path = cg_dir / "scene_info.json"
+    if info_path.exists():
+        try:
+            info = json.loads(info_path.read_text(encoding="utf-8"))
+            for key in ("scan_id", "scene_id"):
+                value = info.get(key)
+                if isinstance(value, str) and value.startswith("scene"):
+                    return value
+        except json.JSONDecodeError:
+            pass
+    if "scene" in clip_name:
+        return "scene" + clip_name.split("-scene", 1)[-1]
+    raise ValueError(
+        f"could not extract scannet scan_id from clip name {clip_name!r}"
+    )
+
+
+class OpenEqaScanNetBEVBuilder(ScanNetSceneBEVBuilderBase):
+    benchmark = "openeqa"
+
+    def resolve_paths(self, scene_id: str, data_root: Path) -> tuple[Path, Path, Path]:
+        clip_dir = data_root / scene_id
+        cg = clip_dir / "conceptgraph"
+        traj = cg / "traj.txt"
+        intr = clip_dir / "raw" / "intrinsic_color.txt"
+        if not intr.exists():
+            intr = cg / "intrinsic_color.txt"
+        scan_id = _extract_scannet_scan_id(scene_id, cg)
+        mesh = _find_scannet_mesh(_scannet_data_root(), scan_id)
+        return mesh, traj, intr
+
+
 __all__ = ["SceneBEVConfig", "ScanNetSceneBEVBuilderBase"]
 __all__ += ["Nr3dScanNetBEVBuilder"]
 __all__ += ["ScanReferScanNetBEVBuilder"]
+__all__ += ["OpenEqaScanNetBEVBuilder"]
