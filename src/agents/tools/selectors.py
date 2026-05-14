@@ -233,6 +233,62 @@ def build_selector_tools(runtime: Any) -> list[BaseTool]:
         return text
 
     tools.append(select_by_frame_neighbor)
+
+    @tool
+    def select_by_proposal(
+        proposal_ids: list[int],
+        require_all: bool = False,
+        k: int = 3,
+    ) -> str:
+        """Selector D. Detailed usage in 'scene-exploration-playbook'."""
+        request = {
+            "proposal_ids": list(proposal_ids or []),
+            "require_all": bool(require_all),
+            "k": int(k),
+        }
+        gate = _gate(runtime)
+        if gate is not None:
+            runtime.record("select_by_proposal", request, gate)
+            return gate
+        ids = [int(i) for i in (proposal_ids or [])]
+        if not ids:
+            err = "ERROR: proposal_ids must be a non-empty list of ints"
+            runtime.record("select_by_proposal", request, err)
+            return err
+        catalog = get_scene_catalog(runtime)
+        proposal_by_id = {p.proposal_id: p for p in catalog.proposals}
+        missing = [pid for pid in ids if pid not in proposal_by_id]
+        if missing:
+            err = (
+                f"ERROR: proposal_id(s) not in catalog: {missing}; "
+                f"available count={len(proposal_by_id)}"
+            )
+            runtime.record("select_by_proposal", request, err)
+            return err
+        sets = [set(proposal_by_id[pid].frame_views.keys()) for pid in ids]
+        if not sets:
+            frames_set: set[int] = set()
+        elif require_all:
+            frames_set = set.intersection(*sets)
+        else:
+            frames_set = set().union(*sets)
+        chosen = sorted(int(f) for f in frames_set)[: int(k)]
+        frames = [
+            _build_frame_payload(
+                runtime, catalog, int(fid),
+                selected_because=(
+                    f"select_by_proposal(proposal_ids={ids}, require_all={bool(require_all)})"
+                ),
+                hidden_categories=[],
+            )
+            for fid in chosen
+        ]
+        payload = {"hypothesis_summary": "", "frames": frames}
+        text = json.dumps(payload, ensure_ascii=False)
+        runtime.record("select_by_proposal", request, text)
+        return text
+
+    tools.append(select_by_proposal)
     return tools
 
 
