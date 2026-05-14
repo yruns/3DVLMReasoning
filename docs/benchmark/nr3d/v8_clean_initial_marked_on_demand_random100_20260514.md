@@ -59,6 +59,8 @@ negative relative to v7.
   `tmp/nr3d_eval_v8_clean_initial_marked_on_demand_random100_20260514/leaderboard_metrics.json`
 - Log:
   `tmp/nr3d_eval_v8_clean_initial_marked_on_demand_random100_20260514_w100.log`
+- Static 2T/2F trace viewer:
+  `docs/benchmark/nr3d/v8_clean_initial_trace_2t2f_20260514.html`
 
 ## Commands
 
