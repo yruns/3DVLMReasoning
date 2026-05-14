@@ -40,6 +40,7 @@ only. They must not be quoted as public NR3D leaderboard results.
 | [v4 fair-view + guards](v4_agent_guards_fair_views_20260512.md) | query-driven keyframes + TADG/no-match/evidence-frame guards | 100 | 71.00 | 82.93 | 62.71 | 67.65 | 72.73 | Invalidated: same projection-only visibility source as v5/v5.1. |
 | [v6 inline labels + depth-visible marks](v6_inline_labels_depth_visible_random100_20260513.md) | preserved v4 keyframe ids + depth-aware marked frames + inline `#id category` labels + guards; no NMS | 100 | 71.00 | 78.05 | 66.10 | 70.59 | 71.21 | Depth-aware partial pilot; not a full leaderboard row. |
 | [v7 Stage1 callbacks no-CLIP](v7_stage1_callbacks_noclip_random100_20260513.md) | v6 fixed fold/pack + NR3D Stage1 callbacks wired + no per-selector CLIP fallback in `request_more_views`; no NMS | 100 | 73.00 | 82.93 | 66.10 | 70.59 | 74.24 | Depth-aware partial pilot; not a full leaderboard row. |
+| [v8 clean initial marked-on-demand](v8_clean_initial_marked_on_demand_random100_20260514.md) | clean initial RGB keyframes + text-only left-to-right proposal inventory; marked images only via `view_keyframe_marked`; same guards; no NMS | 100 | 67.00 | 85.37 | 54.24 | 58.82 | 71.21 | Negative ablation vs v7; not a full leaderboard row. |
 
 ## Memory / Throughput Note
 
@@ -57,3 +58,8 @@ each scene selector can lazily load its own CLIP model. NR3D now disables that
 object-term CLIP fallback for the callback path and relies on hypothesis
 categories plus visibility instead; the 100-worker rerun stayed well below the
 15GB RSS guard.
+
+The v8 random100 clean-initial run stayed below the same 15GB guard as well
+(observed around 4.1GB RSS), and completed 100/100 checkpoints with no failed
+sentinels. It produced 192 retryable ModelHub `429` lines, so the practical
+throughput limit on this fold is qpm/tpm rather than local memory.

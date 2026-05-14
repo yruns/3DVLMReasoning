@@ -12,7 +12,8 @@ the current human-facing index.
 | [protocol.md](protocol.md) | Consolidated protocol notes: metric family, fold/filter rules, candidate-pool equivalence, fairness boundary. |
 | [depth_visibility_rebuild_20260513.md](depth_visibility_rebuild_20260513.md) | Root-cause record and rebuild summary for depth-aware NR3D visibility indices. |
 | [depth_visibility_spotcheck_20260513.html](depth_visibility_spotcheck_20260513.html) | Visual spotcheck frames rendered from rebuilt depth-aware `view_to_objects`. |
-| [v7_stage1_callbacks_noclip_random100](v7_stage1_callbacks_noclip_random100_20260513.md) | Latest depth-aware random100 callback-wired pilot. |
+| [v8_clean_initial_marked_on_demand_random100](v8_clean_initial_marked_on_demand_random100_20260514.md) | Latest clean-initial/marked-on-demand random100 ablation. |
+| [v7_stage1_callbacks_noclip_random100](v7_stage1_callbacks_noclip_random100_20260513.md) | Best current depth-aware random100 callback-wired pilot. |
 | [v6_inline_labels_depth_visible_random100](v6_inline_labels_depth_visible_random100_20260513.md) | Depth-aware random100 no-NMS rerender pilot before NR3D callbacks were wired. |
 | [v6_random100_case_studies_20260513.html](v6_random100_case_studies_20260513.html) | Full Stage1+Stage2 visual walkthrough for 2 correct and 2 failed v6 random100 cases. |
 | [v5p1_failed_rerun_full_20260513.md](v5p1_failed_rerun_full_20260513.md) | Latest full-test audit record; invalidated pending depth-aware rerun. |
@@ -68,6 +69,20 @@ Interpretation:
 
 Latest depth-aware partial pilot:
 
+- Version: `v8_clean_initial_marked_on_demand_random100`
+- Branch / commit: `feat/nr3d-v4-agent-guards-fair-views` / `f86c161`
+- Scope: same v4/v6/v7 random100 fold; clean initial RGB keyframes with
+  text-only left-to-right proposal inventories; marked images only through
+  `view_keyframe_marked`
+- Result: Overall 67.00, Easy 85.37, Hard 54.24, View-Dep 58.82,
+  View-Indep 71.21
+- Raw artifacts:
+  `tmp/nr3d_eval_v8_clean_initial_marked_on_demand_random100_20260514/`
+- Note: Negative ablation vs v7. The change improves Easy but significantly
+  hurts Hard and View-Dep; keep v7 as the stronger random100 baseline.
+
+Best current depth-aware random100 pilot:
+
 - Version: `v7_stage1_callbacks_noclip_random100`
 - Branch / commit: `feat/nr3d-v4-agent-guards-fair-views` / `690cbf6`
 - Scope: same v4 random100 fold; preserved v4 keyframe frame ids; no selector
@@ -92,6 +107,7 @@ Latest depth-aware partial pilot:
 | [v5p1_failed_rerun_full](v5p1_failed_rerun_full_20260513.md) | 2026-05-13 | `feat/nr3d-v4-agent-guards-fair-views` / `c404536` | Overall=68.48 | 8584Q / 7805Q filtered | Invalidated: projection-only visibility |
 | [v6_inline_labels_depth_visible_random100](v6_inline_labels_depth_visible_random100_20260513.md) | 2026-05-13 | `feat/nr3d-v4-agent-guards-fair-views` / `41253ad` | Overall=71.00 | 100Q pilot | Depth-aware partial, no NMS |
 | [v7_stage1_callbacks_noclip_random100](v7_stage1_callbacks_noclip_random100_20260513.md) | 2026-05-13 | `feat/nr3d-v4-agent-guards-fair-views` / `690cbf6` | Overall=73.00 | 100Q pilot | Depth-aware partial, callbacks wired, no NMS |
+| [v8_clean_initial_marked_on_demand_random100](v8_clean_initial_marked_on_demand_random100_20260514.md) | 2026-05-14 | `feat/nr3d-v4-agent-guards-fair-views` / `f86c161` | Overall=67.00 | 100Q pilot | Depth-aware partial, negative clean-initial ablation |
 
 ## Protocol Summary
 
@@ -105,7 +121,7 @@ Latest depth-aware partial pilot:
   "target-type-only public pool" assumption is retracted.
 - Fairness boundary: v3 uses GT-target-visible keyframes; v5/v5.1 use
   query-driven keyframes but are invalidated because their object-frame
-  visibility was projection-only. v6/v7 are depth-aware but partial and
+  visibility was projection-only. v6/v7/v8 are depth-aware but partial and
   preserve v4 keyframe choices to isolate Stage2/runtime changes before NMS.
 
 See [protocol.md](protocol.md) for the consolidated evidence and caveats.
