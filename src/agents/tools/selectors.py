@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 from typing import Any
 
 from langchain_core.tools import BaseTool, tool
@@ -174,6 +175,64 @@ def build_selector_tools(runtime: Any) -> list[BaseTool]:
         return text
 
     tools.append(select_by_hypothesis)
+
+    @tool
+    def select_by_frame_neighbor(
+        anchor_frame_id: int,
+        mode: str = "temporal",
+        k: int = 3,
+    ) -> str:
+        """Selector C. Detailed usage in 'scene-exploration-playbook'."""
+        request = {"anchor_frame_id": int(anchor_frame_id), "mode": mode, "k": int(k)}
+        gate = _gate(runtime)
+        if gate is not None:
+            runtime.record("select_by_frame_neighbor", request, gate)
+            return gate
+        if mode not in ("temporal", "viewpoint_diverse"):
+            err = f"ERROR: mode must be 'temporal' or 'viewpoint_diverse'; got {mode!r}"
+            runtime.record("select_by_frame_neighbor", request, err)
+            return err
+        catalog = get_scene_catalog(runtime)
+        valid = sorted(int(f) for f in catalog.valid_frame_ids)
+        if int(anchor_frame_id) not in valid:
+            err = (
+                f"ERROR: anchor_frame_id={anchor_frame_id} not in valid_frame_ids; "
+                f"available[:20]={valid[:20]}"
+            )
+            runtime.record("select_by_frame_neighbor", request, err)
+            return err
+        others = [f for f in valid if f != int(anchor_frame_id)]
+        if mode == "temporal":
+            others.sort(key=lambda f: (abs(f - int(anchor_frame_id)), f))
+            chosen = others[: int(k)]
+        else:
+            anchor_pose, anchor_yaw = _camera_pose(runtime, int(anchor_frame_id))
+            ranked: list[tuple[float, float, int]] = []
+            for f in others:
+                pose, yaw = _camera_pose(runtime, f)
+                if anchor_pose is None or pose is None or anchor_yaw is None or yaw is None:
+                    distance = float(abs(f - int(anchor_frame_id)))
+                    yaw_delta = 0.0
+                else:
+                    distance = math.hypot(pose[0] - anchor_pose[0], pose[1] - anchor_pose[1])
+                    yaw_delta = abs(yaw - anchor_yaw)
+                ranked.append((distance - yaw_delta, -yaw_delta, f))
+            ranked.sort(key=lambda item: (item[0], item[1]))
+            chosen = [t[2] for t in ranked[: int(k)]]
+        frames = [
+            _build_frame_payload(
+                runtime, catalog, int(fid),
+                selected_because=f"select_by_frame_neighbor(anchor={anchor_frame_id}, mode={mode!r})",
+                hidden_categories=[],
+            )
+            for fid in chosen
+        ]
+        payload = {"hypothesis_summary": "", "frames": frames}
+        text = json.dumps(payload, ensure_ascii=False)
+        runtime.record("select_by_frame_neighbor", request, text)
+        return text
+
+    tools.append(select_by_frame_neighbor)
     return tools
 
 
