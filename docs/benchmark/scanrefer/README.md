@@ -33,6 +33,9 @@ paper claim; see
 [v3p19_consensus3_20260508.md](v3p19_consensus3_20260508.md). The best
 single-run headline remains v3.11 at **54.0 / 50.0**; see
 [v3p11_anchor_exclusion_20260508.md](v3p11_anchor_exclusion_20260508.md).
+The v3.21 text-first policy gate is a negative single-run result at
+**46.0 / 38.0** on the same random100 fold and is not promoted; see
+[v3p21_textfirst_random100_20260514.md](v3p21_textfirst_random100_20260514.md).
 The v3.12 vertical-relation guard and v3.13 late-override guard single-run gates
 are negative results at 54.0 / 48.0 and are not promoted; see
 [v3p12_vertical_relation_guard_20260508.md](v3p12_vertical_relation_guard_20260508.md)
@@ -87,6 +90,7 @@ External-method comparison table: [leaderboard.md](leaderboard.md).
 | v3.18_final_selection_ledger_focus (REJECTED) | 2026-05-08 | Acc@0.25 = 16.67 / Acc@0.50 = 16.67 on `n=12` | twelve-sample focus gate | Tested a pre-submit `record_final_selection` ledger. The agent called the ledger on all 12 samples, but the slice fell far below v3.11/v3.13/v3.17, so the candidate was reverted. Not a leaderboard row. Full doc: [v3p18_final_selection_ledger_focus_20260508.md](v3p18_final_selection_ledger_focus_20260508.md). |
 | **v3.19_consensus3** | 2026-05-08 | **Acc@0.25 = 61.0 / Acc@0.50 = 54.0**; `100/100` completed | same 100-utt random fold, no new LLM inference | Deterministic no-GT plurality consensus over v3.10/v3.11/v3.13 `selected_object_id` votes, tie-broken by confidence. It beats the Z3D random100 reference on this development fold, with paired delta vs v3.11 of Acc@0.25 `9/2`, Acc@0.50 `6/2`, mean IoU `+0.0465`. Caveat: source set was selected after auditing this fold; v3.20 is the fresh full-val follow-up, and v3.19 remains the development-fold precursor. Full doc: [v3p19_consensus3_20260508.md](v3p19_consensus3_20260508.md). |
 | **v3.20_consensus3_full** | 2026-05-11 | **Acc@0.25 = 55.36 / Acc@0.50 = 49.57** | 9508 utts (full canonical val) | Full-val no-GT consensus over three fresh source trajectories using `mask3d_query_driven` keyframes; aggregation-GT rescored before consensus. Source runs land at 53.18-54.00 / 47.60-48.36; consensus improves over the source mean by +1.80 / +1.61 pp. Full doc: [v3p20_consensus3_full_20260511.md](v3p20_consensus3_full_20260511.md). |
+| v3.21_textfirst_random100 (NEGATIVE) | 2026-05-14 | Acc@0.25 = 46.0 / Acc@0.50 = 38.0; `100/100` completed | same 100-utt random fold, fresh single run | Applies the NR3D v11 structured/text-first policy to ScanRefer detector-pool VG. It regresses sharply vs v3.11 single-run (Acc@0.50 recoveries/regressions `1/13`) and is not promoted. Full doc: [v3p21_textfirst_random100_20260514.md](v3p21_textfirst_random100_20260514.md). |
 
 ## SQLite
 
@@ -201,12 +205,18 @@ FROM runs ORDER BY ingested_at;
   9508 val utterances. The three single source trajectories score 54.00 / 48.36,
   53.52 / 47.93, and 53.18 / 47.60, so any cost-normalized comparison should
   cite both the source metrics and the consensus lift.
+- **v3.21 text-first is a negative ScanRefer transfer.** It is ingested as
+  `v3p21_textfirst_random100_20260514` and reaches only 46.00 / 38.00 on the
+  frozen random100 fold. The same structured-first policy that modestly helped
+  NR3D random100 appears harmful for ScanRefer's noisy Mask3D detector pool,
+  where labels and metadata are weak priors and visual confirmation remains
+  critical.
 - **SQLite size control.** To keep `runs.sqlite` pushable as a normal git file,
-  very long `tool_calls.response_text` values for intermediate v3.7-v3.18
-  development runs are compacted after ingest. Run rows, sample rows, tool-call
-  row counts, tool names, and tool inputs remain in SQLite; full raw JSON/log
-  artifact paths are recorded in each per-version doc. v3.19/v3.20 consensus
-  traces are compact by construction.
+  very long `tool_calls.response_text` values for intermediate v3.7-v3.18 and
+  v3.21 development runs are compacted after ingest. Run rows, sample rows,
+  tool-call row counts, tool names, and tool inputs remain in SQLite; full raw
+  JSON/log artifact paths are recorded in each per-version doc. v3.19/v3.20
+  consensus traces are compact by construction.
 - ScanRefer test split is server-only; we report on val (9508 utts, 141 scenes).
 - Mask3D-pool detection-mode is the canonical Camp-A setup (ZSVG3D /
   SeeGround / CSVG / Z3D); GT-pool ablation is intentionally NOT pursued

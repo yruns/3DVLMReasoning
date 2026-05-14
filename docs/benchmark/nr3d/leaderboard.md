@@ -46,6 +46,8 @@ only. They must not be quoted as public NR3D leaderboard results.
 | [v9 proposal inventory first300](v9_inventory_first300_20260514.md) | Transcrib3D first300-valid matched fold + compact `Scene Proposal Inventory` prompt prior; no NMS | 281 | 75.09 | 80.14 | 70.00 | 62.20 | 80.40 | +3 samples vs Transcrib3D GPT-4o first300-valid; modest win. |
 | [v10 geometry ranking first300](v10_geometry_first300_20260514.md) | Transcrib3D first300-valid matched fold + `rank_proposals_by_geometry`; no NMS | 281 | 76.87 | 82.27 | 71.43 | 65.85 | 81.41 | +8 samples vs Transcrib3D GPT-4o first300-valid; strongest matched-fold row so far. |
 | [v10 geometry ranking random100](v10_geometry_random100_20260514.md) | same fixed random100 fold/pack as v9 + `rank_proposals_by_geometry`; no NMS | 100 | 69.00 | 85.37 | 57.63 | 50.00 | 78.79 | -2pp vs v9; rank-tool subset 11/14 correct but view-dependent regressions dominate. |
+| [v11 text-first random100](v11_textfirst_random100_20260514.md) | same fixed random100 fold/pack as v10 + structured-first VG policy; no NMS | 100 | 72.00 | 82.93 | 64.41 | 58.82 | 78.79 | +3pp vs v10 and +1pp vs v9; best current same-fold rerun on this branch. |
+| [v11 text-first first300](v11_textfirst_first300_20260514.md) | Transcrib3D first300-valid matched fold + structured-first VG policy; no NMS | 281 | 76.16 | 80.14 | 72.14 | 64.63 | 80.90 | +6 samples vs Transcrib3D GPT-4o, but -2 samples vs v10 geometry; workers=50 hit RSS guard before lower-concurrency completion. |
 
 ## Memory / Throughput Note
 
@@ -71,3 +73,10 @@ terminated by the 15GB RSS guard after 12 checkpoints. A workers=50 remaining
 pass completed without another RSS trip, so 50 is the observed stable ceiling
 for this pack/runtime until crop-path CLIP matching is cached, shared, or
 disabled.
+
+The v11 first300 run confirms the same crop-path boundary under the
+structured-first policy. The prompt increased `request_crops` from 41 to 64
+calls on first300, and an initial workers=50 pass reached 16163MB after 222
+completed checkpoints. The remaining 59 samples completed at workers=25. The
+actionable fix is to resolve explicit proposal-id crop terms directly and avoid
+CLIP fallback for numeric/object-id requests unless it is explicitly enabled.

@@ -12,6 +12,8 @@ the current human-facing index.
 | [protocol.md](protocol.md) | Consolidated protocol notes: metric family, fold/filter rules, candidate-pool equivalence, fairness boundary. |
 | [depth_visibility_rebuild_20260513.md](depth_visibility_rebuild_20260513.md) | Root-cause record and rebuild summary for depth-aware NR3D visibility indices. |
 | [depth_visibility_spotcheck_20260513.html](depth_visibility_spotcheck_20260513.html) | Visual spotcheck frames rendered from rebuilt depth-aware `view_to_objects`. |
+| [v11_textfirst_first300](v11_textfirst_first300_20260514.md) | Structured-first VG policy on the Transcrib3D first300-valid matched fold. |
+| [v11_textfirst_random100](v11_textfirst_random100_20260514.md) | Structured-first VG policy on the fixed depth-aware random100 fold. |
 | [v10_geometry_first300](v10_geometry_first300_20260514.md) | Geometry-ranking tool on the Transcrib3D first300-valid matched fold. |
 | [v10_geometry_random100](v10_geometry_random100_20260514.md) | Geometry-ranking tool rerun on the fixed depth-aware random100 fold. |
 | [v9_inventory_first300](v9_inventory_first300_20260514.md) | Proposal-inventory prompt on the Transcrib3D first300-valid matched fold. |
@@ -74,31 +76,30 @@ Interpretation:
 
 Latest depth-aware Transcrib3D-matched pilot:
 
-- Version: `v10_geometry_first300`
-- Branch / commit: `feat/nr3d-transcrib3d-first300` / `5b53037`
+- Version: `v11_textfirst_first300`
+- Branch / commit: `feat/nr3d-transcrib3d-first300` / `4ee6167`
 - Scope: Transcrib3D `nr3d_first300_valid` fold, 281 samples
-- Result: Overall 76.87, Easy 82.27, Hard 71.43, View-Dep 65.85,
-  View-Indep 81.41
+- Result: Overall 76.16, Easy 80.14, Hard 72.14, View-Dep 64.63,
+  View-Indep 80.90
 - Matched baseline: Transcrib3D GPT-4o text-only first300-valid is 74.02
-  overall; v10 is +8 samples over it and +5 samples over v9.
+  overall; v11 is +6 samples over it, +3 samples over v9, but -2 samples
+  versus v10.
 - Raw artifacts:
-  `tmp/nr3d_eval_v10_geometry_first300_20260514/`
+  `tmp/nr3d_eval_v11_textfirst_first300_20260514/`
 
 Latest depth-aware random100 partial pilot rerun:
 
-- Version: `v10_geometry_random100`
-- Branch / commit: `feat/nr3d-transcrib3d-first300` / `5b53037`
+- Version: `v11_textfirst_random100`
+- Branch / commit: `feat/nr3d-transcrib3d-first300` / `4ee6167`
 - Scope: same v4 random100 fold; preserved v4 keyframe frame ids; no selector
   NMS
-- Result: Overall 69.00, Easy 85.37, Hard 57.63, View-Dep 50.00,
+- Result: Overall 72.00, Easy 82.93, Hard 64.41, View-Dep 58.82,
   View-Indep 78.79
 - Raw artifacts:
-  `tmp/nr3d_eval_v10_geometry_random100_20260514/`
-- Note: v10 keeps the proposal-inventory prompt and adds
-  `rank_proposals_by_geometry`. The final result has 100/100 completed
-  checkpoints after an initial 100-worker RSS guard trip, a stable workers=50
-  remaining pass, and a workers=3 failed-sentinel rerun. It is -2pp versus v9
-  and v7.1 on this fold, so the v10 geometry helper is not a random100 win.
+  `tmp/nr3d_eval_v11_textfirst_random100_20260514/`
+- Note: v11 keeps the geometry helper and changes the policy to structured
+  candidate filtering before visual evidence requests. It improves random100 by
+  +3pp over v10 and +1pp over v9, but drops first300 by -2 samples versus v10.
 
 ## Version Timeline
 
@@ -118,6 +119,8 @@ Latest depth-aware random100 partial pilot rerun:
 | [v9_inventory_first300](v9_inventory_first300_20260514.md) | 2026-05-14 | `feat/nr3d-transcrib3d-first300` / `9eaf05d` | Overall=75.09 | 281Q Transcrib3D first300-valid fold | +3 samples vs Transcrib3D GPT-4o; modest win |
 | [v10_geometry_first300](v10_geometry_first300_20260514.md) | 2026-05-14 | `feat/nr3d-transcrib3d-first300` / `5b53037` | Overall=76.87 | 281Q Transcrib3D first300-valid fold | +8 samples vs Transcrib3D GPT-4o; clearer matched-fold win |
 | [v10_geometry_random100](v10_geometry_random100_20260514.md) | 2026-05-14 | `feat/nr3d-transcrib3d-first300` / `5b53037` | Overall=69.00 | 100Q pilot | Geometry-ranking helper; -2pp vs v9 random100; workers=100 hit RSS guard |
+| [v11_textfirst_random100](v11_textfirst_random100_20260514.md) | 2026-05-14 | `feat/nr3d-transcrib3d-first300` / `4ee6167` | Overall=72.00 | 100Q pilot | Structured-first policy; +3pp vs v10 and +1pp vs v9 |
+| [v11_textfirst_first300](v11_textfirst_first300_20260514.md) | 2026-05-14 | `feat/nr3d-transcrib3d-first300` / `4ee6167` | Overall=76.16 | 281Q Transcrib3D first300-valid fold | +6 samples vs Transcrib3D GPT-4o, but -2 samples vs v10; workers=50 hit RSS guard and remaining 59 were rerun at workers=25 |
 
 ## Protocol Summary
 
@@ -138,7 +141,10 @@ Latest depth-aware random100 partial pilot rerun:
   fold, while improving the Transcrib3D first300-valid matched fold to 75.09.
   v10 adds deterministic geometry ranking; it improves some superlative cases
   but drops the fixed random100 fold to 69.00 and exposes that workers=100 can
-  still exceed 15GB when concurrent crop callbacks load CLIP.
+  still exceed 15GB when concurrent crop callbacks load CLIP. v11 changes the
+  policy to structured-first candidate filtering; it recovers random100 to
+  72.00 but slightly trails v10 on first300, and confirms that crop-callback
+  CLIP fallback is still the main memory risk at high concurrency.
 
 See [protocol.md](protocol.md) for the consolidated evidence and caveats.
 

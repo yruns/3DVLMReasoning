@@ -50,6 +50,7 @@ Source: https://kaldir.vc.in.tum.de/scanrefer_benchmark/benchmark_localization
 | Ours v3.13 late-override guard (gpt-5.4) [§][!!] | this work | 75.00 | 75.00 | 45.83 | 37.50 | 54.00 | 48.00 |
 | **Ours v3.19 consensus3 (gpt-5.4) [§][+]** | this work | **85.71** | **85.71** | **51.39** | **41.67** | **61.00** | **54.00** |
 | Ours v3.20 full-val consensus3 (gpt-5.4) [◇] | this work | 78.58 | 72.31 | 46.71 | 41.09 | 55.36 | 49.57 |
+| Ours v3.21 text-first random100 (gpt-5.4) [§][NEG] | this work | 71.43 | 71.43 | 36.11 | 25.00 | 46.00 | 38.00 |
 
 **v2's GT bbox source is paper-comparable** — same v1 agent decisions
 re-aggregated against ScanNet aggregation-derived GT (the bbox source
@@ -80,6 +81,9 @@ intentionally omitted from the leaderboard table. v3.20 is the current full-val
 query-driven headline, but it is also a three-run consensus result; the
 individual source trajectories are 54.00 / 48.36, 53.52 / 47.93, and
 53.18 / 47.60.
+v3.21 is a negative ScanRefer transfer of the NR3D text-first policy: on the
+same frozen random100 fold it falls to 46.00 / 38.00, below the v3.11 single
+run. It is included for audit only and is not promoted.
 
 [†] **v1 GT bbox not paper-comparable.** v1 uses Phase 8 GT-CG bbox
 (~2× larger by volume than the ScanNet aggregation-based GT bbox the
@@ -244,6 +248,13 @@ random100 gate was run. It is ingested as
 `v3p18_final_selection_ledger_focus12_20260508`, but excluded from the table
 because it is not a random100 or full-val leaderboard result. See
 [`v3p18_final_selection_ledger_focus_20260508.md`](v3p18_final_selection_ledger_focus_20260508.md).
+
+[NEG] **v3.21 text-first policy is NEGATIVE.** It applies the NR3D v11
+structured-first prompt/playbook to ScanRefer's Mask3D detector pool. The run
+completed all 100 samples with no RSS guard or failed sentinels, but regressed
+to 46.00 / 38.00 after aggregation-GT rescoring. Compared with v3.11, Acc@0.50
+has 1 recovery and 13 regressions. See
+[`v3p21_textfirst_random100_20260514.md`](v3p21_textfirst_random100_20260514.md).
 
 [§] **100-utt random fold, not full 9508 val.** v3 / v3.1 / v3.2 /
 v3.3 / v3.4 / v3.5 / v3.7 / v3.8 / v3.9 / v3.10 / v3.11 / v3.12 / v3.13 numbers above are reported on a
