@@ -128,4 +128,56 @@ def parse_args() -> argparse.Namespace:
     return p.parse_args()
 
 
-__all__ = ["write_qa_scene_artifacts", "parse_args"]
+def main() -> int:
+    """Loop over a sample id manifest and emit catalog-first artifacts per clip."""
+    args = parse_args()
+    sample_lines = args.sample_ids.read_text().splitlines()
+    if args.max_samples:
+        sample_lines = sample_lines[: args.max_samples]
+    written: list[Path] = []
+    for sample_line in sample_lines:
+        clip_id, _, _ = sample_line.partition("|")
+        view_index_path = (
+            args.data_root / clip_id / "conceptgraph" / "view_to_objects.json"
+        )
+        view_index = json.loads(view_index_path.read_text())
+        view_to_objects = {
+            int(k): [(int(o), float(w)) for o, w in v] for k, v in view_index.items()
+        }
+        valid_frame_ids = sorted(view_to_objects.keys())
+        artifacts = write_qa_scene_artifacts(
+            benchmark=args.benchmark,
+            clip_id=clip_id,
+            data_root=args.data_root,
+            pack_name=args.pack_name,
+            view_to_objects=view_to_objects,
+            valid_frame_ids=valid_frame_ids,
+            scene_category=None,
+        )
+        sample_path = (
+            args.data_root / clip_id / args.pack_name / "samples" / f"{clip_id}.json"
+        )
+        sample_path.parent.mkdir(parents=True, exist_ok=True)
+        sample_path.write_text(
+            json.dumps(
+                {
+                    "sample_id": clip_id,
+                    "scene_id": clip_id,
+                    "scene_catalog_path": artifacts["scene_catalog_path"],
+                    "bev_image_path": artifacts["bev_image_path"],
+                    "camera_trajectory_path": artifacts["camera_trajectory_path"],
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+        )
+        written.append(sample_path)
+    print(f"wrote {len(written)} samples")
+    return 0
+
+
+__all__ = ["write_qa_scene_artifacts", "parse_args", "main"]
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
