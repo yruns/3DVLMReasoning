@@ -10,21 +10,25 @@ from agents.skills import SkillSpec, TaskPack, register_pack
 
 _PACK_DIR = Path(__file__).resolve().parent
 _SKILLS_DIR = _PACK_DIR / "skills"
+_SHARED_SKILLS_DIR = Path(__file__).resolve().parents[2] / "skills" / "shared_skills"
 
 QA_PACK = TaskPack(
     task_type=Stage2TaskType.QA,
     tool_builder=build_qa_tools,
     skills=[
         SkillSpec(
+            name="scene-exploration-playbook",
+            description=(
+                "Prerequisite v9 gate. Cheapest-first selector ladder + BEV/catalog "
+                "cheat sheet. Required before any selector / view tool runs."
+            ),
+            body_path=_SHARED_SKILLS_DIR / "scene_exploration_playbook.md",
+            task_types={Stage2TaskType.VISUAL_GROUNDING, Stage2TaskType.QA},
+        ),
+        SkillSpec(
             name="qa-answering-playbook",
             description="Default QA loop: inspect evidence, request missing views/crops, then submit answer.",
             body_path=_SKILLS_DIR / "qa_answering_playbook.md",
-            task_types={Stage2TaskType.QA},
-        ),
-        SkillSpec(
-            name="evidence-scouting",
-            description="Decide when to request more keyframes or crops, and how to phrase the request.",
-            body_path=_SKILLS_DIR / "evidence_scouting.md",
             task_types={Stage2TaskType.QA},
         ),
     ],

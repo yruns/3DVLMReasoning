@@ -12,11 +12,21 @@ from agents.skills import SkillSpec, TaskPack, register_pack
 
 _PACK_DIR = Path(__file__).resolve().parent
 _SKILLS_DIR = _PACK_DIR / "skills"
+_SHARED_SKILLS_DIR = Path(__file__).resolve().parents[2] / "skills" / "shared_skills"
 
 VG_PACK = TaskPack(
     task_type=Stage2TaskType.VISUAL_GROUNDING,
     tool_builder=build_vg_tools,
     skills=[
+        SkillSpec(
+            name="scene-exploration-playbook",
+            description=(
+                "Prerequisite v9 gate. Cheapest-first selector ladder + BEV/catalog "
+                "cheat sheet. Required before any selector / view tool runs."
+            ),
+            body_path=_SHARED_SKILLS_DIR / "scene_exploration_playbook.md",
+            task_types={Stage2TaskType.VISUAL_GROUNDING, Stage2TaskType.QA},
+        ),
         SkillSpec(
             name="vg-grounding-playbook",
             description="EmbodiedScan VG main loop: read marked keyframes, pick proposal, submit.",
@@ -31,12 +41,6 @@ VG_PACK = TaskPack(
             ),
             body_path=_SKILLS_DIR / "vg_spatial_disambiguation.md",
             task_types={Stage2TaskType.VISUAL_GROUNDING},
-        ),
-        SkillSpec(
-            name="evidence-scouting",
-            description="Decide when to request more keyframes or crops, and how to phrase the request.",
-            body_path=_SKILLS_DIR / "evidence_scouting.md",
-            task_types={Stage2TaskType.VISUAL_GROUNDING, Stage2TaskType.QA},
         ),
     ],
     finalizer=VG_FINALIZER,
