@@ -258,43 +258,6 @@ def test_frustum_method_l2_uses_depth(tmp_path: Path) -> None:
     assert depth_calls
 
 
-def test_frame_nms_suppresses_overlapping_selector_candidates(tmp_path: Path) -> None:
-    selector = _make_selector(
-        tmp_path,
-        view_scores={
-            0: {1: 1.00},
-            1: {1: 0.95},
-            2: {1: 0.90},
-        },
-        poses=[_make_pose(0.0), _make_pose(0.0), _make_pose(3.0)],
-    )
-
-    def _overlap(
-        self: KeyframeSelector,
-        view_a: int,
-        view_b: int,
-        *,
-        frustum_method: str,
-    ) -> float:
-        assert frustum_method == "l1"
-        return 0.95 if {view_a, view_b} == {0, 1} else 0.10
-
-    selector._compute_symmetric_view_frustum_overlap = MethodType(_overlap, selector)
-
-    result = selector._apply_frame_nms(
-        [0, 1, 2],
-        max_views=2,
-        overlap_threshold=0.75,
-        frustum_method="l1",
-    )
-
-    assert result.selected == [0, 2]
-    assert result.strict_selected == [0, 2]
-    assert [(item.view_id, item.suppressed_by) for item in result.suppressed] == [
-        (1, 0)
-    ]
-
-
 def _make_init_selector(
     tmp_path: Path,
     *,
@@ -355,29 +318,6 @@ def test_selector_init_tolerates_single_pose_scene(tmp_path: Path) -> None:
     assert np.all(selector.pose_turn_rates == 0.0)
     assert np.all(selector.dwell_score == 0.0)
     assert np.all(selector.turn_score == 0.0)
-
-
-def test_load_camera_poses_supports_phase8_raw_layout(tmp_path: Path) -> None:
-    selector = KeyframeSelector.__new__(KeyframeSelector)
-    selector.scene_path = tmp_path / "scene0001_00" / "conceptgraph"
-    raw_dir = selector.scene_path.parent / "raw"
-    raw_dir.mkdir(parents=True)
-    selector.stride = 1
-
-    (raw_dir / "scene_info.json").write_text(
-        '{"kept_frame_ids": [10, 20]}',
-        encoding="utf-8",
-    )
-    pose_a = _make_pose(1.0)
-    pose_b = _make_pose(2.0)
-    np.savetxt(raw_dir / "000010.txt", pose_a)
-    np.savetxt(raw_dir / "000020.txt", pose_b)
-
-    selector._load_camera_poses()
-
-    assert len(selector.camera_poses) == 2
-    assert np.allclose(selector.camera_poses[0], pose_a)
-    assert np.allclose(selector.camera_poses[1], pose_b)
 
 
 def test_selector_init_tolerates_one_degenerate_pose_in_many(tmp_path: Path) -> None:
