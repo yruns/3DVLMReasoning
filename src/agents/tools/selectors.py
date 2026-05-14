@@ -120,6 +120,60 @@ def build_selector_tools(runtime: Any) -> list[BaseTool]:
         return text
 
     tools = [select_by_text]
+
+    @tool
+    def select_by_hypothesis(
+        hypothesis: Any,
+        k: int = 3,
+        hidden_categories: list[str] | None = None,
+    ) -> str:
+        """Selector B. Detailed usage in 'scene-exploration-playbook'."""
+        request = {
+            "hypothesis": hypothesis,
+            "k": int(k),
+            "hidden_categories": list(hidden_categories or []),
+        }
+        gate = _gate(runtime)
+        if gate is not None:
+            runtime.record("select_by_hypothesis", request, gate)
+            return gate
+        if not isinstance(hypothesis, dict) or "hypotheses" not in hypothesis:
+            err = "ERROR: hypothesis must be a dict with 'hypotheses' list (HypothesisOutputV1 shape)"
+            runtime.record("select_by_hypothesis", request, err)
+            return err
+        selector = getattr(runtime, "keyframe_selector", None)
+        if selector is None or not hasattr(selector, "execute_hypothesis_dict"):
+            err = "ERROR: runtime.keyframe_selector does not support execute_hypothesis_dict"
+            runtime.record("select_by_hypothesis", request, err)
+            return err
+        try:
+            result = selector.execute_hypothesis_dict(
+                hypothesis_dict=hypothesis,
+                k=int(k),
+                hidden_categories=list(hidden_categories or []),
+            )
+        except Exception as exc:  # noqa: BLE001
+            err = f"ERROR: hypothesis execution failed: {type(exc).__name__}: {exc}"
+            runtime.record("select_by_hypothesis", request, err)
+            return err
+        catalog = get_scene_catalog(runtime)
+        frames = [
+            _build_frame_payload(
+                runtime, catalog, int(fid),
+                selected_because="select_by_hypothesis",
+                hidden_categories=list(hidden_categories or []),
+            )
+            for fid in (result.get("keyframe_indices") or [])
+        ]
+        payload = {
+            "hypothesis_summary": str(result.get("summary") or ""),
+            "frames": frames,
+        }
+        text = json.dumps(payload, ensure_ascii=False)
+        runtime.record("select_by_hypothesis", request, text)
+        return text
+
+    tools.append(select_by_hypothesis)
     return tools
 
 
