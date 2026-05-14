@@ -23,11 +23,40 @@ from agents import (
     Stage2TaskType,
     build_stage2_evidence_bundle,
 )
+from agents.catalog import SceneCatalog, SceneProposal
 from agents.models import (
     KeyframeEvidence,
     Stage2EvidenceBundle,
 )
 from agents.stage2_deep_agent import Stage2RuntimeState
+
+
+def _stub_scene_catalog(scene_id: str) -> dict:
+    """Tiny SceneCatalog payload so v9 build_user_message can render the task."""
+    return SceneCatalog(
+        scene_id=scene_id,
+        scene_category="room",
+        proposals=[
+            SceneProposal(
+                proposal_id=0,
+                category="object",
+                position_3d=(0.0, 0.0, 0.0),
+                source="mask3d",
+            ),
+        ],
+        total_frames=3,
+        frame_id_range=(0, 100),
+        valid_frame_ids=[0, 50, 100],
+        bev_image_path="/mock/bev.png",
+    ).model_dump()
+
+
+def _attach_scene_catalog(bundle: Stage2EvidenceBundle) -> Stage2EvidenceBundle:
+    """Mutate a bundle in-place to look v9-compatible."""
+    extra = dict(bundle.extra_metadata or {})
+    extra["scene_catalog"] = _stub_scene_catalog(bundle.scene_id or "scene_unknown")
+    bundle.extra_metadata = extra
+    return bundle
 from benchmarks import (
     BoundingBox3D,
     OpenEQASample,
@@ -178,6 +207,7 @@ class TestOpenEQAIntegration(unittest.TestCase):
             scene_id="scene0001",
         )
         bundle = build_stage2_evidence_bundle(stage1_result, scene_id="scene0001")
+        _attach_scene_catalog(bundle)
 
         task = Stage2TaskSpec(
             task_type=Stage2TaskType.QA,
@@ -302,6 +332,7 @@ class TestSQA3DIntegration(unittest.TestCase):
             scene_id=sample.scene_id,
             scene_summary=sample.situation.room_description,
         )
+        _attach_scene_catalog(bundle)
 
         task = Stage2TaskSpec(
             task_type=Stage2TaskType.QA,
@@ -422,6 +453,7 @@ class TestScanReferIntegration(unittest.TestCase):
             stage1_result,
             scene_id=sample.scene_id,
         )
+        _attach_scene_catalog(bundle)
 
         task = Stage2TaskSpec(
             task_type=Stage2TaskType.VISUAL_GROUNDING,
@@ -504,8 +536,10 @@ class TestCrossBenchmarkPipeline(unittest.TestCase):
             user_query="What color is the carpet?",
         )
 
-        # Empty bundle simulates failed Stage 1 retrieval
+        # Empty bundle simulates failed Stage 1 retrieval; we still need a
+        # SceneCatalog stub so v9 build_user_message can render something.
         bundle = Stage2EvidenceBundle(scene_id="unknown_scene", keyframes=[])
+        _attach_scene_catalog(bundle)
 
         fake_graph = _FakeGraph(
             {
@@ -523,6 +557,10 @@ class TestCrossBenchmarkPipeline(unittest.TestCase):
             }
         )
 
+        # Force max turns to 1 so `can_acquire_more_evidence` is False; the
+        # downgrade should then fire (v9 always treats turns_remaining > 0 as
+        # "more evidence available" because the selector tools always exist).
+        task = task.model_copy(update={"max_reasoning_turns": 1})
         with patch.object(
             agent, "build_agent", return_value=(fake_graph, Stage2RuntimeState(bundle))
         ):
@@ -532,25 +570,26 @@ class TestCrossBenchmarkPipeline(unittest.TestCase):
         self.assertEqual(result.result.status, Stage2Status.INSUFFICIENT_EVIDENCE)
 
     def test_tool_callbacks_enable_evidence_refinement(self) -> None:
-        """Tool callbacks allow Stage 2 to request additional evidence."""
-        more_views_invoked = [False]
+        """v9: the more-views Stage-1 callback has been collapsed into the
+        selector tools. This test now only verifies that the crop callback is
+        still wired through the runtime."""
+        crop_invoked = [False]
 
-        def mock_more_views_callback(bundle, request):
-            more_views_invoked[0] = True
-            # Return updated bundle with additional keyframe
+        def mock_crop_callback(bundle, request):
+            crop_invoked[0] = True
             new_bundle = bundle.model_copy(deep=True)
             new_bundle.keyframes.append(
                 KeyframeEvidence(
                     keyframe_idx=99,
-                    image_path="/mock/new_view.jpg",
-                    note="Additional view from callback",
+                    image_path="/mock/crop.jpg",
+                    note="Crop from callback",
                 )
             )
-            return {"response": "Added new view", "updated_bundle": new_bundle}
+            return {"response": "Crop generated", "updated_bundle": new_bundle}
 
         agent = Stage2DeepResearchAgent(
             config=Stage2DeepAgentConfig(enable_uncertainty_stopping=False),
-            more_views_callback=mock_more_views_callback,
+            crop_callback=mock_crop_callback,
         )
 
         bundle = Stage2EvidenceBundle(
@@ -558,19 +597,18 @@ class TestCrossBenchmarkPipeline(unittest.TestCase):
             keyframes=[KeyframeEvidence(keyframe_idx=0, image_path="/mock/frame0.jpg")],
         )
 
-        # Build tools and invoke request_more_views
         runtime = Stage2RuntimeState(bundle=bundle.model_copy(deep=True))
         tools = {tool.name: tool for tool in agent._build_runtime_tools(runtime)}
 
-        tools["request_more_views"].invoke(
+        tools["request_crops"].invoke(
             {
-                "request_text": "Need wider view of the room",
+                "request_text": "Zoom on the carpet",
                 "frame_indices": [0],
-                "object_terms": [],
+                "object_terms": ["carpet"],
             }
         )
 
-        self.assertTrue(more_views_invoked[0])
+        self.assertTrue(crop_invoked[0])
         self.assertEqual(len(runtime.bundle.keyframes), 2)
         self.assertTrue(runtime.evidence_updated)
 

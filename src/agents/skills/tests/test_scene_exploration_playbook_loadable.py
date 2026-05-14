@@ -3,14 +3,22 @@
 Per spec docs/superpowers/specs/2026-05-14-v9-catalog-first-scene-exploration-design.md §F.3.
 """
 
+import importlib
 from pathlib import Path
 
+import agents.packs.qa_default
+import agents.packs.vg_embodiedscan
 from agents.core.agent_config import Stage2TaskType
+from agents.skills import PACKS
 from agents.skills.registry import skills_for
 
-# Trigger pack registration so skills_for returns populated lists in test envs.
-import agents.packs.vg_embodiedscan.registration  # noqa: F401
-import agents.packs.qa_default.registration  # noqa: F401
+
+def _ensure_packs_registered() -> None:
+    """Reload pack packages so PACKS contains them (other tests can clear it)."""
+    if Stage2TaskType.VISUAL_GROUNDING not in PACKS:
+        importlib.reload(agents.packs.vg_embodiedscan)
+    if Stage2TaskType.QA not in PACKS:
+        importlib.reload(agents.packs.qa_default)
 
 
 _PLAYBOOK_PATH = (
@@ -40,6 +48,7 @@ def test_scene_exploration_playbook_exists_and_lists_six_selectors():
 
 
 def test_scene_exploration_playbook_registered_for_vg_and_qa():
+    _ensure_packs_registered()
     for task_type in (Stage2TaskType.VISUAL_GROUNDING, Stage2TaskType.QA):
         names = {s.name for s in skills_for(task_type)}
         assert "scene-exploration-playbook" in names

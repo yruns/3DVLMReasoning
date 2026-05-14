@@ -21,8 +21,9 @@ def test_vg_pack_registers_on_import() -> None:
     assert Stage2TaskType.VISUAL_GROUNDING in PACKS
     pack = PACKS[Stage2TaskType.VISUAL_GROUNDING]
     skill_names = sorted(s.name for s in pack.skills)
+    # v9: evidence-scouting deleted; scene-exploration-playbook is the new shared gate.
     assert skill_names == [
-        "evidence-scouting",
+        "scene-exploration-playbook",
         "vg-grounding-playbook",
         "vg-spatial-disambiguation",
     ]
@@ -30,24 +31,12 @@ def test_vg_pack_registers_on_import() -> None:
     assert pack.required_extra_metadata == ["vg_proposal_pool"]
 
 
-def test_spatial_skill_documents_reversed_pronoun_relations() -> None:
+def test_spatial_skill_documents_v9_compare_workflow() -> None:
     PACKS.clear()
     importlib.reload(agents.packs.vg_embodiedscan)
     pack = PACKS[Stage2TaskType.VISUAL_GROUNDING]
     spatial = next(s for s in pack.skills if s.name == "vg-spatial-disambiguation")
     body = spatial.body_path.read_text(encoding="utf-8")
 
-    assert "Y is to the left of it" in body
-    assert 'relation="right_of"' in body
-
-
-def test_spatial_skill_documents_ambiguous_anchor_and_same_category_rules() -> None:
-    PACKS.clear()
-    importlib.reload(agents.packs.vg_embodiedscan)
-    pack = PACKS[Stage2TaskType.VISUAL_GROUNDING]
-    spatial = next(s for s in pack.skills if s.name == "vg-spatial-disambiguation")
-    body = spatial.body_path.read_text(encoding="utf-8")
-
-    assert "Do not override a stronger relation result solely because" in body
-    assert "Same-category adjacency" in body
-    assert "anchor-self" in body
+    assert "compare_proposals_spatial" in body
+    assert "view_keyframe(mode='marked')" in body

@@ -16,7 +16,11 @@ def test_qa_pack_registers_on_import() -> None:
     assert Stage2TaskType.QA in PACKS
     pack = PACKS[Stage2TaskType.QA]
     skill_names = sorted(s.name for s in pack.skills)
-    assert skill_names == ["evidence-scouting", "qa-answering-playbook"]
+    # v9: evidence-scouting deleted; scene-exploration-playbook is the new shared gate.
+    assert skill_names == [
+        "qa-answering-playbook",
+        "scene-exploration-playbook",
+    ]
     assert pack.required_primary_skill == "qa-answering-playbook"
     assert pack.required_extra_metadata == []
     assert pack.ctx_factory("bundle") == "bundle"

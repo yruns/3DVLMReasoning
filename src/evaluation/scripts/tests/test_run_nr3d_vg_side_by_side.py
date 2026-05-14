@@ -255,12 +255,13 @@ def test_run_one_sample_preserves_tool_trace(monkeypatch, tmp_path) -> None:
     ]
 
 
-def test_nr3d_pack_wires_stage1_callbacks(monkeypatch, tmp_path) -> None:
+def test_nr3d_pack_wires_crop_callback(monkeypatch, tmp_path) -> None:
+    """v9: only the crop callback survives the Stage-1 → tools migration."""
     import agents.stage1_callbacks as callbacks
     from evaluation.scripts import run_nr3d_vg_side_by_side as runner
 
     selector = object()
-    captured = {}
+    captured: dict = {}
 
     class FakeAgent:
         def __init__(self, **kwargs):
@@ -283,26 +284,7 @@ def test_nr3d_pack_wires_stage1_callbacks(monkeypatch, tmp_path) -> None:
         lambda *a, **kw: selector,
         raising=False,
     )
-    def fake_create_more_views_callback(*args, **kwargs):
-        captured["more_views_args"] = args
-        captured["more_views_kwargs"] = kwargs
-        return "more"
-
-    monkeypatch.setattr(
-        callbacks, "create_more_views_callback", fake_create_more_views_callback
-    )
     monkeypatch.setattr(callbacks, "create_crop_callback", lambda *a, **kw: "crop")
-
-    def fake_create_hypothesis_callback(*args, **kwargs):
-        captured["hypothesis_args"] = args
-        captured["hypothesis_kwargs"] = kwargs
-        return "hypothesis"
-
-    monkeypatch.setattr(
-        callbacks,
-        "create_hypothesis_callback",
-        fake_create_hypothesis_callback,
-    )
 
     result = runner.run_pack_v1_sample(
         {"scene_id": "scene0001_00", "query": "the chair"},
@@ -311,13 +293,9 @@ def test_nr3d_pack_wires_stage1_callbacks(monkeypatch, tmp_path) -> None:
     )
 
     assert result == "ok"
-    assert captured["agent_kwargs"]["more_views_callback"] == "more"
     assert captured["agent_kwargs"]["crop_callback"] == "crop"
-    assert captured["agent_kwargs"]["hypothesis_callback"] == "hypothesis"
-    assert captured["more_views_args"][0] is selector
-    assert captured["more_views_kwargs"]["use_clip_object_terms"] is False
-    assert captured["hypothesis_args"][0] is selector
-    assert captured["hypothesis_kwargs"]["use_visual_context"] is False
+    assert "more_views_callback" not in captured["agent_kwargs"]
+    assert "hypothesis_callback" not in captured["agent_kwargs"]
 
 
 def test_extract_result_tool_trace_accepts_raw_dict() -> None:

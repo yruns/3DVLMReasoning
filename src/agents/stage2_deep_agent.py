@@ -41,15 +41,11 @@ class Stage2DeepResearchAgent:
     def __init__(
         self,
         config: Stage2DeepAgentConfig | None = None,
-        more_views_callback: ToolCallback | None = None,
         crop_callback: ToolCallback | None = None,
-        hypothesis_callback: ToolCallback | None = None,
     ) -> None:
         self._runtime = DeepAgentsStage2Runtime(
             config=config,
-            more_views_callback=more_views_callback,
             crop_callback=crop_callback,
-            hypothesis_callback=hypothesis_callback,
         )
 
     @property
@@ -57,16 +53,8 @@ class Stage2DeepResearchAgent:
         return self._runtime.config
 
     @property
-    def more_views_callback(self) -> ToolCallback | None:
-        return self._runtime.more_views_callback
-
-    @property
     def crop_callback(self) -> ToolCallback | None:
         return self._runtime.crop_callback
-
-    @property
-    def hypothesis_callback(self) -> ToolCallback | None:
-        return self._runtime.hypothesis_callback
 
     def _build_extra_body(self) -> dict[str, Any]:
         """Backward-compatible helper for tests."""
@@ -344,11 +332,9 @@ class Stage2DeepResearchAgent:
             len(runtime.tool_trace),
         )
 
-        can_acquire_more_evidence = turns_used < task.max_reasoning_turns and (
-            self.more_views_callback is not None
-            or self.crop_callback is not None
-            or self.hypothesis_callback is not None
-        )
+        # v9: the agent can always acquire more evidence via the catalog-first
+        # selectors + view tools, regardless of optional callbacks.
+        can_acquire_more_evidence = turns_used < task.max_reasoning_turns
 
         final_response = self._normalize_final_response(task, raw_state, runtime)
         final_response = self._apply_uncertainty_stopping(
