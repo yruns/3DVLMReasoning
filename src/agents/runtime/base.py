@@ -331,56 +331,6 @@ class BaseStage2Runtime(ABC):
             lines.append(line)
         return "\n".join(lines) + "\n\n"
 
-    def _format_vg_section(self, extra_schema: dict[str, Any]) -> str:
-        """Build the VG-specific system prompt section."""
-        if self.config.vg_backend != "pack_v1":
-            raise ValueError(
-                f"vg_backend={self.config.vg_backend!r} no longer supported; "
-                "legacy branch removed in Plan C. Set vg_backend='pack_v1'."
-            )
-        return (
-            "## Visual Grounding Protocol (pack v1)\n\n"
-            "You are localizing a target object described in natural language.\n\n"
-            "The VG pack provides a proposal pool, marked-keyframe renderings, "
-            "proposal inspection, spatial-comparison helpers, and the chassis trio.\n\n"
-            "Marked-keyframe images show colored 2D boxes for visible candidate "
-            "proposals. The text inside each box is `#proposal_id category`; "
-            "the `proposal_id` after `#` is the id to use in `inspect_proposal` "
-            "and `submit_final`. Treat the category text as a weak detector "
-            "label and choose the box that covers the referred object.\n\n"
-            "### How to start\n"
-            "1. Call `list_skills()` to see what skills are available for VG.\n"
-            "2. Load `vg-grounding-playbook` first via "
-            "`load_skill('vg-grounding-playbook')`; it explains every VG tool "
-            "and the `submit_final` payload schema. The VG tools refuse to run "
-            "until that skill is loaded.\n"
-            "3. Follow the playbook's decision tree, then call "
-            '`submit_final({"proposal_id": int, "confidence": float}, '
-            "rationale=...)` to terminate.\n\n"
-            "### MANDATORY rules\n"
-            "- Do NOT invent a `proposal_id` outside the pool; the chassis "
-            "validator will reject it.\n"
-            "- If the referent genuinely is not in the pool, submit "
-            "`proposal_id=-1, confidence=0.0` with a rationale (see playbook).\n\n"
-            "- If the no-match candidate guard is enabled, `proposal_id=-1` "
-            "will be soft-blocked when your own tool trace still has unresolved "
-            "category candidates or viewed-but-uninspected marked proposals. "
-            "Use the block message as a compact candidate checklist, inspect or "
-            "choose the best remaining proposal, and only repeat `-1` after "
-            "explicitly closing those candidates. Treat proposal labels as weak "
-            "priors: if the pixels show the referent, choose the proposal that "
-            "covers it even when the Mask3D label mismatches the query.\n\n"
-            "- If the evidence-frame guard is enabled, a final answer whose "
-            "rationale cites a marked frame must submit a proposal id visible "
-            "in that cited frame. When a marked frame shows the target, choose "
-            "the mark covering the target; a large mislabeled proposal in that "
-            "frame is better evidence than a semantically named proposal from "
-            "a different frame.\n\n"
-            "- For left/right referring expressions, use the `left_to_right` "
-            "ordering returned by `view_keyframe_marked` to align proposal ids "
-            "with the marked frame before submitting.\n\n"
-        )
-
     def _format_skill_catalog(self, task_type: Stage2TaskType) -> str:
         """Render the skill catalog block for the system prompt.
 
@@ -422,117 +372,98 @@ class BaseStage2Runtime(ABC):
         task: Stage2TaskSpec,
         object_context: dict[str, str] | None = None,
     ) -> str:
-        """Build the agent system prompt."""
+        """Build the v9 catalog-first system prompt."""
         plan_instructions = {
             Stage2PlanMode.OFF: (
                 "Plan mode is OFF. Only use the todo list if the task is unexpectedly complex."
             ),
             Stage2PlanMode.BRIEF: (
-                "Plan mode is BRIEF. Before major evidence collection, keep a short todo list "
-                "with 2-4 items covering evidence acquisition and answer synthesis."
+                "Plan mode is BRIEF. Maintain a short todo list (2-4 items) covering evidence "
+                "acquisition and answer synthesis."
             ),
             Stage2PlanMode.FULL: (
-                "Plan mode is FULL. Maintain an explicit todo list throughout execution and "
-                "decompose work into evidence acquisition, verification, and task synthesis."
+                "Plan mode is FULL. Maintain an explicit todo list decomposed into evidence "
+                "acquisition, verification, and task synthesis."
             ),
         }
-
         payload_schema = task.expected_output_schema or default_payload_schema(
             task.task_type
         )
         instruction = task.output_instruction or default_output_instruction(
             task.task_type
         )
-
-        # Build uncertainty-aware instructions
-        uncertainty_instructions = (
-            "Uncertainty-aware stopping:\n"
-            f"- Minimum confidence threshold for completion: {self.config.confidence_threshold:.2f}\n"
-            "- If you cannot find sufficient evidence to answer with confidence above this threshold, "
-            "set status to 'insufficient_evidence' rather than guessing.\n"
-            "- List all missing evidence or ambiguous observations in the 'uncertainties' field.\n"
-            "- It is better to admit uncertainty than to hallucinate answers.\n"
-            "- Your confidence score should reflect actual evidence quality, not task difficulty.\n\n"
-        )
-
-        vg_section = ""
-        if task.task_type == Stage2TaskType.VISUAL_GROUNDING:
-            extra = task.expected_output_schema or {}
-            vg_section = self._format_vg_section(extra)
-
-        temporal_fan_line = ""
-        if self.config.enable_temporal_fan:
-            temporal_fan_line = (
-                "3. request_more_views(mode='temporal_fan', frame_indices=[X, Y]) — "
-                "get views temporally adjacent to X, Y along the scan trajectory, "
-                "filtered to overlap < 50% for meaningful visual change. Use when "
-                "you want more angles of objects already visible in specific keyframes.\n"
+        if task.task_type == Stage2TaskType.QA:
+            mode_hint = (
+                "Default view mode for QA: view_keyframe(mode='auto') resolves to 'rgb'."
+            )
+        elif task.task_type == Stage2TaskType.VISUAL_GROUNDING:
+            mode_hint = (
+                "Default view mode for VG: view_keyframe(mode='auto') resolves to 'marked'."
+            )
+        else:
+            mode_hint = (
+                "Default view mode: view_keyframe(mode='auto') picks 'marked' for VG, "
+                "'rgb' otherwise."
             )
 
-        crops_index = "4" if self.config.enable_temporal_fan else "3"
-        hypothesis_index = "5" if self.config.enable_temporal_fan else "4"
-
         return (
-            "You are the Stage-2 research agent for query-scene.\n\n"
-            "Research role:\n"
-            "- Stage 1 is a high-recall evidence retriever, not ground truth.\n"
-            "- Stage 2 must verify, repair, or reject Stage-1 hypotheses using pixels.\n"
-            "- Prefer evidence-seeking behavior over one-shot answering.\n"
-            "- Use tools when keyframes are insufficient; do not hallucinate missing evidence.\n"
-            "- Explicitly surface uncertainty when the necessary evidence is absent.\n\n"
-            "CRITICAL - Evidence-seeking protocol:\n"
-            "- ALWAYS examine the provided keyframe images FIRST before calling any tools.\n"
-            "- If the answer is clearly visible in the current images, answer directly.\n"
-            "- If the TARGET OBJECT or QUERIED ATTRIBUTE is NOT visible in ANY keyframe, "
-            "you MUST seek more evidence before answering or reporting insufficient_evidence. "
-            "Do NOT guess from contextual clues when the target is simply not in frame.\n\n"
-            "Tool strategy (use in this order):\n"
-            "1. request_more_views(mode='targeted', object_terms=[...]) — get views showing specific objects\n"
-            "2. request_more_views(mode='explore') — get views of unseen scene regions; optional frame_indices=[...] pins specific frames you already want, capped at the per-call max, and the selector treats them as the first preferred candidates.\n"
-            f"{temporal_fan_line}"
-            f"{crops_index}. request_crops(object_terms=[...]) — zoom into small/ambiguous objects with annotated bboxes\n"
-            f"{hypothesis_index}. switch_or_expand_hypothesis(new_query='...') — re-run retrieval with a different query (costly, use as last resort)\n"
-            "Use multiple tools across turns: explore → crop details → answer.\n\n"
-            "MANDATORY tool-usage rules:\n"
-            "- If your answer CONTRADICTS the question's premise (e.g., question asks about 'non-black chairs' "
-            "but you only see black ones), you MUST call request_more_views before answering.\n"
-            "- If the target object is NOT visible in ANY keyframe, you MUST call request_more_views at least once.\n"
-            "- For ALL color/attribute questions, you MUST call request_crops on the target object BEFORE answering. No exceptions.\n"
-            "- When describing colors, list ALL distinct colors visible on the object, not just the dominant one "
-            "(e.g., 'white with green accents' not just 'teal').\n"
-            "- For YES/NO state questions (full/empty, clean/dirty, well-lit/dark, organized), "
-            "you MUST request_crops or request_more_views before answering, regardless of confidence.\n"
-            "- For spatial 'between X and Y' questions, verify BOTH landmarks are visible before answering.\n"
-            "- Do NOT report confidence > 0.7 if you used zero tools and the question involves "
-            "spatial relations, object attributes, or object identification.\n\n"
-            "SELF-CHECK before final answer:\n"
-            "- Does your answer contradict the question premise? If so, request more views.\n"
-            "- For spatial questions, list at least 2-3 candidate objects before selecting your answer.\n"
-            "- WARNING: The correct answer may be a smaller or less prominent object. "
-            "Do NOT default to the largest/most obvious object in frame. Consider ALL objects "
-            "including small items on surfaces, items on the floor, and partially occluded objects.\n\n"
-            f"{uncertainty_instructions}"
-            f"{vg_section}"
+            "You are the Stage-2 scene reasoning agent.\n\n"
+            "Scene perception model:\n"
+            "- You start with a BEV overview image plus a SceneCatalog text "
+            "(category -> [#id, ...]).\n"
+            "- You have viewed 0 first-person frames at task start.\n"
+            "- The BEV labels are a starting point, not first-person evidence; "
+            "you must fetch frames.\n\n"
+            "Tool families (always `load_skill('scene-exploration-playbook')` "
+            "before selectors / view tools):\n"
+            "1. select_by_* (6 modalities) — find task-relevant frame_ids\n"
+            "   - select_by_proposal(proposal_ids, require_all, k) — instant catalog lookup\n"
+            "   - select_by_frame_neighbor(anchor_frame_id, mode='temporal'|'viewpoint_diverse', k) "
+            "— instant\n"
+            "   - select_by_region(region, region_type='bev_2d'|'bbox_3d', k) — instant\n"
+            "   - select_by_coverage(method='obj_iou'|'pose_depth', k, seen_frame_ids?) "
+            "— cheap geometric\n"
+            "   - select_by_text(query, k, hidden_categories) — ~Stage-1 LLM parse (2-5s)\n"
+            "   - select_by_hypothesis(hypothesis_json, k, hidden_categories) — instant (no parse)\n"
+            "2. view_keyframe(frame_id, mode='auto', categories?, proposal_ids?) — "
+            "inject a first-person frame.\n"
+            f"   {mode_hint}\n"
+            "3. view_bev(highlight=[ids]?) — re-inject the BEV; optionally focus on a "
+            "subset of #ids.\n"
+            "4. list_scene_proposals(category?, region_bev?, limit?) and "
+            "list_frame_proposals(frame_id) — scene/frame inventory text.\n"
+            "5. inspect_proposal(proposal_id) — proposal metadata + frames_appeared.\n"
+            "6. compare_proposals_spatial(candidate_ids, anchor_id, relation) — "
+            "spatial reasoning.\n"
+            "7. request_crops(request_text, object_terms) — zoom in for small "
+            "attributes / state.\n"
+            "8. submit_final(payload, rationale, evidence_refs?, tool_override_reason?) "
+            "— terminate.\n\n"
+            "Cheapest-first principle:\n"
+            "- Prefer catalog-only selectors (proposal / frame_neighbor / region / coverage) "
+            "before Stage-1 LLM (text / hypothesis).\n"
+            "- Use request_crops only after view_keyframe failed to resolve a small "
+            "attribute or count.\n\n"
+            "Skill gate:\n"
+            "- Every selector + view_keyframe + view_bev + list_scene_proposals + "
+            "inspect_proposal + compare_proposals_spatial\n"
+            "  refuses to run until you `load_skill('scene-exploration-playbook')`. "
+            "After that, load the\n"
+            "  task-specific playbook (`vg-grounding-playbook` for VG, "
+            "`qa-answering-playbook` for QA).\n\n"
             f"{self._format_skill_catalog(task.task_type)}"
-            f"{self._format_scene_inventory(object_context)}"
             "Framework constraints:\n"
-            "- This runtime is built with LangChain v1 and DeepAgents.\n"
-            "- Use the built-in todo planning capability according to the selected plan mode.\n"
-            "- Skill-based decomposition replaces DeepAgents subagents; use the skill catalog "
-            "and load evidence/output skills when decomposition is useful.\n"
+            "- LangChain v1 + DeepAgents runtime.\n"
             f"- Maximum reasoning budget: {task.max_reasoning_turns} turns.\n\n"
             f"{plan_instructions[task.plan_mode]}\n\n"
             "Unified output contract:\n"
             f"- task_type must be `{task.task_type.value}`.\n"
             "- status must reflect whether the task is complete or evidence-limited.\n"
-            "- summary must be concise and evidence-grounded.\n"
-            "- confidence must stay calibrated.\n"
-            "- uncertainties must list missing or ambiguous evidence.\n"
-            "- cited_frame_indices must only cite visible supporting frames.\n"
-            "- evidence_items should map concrete claims to frames and objects.\n"
-            "- payload should follow the expected task-specific schema below.\n\n"
+            "- payload must follow the schema below.\n"
+            "- cited_frame_indices must only cite frames you actually viewed.\n\n"
             f"Task-specific instruction: {instruction}\n"
-            f"Expected payload schema: {json.dumps(payload_schema, indent=2, ensure_ascii=False)}"
+            f"Expected payload schema: "
+            f"{json.dumps(payload_schema, indent=2, ensure_ascii=False)}"
         )
 
     def apply_uncertainty_stopping(
