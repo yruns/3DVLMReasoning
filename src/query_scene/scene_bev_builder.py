@@ -201,5 +201,17 @@ class Nr3dScanNetBEVBuilder(ScanNetSceneBEVBuilderBase):
         return mesh, traj, intr
 
 
+class ScanReferScanNetBEVBuilder(ScanNetSceneBEVBuilderBase):
+    benchmark = "scanrefer"
+
+    def resolve_paths(self, scene_id: str, data_root: Path) -> tuple[Path, Path, Path]:
+        scene_dir = data_root / scene_id
+        traj = scene_dir / "conceptgraph" / "traj.txt"
+        intr = scene_dir / "conceptgraph" / "intrinsic_color.txt"
+        mesh = _find_scannet_mesh(_scannet_data_root(), scene_id)
+        return mesh, traj, intr
+
+
 __all__ = ["SceneBEVConfig", "ScanNetSceneBEVBuilderBase"]
 __all__ += ["Nr3dScanNetBEVBuilder"]
+__all__ += ["ScanReferScanNetBEVBuilder"]
