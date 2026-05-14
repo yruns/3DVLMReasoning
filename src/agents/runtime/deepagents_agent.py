@@ -319,30 +319,19 @@ class DeepAgentsStage2Runtime(BaseStage2Runtime):
         task: Stage2TaskSpec,
         runtime: Stage2RuntimeState,
     ) -> HumanMessage:
-        """Assemble the multimodal task message for the DeepAgent.
+        """Catalog-first multimodal task message (v9). BEV image + Cat-B text only."""
+        from agents.catalog import SceneCatalog
 
-        Args:
-            task: Task specification
-            runtime: Runtime state
-
-        Returns:
-            HumanMessage with text and image content
-        """
         bundle = runtime.bundle
-        keyframe_lines = []
-        for keyframe in bundle.keyframes:
-            keyframe_lines.append(
-                f"- idx={keyframe.keyframe_idx}, view_id={keyframe.view_id}, "
-                f"frame_id={keyframe.frame_id}, note={keyframe.note or 'N/A'}"
+        extra = bundle.extra_metadata or {}
+        catalog_raw = extra.get("scene_catalog")
+        if catalog_raw is None:
+            raise RuntimeError(
+                "v9 build_user_message requires bundle.extra_metadata.scene_catalog; "
+                "ensure pack prep wrote scene_catalog.json"
             )
-        if not keyframe_lines:
-            keyframe_lines.append("- no keyframes available")
+        catalog = SceneCatalog(**catalog_raw)
 
-        hypothesis_text = (
-            json.dumps(bundle.hypothesis.model_dump(), indent=2, ensure_ascii=False)
-            if bundle.hypothesis
-            else "{}"
-        )
         payload_schema = task.expected_output_schema or default_payload_schema(
             task.task_type
         )
@@ -350,41 +339,54 @@ class DeepAgentsStage2Runtime(BaseStage2Runtime):
             task.task_type
         )
 
-        # Inject VG candidate list for visual grounding tasks
-        vg_candidates_section = ""
-        vg_initial_inventory_section = ""
         if task.task_type == Stage2TaskType.VISUAL_GROUNDING:
-            vg_candidates_section = self._format_vg_candidates(
-                bundle.extra_metadata or {}
+            view_note = (
+                "- use view_bev(highlight=[ids]) to declutter\n"
+                "- view_keyframe(mode='auto') resolves to 'marked' for VG"
             )
-            if (bundle.extra_metadata or {}).get("vg_proposal_pool") is not None:
-                from agents.packs.vg_embodiedscan.ctx import build_ctx_from_bundle
-                from agents.packs.vg_embodiedscan.tools import (
-                    format_keyframe_proposal_inventory,
-                )
+        elif task.task_type == Stage2TaskType.QA:
+            view_note = (
+                "- use view_bev(highlight=[ids]) to declutter\n"
+                "- use view_keyframe(mode='rgb') for first-person scene observation"
+            )
+        else:
+            view_note = "- use view_bev(highlight=[ids]) to declutter"
 
-                ctx = runtime.task_ctx or build_ctx_from_bundle(bundle)
-                vg_initial_inventory_section = (
-                    format_keyframe_proposal_inventory(ctx, bundle.keyframes) + "\n\n"
-                )
+        by_cat = catalog.proposals_by_category()
+        cat_lines: list[str] = []
+        if by_cat:
+            max_cat_len = max(len(c) for c in by_cat)
+            for cat in sorted(by_cat):
+                ids_str = ", ".join(f"#{pid}" for pid in sorted(by_cat[cat]))
+                cat_lines.append(f"  {cat.ljust(max_cat_len)} : [{ids_str}]")
+        cat_block = "\n".join(cat_lines) if cat_lines else "  (catalog is empty)"
+        source = catalog.proposals[0].source if catalog.proposals else "n/a"
 
         prompt = (
+            "## Task\n"
             f"Task type: {task.task_type.value}\n"
-            f"User query: {task.user_query}\n"
             f"Plan mode: {task.plan_mode.value}\n"
-            f"Output instruction: {instruction}\n"
-            f"Expected payload schema: {json.dumps(payload_schema, indent=2, ensure_ascii=False)}\n\n"
-            f"Stage-1 query: {bundle.stage1_query or task.user_query}\n"
-            f"Scene id: {bundle.scene_id or 'unknown'}\n\n"
-            f"Current keyframes:\n{chr(10).join(keyframe_lines)}\n\n"
-            f"{vg_initial_inventory_section}"
-            f"Stage-1 hypothesis summary:\n{hypothesis_text}\n\n"
-            f"{vg_candidates_section}"
-            f"Scene summary:\n{bundle.scene_summary or 'N/A'}\n\n"
-            f"Available object context keys:\n"
-            f"{sorted(bundle.object_context.keys()) if bundle.object_context else []}\n\n"
-            "Use tools when evidence is missing. Return the final answer through the "
-            "structured response schema."
+            f'User query: "{task.user_query}"\n'
+            f"Output instruction: {instruction}\n\n"
+            f"Expected payload schema:\n"
+            f"{json.dumps(payload_schema, indent=2, ensure_ascii=False)}\n\n"
+            "## Scene\n"
+            f"Scene id: {catalog.scene_id}\n"
+            f"Scene category: {catalog.scene_category or 'unknown'}\n"
+            f"Total frames: {catalog.total_frames} "
+            f"(frame_id range: {list(catalog.frame_id_range)})\n"
+            f"Proposal pool: {len(catalog.proposals)} items, source={source}\n\n"
+            f"Proposals by category:\n{cat_block}\n\n"
+            "## BEV image (attached above)\n"
+            "- mesh-based top-down render with camera trajectory\n"
+            "- each proposal labeled `#id category` at its 3D center\n"
+            f"{view_note}\n\n"
+            "## Available tools\n"
+            "Always load_skill('scene-exploration-playbook') first.\n"
+            "Then load_skill('vg-grounding-playbook') (VG) or "
+            "load_skill('qa-answering-playbook') (QA).\n\n"
+            f"You have viewed 0 keyframes out of {catalog.total_frames}. "
+            "Use selectors + view_keyframe to fetch first-person frames."
         )
 
         content: list[dict[str, Any]] = [{"type": "text", "text": prompt}]

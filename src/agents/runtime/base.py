@@ -245,20 +245,10 @@ class BaseStage2Runtime(ABC):
         return f"data:image/jpeg;base64,{b64}"
 
     def collect_image_paths(self, bundle: Stage2EvidenceBundle) -> list[str]:
-        """Collect keyframes and optional BEV images for a run."""
-        images: list[str] = []
-        for keyframe in bundle.keyframes[: self.config.max_images]:
-            if Path(keyframe.image_path).exists():
-                images.append(keyframe.image_path)
-
-        if (
-            bundle.bev_image_path
-            and Path(bundle.bev_image_path).exists()
-            and len(images) < self.config.max_images
-        ):
-            images.append(bundle.bev_image_path)
-
-        return images
+        """v9 catalog-first: only the BEV image is part of the initial HumanMessage."""
+        if bundle.bev_image_path and Path(bundle.bev_image_path).exists():
+            return [str(bundle.bev_image_path)]
+        return []
 
     def coerce_callback_result(self, result: Any) -> Stage2ToolResult:
         """Normalize external callback payloads for tool responses."""
