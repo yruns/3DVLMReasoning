@@ -301,6 +301,12 @@ def run_pack_v1_sample(
     phase8_data_root: Path | None = None,
     enable_stage1_callback: bool = True,
 ) -> Any:
+    """Run a single NR3D sample through Stage 2 (v9 catalog-first).
+
+    The `enable_stage1_callback` parameter is preserved for CLI compatibility
+    but now only controls whether the crop callback is wired. Stage-1 more-views
+    / hypothesis flows have been collapsed into the v9 selector tools.
+    """
     bundle = build_pack_v1_bundle_from_sample(sample, data_root, pack_name=pack_name)
     task = Stage2TaskSpec(
         task_type=Stage2TaskType.VISUAL_GROUNDING,
@@ -310,45 +316,22 @@ def run_pack_v1_sample(
     if agent_cls is None:
         from agents.stage2_deep_agent import Stage2DeepResearchAgent as agent_cls
 
-    more_views_callback = None
     crop_callback = None
-    hypothesis_callback = None
     if enable_stage1_callback:
         scene_id = str(sample["scene_id"])
         selector = _get_or_build_keyframe_selector(
             scene_id,
             data_root if phase8_data_root is None else phase8_data_root,
         )
-        from agents.stage1_callbacks import (
-            create_crop_callback,
-            create_hypothesis_callback,
-            create_more_views_callback,
-        )
+        from agents.stage1_callbacks import create_crop_callback
 
-        more_views_callback = create_more_views_callback(
-            selector,
-            scene_id=scene_id,
-            max_additional_views=3,
-            use_clip_object_terms=False,
-        )
         crop_callback = create_crop_callback(
             selector,
             scene_id=scene_id,
             crop_scale=2.0,
         )
-        hypothesis_callback = create_hypothesis_callback(
-            selector,
-            scene_id=scene_id,
-            max_new_keyframes=3,
-            use_visual_context=False,
-        )
 
-    agent = agent_cls(
-        config=config,
-        more_views_callback=more_views_callback,
-        crop_callback=crop_callback,
-        hypothesis_callback=hypothesis_callback,
-    )
+    agent = agent_cls(config=config, crop_callback=crop_callback)
     return agent.run(task=task, bundle=bundle)
 
 

@@ -251,11 +251,6 @@ def parse_args() -> argparse.Namespace:
         help="Frustum overlap method for pose-aware Stage 1 scoring.",
     )
     parser.add_argument(
-        "--enable-temporal-fan",
-        action="store_true",
-        help="Advertise mode='temporal_fan' in the Stage 2 prompt.",
-    )
-    parser.add_argument(
         "--force-selection",
         type=Path,
         default=None,
@@ -266,7 +261,7 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help=(
             "Stable Stage 2 prompt-cache session id. Defaults to a hash of "
-            "--output-root and the temporal_fan prompt variant."
+            "--output-root."
         ),
     )
     parser.add_argument(
@@ -280,10 +275,10 @@ def parse_args() -> argparse.Namespace:
 def derive_eval_session_id(
     *,
     output_root: Path,
-    enable_temporal_fan: bool,
     chassis_tools_version: int = 3,
     vg_backend: str = "pack_v1",
     explicit_session_id: str | None = None,
+    enable_temporal_fan: bool | None = None,  # deprecated, ignored
 ) -> str:
     if explicit_session_id:
         return explicit_session_id
@@ -291,11 +286,11 @@ def derive_eval_session_id(
     digest = hashlib.sha256(
         (
             f"{output_root.resolve()}|"
-            f"temporal_fan={enable_temporal_fan}|"
             f"chassis_tools_version={chassis_tools_version}|"
             f"vg_backend={vg_backend}"
         ).encode()
     ).hexdigest()[:16]
+    del enable_temporal_fan  # kept for back-compat; not part of session id
     return f"v15_{digest}"
 
 
@@ -670,7 +665,6 @@ def _run_one_sample_impl(sample: dict[str, Any], args: argparse.Namespace) -> di
         selector=selector,
         scene_id=clip_id,
         max_additional_views=args.max_additional_views,
-        enable_temporal_fan=args.enable_temporal_fan,
         session_id=args.session_id,
     )
     stage2_summary = serialize_stage2_result(
@@ -705,7 +699,6 @@ def _run_one_sample_impl(sample: dict[str, Any], args: argparse.Namespace) -> di
             selector=selector,
             scene_id=clip_id,
             max_additional_views=args.max_additional_views,
-            enable_temporal_fan=args.enable_temporal_fan,
             session_id=args.session_id,
         )
         e2e_summary = serialize_stage2_result(
@@ -766,7 +759,6 @@ def main() -> None:
     args = parse_args()
     args.session_id = derive_eval_session_id(
         output_root=args.output_root,
-        enable_temporal_fan=args.enable_temporal_fan,
         chassis_tools_version=getattr(args, "chassis_tools_version", 3),
         vg_backend=getattr(args, "vg_backend", "pack_v1"),
         explicit_session_id=args.session_id,

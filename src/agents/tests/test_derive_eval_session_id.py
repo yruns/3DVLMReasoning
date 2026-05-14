@@ -9,13 +9,11 @@ from agents.examples.openeqa_official_question_pilot import derive_eval_session_
 def test_session_id_changes_when_chassis_tools_version_changes(tmp_path: Path) -> None:
     a = derive_eval_session_id(
         output_root=tmp_path,
-        enable_temporal_fan=False,
         chassis_tools_version=1,
         vg_backend="pack_v1",
     )
     b = derive_eval_session_id(
         output_root=tmp_path,
-        enable_temporal_fan=False,
         chassis_tools_version=2,
         vg_backend="pack_v1",
     )
@@ -25,12 +23,10 @@ def test_session_id_changes_when_chassis_tools_version_changes(tmp_path: Path) -
 def test_default_session_id_uses_current_chassis_tools_version(tmp_path: Path) -> None:
     default_id = derive_eval_session_id(
         output_root=tmp_path,
-        enable_temporal_fan=False,
         vg_backend="pack_v1",
     )
     explicit_current_id = derive_eval_session_id(
         output_root=tmp_path,
-        enable_temporal_fan=False,
         chassis_tools_version=3,
         vg_backend="pack_v1",
     )
@@ -40,13 +36,11 @@ def test_default_session_id_uses_current_chassis_tools_version(tmp_path: Path) -
 def test_session_id_changes_when_vg_backend_changes(tmp_path: Path) -> None:
     a = derive_eval_session_id(
         output_root=tmp_path,
-        enable_temporal_fan=False,
         chassis_tools_version=1,
         vg_backend="legacy",
     )
     b = derive_eval_session_id(
         output_root=tmp_path,
-        enable_temporal_fan=False,
         chassis_tools_version=1,
         vg_backend="pack_v1",
     )
@@ -56,7 +50,6 @@ def test_session_id_changes_when_vg_backend_changes(tmp_path: Path) -> None:
 def test_explicit_session_id_overrides(tmp_path: Path) -> None:
     sid = derive_eval_session_id(
         output_root=tmp_path,
-        enable_temporal_fan=False,
         chassis_tools_version=1,
         vg_backend="pack_v1",
         explicit_session_id="custom",

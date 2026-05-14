@@ -325,9 +325,14 @@ def run_stage2(
     selector: KeyframeSelector | None,
     scene_id: str,
     max_additional_views: int,
-    enable_temporal_fan: bool = False,
     session_id: str | None = None,
 ) -> Any:
+    """Run a Stage 2 invocation for OpenEQA single-scene pilot (v9 callbacks).
+
+    `enable_callbacks` and `max_additional_views` are kept for CLI parity but the
+    only Stage-1 callback wired in v9 is the crop callback.
+    """
+    del max_additional_views  # kept for CLI parity; no Stage-1 more-views in v9
     callbacks = None
     if enable_callbacks:
         if selector is None:
@@ -335,7 +340,6 @@ def run_stage2(
         callbacks = Stage1BackendCallbacks(
             keyframe_selector=selector,
             scene_id=scene_id,
-            max_additional_views=max_additional_views,
         )
 
     agent = Stage2DeepResearchAgent(
@@ -343,12 +347,9 @@ def run_stage2(
             include_thoughts=False,
             max_images=6,
             max_tokens=4000,
-            enable_temporal_fan=enable_temporal_fan,
             session_id=session_id or "v15_eval_default",
         ),
-        more_views_callback=callbacks.more_views if callbacks else None,
         crop_callback=callbacks.crops if callbacks else None,
-        hypothesis_callback=callbacks.hypothesis if callbacks else None,
     )
     task = Stage2TaskSpec(
         task_type=Stage2TaskType.QA,

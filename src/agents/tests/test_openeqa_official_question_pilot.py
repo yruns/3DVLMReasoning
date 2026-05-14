@@ -37,26 +37,20 @@ def test_force_selection_filters_samples_to_expected_set(tmp_path: Path) -> None
     assert [sample["question_id"] for sample in filtered] == ["q1", "q2"]
 
 
-def test_derive_eval_session_id_is_stable_and_separates_prompt_variants() -> None:
+def test_derive_eval_session_id_is_stable_and_ignores_deprecated_fan_flag() -> None:
     output_root = Path("/tmp/v15_eval")
 
-    default_a = derive_eval_session_id(
-        output_root=output_root,
-        enable_temporal_fan=False,
-    )
-    default_b = derive_eval_session_id(
-        output_root=output_root,
-        enable_temporal_fan=False,
-    )
-    fan = derive_eval_session_id(
-        output_root=output_root,
-        enable_temporal_fan=True,
+    default_a = derive_eval_session_id(output_root=output_root)
+    default_b = derive_eval_session_id(output_root=output_root)
+    # The deprecated kwarg is accepted for back-compat but no longer affects the id.
+    deprecated = derive_eval_session_id(
+        output_root=output_root, enable_temporal_fan=True
     )
 
     assert default_a == default_b
     assert default_a.startswith("v15_")
     assert len(default_a) == len("v15_" + "0" * 16)
-    assert fan != default_a
+    assert deprecated == default_a
 
 
 def test_is_retryable_sample_error_includes_403() -> None:

@@ -40,6 +40,8 @@ class Stage2Status(str, Enum):
 class Stage2DeepAgentConfig(BaseModel):
     """Runtime configuration for the DeepAgents-backed Stage-2 agent."""
 
+    model_config = {"extra": "forbid"}
+
     base_url: str = "https://aidp-i18ntt-sg.tiktok-row.net"
     model_name: str = "gpt-5.4-2026-03-05"
     api_keys: list[str] = Field(
@@ -79,10 +81,6 @@ class Stage2DeepAgentConfig(BaseModel):
         default=True,
         description="When True, agent will stop with 'insufficient_evidence' if confidence "
         "is below threshold and no more evidence can be acquired.",
-    )
-    enable_temporal_fan: bool = Field(
-        default=False,
-        description="When True, advertise mode='temporal_fan' in the Stage 2 prompt.",
     )
     enable_chassis_tools: bool = Field(
         default=False,
