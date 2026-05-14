@@ -97,24 +97,6 @@ def _runtime(tmp_path: Path) -> Stage2RuntimeState:
     return rs
 
 
-def test_view_keyframe_marked_returns_image_content(tmp_path: Path) -> None:
-    rs = _runtime(tmp_path)
-    rs.skills_loaded.add("vg-grounding-playbook")
-    # create a fake marked image
-    marked = rs.task_ctx.annotated_image_dir / "frame_10.png"
-    marked.write_bytes(b"\x89PNG\r\n\x1a\n")  # minimal PNG header
-
-    tool = next(t for t in build_vg_tools(rs) if t.name == "view_keyframe_marked")
-    response = tool.invoke({"frame_id": 10})
-    assert "frame_10.png" in response
-    assert "visible_proposals" in response
-    assert "[0, 1]" in response or "0, 1" in response
-    assert "left_to_right" in response
-    assert "0:chair@x=20.0" in response
-    assert "1:desk@x=100.0" in response
-    assert "boxes_2d={0: [10, 20, 30, 40], 1: [80, 20, 120, 40]}" in response
-
-
 def test_list_frame_proposals_returns_frame_inventory(tmp_path: Path) -> None:
     rs = _runtime(tmp_path)
     rs.skills_loaded.add("vg-grounding-playbook")
@@ -124,111 +106,6 @@ def test_list_frame_proposals_returns_frame_inventory(tmp_path: Path) -> None:
     assert payload["visible_proposal_ids"] == [0, 1]
     assert payload["left_to_right"] == ["#0 chair", "#1 desk"]
     assert payload["boxes_2d"] == {"0": [10, 20, 30, 40], "1": [80, 20, 120, 40]}
-
-
-def test_view_keyframe_marked_filters_by_category_and_renders_dynamic_image(
-    tmp_path: Path,
-) -> None:
-    rs = _runtime(tmp_path)
-    rs.skills_loaded.add("vg-grounding-playbook")
-    tool = next(t for t in build_vg_tools(rs) if t.name == "view_keyframe_marked")
-    response = tool.invoke({"frame_id": 10, "categories": ["chair"]})
-    assert "filtered marked image" in response
-    assert "filtered_by={'categories': ['chair'], 'proposal_ids': []}" in response
-    assert "visible_proposals=[0]" in response
-    assert "categories=['chair']" in response
-    assert "boxes_2d={0: [10, 20, 30, 40]}" in response
-    pending = rs.bundle.extra_metadata["vg_pending_images"]
-    assert len(pending) == 1
-    assert "filtered_marks" in pending[0]
-    assert Path(pending[0]).exists()
-
-
-def test_view_keyframe_marked_filters_by_proposal_ids(tmp_path: Path) -> None:
-    rs = _runtime(tmp_path)
-    rs.skills_loaded.add("vg-grounding-playbook")
-    tool = next(t for t in build_vg_tools(rs) if t.name == "view_keyframe_marked")
-    response = tool.invoke({"frame_id": 10, "proposal_ids": [1]})
-    assert "filtered marked image" in response
-    assert "visible_proposals=[1]" in response
-    assert "categories=['desk']" in response
-    assert "boxes_2d={1: [80, 20, 120, 40]}" in response
-
-
-def test_view_keyframe_marked_accepts_single_value_filters(tmp_path: Path) -> None:
-    rs = _runtime(tmp_path)
-    rs.skills_loaded.add("vg-grounding-playbook")
-    tool = next(t for t in build_vg_tools(rs) if t.name == "view_keyframe_marked")
-
-    category_response = tool.invoke({"frame_id": 10, "categories": "chair"})
-    assert "filtered marked image" in category_response
-    assert "visible_proposals=[0]" in category_response
-
-    id_response = tool.invoke({"frame_id": 10, "proposal_ids": "1"})
-    assert "filtered marked image" in id_response
-    assert "visible_proposals=[1]" in id_response
-
-
-def test_view_keyframe_marked_filter_without_matches_errors(tmp_path: Path) -> None:
-    rs = _runtime(tmp_path)
-    rs.skills_loaded.add("vg-grounding-playbook")
-    tool = next(t for t in build_vg_tools(rs) if t.name == "view_keyframe_marked")
-    response = tool.invoke({"frame_id": 10, "categories": ["lamp"]})
-    assert response.startswith("ERROR")
-    assert "no visible proposals matched filters" in response
-    assert "vg_pending_images" not in rs.bundle.extra_metadata
-
-
-def test_view_keyframe_marked_unknown_frame_errors(tmp_path: Path) -> None:
-    rs = _runtime(tmp_path)
-    rs.skills_loaded.add("vg-grounding-playbook")
-    tool = next(t for t in build_vg_tools(rs) if t.name == "view_keyframe_marked")
-    response = tool.invoke({"frame_id": 999})
-    assert response.startswith("ERROR")
-
-
-def test_view_keyframe_marked_image_drained_into_evidence_update(
-    tmp_path: Path,
-) -> None:
-    """End-to-end: vg_pending_images queued by view_keyframe_marked must be
-    drained into the chassis's next-turn user message via
-    build_evidence_update_message."""
-
-    from agents.core.agent_config import Stage2DeepAgentConfig
-    from agents.runtime.deepagents_agent import DeepAgentsStage2Runtime
-
-    rs = _runtime(tmp_path)
-    rs.skills_loaded.add("vg-grounding-playbook")
-    # Pre-mark all bundle keyframe images as already-seen so the only
-    # NEW image picked up is the marked one queued by view_keyframe_marked.
-    for kf in rs.bundle.keyframes:
-        rs.seen_image_paths.add(kf.image_path)
-
-    # write a real PNG so chassis image_to_data_url can decode it
-    from PIL import Image
-
-    marked = rs.task_ctx.annotated_image_dir / "frame_10.png"
-    Image.new("RGB", (4, 4), color=(0, 0, 0)).save(marked, format="PNG")
-
-    tool = next(t for t in build_vg_tools(rs) if t.name == "view_keyframe_marked")
-    tool.invoke({"frame_id": 10})
-
-    # The queue must have been populated.
-    assert str(marked) in rs.bundle.extra_metadata["vg_pending_images"]
-
-    # Now drain via the chassis injector.
-    runtime = DeepAgentsStage2Runtime(config=Stage2DeepAgentConfig())
-    msg = runtime.build_evidence_update_message(rs)
-    assert msg is not None, "expected an evidence-update message but got None"
-    # The path should be present in either the rendered text or the
-    # multimodal image_url block; check both representations.
-    serialized = str(msg.content)
-    assert str(marked) in serialized or any(
-        isinstance(part, dict) and part.get("type") == "image_url"
-        for part in (msg.content if isinstance(msg.content, list) else [])
-    )
-    # And the queue must be drained so we don't re-inject next turn.
-    assert rs.bundle.extra_metadata["vg_pending_images"] == []
 
 
 def test_inspect_proposal_returns_metadata_and_frames(tmp_path: Path) -> None:

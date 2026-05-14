@@ -127,6 +127,20 @@ class DeepAgentsStage2Runtime(BaseStage2Runtime):
             request_crops,
         ]
 
+        # v9 catalog-first scene-perception tools (selectors + view_bev +
+        # view_keyframe + list_scene_proposals + inspect_proposal). Wired for
+        # every task type — VG and QA share the same exploration surface.
+        # Only enabled when the bundle carries a SceneCatalog (the runtime is
+        # tolerant to legacy bundles for back-compat).
+        if (runtime.bundle.extra_metadata or {}).get("scene_catalog") is not None:
+            from agents.tools.scene_perception import build_scene_perception_tools
+            from agents.tools.selectors import build_selector_tools
+            from agents.tools.view_keyframe import build_view_keyframe_tool
+
+            tools.extend(build_selector_tools(runtime))
+            tools.extend(build_scene_perception_tools(runtime))
+            tools.append(build_view_keyframe_tool(runtime))
+
         # Chassis trio attaches when the active task pack opts in
         # (TaskPack.exposes_chassis=True) or when the operator forces it via
         # enable_chassis_tools. QA pack opts out — see qa_default/registration.py.

@@ -409,98 +409,12 @@ def build_vg_tools(runtime: Any) -> list[BaseTool]:
         runtime.record("list_frame_proposals", request, text)
         return text
 
-    @tool
-    def view_keyframe_marked(
-        frame_id: int,
-        categories: list[str] | str | None = None,
-        proposal_ids: list[int] | int | str | None = None,
-    ) -> str:
-        """VG tool. Detailed usage in skill 'vg-grounding-playbook'."""
-        category_filter = _dedupe_categories(_coerce_category_list(categories))
-        proposal_filter = _dedupe_ints(_coerce_int_list(proposal_ids))
-        request = {
-            "frame_id": frame_id,
-            "categories": category_filter,
-            "proposal_ids": proposal_filter,
-        }
-        gate = _gate(runtime)
-        if gate is not None:
-            runtime.record("view_keyframe_marked", request, gate)
-            return gate
-        if frame_id not in ctx.frame_index:
-            err = (
-                f"ERROR: frame_id={frame_id} not in proposal index; "
-                f"available: {sorted(ctx.frame_index.keys())[:20]}"
-            )
-            runtime.record("view_keyframe_marked", request, err)
-            return err
+    # v9: `view_keyframe_marked` was replaced by the unified
+    # `agents.tools.view_keyframe.view_keyframe(mode='marked')`. The VG pack
+    # no longer registers a dedicated marked tool — the catalog-first
+    # surface in DeepAgentsStage2Runtime.build_runtime_tools already wires
+    # the unified view_keyframe (and view_bev) for both VG and QA.
 
-        visible = ctx.frame_index[frame_id]
-        has_filters = bool(category_filter or proposal_filter)
-        visible_for_mark = _filter_visible_proposals(
-            ctx,
-            int(frame_id),
-            visible,
-            category_filter,
-            proposal_filter,
-        )
-        if has_filters and not visible_for_mark:
-            filter_desc = {
-                "categories": category_filter,
-                "proposal_ids": proposal_filter,
-            }
-            err = (
-                f"ERROR: no visible proposals matched filters for frame_id={frame_id}; "
-                f"filtered_by={filter_desc}; visible_proposals={visible}"
-            )
-            runtime.record("view_keyframe_marked", request, err)
-            return err
-
-        if has_filters:
-            try:
-                marked_path = _render_filtered_marked_frame(
-                    ctx,
-                    int(frame_id),
-                    visible_for_mark,
-                )
-            except Exception as exc:
-                err = (
-                    "ERROR: filtered marked image render failed for "
-                    f"frame_id={frame_id}: {type(exc).__name__}: {exc}"
-                )
-                runtime.record("view_keyframe_marked", request, err)
-                return err
-        else:
-            marked_path = ctx.annotated_image_dir / f"frame_{frame_id}.png"
-            if not marked_path.exists():
-                err = f"ERROR: annotated image not found: {marked_path}"
-                runtime.record("view_keyframe_marked", request, err)
-                return err
-
-        # Mark the path as a fresh image to inject into the next user message
-        runtime.bundle.extra_metadata = dict(runtime.bundle.extra_metadata or {})
-        runtime.bundle.extra_metadata.setdefault("vg_pending_images", []).append(
-            str(marked_path)
-        )
-        runtime.mark_evidence_updated()
-        proposal_by_id = {int(p.id): p for p in ctx.proposals}
-        prefix = "filtered marked image" if has_filters else "marked image"
-        filter_text = ""
-        if has_filters:
-            filter_desc = {
-                "categories": category_filter,
-                "proposal_ids": proposal_filter,
-            }
-            filter_text = f" filtered_by={filter_desc};"
-        body = (
-            f"frame_id={frame_id} {prefix} at {marked_path};"
-            f"{filter_text} "
-            f"visible_proposals={visible_for_mark}; "
-            f"categories={[proposal_by_id.get(int(pid)).category if proposal_by_id.get(int(pid)) else '?' for pid in visible_for_mark]}"
-            f"{_marked_frame_geometry(ctx, frame_id, visible_for_mark)}"
-        )
-        runtime.record("view_keyframe_marked", request, body)
-        return body
 
     @tool
     def inspect_proposal(proposal_id: int) -> str:
@@ -663,7 +577,6 @@ def build_vg_tools(runtime: Any) -> list[BaseTool]:
 
     return [
         list_frame_proposals,
-        view_keyframe_marked,
         inspect_proposal,
         compare_proposals_spatial,
     ]

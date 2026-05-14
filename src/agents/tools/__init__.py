@@ -3,15 +3,12 @@
 This package provides backend implementations for the Stage-2 evidence tools.
 Each tool module implements callbacks that can be injected into the agent
 to provide real evidence acquisition from the scene.
+
+v9: the hypothesis-repair module was removed alongside the pre-v9 hypothesis
+tool wrapper. The catalog-first selectors / view tools in this package
+replace it.
 """
 
-from .hypothesis_repair import (
-    HypothesisAction,
-    HypothesisHistoryEntry,
-    HypothesisRepairBackend,
-    HypothesisRepairConfig,
-    create_hypothesis_repair_callback,
-)
 from .request_crops import (
     CropBackend,
     CropRequest,
@@ -20,15 +17,8 @@ from .request_crops import (
 )
 
 __all__ = [
-    # request_crops
     "CropRequest",
     "CropResult",
     "CropBackend",
     "create_crop_callback",
-    # hypothesis_repair
-    "HypothesisAction",
-    "HypothesisHistoryEntry",
-    "HypothesisRepairConfig",
-    "HypothesisRepairBackend",
-    "create_hypothesis_repair_callback",
 ]
