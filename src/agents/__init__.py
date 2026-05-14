@@ -47,8 +47,6 @@ from .models import (
 from .stage1_callbacks import (
     Stage1BackendCallbacks,
     create_crop_callback,
-    create_hypothesis_callback,
-    create_more_views_callback,
 )
 from .trace import (
     ExecutionTrace,
@@ -88,8 +86,6 @@ __all__ = [
     "build_object_context",
     "build_stage2_evidence_bundle",
     "create_crop_callback",
-    "create_hypothesis_callback",
-    "create_more_views_callback",
     "Stage1BackendCallbacks",
     # Stage 2 agent
     "ExecutionTrace",

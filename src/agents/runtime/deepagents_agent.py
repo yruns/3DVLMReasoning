@@ -42,21 +42,14 @@ class DeepAgentsStage2Runtime(BaseStage2Runtime):
     def __init__(
         self,
         config: Stage2DeepAgentConfig | None = None,
-        more_views_callback=None,
         crop_callback=None,
-        hypothesis_callback=None,
     ) -> None:
         """Initialize the DeepAgents runtime.
 
-        Args:
-            config: Agent configuration
-            more_views_callback: Callback for requesting more views
-            crop_callback: Callback for requesting crops
-            hypothesis_callback: Callback for hypothesis updates
+        v9: only crop_callback is accepted; more_views / hypothesis callbacks were
+        deleted with the corresponding tool wrappers.
         """
-        super().__init__(
-            config, more_views_callback, crop_callback, hypothesis_callback
-        )
+        super().__init__(config, crop_callback)
         self._llm = None
 
     def get_llm(self):
@@ -96,113 +89,12 @@ class DeepAgentsStage2Runtime(BaseStage2Runtime):
         self.configure_runtime_state(runtime)
 
         @tool
-        def inspect_stage1_metadata() -> str:
-            """Inspect the Stage-1 hypothesis, selector status, and frame mapping metadata."""
-            payload = {
-                "hypothesis": (
-                    runtime.bundle.hypothesis.model_dump()
-                    if runtime.bundle.hypothesis
-                    else None
-                ),
-                "extra_metadata": runtime.bundle.extra_metadata,
-                "num_keyframes": len(runtime.bundle.keyframes),
-            }
-            response = json.dumps(payload, indent=2, ensure_ascii=False)
-            runtime.record("inspect_stage1_metadata", {}, response)
-            return response
-
-        @tool
         def retrieve_object_context(object_terms: list[str] | None = None) -> str:
             """Retrieve scene-level or object-specific context summaries."""
             request = {"object_terms": object_terms or []}
             response = self.retrieve_object_context_text(runtime.bundle, object_terms)
             runtime.record("retrieve_object_context", request, response)
             return response
-
-        def _request_more_views_impl(
-            request_text: str,
-            frame_indices: list[int] | None = None,
-            object_terms: list[str] | None = None,
-            mode: str = "targeted",
-        ) -> str:
-            request = {
-                "request_text": request_text,
-                "frame_indices": frame_indices or [],
-                "object_terms": object_terms or [],
-                "mode": mode,
-            }
-            if mode == "temporal_fan" and not self.config.enable_temporal_fan:
-                response_text = (
-                    "temporal_fan mode disabled in this run; use targeted or explore"
-                )
-                runtime.record("request_more_views", request, response_text)
-                return response_text
-            if self.more_views_callback is None:
-                response_obj = self.coerce_callback_result(
-                    "request_more_views callback is not configured."
-                )
-            else:
-                response_obj = self.coerce_callback_result(
-                    self.more_views_callback(runtime.bundle, request)
-                )
-                if response_obj.updated_bundle is not None:
-                    runtime.bundle = response_obj.updated_bundle
-                    runtime.mark_evidence_updated()
-            runtime.record("request_more_views", request, response_obj.response_text)
-            return response_obj.response_text
-
-        if self.config.enable_temporal_fan:
-
-            @tool
-            def request_more_views(
-                request_text: str,
-                frame_indices: list[int] | None = None,
-                object_terms: list[str] | None = None,
-                mode: str = "targeted",
-            ) -> str:
-                """Request additional keyframes or neighboring views from Stage 1.
-
-                mode:
-                  'targeted' — find views covering specified object_terms (default)
-                  'explore' — find views maximally different from existing keyframes
-                  'temporal_fan' — get temporal neighbors around pinned frame_indices
-
-                frame_indices:
-                  Preferred pins for retrieval, capped at max_additional_views.
-                  Excess pins are dropped rather than treated as an error.
-                """
-                return _request_more_views_impl(
-                    request_text=request_text,
-                    frame_indices=frame_indices,
-                    object_terms=object_terms,
-                    mode=mode,
-                )
-
-        else:
-
-            @tool
-            def request_more_views(
-                request_text: str,
-                frame_indices: list[int] | None = None,
-                object_terms: list[str] | None = None,
-                mode: str = "targeted",
-            ) -> str:
-                """Request additional keyframes from Stage 1.
-
-                mode:
-                  'targeted' — find views covering specified object_terms (default)
-                  'explore' — find views maximally different from existing keyframes
-
-                frame_indices:
-                  Preferred pins for retrieval, capped at max_additional_views.
-                  Excess pins are dropped rather than treated as an error.
-                """
-                return _request_more_views_impl(
-                    request_text=request_text,
-                    frame_indices=frame_indices,
-                    object_terms=object_terms,
-                    mode=mode,
-                )
 
         @tool
         def request_crops(
@@ -230,53 +122,9 @@ class DeepAgentsStage2Runtime(BaseStage2Runtime):
             runtime.record("request_crops", request, response_obj.response_text)
             return response_obj.response_text
 
-        @tool
-        def switch_or_expand_hypothesis(
-            request_text: str,
-            new_query: str | None = None,
-            preferred_kind: str | None = None,
-        ) -> str:
-            """Re-run Stage 1 with a different retrieval query.
-
-            Use this when the initial Stage 1 hypothesis missed the target
-            entirely and you need *different* keyframes (not just more views
-            of the same objects — for that, prefer request_more_views).
-
-            Args:
-                request_text: human rationale for why hypothesis must change.
-                new_query: REQUIRED — the alternative Stage-1 query string
-                    (e.g. 'patio chair' instead of 'chair'). Without this,
-                    the tool cannot run.
-                preferred_kind: optional hint for hypothesis kind
-                    (direct / proxy / context).
-            """
-            request = {
-                "request_text": request_text,
-                "new_query": new_query or "",
-                "preferred_kind": preferred_kind or "",
-            }
-            if self.hypothesis_callback is None:
-                response_obj = self.coerce_callback_result(
-                    "switch_or_expand_hypothesis callback is not configured."
-                )
-            else:
-                response_obj = self.coerce_callback_result(
-                    self.hypothesis_callback(runtime.bundle, request)
-                )
-                if response_obj.updated_bundle is not None:
-                    runtime.bundle = response_obj.updated_bundle
-                    runtime.mark_evidence_updated()
-            runtime.record(
-                "switch_or_expand_hypothesis", request, response_obj.response_text
-            )
-            return response_obj.response_text
-
         tools = [
-            inspect_stage1_metadata,
             retrieve_object_context,
-            request_more_views,
             request_crops,
-            switch_or_expand_hypothesis,
         ]
 
         # Chassis trio attaches when the active task pack opts in
@@ -408,41 +256,19 @@ class DeepAgentsStage2Runtime(BaseStage2Runtime):
         """Build a follow-up message that nudges the agent to seek evidence.
 
         Called when the agent returned insufficient_evidence / needs_more_evidence
-        but still has turns remaining. Adapts its guidance based on whether
-        evidence-acquisition callbacks are configured.
+        but still has turns remaining. v9 nudges towards selectors + view tools.
         """
-        available_tools: list[str] = []
-        has_acquisition_tools = False
-
-        if self.more_views_callback is not None:
-            has_acquisition_tools = True
-            available_tools.append(
-                "request_more_views — ask for additional keyframes showing "
-                "specific objects or regions you need to see"
-            )
-        if self.crop_callback is not None:
-            has_acquisition_tools = True
-            available_tools.append(
-                "request_crops — ask for close-up crops of specific objects "
-                "in the current keyframes"
-            )
-        if self.hypothesis_callback is not None:
-            has_acquisition_tools = True
-            available_tools.append(
-                "switch_or_expand_hypothesis — request a different retrieval "
-                "hypothesis from Stage 1"
-            )
-
-        # Always-available tools
-        available_tools.append(
-            "inspect_stage1_metadata — review the Stage-1 hypothesis and "
-            "frame mapping to understand what was retrieved and why"
-        )
-        available_tools.append(
-            "retrieve_object_context — get scene-level or object-specific "
-            "context summaries for additional clues"
-        )
-
+        available_tools = [
+            "select_by_proposal / select_by_frame_neighbor / select_by_region / "
+            "select_by_coverage — instant catalog-only selectors",
+            "select_by_text / select_by_hypothesis — Stage-1 LLM fallback selectors",
+            "view_keyframe(frame_id, mode='auto') — inject a first-person frame",
+            "view_bev(highlight=[ids]) — re-inject the BEV (optionally focused)",
+            "list_scene_proposals / list_frame_proposals / inspect_proposal — "
+            "text-only inventory queries",
+            "request_crops — close-up crop on small or ambiguous regions",
+            "retrieve_object_context — scene / object context summaries",
+        ]
         tools_list = "\n".join(f"  - {t}" for t in available_tools)
 
         uncertainties_text = ""
@@ -453,26 +279,14 @@ class DeepAgentsStage2Runtime(BaseStage2Runtime):
                 + "\n\n"
             )
 
-        if has_acquisition_tools:
-            action_guidance = (
-                "Use the evidence-seeking tools to acquire the missing views or crops, "
-                "then re-examine the images and produce your final answer."
-            )
-        else:
-            action_guidance = (
-                "Look more carefully at the existing keyframes — the answer may be "
-                "partially visible even if not obvious at first glance. Use "
-                "inspect_stage1_metadata or retrieve_object_context to gather "
-                "additional clues. Then provide your best answer with appropriate "
-                "confidence, rather than reporting insufficient evidence."
-            )
-
         prompt = (
-            "You reported that the current evidence is insufficient to answer the question. "
-            "Do NOT give up — try harder before concluding.\n\n"
+            "You reported that the current evidence is insufficient to answer the "
+            "question. Do NOT give up — fetch one or two more frames before "
+            "concluding.\n\n"
             f"{uncertainties_text}"
             f"Available tools:\n{tools_list}\n\n"
-            f"{action_guidance}"
+            "Pick the cheapest-first selector that maps onto the missing evidence, "
+            "view one or two frames, then produce your final answer."
         )
         return HumanMessage(content=[{"type": "text", "text": prompt}])
 
@@ -1041,12 +855,9 @@ class DeepAgentsStage2Runtime(BaseStage2Runtime):
             len(runtime.tool_trace),
         )
 
-        # Determine if more evidence can be acquired
-        can_acquire_more_evidence = turns_used < task.max_reasoning_turns and (
-            self.more_views_callback is not None
-            or self.crop_callback is not None
-            or self.hypothesis_callback is not None
-        )
+        # v9: the agent can always acquire more evidence via the catalog-first
+        # selectors + view tools, regardless of optional callbacks.
+        can_acquire_more_evidence = turns_used < task.max_reasoning_turns
 
         final_response = self.normalize_final_response(task, raw_state, runtime)
         # Apply uncertainty-aware stopping rules

@@ -164,22 +164,15 @@ class BaseStage2Runtime(ABC):
     def __init__(
         self,
         config: Stage2DeepAgentConfig | None = None,
-        more_views_callback: ToolCallback | None = None,
         crop_callback: ToolCallback | None = None,
-        hypothesis_callback: ToolCallback | None = None,
     ) -> None:
-        """Initialize the agent runtime with configuration and callbacks.
+        """Initialize the agent runtime with configuration and (optional) crop callback.
 
-        Args:
-            config: Agent configuration (model, API, behavior settings)
-            more_views_callback: Callback for requesting additional views
-            crop_callback: Callback for requesting object/region crops
-            hypothesis_callback: Callback for hypothesis switching/expansion
+        v9 removed the more_views / hypothesis Stage-1 callbacks; only the crop
+        callback is preserved (still used by `request_crops`).
         """
         self.config = config or Stage2DeepAgentConfig()
-        self.more_views_callback = more_views_callback
         self.crop_callback = crop_callback
-        self.hypothesis_callback = hypothesis_callback
         self._session_id = self.config.session_id
 
     def build_extra_body(self) -> dict[str, Any]:
