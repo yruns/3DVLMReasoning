@@ -64,6 +64,14 @@ def _write_phase8_tree(
     )
 
     cg = scene_root / "conceptgraph"
+    cg.mkdir(parents=True, exist_ok=True)
+    np.savetxt(cg / "traj.txt", np.eye(4))
+    np.savetxt(
+        cg / "intrinsic_color.txt",
+        np.array(
+            [[50, 0, 50, 0], [0, 50, 50, 0], [0, 0, 1, 0], [0, 0, 0, 1]], dtype=float
+        ),
+    )
     pkl_path = cg / "pcd_saves" / "full_pcd_gt_axisaligned_post.pkl.gz"
     pkl_path.parent.mkdir(parents=True, exist_ok=True)
     with gzip.open(pkl_path, "wb") as f:
@@ -146,6 +154,15 @@ def _write_sample_ids(
     )
 
 
+def _fake_v9_bev(
+    *, scene_id, data_root, proposals, output_path, highlight_ids
+) -> Path:
+    """Patch in tests where ScanNet mesh assets are absent. Writes a tiny PNG stub."""
+    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+    Path(output_path).write_bytes(b"\x89PNG\r\n\x1a\n")
+    return Path(output_path)
+
+
 def test_prepare_pack_v1_inputs_nr3d_smoke(tmp_path, monkeypatch) -> None:
     from evaluation.scripts import prepare_pack_v1_inputs_nr3d as prep
 
@@ -170,6 +187,7 @@ def test_prepare_pack_v1_inputs_nr3d_smoke(tmp_path, monkeypatch) -> None:
             {sample.sample_id: sample},
         ),
     )
+    monkeypatch.setattr(prep, "_render_v9_bev", _fake_v9_bev)
 
     written = prep.prepare_pack_v1_inputs_nr3d(
         sample_ids_path=sample_ids,
@@ -201,18 +219,11 @@ def test_prepare_pack_v1_inputs_nr3d_smoke(tmp_path, monkeypatch) -> None:
     assert payload["keyframe_mode"] == "gt_target"
     assert payload["keyframe_selection_uses_gt_target"] is True
     assert payload["keyframe_selection_used_fallback"] is False
-    assert payload["keyframes"] == [
-        {
-            "keyframe_idx": 0,
-            "image_path": str(data_root / "scene0001_00" / "raw" / "000000-rgb.png"),
-            "frame_id": 0,
-        },
-        {
-            "keyframe_idx": 1,
-            "image_path": str(data_root / "scene0001_00" / "raw" / "000010-rgb.png"),
-            "frame_id": 1,
-        },
-    ]
+    # v9 catalog-first: keyframes replaced by scene_catalog / bev_image / camera trajectory paths
+    assert "keyframes" not in payload
+    assert Path(payload["scene_catalog_path"]).exists()
+    assert Path(payload["bev_image_path"]).exists()
+    assert Path(payload["camera_trajectory_path"]).exists()
 
 
 def test_lightweight_cache_drops_masks_and_auto_builds_when_required(tmp_path) -> None:
@@ -656,6 +667,7 @@ def test_prepare_query_driven_groups_by_scene_and_bounds_selector_cache(
         "KeyframeSelector",
         FakeKeyframeSelector,
     )
+    monkeypatch.setattr(prep, "_render_v9_bev", _fake_v9_bev)
 
     written = prep.prepare_pack_v1_inputs_nr3d(
         sample_ids_path=sample_ids,
