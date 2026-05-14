@@ -18,7 +18,7 @@ two object referents. Telltale phrases:
   frames.
 
 This skill assumes you have already loaded `vg-grounding-playbook` and
-you understand the 5 VG tools. It only adds disambiguation patterns;
+you understand the VG tools. It only adds disambiguation patterns;
 it does not duplicate the tool descriptions.
 
 ## Three-step workflow

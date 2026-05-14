@@ -162,7 +162,10 @@ def collect_image_refs(response_text: str) -> list[tuple[int | None, str]]:
     elif isinstance(parsed, dict) and parsed.get("annotated_image"):
         refs.append((parsed.get("frame_id"), str(parsed["annotated_image"])))
 
-    for match in re.finditer(r"frame_id=(\d+)\s+marked image at ([^;]+)", response_text):
+    for match in re.finditer(
+        r"frame_id=(\d+)\s+(?:filtered\s+)?marked image at ([^;]+)",
+        response_text,
+    ):
         refs.append((int(match.group(1)), match.group(2)))
     return refs
 
@@ -331,7 +334,18 @@ def summarize_tool(call: dict[str, Any]) -> str:
                 bits.append(
                     f"frame {kf.get('frame_id')} ({kf.get('n_proposals')} proposals)"
                 )
-        return "Initial marked evidence: " + "; ".join(bits)
+        return "Initial proposal inventory: " + "; ".join(bits)
+    if tool == "list_frame_proposals" and isinstance(parsed, dict):
+        frame_id = parsed.get("frame_id")
+        visible = parsed.get("visible_proposal_ids") or []
+        left_to_right = parsed.get("left_to_right") or []
+        left_to_right_text = ", ".join(str(item) for item in left_to_right[:16])
+        if len(left_to_right) > 16:
+            left_to_right_text += ", ..."
+        return (
+            f"Frame {frame_id} proposal inventory: "
+            f"{len(visible)} visible; {left_to_right_text}"
+        )
     if tool == "find_proposals_by_category" and isinstance(parsed, dict):
         return (
             f"Category search '{parsed.get('category')}' -> "

@@ -3,7 +3,7 @@
 ## When to use this skill
 
 Load this skill at the start of every visual-grounding task on
-EmbodiedScan ScanNet val. It is the prerequisite for the 5 VG-pack
+EmbodiedScan ScanNet val. It is the prerequisite for the VG-pack
 tools — every one of them returns
 `"ERROR: load_skill('vg-grounding-playbook') before calling this tool."`
 until this skill is loaded into `runtime.skills_loaded`.
@@ -26,16 +26,23 @@ not final grounding evidence. You have **four independent paths** to
 acquire fresh visual evidence when the initial keyframes don't show the
 target, ordered cheapest-first:
 
-- **`view_keyframe_marked(frame_id=N)`** — instant. For any N in the
+- **`list_frame_proposals(frame_id=N)`** — instant text-only inventory
+  for one frame. Use this before opening a crowded marked image; it
+  tells you which `#id category` labels are present and their 2D
+  left-to-right order without consuming image context.
+- **`view_keyframe_marked(frame_id=N, categories=[...], proposal_ids=[...])`**
+  — instant. For any N in the
   scene-wide frame index (typically 50-300 frames per scene). Use this
   when the initial keyframes show the right *region* but not the
   specific instance — e.g. you have category candidates from
   `find_proposals_by_category` and want to verify each in a frame
   where Mask3D actually marked it.
-  The marked image draws one colored 2D box per visible candidate
-  proposal. Each box is labeled directly as `#proposal_id category`;
-  submit the integer after `#` when that box covers the referent. The
-  category text is a weak detector label, not ground truth.
+  If `categories` or `proposal_ids` is provided, the marked image draws
+  only the matching visible proposals; this is preferred for crowded
+  frames. If no filters are provided, it draws all visible proposals.
+  Each box is labeled directly as `#proposal_id category`; submit the
+  integer after `#` when that box covers the referent. The category
+  text is a weak detector label, not ground truth.
 - **`request_more_views(request_text, mode="targeted"|"explore"|"temporal_fan", object_terms=[...], frame_indices=[...])`**
   — Stage-1 visibility-driven view fetch. Cheap (no LLM). Use when
   you need additional views *centered on specific scene objects*
@@ -69,12 +76,18 @@ pool. Prefer cheaper paths first.
 3. **Decide where to look:**
    - If the initial keyframes contain ≥ 1 same-category candidate
      (overlap between their `visible_proposal_ids` and step-2 ids):
-     `view_keyframe_marked(frame_id=N)` on those frames.
+     first call `list_frame_proposals(frame_id=N)`, then call
+     `view_keyframe_marked(frame_id=N, categories=["<category>"])` or
+     `view_keyframe_marked(frame_id=N, proposal_ids=[...])` on those
+     frames.
    - If the initial keyframes carry NO same-category candidate but
      `find_proposals_by_category` returned a non-empty list (the
      candidates exist in the pool, just not in your initial frames):
      navigate via `inspect_proposal(K)` → `frames_appeared` →
-     `view_keyframe_marked(frame_id=M)` on those frames.
+     `list_frame_proposals(frame_id=M)` →
+     `view_keyframe_marked(frame_id=M, categories=["<category>"])` or
+     `view_keyframe_marked(frame_id=M, proposal_ids=[K])` on those
+     frames.
    - If `find_proposals_by_category` ALSO returned an empty list (no
      candidate of that category anywhere in the pool), use
      `switch_or_expand_hypothesis(new_query="<a more general or
@@ -118,22 +131,53 @@ A frame with `n_proposals=0` is not useful; a frame with
 `n_proposals > 20` will usually need spatial disambiguation, not
 look-and-pick.
 
+## tool: list_frame_proposals
+
+Inputs: `frame_id: int`.
+
+Returns a JSON object for one frame:
+```
+{"frame_id": int,
+ "visible_proposal_ids": list[int],
+ "left_to_right": list[str],  # ["#12 chair", "#31 desk", ...]
+ "categories": dict[int, str],
+ "boxes_2d": dict[int, list[int]]}
+```
+
+Use this before opening a crowded marked image. It is text-only: it
+does not inject an image. After reading the inventory, call
+`view_keyframe_marked` with `categories=[...]` or `proposal_ids=[...]`
+to render only the marks that matter.
+
 ## tool: view_keyframe_marked
 
-Inputs: `frame_id: int` (must be a key in the **scene-wide frame
-index**, NOT just the initial 5 keyframes — the index covers every
-frame in the scene where at least one Mask3D proposal is visible,
-typically 50-300 frames per scene).
+Inputs: `frame_id: int` plus optional filters:
+`categories: list[str]` and `proposal_ids: list[int]`.
+
+`frame_id` must be a key in the **scene-wide frame index**, NOT just
+the initial 5 keyframes — the index covers every frame in the scene
+where at least one Mask3D proposal is visible, typically 50-300 frames
+per scene.
+
+Filter semantics: `categories` and `proposal_ids` are a union. For
+example, `view_keyframe_marked(frame_id=48, categories=["chair"])`
+draws only visible proposals whose detector category is exactly
+`chair`; `view_keyframe_marked(frame_id=48, proposal_ids=[0, 24])`
+draws only those ids if they are visible in frame 48. With no filters,
+the tool keeps the legacy behavior and draws every visible proposal.
 
 Returns a text body summarizing the chosen frame:
 `frame_id=N marked image at <path>; visible_proposals=[...]; categories=[...];
-left_to_right=[...]; boxes_2d={...}`.
+left_to_right=[...]; boxes_2d={...}`. Filtered calls say
+`filtered marked image` and include `filtered_by=...`.
 
 The injected image for that frame contains colored 2D proposal boxes.
 Each visible box is labeled `#proposal_id category`; the same ids appear
-in `visible_proposals` and `boxes_2d`. The 2D box is only the visible
-image evidence for that proposal, while the final answer must be the
-3D `proposal_id` submitted through `submit_final`.
+in `visible_proposals` and `boxes_2d`. For filtered calls, ids not
+matching the filter are intentionally omitted from both the image and
+the text summary. The 2D box is only the visible image evidence for
+that proposal, while the final answer must be the 3D `proposal_id`
+submitted through `submit_final`.
 
 For left/right referring expressions, use `left_to_right` before
 submitting. It sorts the visible marked proposal ids by 2D image center
@@ -150,14 +194,20 @@ the next user message turn — you do not need to also request a crop.
 Use this aggressively for cross-frame navigation:
 1. `find_proposals_by_category("X")` → list of proposal ids for class X.
 2. `inspect_proposal(K)` → `frames_appeared = [...]` for proposal K.
-3. `view_keyframe_marked(frame_id=M)` for any M in `frames_appeared`,
+3. `list_frame_proposals(frame_id=M)` for any M in `frames_appeared`,
    even if M was not in the initial keyframes shown by
    `list_keyframes_with_proposals`.
+4. `view_keyframe_marked(frame_id=M, proposal_ids=[K])` when checking
+   one known candidate, or `view_keyframe_marked(frame_id=M,
+   categories=["X"])` when comparing same-class candidates.
 
 Errors: `"ERROR: frame_id={N} not in proposal index; available: [...]"`
 — the error message lists the first 20 valid frame_ids; pick one of
 those instead of a random integer. `"ERROR: annotated image not found:
-{path}"` — treat as a Stage 1 data bug, switch to a different frame.
+{path}"` — treat as a Stage 1 data bug for unfiltered calls, switch to
+a different frame. `"ERROR: no visible proposals matched filters..."`
+means the frame exists but none of the requested categories or ids are
+visible there.
 
 ## tool: inspect_proposal
 
@@ -477,6 +527,11 @@ named proposal from another frame.
   looks like.
 - Do NOT re-call `view_keyframe_marked` on a frame you already viewed
   in this run; the image is already in your context.
+- Do NOT open an unfiltered marked image for a crowded frame when you
+  already know the target category or candidate ids. Use
+  `list_frame_proposals(frame_id=N)` first, then render a filtered mark
+  with `categories=[...]` or `proposal_ids=[...]` so the pixels remain
+  readable.
 - Do NOT invent a `proposal_id` that is not in the pool. Use
   `inspect_proposal` to verify before submitting.
 - Do NOT skip `find_proposals_by_category` when the query gives a

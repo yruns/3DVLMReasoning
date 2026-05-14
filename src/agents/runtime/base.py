@@ -352,7 +352,7 @@ class BaseStage2Runtime(ABC):
             "1. Call `list_skills()` to see what skills are available for VG.\n"
             "2. Load `vg-grounding-playbook` first via "
             "`load_skill('vg-grounding-playbook')`; it explains every VG tool "
-            "and the `submit_final` payload schema. The 5 VG tools refuse to run "
+            "and the `submit_final` payload schema. The VG tools refuse to run "
             "until that skill is loaded.\n"
             "3. Follow the playbook's decision tree, then call "
             '`submit_final({"proposal_id": int, "confidence": float}, '

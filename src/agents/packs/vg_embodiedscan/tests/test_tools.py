@@ -22,6 +22,14 @@ from agents.runtime.base import Stage2RuntimeState
 def _runtime(tmp_path: Path) -> Stage2RuntimeState:
     annotated = tmp_path / "ann"
     annotated.mkdir()
+    from PIL import Image
+
+    Image.new("RGB", (160, 80), color=(220, 220, 220)).save(
+        tmp_path / "raw10.png", format="PNG"
+    )
+    Image.new("RGB", (160, 80), color=(220, 220, 220)).save(
+        tmp_path / "raw11.png", format="PNG"
+    )
     bundle = Stage2EvidenceBundle(
         keyframes=[
             KeyframeEvidence(keyframe_idx=0, image_path="a.png", frame_id=10),
@@ -129,6 +137,70 @@ def test_view_keyframe_marked_returns_image_content(tmp_path: Path) -> None:
     assert "0:chair@x=20.0" in response
     assert "1:desk@x=100.0" in response
     assert "boxes_2d={0: [10, 20, 30, 40], 1: [80, 20, 120, 40]}" in response
+
+
+def test_list_frame_proposals_returns_frame_inventory(tmp_path: Path) -> None:
+    rs = _runtime(tmp_path)
+    rs.skills_loaded.add("vg-grounding-playbook")
+    tool = next(t for t in build_vg_tools(rs) if t.name == "list_frame_proposals")
+    payload = json.loads(tool.invoke({"frame_id": 10}))
+    assert payload["frame_id"] == 10
+    assert payload["visible_proposal_ids"] == [0, 1]
+    assert payload["left_to_right"] == ["#0 chair", "#1 desk"]
+    assert payload["boxes_2d"] == {"0": [10, 20, 30, 40], "1": [80, 20, 120, 40]}
+
+
+def test_view_keyframe_marked_filters_by_category_and_renders_dynamic_image(
+    tmp_path: Path,
+) -> None:
+    rs = _runtime(tmp_path)
+    rs.skills_loaded.add("vg-grounding-playbook")
+    tool = next(t for t in build_vg_tools(rs) if t.name == "view_keyframe_marked")
+    response = tool.invoke({"frame_id": 10, "categories": ["chair"]})
+    assert "filtered marked image" in response
+    assert "filtered_by={'categories': ['chair'], 'proposal_ids': []}" in response
+    assert "visible_proposals=[0]" in response
+    assert "categories=['chair']" in response
+    assert "boxes_2d={0: [10, 20, 30, 40]}" in response
+    pending = rs.bundle.extra_metadata["vg_pending_images"]
+    assert len(pending) == 1
+    assert "filtered_marks" in pending[0]
+    assert Path(pending[0]).exists()
+
+
+def test_view_keyframe_marked_filters_by_proposal_ids(tmp_path: Path) -> None:
+    rs = _runtime(tmp_path)
+    rs.skills_loaded.add("vg-grounding-playbook")
+    tool = next(t for t in build_vg_tools(rs) if t.name == "view_keyframe_marked")
+    response = tool.invoke({"frame_id": 10, "proposal_ids": [1]})
+    assert "filtered marked image" in response
+    assert "visible_proposals=[1]" in response
+    assert "categories=['desk']" in response
+    assert "boxes_2d={1: [80, 20, 120, 40]}" in response
+
+
+def test_view_keyframe_marked_accepts_single_value_filters(tmp_path: Path) -> None:
+    rs = _runtime(tmp_path)
+    rs.skills_loaded.add("vg-grounding-playbook")
+    tool = next(t for t in build_vg_tools(rs) if t.name == "view_keyframe_marked")
+
+    category_response = tool.invoke({"frame_id": 10, "categories": "chair"})
+    assert "filtered marked image" in category_response
+    assert "visible_proposals=[0]" in category_response
+
+    id_response = tool.invoke({"frame_id": 10, "proposal_ids": "1"})
+    assert "filtered marked image" in id_response
+    assert "visible_proposals=[1]" in id_response
+
+
+def test_view_keyframe_marked_filter_without_matches_errors(tmp_path: Path) -> None:
+    rs = _runtime(tmp_path)
+    rs.skills_loaded.add("vg-grounding-playbook")
+    tool = next(t for t in build_vg_tools(rs) if t.name == "view_keyframe_marked")
+    response = tool.invoke({"frame_id": 10, "categories": ["lamp"]})
+    assert response.startswith("ERROR")
+    assert "no visible proposals matched filters" in response
+    assert "vg_pending_images" not in rs.bundle.extra_metadata
 
 
 def test_view_keyframe_marked_unknown_frame_errors(tmp_path: Path) -> None:

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Sequence
+from pathlib import Path
 from typing import Any
 
 from langchain_core.tools import BaseTool, tool
@@ -70,6 +71,205 @@ def _left_to_right_entries(ctx: Any, frame_id: int, visible: Sequence[int]) -> l
     if not missing_geometry:
         rows.sort(key=lambda item: item[0])
     return [f"#{proposal_id} {category}" for _, proposal_id, category in rows]
+
+
+def _coerce_int_list(value: Any) -> list[int]:
+    if value is None:
+        return []
+    if isinstance(value, bool):
+        return []
+    if isinstance(value, int):
+        return [value]
+    if isinstance(value, str):
+        items: list[int] = []
+        for chunk in value.replace(",", " ").split():
+            try:
+                items.append(int(chunk))
+            except ValueError:
+                continue
+        return items
+    if isinstance(value, dict):
+        for key in ("proposal_ids", "ids", "visible_proposal_ids"):
+            if key in value:
+                return _coerce_int_list(value[key])
+        return []
+    if isinstance(value, (list, tuple, set)):
+        items = []
+        for item in value:
+            items.extend(_coerce_int_list(item))
+        return items
+    return []
+
+
+def _dedupe_ints(values: list[int]) -> list[int]:
+    seen: set[int] = set()
+    out: list[int] = []
+    for value in values:
+        if value in seen:
+            continue
+        seen.add(value)
+        out.append(value)
+    return out
+
+
+def _frame_inventory_payload(
+    ctx: Any,
+    frame_id: int,
+    visible: Sequence[int],
+) -> dict[str, Any]:
+    proposal_by_id = {int(p.id): p for p in ctx.proposals}
+    boxes: dict[int, list[int]] = {}
+    categories: dict[int, str] = {}
+    for proposal_id in visible:
+        proposal = proposal_by_id.get(int(proposal_id))
+        if proposal is None:
+            continue
+        categories[int(proposal_id)] = proposal.category
+        view = proposal.frame_views.get(int(frame_id))
+        if view is not None:
+            boxes[int(proposal_id)] = [int(v) for v in view.bbox_2d]
+    return {
+        "frame_id": int(frame_id),
+        "visible_proposal_ids": [int(proposal_id) for proposal_id in visible],
+        "left_to_right": _left_to_right_entries(ctx, int(frame_id), visible),
+        "categories": categories,
+        "boxes_2d": boxes,
+    }
+
+
+def _filter_visible_proposals(
+    ctx: Any,
+    frame_id: int,
+    visible: Sequence[int],
+    categories: list[str],
+    proposal_ids: list[int],
+) -> list[int]:
+    if not categories and not proposal_ids:
+        return [int(proposal_id) for proposal_id in visible]
+
+    wanted_categories = {_norm_category(category) for category in categories}
+    wanted_ids = set(proposal_ids)
+    proposal_by_id = {int(p.id): p for p in ctx.proposals}
+    matched: list[int] = []
+    for proposal_id_raw in visible:
+        proposal_id = int(proposal_id_raw)
+        proposal = proposal_by_id.get(proposal_id)
+        if proposal is None or int(frame_id) not in proposal.frame_views:
+            continue
+        category_match = (
+            bool(wanted_categories)
+            and _norm_category(proposal.category) in wanted_categories
+        )
+        id_match = proposal_id in wanted_ids
+        if category_match or id_match:
+            matched.append(proposal_id)
+    return matched
+
+
+def _resolve_image_path(path: Path) -> Path:
+    if path.is_absolute() or path.exists():
+        return path
+    return Path.cwd() / path
+
+
+def _mark_color(index: int) -> tuple[int, int, int]:
+    palette = [
+        (34, 197, 94),
+        (239, 68, 68),
+        (59, 130, 246),
+        (234, 179, 8),
+        (168, 85, 247),
+        (20, 184, 166),
+        (249, 115, 22),
+        (236, 72, 153),
+    ]
+    return palette[index % len(palette)]
+
+
+def _load_mark_font(image_height: int) -> Any:
+    from PIL import ImageFont
+
+    size = max(18, min(34, image_height // 28))
+    for candidate in (
+        "/System/Library/Fonts/Supplemental/Arial Bold.ttf",
+        "/System/Library/Fonts/Supplemental/Arial.ttf",
+        "/Library/Fonts/Arial.ttf",
+    ):
+        try:
+            return ImageFont.truetype(candidate, size=size)
+        except OSError:
+            continue
+    return ImageFont.load_default()
+
+
+def _text_size(draw: Any, text: str, font: Any) -> tuple[int, int]:
+    if hasattr(draw, "textbbox"):
+        left, top, right, bottom = draw.textbbox((0, 0), text, font=font)
+        return int(right - left), int(bottom - top)
+    return draw.textsize(text, font=font)
+
+
+def _render_filtered_marked_frame(
+    ctx: Any,
+    frame_id: int,
+    visible: Sequence[int],
+) -> Path:
+    from PIL import Image, ImageDraw
+
+    proposal_by_id = {int(p.id): p for p in ctx.proposals}
+    first_view = None
+    for proposal_id in visible:
+        proposal = proposal_by_id.get(int(proposal_id))
+        if proposal is None:
+            continue
+        first_view = proposal.frame_views.get(int(frame_id))
+        if first_view is not None:
+            break
+    if first_view is None:
+        raise ValueError(f"no 2D geometry for frame_id={frame_id}")
+
+    raw_path = _resolve_image_path(Path(first_view.raw_rgb_path))
+    if not raw_path.exists():
+        raise FileNotFoundError(f"raw RGB image not found: {raw_path}")
+
+    image = Image.open(raw_path).convert("RGB")
+    draw = ImageDraw.Draw(image)
+    font = _load_mark_font(image.height)
+    line_width = max(4, image.width // 320)
+    label_pad = max(3, line_width)
+
+    for index, proposal_id_raw in enumerate(visible):
+        proposal_id = int(proposal_id_raw)
+        proposal = proposal_by_id.get(proposal_id)
+        if proposal is None:
+            continue
+        view = proposal.frame_views.get(int(frame_id))
+        if view is None:
+            continue
+        x1, y1, x2, y2 = [int(v) for v in view.bbox_2d]
+        color = _mark_color(index)
+        draw.rectangle((x1, y1, x2, y2), outline=color, width=line_width)
+
+        label = f"#{proposal_id} {proposal.category}"
+        text_w, text_h = _text_size(draw, label, font)
+        label_x1 = max(0, min(x1, image.width - text_w - 2 * label_pad))
+        label_y2 = max(text_h + 2 * label_pad, y1)
+        label_y1 = max(0, label_y2 - text_h - 2 * label_pad)
+        label_x2 = label_x1 + text_w + 2 * label_pad
+        draw.rectangle((label_x1, label_y1, label_x2, label_y2), fill=(0, 0, 0))
+        draw.text(
+            (label_x1 + label_pad, label_y1 + label_pad),
+            label,
+            fill=(255, 255, 255),
+            font=font,
+        )
+
+    out_dir = ctx.annotated_image_dir.parent / "filtered_marks"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    ids = "_".join(str(int(proposal_id)) for proposal_id in visible)
+    out_path = out_dir / f"frame_{int(frame_id)}_ids_{ids}.png"
+    image.save(out_path, format="PNG")
+    return out_path
 
 
 def format_keyframe_proposal_inventory(ctx: Any, keyframes: Sequence[Any]) -> str:
@@ -477,38 +677,119 @@ def build_vg_tools(runtime: Any) -> list[BaseTool]:
         return text
 
     @tool
-    def view_keyframe_marked(frame_id: int) -> str:
+    def list_frame_proposals(frame_id: int) -> str:
         """VG tool. Detailed usage in skill 'vg-grounding-playbook'."""
         gate = _gate(runtime)
+        request = {"frame_id": frame_id}
         if gate is not None:
-            runtime.record("view_keyframe_marked", {"frame_id": frame_id}, gate)
+            runtime.record("list_frame_proposals", request, gate)
             return gate
         if frame_id not in ctx.frame_index:
             err = (
                 f"ERROR: frame_id={frame_id} not in proposal index; "
                 f"available: {sorted(ctx.frame_index.keys())[:20]}"
             )
-            runtime.record("view_keyframe_marked", {"frame_id": frame_id}, err)
+            runtime.record("list_frame_proposals", request, err)
             return err
-        marked_path = ctx.annotated_image_dir / f"frame_{frame_id}.png"
-        if not marked_path.exists():
-            err = f"ERROR: annotated image not found: {marked_path}"
-            runtime.record("view_keyframe_marked", {"frame_id": frame_id}, err)
+        visible = ctx.frame_index[int(frame_id)]
+        text = json.dumps(
+            _frame_inventory_payload(ctx, int(frame_id), visible),
+            ensure_ascii=False,
+        )
+        runtime.record("list_frame_proposals", request, text)
+        return text
+
+    @tool
+    def view_keyframe_marked(
+        frame_id: int,
+        categories: list[str] | str | None = None,
+        proposal_ids: list[int] | int | str | None = None,
+    ) -> str:
+        """VG tool. Detailed usage in skill 'vg-grounding-playbook'."""
+        category_filter = _dedupe_categories(_coerce_category_list(categories))
+        proposal_filter = _dedupe_ints(_coerce_int_list(proposal_ids))
+        request = {
+            "frame_id": frame_id,
+            "categories": category_filter,
+            "proposal_ids": proposal_filter,
+        }
+        gate = _gate(runtime)
+        if gate is not None:
+            runtime.record("view_keyframe_marked", request, gate)
+            return gate
+        if frame_id not in ctx.frame_index:
+            err = (
+                f"ERROR: frame_id={frame_id} not in proposal index; "
+                f"available: {sorted(ctx.frame_index.keys())[:20]}"
+            )
+            runtime.record("view_keyframe_marked", request, err)
             return err
+
         visible = ctx.frame_index[frame_id]
+        has_filters = bool(category_filter or proposal_filter)
+        visible_for_mark = _filter_visible_proposals(
+            ctx,
+            int(frame_id),
+            visible,
+            category_filter,
+            proposal_filter,
+        )
+        if has_filters and not visible_for_mark:
+            filter_desc = {
+                "categories": category_filter,
+                "proposal_ids": proposal_filter,
+            }
+            err = (
+                f"ERROR: no visible proposals matched filters for frame_id={frame_id}; "
+                f"filtered_by={filter_desc}; visible_proposals={visible}"
+            )
+            runtime.record("view_keyframe_marked", request, err)
+            return err
+
+        if has_filters:
+            try:
+                marked_path = _render_filtered_marked_frame(
+                    ctx,
+                    int(frame_id),
+                    visible_for_mark,
+                )
+            except Exception as exc:
+                err = (
+                    "ERROR: filtered marked image render failed for "
+                    f"frame_id={frame_id}: {type(exc).__name__}: {exc}"
+                )
+                runtime.record("view_keyframe_marked", request, err)
+                return err
+        else:
+            marked_path = ctx.annotated_image_dir / f"frame_{frame_id}.png"
+            if not marked_path.exists():
+                err = f"ERROR: annotated image not found: {marked_path}"
+                runtime.record("view_keyframe_marked", request, err)
+                return err
+
         # Mark the path as a fresh image to inject into the next user message
         runtime.bundle.extra_metadata = dict(runtime.bundle.extra_metadata or {})
         runtime.bundle.extra_metadata.setdefault("vg_pending_images", []).append(
             str(marked_path)
         )
         runtime.mark_evidence_updated()
+        proposal_by_id = {int(p.id): p for p in ctx.proposals}
+        prefix = "filtered marked image" if has_filters else "marked image"
+        filter_text = ""
+        if has_filters:
+            filter_desc = {
+                "categories": category_filter,
+                "proposal_ids": proposal_filter,
+            }
+            filter_text = f" filtered_by={filter_desc};"
         body = (
-            f"frame_id={frame_id} marked image at {marked_path}; "
-            f"visible_proposals={visible}; "
-            f"categories={[next((p.category for p in ctx.proposals if p.id == pid), '?') for pid in visible]}"
-            f"{_marked_frame_geometry(ctx, frame_id, visible)}"
+            f"frame_id={frame_id} {prefix} at {marked_path};"
+            f"{filter_text} "
+            f"visible_proposals={visible_for_mark}; "
+            f"categories={[proposal_by_id.get(int(pid)).category if proposal_by_id.get(int(pid)) else '?' for pid in visible_for_mark]}"
+            f"{_marked_frame_geometry(ctx, frame_id, visible_for_mark)}"
         )
-        runtime.record("view_keyframe_marked", {"frame_id": frame_id}, body)
+        runtime.record("view_keyframe_marked", request, body)
         return body
 
     @tool
@@ -715,6 +996,7 @@ def build_vg_tools(runtime: Any) -> list[BaseTool]:
 
     return [
         list_keyframes_with_proposals,
+        list_frame_proposals,
         view_keyframe_marked,
         inspect_proposal,
         find_proposals_by_category,
