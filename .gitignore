@@ -22,6 +22,10 @@ wheels/
 
 .ccb
 
+# Git worktrees (isolated workspaces for parallel feature work)
+.worktrees/
+worktrees/
+
 # Virtual environments
 .venv/
 .venv-*/
