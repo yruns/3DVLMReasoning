@@ -12,6 +12,7 @@ the current human-facing index.
 | [protocol.md](protocol.md) | Consolidated protocol notes: metric family, fold/filter rules, candidate-pool equivalence, fairness boundary. |
 | [depth_visibility_rebuild_20260513.md](depth_visibility_rebuild_20260513.md) | Root-cause record and rebuild summary for depth-aware NR3D visibility indices. |
 | [depth_visibility_spotcheck_20260513.html](depth_visibility_spotcheck_20260513.html) | Visual spotcheck frames rendered from rebuilt depth-aware `view_to_objects`. |
+| [v9_catalog_first_20260515.md](v9_catalog_first_20260515.md) | v9 catalog-first first random100 skeleton (run TBD). |
 | [v9_selective_mark_random100](v9_selective_mark_random100_20260514.md) | Latest clean-initial + selective marked-image random100 pilot. |
 | [v9_selective_mark_trace_2t2f_20260514.html](v9_selective_mark_trace_2t2f_20260514.html) | Static VG agent trace viewer for 2 correct and 2 failed v9 random100 cases. |
 | [v8_clean_initial_marked_on_demand_random100](v8_clean_initial_marked_on_demand_random100_20260514.md) | Clean-initial/marked-on-demand negative random100 ablation. |
