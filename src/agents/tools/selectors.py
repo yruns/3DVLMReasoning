@@ -289,6 +289,78 @@ def build_selector_tools(runtime: Any) -> list[BaseTool]:
         return text
 
     tools.append(select_by_proposal)
+
+    @tool
+    def select_by_region(
+        region: list[float],
+        region_type: str = "bev_2d",
+        k: int = 3,
+    ) -> str:
+        """Selector E. Detailed usage in 'scene-exploration-playbook'."""
+        request = {
+            "region": [float(v) for v in (region or [])],
+            "region_type": region_type,
+            "k": int(k),
+        }
+        gate = _gate(runtime)
+        if gate is not None:
+            runtime.record("select_by_region", request, gate)
+            return gate
+        if region_type not in ("bev_2d", "bbox_3d"):
+            err = f"ERROR: region_type must be 'bev_2d' or 'bbox_3d'; got {region_type!r}"
+            runtime.record("select_by_region", request, err)
+            return err
+        if region_type == "bev_2d":
+            if len(region) != 4:
+                err = "ERROR: bev_2d region must be [xmin, ymin, xmax, ymax]"
+                runtime.record("select_by_region", request, err)
+                return err
+            xmin, ymin, xmax, ymax = (float(v) for v in region)
+            catalog = get_scene_catalog(runtime)
+            chosen: list[int] = []
+            for fid in sorted(int(f) for f in catalog.valid_frame_ids):
+                pose, _ = _camera_pose(runtime, fid)
+                if pose is None:
+                    continue
+                if xmin <= pose[0] <= xmax and ymin <= pose[1] <= ymax:
+                    chosen.append(fid)
+                    if len(chosen) >= int(k):
+                        break
+        else:
+            if len(region) != 6:
+                err = "ERROR: bbox_3d region must be [xmin, ymin, zmin, xmax, ymax, zmax]"
+                runtime.record("select_by_region", request, err)
+                return err
+            xmin, ymin, zmin, xmax, ymax, zmax = (float(v) for v in region)
+            catalog = get_scene_catalog(runtime)
+            inside_proposals = [
+                p.proposal_id
+                for p in catalog.proposals
+                if xmin <= p.position_3d[0] <= xmax
+                and ymin <= p.position_3d[1] <= ymax
+                and zmin <= p.position_3d[2] <= zmax
+            ]
+            frame_to_props = _frame_to_proposals(catalog)
+            chosen_set: set[int] = set()
+            for fid, props in frame_to_props.items():
+                if any(pid in inside_proposals for pid in props):
+                    chosen_set.add(int(fid))
+            chosen = sorted(chosen_set)[: int(k)]
+        catalog = get_scene_catalog(runtime)
+        frames = [
+            _build_frame_payload(
+                runtime, catalog, int(fid),
+                selected_because=f"select_by_region(type={region_type!r})",
+                hidden_categories=[],
+            )
+            for fid in chosen
+        ]
+        payload = {"hypothesis_summary": "", "frames": frames}
+        text = json.dumps(payload, ensure_ascii=False)
+        runtime.record("select_by_region", request, text)
+        return text
+
+    tools.append(select_by_region)
     return tools
 
 
