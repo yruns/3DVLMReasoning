@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import gzip
 import json
+import math
 import pickle
 from collections import Counter
 from collections.abc import Sequence
@@ -20,6 +21,7 @@ from typing import Any
 
 import numpy as np
 
+from agents.catalog import from_vg_proposal_pool
 from benchmarks.embodiedscan_bbox_feasibility.render_marks import (
     render_marked_keyframe,
 )
@@ -32,10 +34,10 @@ from benchmarks.scanrefer_loader import (
 )
 from evaluation.scripts.prepare_pack_v1_inputs import (
     load_image_size,
-    normalize_prepared_keyframes,
     validate_bbox_9dof,
     validate_matrix_4x4,
 )
+from query_scene.scene_bev_builder import ScanReferScanNetBEVBuilder
 
 MASK3D_PCD_REL = Path("conceptgraph/pcd_saves/full_pcd_mask3d_axisaligned.pkl.gz")
 VIS_REL = Path("conceptgraph/indices/visibility_index.pkl")
@@ -504,16 +506,22 @@ def write_sample_artifact(
     keyframe_mode: str = "gt_target",
 ) -> Path:
     if keyframes is None:
-        # Back-compat: original signature picks GT-target keyframes inline.
         keyframes = select_keyframes_from_phase8_target(
             scene_id=request.scene_id,
             target_id=request.target_id,
             raw_frames_root=raw_frames_root,
             k=5,
         )
-    normalized = normalize_prepared_keyframes(keyframes, scene_artifacts.annotated_dir)
     gt_bbox = validate_bbox_9dof(
         sample.gt_bbox_3d, f"{request.sample_id}.gt_bbox_3d_9dof"
+    )
+    artifacts_v9 = write_v9_scene_artifacts_scanrefer(
+        scene_id=request.scene_id,
+        data_root=data_root,
+        pack_name=scene_artifacts.scene_dir.name,
+        proposals_jsonl=scene_artifacts.proposals_jsonl,
+        scene_category=None,
+        valid_frame_ids=sorted(scene_artifacts.frame_visibility.keys()),
     )
     payload = {
         "sample_id": request.sample_id,
@@ -528,7 +536,9 @@ def write_sample_artifact(
         "source": "conceptgraph",
         "proposal_provenance": "mask3d",
         "keyframe_mode": keyframe_mode,
-        "keyframes": normalized,
+        "scene_catalog_path": artifacts_v9["scene_catalog_path"],
+        "bev_image_path": artifacts_v9["bev_image_path"],
+        "camera_trajectory_path": artifacts_v9["camera_trajectory_path"],
     }
     path = sample_artifact_path(
         data_root, request, pack_name=scene_artifacts.scene_dir.name
@@ -1093,6 +1103,92 @@ def sample_artifact_path(
         / "samples"
         / f"{safe_sample_id(request.sample_id)}.json"
     )
+
+
+def _render_v9_bev_scanrefer(
+    *,
+    scene_id: str,
+    data_root: Path,
+    proposals,
+    output_path: Path,
+    highlight_ids: list[int] | None,
+) -> Path:
+    """v9 BEV renderer for ScanRefer. Tests can monkey-patch this."""
+    builder = ScanReferScanNetBEVBuilder()
+    return builder.build_with_labels(
+        scene_id=scene_id,
+        data_root=data_root,
+        proposals=proposals,
+        output_path=output_path,
+        highlight_ids=highlight_ids,
+    )
+
+
+def _build_camera_trajectory_scanrefer(scene_dir: Path) -> dict[int, list[float]]:
+    """Read conceptgraph/traj.txt and emit {frame_id: [x, y, yaw]} for v9."""
+    traj_path = scene_dir / "conceptgraph" / "traj.txt"
+    if not traj_path.exists():
+        raise FileNotFoundError(
+            f"traj.txt missing for scene {scene_dir.name}: {traj_path}"
+        )
+    raw = np.loadtxt(str(traj_path)).reshape(-1, 4, 4)
+    out: dict[int, list[float]] = {}
+    for i, pose in enumerate(raw):
+        x = float(pose[0, 3])
+        y = float(pose[1, 3])
+        forward = -pose[:3, 2]
+        yaw = float(math.atan2(forward[1], forward[0]))
+        out[i] = [x, y, yaw]
+    return out
+
+
+def write_v9_scene_artifacts_scanrefer(
+    *,
+    scene_id: str,
+    data_root: Path,
+    pack_name: str,
+    proposals_jsonl: Path,
+    scene_category: str | None,
+    valid_frame_ids: list[int],
+) -> dict[str, str]:
+    """Emit BEV png + scene_catalog.json + camera trajectory for v9 catalog-first prep."""
+    scene_dir = data_root / scene_id
+    pack_dir = scene_dir / pack_name
+    bev_dir = pack_dir / "bev"
+    bev_dir.mkdir(parents=True, exist_ok=True)
+    catalog_path = pack_dir / "scene_catalog.json"
+    traj_out_path = pack_dir / "camera_trajectory.json"
+    raw_pool = json.loads(proposals_jsonl.read_text())
+    raw_pool.setdefault("source", "mask3d")
+    raw_pool.setdefault("frame_index", {})
+    raw_pool.setdefault("proposal_index", {})
+    raw_pool.setdefault("annotated_image_dir", str(pack_dir / "annotated"))
+    bev_path = bev_dir / "scene_bev_scanrefer.png"
+    catalog = from_vg_proposal_pool(
+        pool=raw_pool,
+        scene_id=scene_id,
+        bev_image_path=str(bev_path),
+        scene_category=scene_category,
+        axis_align_matrix=raw_pool.get("axis_align_matrix"),
+        valid_frame_ids=list(valid_frame_ids),
+    )
+    _render_v9_bev_scanrefer(
+        scene_id=scene_id,
+        data_root=data_root,
+        proposals=catalog.proposals,
+        output_path=bev_path,
+        highlight_ids=None,
+    )
+    catalog_path.write_text(
+        json.dumps(catalog.model_dump(), ensure_ascii=False, indent=2)
+    )
+    traj = _build_camera_trajectory_scanrefer(scene_dir)
+    traj_out_path.write_text(json.dumps({str(k): v for k, v in traj.items()}))
+    return {
+        "bev_image_path": str(bev_path),
+        "scene_catalog_path": str(catalog_path),
+        "camera_trajectory_path": str(traj_out_path),
+    }
 
 
 def main() -> None:

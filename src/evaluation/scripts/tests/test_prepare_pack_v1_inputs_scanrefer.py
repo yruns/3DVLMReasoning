@@ -132,7 +132,7 @@ def test_matching_proposal_ids_skips_unknow():
 
 
 def test_normalize_prepared_keyframes_preserves_clean_rgb_path(tmp_path: Path):
-    from evaluation.scripts.prepare_pack_v1_inputs_scanrefer import (
+    from evaluation.scripts.prepare_pack_v1_inputs import (
         normalize_prepared_keyframes,
     )
 
