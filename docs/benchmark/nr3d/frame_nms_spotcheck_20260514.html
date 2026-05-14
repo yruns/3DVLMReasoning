@@ -1,0 +1,731 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>NR3D Frame NMS Spotcheck</title>
+<style>
+body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; margin: 24px; color: #111827; background: #f8fafc; }
+h1 { margin-bottom: 4px; }
+.meta { color: #475569; margin-bottom: 24px; }
+.case { border: 1px solid #cbd5e1; background: white; border-radius: 6px; padding: 16px; margin-bottom: 24px; }
+.case h2 { margin: 0 0 8px; font-size: 18px; }
+.query { font-size: 15px; margin: 8px 0 12px; }
+.summary { display: flex; gap: 8px; flex-wrap: wrap; margin: 10px 0 14px; }
+.pill { border: 1px solid #cbd5e1; border-radius: 999px; padding: 4px 9px; background: #f8fafc; font-size: 12px; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+.frame { border: 1px solid #d1d5db; border-radius: 6px; overflow: hidden; background: #ffffff; }
+.frame img { width: 100%; display: block; }
+.caption { padding: 8px; font-size: 12px; line-height: 1.4; }
+.kept { border-color: #15803d; box-shadow: 0 0 0 2px rgba(21, 128, 61, 0.18); }
+.suppressed { border-color: #b91c1c; box-shadow: 0 0 0 2px rgba(185, 28, 28, 0.18); }
+.backfill { border-color: #b45309; box-shadow: 0 0 0 2px rgba(180, 83, 9, 0.18); }
+table { border-collapse: collapse; margin-top: 14px; font-size: 12px; }
+th, td { border: 1px solid #cbd5e1; padding: 5px 7px; text-align: right; }
+th { background: #f1f5f9; }
+.high { background: #fee2e2; }
+.mid { background: #fef3c7; }
+.low { background: #dcfce7; }
+code { background: #f1f5f9; padding: 1px 4px; border-radius: 4px; }
+</style>
+</head>
+<body>
+<h1>NR3D Frame NMS Spotcheck</h1>
+<div class="meta">pack=<code>pack_nr3d_v8_frame_nms_l1_t075</code>, displayed overlap method=<code>l1</code></div>
+
+<section class="case">
+  <h2>scene0100_00 target #19 cup</h2>
+  <div class="query">The cup that is the closest to the sink.</div>
+  <div class="summary">
+    <span class="pill">threshold=0.75</span>
+    <span class="pill">pre=[18, 16, 17, 15, 23, 24, 14, 25, 19, 22, 30, 13]</span>
+    <span class="pill">selected=[18, 25, 24]</span>
+    <span class="pill">strict=[18]</span>
+    <span class="pill">suppressed=9</span>
+    <span class="pill">relaxed_backfill=2</span>
+  </div>
+  <div class="grid">
+<div class="frame kept">
+  <img src="assets/frame_nms_spotcheck_20260514/scannet__scene0100_00__19__16619_view_0018_7ffb2f07.jpg" loading="lazy">
+  <div class="caption"><b>view 18</b> / raw 180<br>kept</div>
+</div>
+
+
+<div class="frame suppressed">
+  <img src="assets/frame_nms_spotcheck_20260514/scannet__scene0100_00__19__16619_view_0016_d7f85059.jpg" loading="lazy">
+  <div class="caption"><b>view 16</b> / raw 160<br>suppressed by 18, overlap=0.950</div>
+</div>
+
+
+<div class="frame suppressed">
+  <img src="assets/frame_nms_spotcheck_20260514/scannet__scene0100_00__19__16619_view_0017_1d9a6955.jpg" loading="lazy">
+  <div class="caption"><b>view 17</b> / raw 170<br>suppressed by 18, overlap=0.974</div>
+</div>
+
+
+<div class="frame suppressed">
+  <img src="assets/frame_nms_spotcheck_20260514/scannet__scene0100_00__19__16619_view_0015_7b7fc6ea.jpg" loading="lazy">
+  <div class="caption"><b>view 15</b> / raw 150<br>suppressed by 18, overlap=0.933</div>
+</div>
+
+
+<div class="frame suppressed">
+  <img src="assets/frame_nms_spotcheck_20260514/scannet__scene0100_00__19__16619_view_0023_18057821.jpg" loading="lazy">
+  <div class="caption"><b>view 23</b> / raw 230<br>suppressed by 18, overlap=0.878</div>
+</div>
+
+
+<div class="frame backfill">
+  <img src="assets/frame_nms_spotcheck_20260514/scannet__scene0100_00__19__16619_view_0024_c3fc2c58.jpg" loading="lazy">
+  <div class="caption"><b>view 24</b> / raw 240<br>relaxed backfill, max_overlap=0.846</div>
+</div>
+
+
+<div class="frame suppressed">
+  <img src="assets/frame_nms_spotcheck_20260514/scannet__scene0100_00__19__16619_view_0014_fb6c466a.jpg" loading="lazy">
+  <div class="caption"><b>view 14</b> / raw 140<br>suppressed by 18, overlap=0.921</div>
+</div>
+
+
+<div class="frame backfill">
+  <img src="assets/frame_nms_spotcheck_20260514/scannet__scene0100_00__19__16619_view_0025_42bca765.jpg" loading="lazy">
+  <div class="caption"><b>view 25</b> / raw 250<br>relaxed backfill, max_overlap=0.821</div>
+</div>
+
+
+<div class="frame suppressed">
+  <img src="assets/frame_nms_spotcheck_20260514/scannet__scene0100_00__19__16619_view_0019_bec482a7.jpg" loading="lazy">
+  <div class="caption"><b>view 19</b> / raw 190<br>suppressed by 18, overlap=0.957</div>
+</div>
+
+
+<div class="frame suppressed">
+  <img src="assets/frame_nms_spotcheck_20260514/scannet__scene0100_00__19__16619_view_0022_7bb6f9df.jpg" loading="lazy">
+  <div class="caption"><b>view 22</b> / raw 220<br>suppressed by 18, overlap=0.907</div>
+</div>
+
+
+<div class="frame suppressed">
+  <img src="assets/frame_nms_spotcheck_20260514/scannet__scene0100_00__19__16619_view_0030_98e9a865.jpg" loading="lazy">
+  <div class="caption"><b>view 30</b> / raw 300<br>suppressed by 18, overlap=0.936</div>
+</div>
+
+
+<div class="frame suppressed">
+  <img src="assets/frame_nms_spotcheck_20260514/scannet__scene0100_00__19__16619_view_0013_076d2a84.jpg" loading="lazy">
+  <div class="caption"><b>view 13</b> / raw 130<br>suppressed by 18, overlap=0.889</div>
+</div>
+</div>
+  <table><tr><th></th><th>18</th><th>16</th><th>17</th><th>15</th><th>23</th><th>24</th><th>14</th><th>25</th><th>19</th><th>22</th><th>30</th><th>13</th></tr><tr><th>18</th><td class="high">1.000</td><td class="high">0.950</td><td class="high">0.974</td><td class="high">0.933</td><td class="high">0.878</td><td class="high">0.846</td><td class="high">0.921</td><td class="high">0.821</td><td class="high">0.957</td><td class="high">0.907</td><td class="high">0.936</td><td class="high">0.889</td></tr><tr><th>16</th><td class="high">0.950</td><td class="high">1.000</td><td class="high">0.975</td><td class="high">0.983</td><td class="high">0.824</td><td class="high">0.793</td><td class="high">0.959</td><td class="high">0.769</td><td class="high">0.904</td><td class="high">0.855</td><td class="high">0.896</td><td class="high">0.920</td></tr><tr><th>17</th><td class="high">0.974</td><td class="high">0.975</td><td class="high">1.000</td><td class="high">0.958</td><td class="high">0.850</td><td class="high">0.819</td><td class="high">0.938</td><td class="high">0.795</td><td class="high">0.929</td><td class="high">0.879</td><td class="high">0.925</td><td class="high">0.901</td></tr><tr><th>15</th><td class="high">0.933</td><td class="high">0.983</td><td class="high">0.958</td><td class="high">1.000</td><td class="high">0.809</td><td class="high">0.778</td><td class="high">0.969</td><td class="high">0.755</td><td class="high">0.888</td><td class="high">0.840</td><td class="high">0.880</td><td class="high">0.930</td></tr><tr><th>23</th><td class="high">0.878</td><td class="high">0.824</td><td class="high">0.850</td><td class="high">0.809</td><td class="high">1.000</td><td class="high">0.968</td><td class="high">0.802</td><td class="high">0.942</td><td class="high">0.923</td><td class="high">0.960</td><td class="high">0.833</td><td class="high">0.778</td></tr><tr><th>24</th><td class="high">0.846</td><td class="high">0.793</td><td class="high">0.819</td><td class="high">0.778</td><td class="high">0.968</td><td class="high">1.000</td><td class="high">0.770</td><td class="high">0.975</td><td class="high">0.890</td><td class="high">0.928</td><td class="high">0.802</td><td class="mid">0.747</td></tr><tr><th>14</th><td class="high">0.921</td><td class="high">0.959</td><td class="high">0.938</td><td class="high">0.969</td><td class="high">0.802</td><td class="high">0.770</td><td class="high">1.000</td><td class="mid">0.747</td><td class="high">0.880</td><td class="high">0.837</td><td class="high">0.862</td><td class="high">0.961</td></tr><tr><th>25</th><td class="high">0.821</td><td class="high">0.769</td><td class="high">0.795</td><td class="high">0.755</td><td class="high">0.942</td><td class="high">0.975</td><td class="mid">0.747</td><td class="high">1.000</td><td class="high">0.865</td><td class="high">0.903</td><td class="high">0.773</td><td class="mid">0.725</td></tr><tr><th>19</th><td class="high">0.957</td><td class="high">0.904</td><td class="high">0.929</td><td class="high">0.888</td><td class="high">0.923</td><td class="high">0.890</td><td class="high">0.880</td><td class="high">0.865</td><td class="high">1.000</td><td class="high">0.952</td><td class="high">0.901</td><td class="high">0.853</td></tr><tr><th>22</th><td class="high">0.907</td><td class="high">0.855</td><td class="high">0.879</td><td class="high">0.840</td><td class="high">0.960</td><td class="high">0.928</td><td class="high">0.837</td><td class="high">0.903</td><td class="high">0.952</td><td class="high">1.000</td><td class="high">0.848</td><td class="high">0.817</td></tr><tr><th>30</th><td class="high">0.936</td><td class="high">0.896</td><td class="high">0.925</td><td class="high">0.880</td><td class="high">0.833</td><td class="high">0.802</td><td class="high">0.862</td><td class="high">0.773</td><td class="high">0.901</td><td class="high">0.848</td><td class="high">1.000</td><td class="high">0.822</td></tr><tr><th>13</th><td class="high">0.889</td><td class="high">0.920</td><td class="high">0.901</td><td class="high">0.930</td><td class="high">0.778</td><td class="mid">0.747</td><td class="high">0.961</td><td class="mid">0.725</td><td class="high">0.853</td><td class="high">0.817</td><td class="high">0.822</td><td class="high">1.000</td></tr></table>
+</section>
+
+
+<section class="case">
+  <h2>scene0690_00 target #15 armchair</h2>
+  <div class="query">Walking towards the sofas, it&#x27;s the left sofa furthest away from wooden cabinets</div>
+  <div class="summary">
+    <span class="pill">threshold=0.75</span>
+    <span class="pill">pre=[18, 26, 11, 27, 30, 13, 12, 24, 14, 79, 23, 20]</span>
+    <span class="pill">selected=[18, 14, 79]</span>
+    <span class="pill">strict=[18]</span>
+    <span class="pill">suppressed=9</span>
+    <span class="pill">relaxed_backfill=2</span>
+  </div>
+  <div class="grid">
+<div class="frame kept">
+  <img src="assets/frame_nms_spotcheck_20260514/scannet__scene0690_00__15__4351_view_0018_a2325384.jpg" loading="lazy">
+  <div class="caption"><b>view 18</b> / raw 180<br>kept</div>
+</div>
+
+
+<div class="frame suppressed">
+  <img src="assets/frame_nms_spotcheck_20260514/scannet__scene0690_00__15__4351_view_0026_89837968.jpg" loading="lazy">
+  <div class="caption"><b>view 26</b> / raw 260<br>suppressed by 18, overlap=0.907</div>
+</div>
+
+
+<div class="frame suppressed">
+  <img src="assets/frame_nms_spotcheck_20260514/scannet__scene0690_00__15__4351_view_0011_c2b2c2cf.jpg" loading="lazy">
+  <div class="caption"><b>view 11</b> / raw 110<br>suppressed by 18, overlap=0.836</div>
+</div>
+
+
+<div class="frame suppressed">
+  <img src="assets/frame_nms_spotcheck_20260514/scannet__scene0690_00__15__4351_view_0027_5cd1e2b4.jpg" loading="lazy">
+  <div class="caption"><b>view 27</b> / raw 270<br>suppressed by 18, overlap=0.899</div>
+</div>
+
+
+<div class="frame suppressed">
+  <img src="assets/frame_nms_spotcheck_20260514/scannet__scene0690_00__15__4351_view_0030_da5bee65.jpg" loading="lazy">
+  <div class="caption"><b>view 30</b> / raw 300<br>suppressed by 18, overlap=0.804</div>
+</div>
+
+
+<div class="frame suppressed">
+  <img src="assets/frame_nms_spotcheck_20260514/scannet__scene0690_00__15__4351_view_0013_ac31fdfa.jpg" loading="lazy">
+  <div class="caption"><b>view 13</b> / raw 130<br>suppressed by 18, overlap=0.833</div>
+</div>
+
+
+<div class="frame suppressed">
+  <img src="assets/frame_nms_spotcheck_20260514/scannet__scene0690_00__15__4351_view_0012_1fb81cd2.jpg" loading="lazy">
+  <div class="caption"><b>view 12</b> / raw 120<br>suppressed by 18, overlap=0.868</div>
+</div>
+
+
+<div class="frame suppressed">
+  <img src="assets/frame_nms_spotcheck_20260514/scannet__scene0690_00__15__4351_view_0024_b6e4c99e.jpg" loading="lazy">
+  <div class="caption"><b>view 24</b> / raw 240<br>suppressed by 18, overlap=0.915</div>
+</div>
+
+
+<div class="frame backfill">
+  <img src="assets/frame_nms_spotcheck_20260514/scannet__scene0690_00__15__4351_view_0014_a57dad15.jpg" loading="lazy">
+  <div class="caption"><b>view 14</b> / raw 140<br>relaxed backfill, max_overlap=0.794</div>
+</div>
+
+
+<div class="frame backfill">
+  <img src="assets/frame_nms_spotcheck_20260514/scannet__scene0690_00__15__4351_view_0079_b7846526.jpg" loading="lazy">
+  <div class="caption"><b>view 79</b> / raw 790<br>relaxed backfill, max_overlap=0.794</div>
+</div>
+
+
+<div class="frame suppressed">
+  <img src="assets/frame_nms_spotcheck_20260514/scannet__scene0690_00__15__4351_view_0023_27b68eeb.jpg" loading="lazy">
+  <div class="caption"><b>view 23</b> / raw 230<br>suppressed by 18, overlap=0.959</div>
+</div>
+
+
+<div class="frame suppressed">
+  <img src="assets/frame_nms_spotcheck_20260514/scannet__scene0690_00__15__4351_view_0020_9638e0d1.jpg" loading="lazy">
+  <div class="caption"><b>view 20</b> / raw 200<br>suppressed by 18, overlap=0.927</div>
+</div>
+</div>
+  <table><tr><th></th><th>18</th><th>26</th><th>11</th><th>27</th><th>30</th><th>13</th><th>12</th><th>24</th><th>14</th><th>79</th><th>23</th><th>20</th></tr><tr><th>18</th><td class="high">1.000</td><td class="high">0.907</td><td class="high">0.836</td><td class="high">0.899</td><td class="high">0.804</td><td class="high">0.833</td><td class="high">0.868</td><td class="high">0.915</td><td class="high">0.794</td><td class="high">0.794</td><td class="high">0.959</td><td class="high">0.927</td></tr><tr><th>26</th><td class="high">0.907</td><td class="high">1.000</td><td class="mid">0.734</td><td class="high">0.947</td><td class="high">0.934</td><td class="high">0.769</td><td class="high">0.791</td><td class="high">0.966</td><td class="mid">0.735</td><td class="mid">0.725</td><td class="high">0.945</td><td class="high">0.909</td></tr><tr><th>11</th><td class="high">0.836</td><td class="mid">0.734</td><td class="high">1.000</td><td class="high">0.752</td><td class="mid">0.652</td><td class="high">0.950</td><td class="high">0.967</td><td class="mid">0.738</td><td class="high">0.919</td><td class="high">0.789</td><td class="high">0.808</td><td class="high">0.845</td></tr><tr><th>27</th><td class="high">0.899</td><td class="high">0.947</td><td class="high">0.752</td><td class="high">1.000</td><td class="high">0.889</td><td class="high">0.815</td><td class="high">0.814</td><td class="high">0.915</td><td class="high">0.790</td><td class="mid">0.719</td><td class="high">0.934</td><td class="high">0.947</td></tr><tr><th>30</th><td class="high">0.804</td><td class="high">0.934</td><td class="mid">0.652</td><td class="high">0.889</td><td class="high">1.000</td><td class="mid">0.705</td><td class="mid">0.715</td><td class="high">0.946</td><td class="mid">0.677</td><td class="mid">0.660</td><td class="high">0.882</td><td class="high">0.842</td></tr><tr><th>13</th><td class="high">0.833</td><td class="high">0.769</td><td class="high">0.950</td><td class="high">0.815</td><td class="mid">0.705</td><td class="high">1.000</td><td class="high">0.964</td><td class="high">0.759</td><td class="high">0.962</td><td class="high">0.816</td><td class="high">0.837</td><td class="high">0.882</td></tr><tr><th>12</th><td class="high">0.868</td><td class="high">0.791</td><td class="high">0.967</td><td class="high">0.814</td><td class="mid">0.715</td><td class="high">0.964</td><td class="high">1.000</td><td class="high">0.788</td><td class="high">0.923</td><td class="high">0.825</td><td class="high">0.863</td><td class="high">0.902</td></tr><tr><th>24</th><td class="high">0.915</td><td class="high">0.966</td><td class="mid">0.738</td><td class="high">0.915</td><td class="high">0.946</td><td class="high">0.759</td><td class="high">0.788</td><td class="high">1.000</td><td class="mid">0.722</td><td class="mid">0.723</td><td class="high">0.938</td><td class="high">0.892</td></tr><tr><th>14</th><td class="high">0.794</td><td class="mid">0.735</td><td class="high">0.919</td><td class="high">0.790</td><td class="mid">0.677</td><td class="high">0.962</td><td class="high">0.923</td><td class="mid">0.722</td><td class="high">1.000</td><td class="high">0.800</td><td class="high">0.801</td><td class="high">0.847</td></tr><tr><th>79</th><td class="high">0.794</td><td class="mid">0.725</td><td class="high">0.789</td><td class="mid">0.719</td><td class="mid">0.660</td><td class="high">0.816</td><td class="high">0.825</td><td class="mid">0.723</td><td class="high">0.800</td><td class="high">1.000</td><td class="high">0.774</td><td class="high">0.799</td></tr><tr><th>23</th><td class="high">0.959</td><td class="high">0.945</td><td class="high">0.808</td><td class="high">0.934</td><td class="high">0.882</td><td class="high">0.837</td><td class="high">0.863</td><td class="high">0.938</td><td class="high">0.801</td><td class="high">0.774</td><td class="high">1.000</td><td class="high">0.954</td></tr><tr><th>20</th><td class="high">0.927</td><td class="high">0.909</td><td class="high">0.845</td><td class="high">0.947</td><td class="high">0.842</td><td class="high">0.882</td><td class="high">0.902</td><td class="high">0.892</td><td class="high">0.847</td><td class="high">0.799</td><td class="high">0.954</td><td class="high">1.000</td></tr></table>
+</section>
+
+
+<section class="case">
+  <h2>scene0704_00 target #0 cart</h2>
+  <div class="query">choose the dark cart.</div>
+  <div class="summary">
+    <span class="pill">threshold=0.75</span>
+    <span class="pill">pre=[18, 22, 23, 27, 26, 28, 24, 25, 29, 21, 30, 20]</span>
+    <span class="pill">selected=[18, 30, 29]</span>
+    <span class="pill">strict=[18]</span>
+    <span class="pill">suppressed=9</span>
+    <span class="pill">relaxed_backfill=2</span>
+  </div>
+  <div class="grid">
+<div class="frame kept">
+  <img src="assets/frame_nms_spotcheck_20260514/scannet__scene0704_00__0__16937_view_0018_f101c730.jpg" loading="lazy">
+  <div class="caption"><b>view 18</b> / raw 180<br>kept</div>
+</div>
+
+
+<div class="frame suppressed">
+  <img src="assets/frame_nms_spotcheck_20260514/scannet__scene0704_00__0__16937_view_0022_08295bcf.jpg" loading="lazy">
+  <div class="caption"><b>view 22</b> / raw 220<br>suppressed by 18, overlap=0.960</div>
+</div>
+
+
+<div class="frame suppressed">
+  <img src="assets/frame_nms_spotcheck_20260514/scannet__scene0704_00__0__16937_view_0023_75071080.jpg" loading="lazy">
+  <div class="caption"><b>view 23</b> / raw 230<br>suppressed by 18, overlap=0.947</div>
+</div>
+
+
+<div class="frame suppressed">
+  <img src="assets/frame_nms_spotcheck_20260514/scannet__scene0704_00__0__16937_view_0027_14bc7f82.jpg" loading="lazy">
+  <div class="caption"><b>view 27</b> / raw 270<br>suppressed by 18, overlap=0.878</div>
+</div>
+
+
+<div class="frame suppressed">
+  <img src="assets/frame_nms_spotcheck_20260514/scannet__scene0704_00__0__16937_view_0026_9813844a.jpg" loading="lazy">
+  <div class="caption"><b>view 26</b> / raw 260<br>suppressed by 18, overlap=0.904</div>
+</div>
+
+
+<div class="frame suppressed">
+  <img src="assets/frame_nms_spotcheck_20260514/scannet__scene0704_00__0__16937_view_0028_942abfd9.jpg" loading="lazy">
+  <div class="caption"><b>view 28</b> / raw 280<br>suppressed by 18, overlap=0.860</div>
+</div>
+
+
+<div class="frame suppressed">
+  <img src="assets/frame_nms_spotcheck_20260514/scannet__scene0704_00__0__16937_view_0024_0063d881.jpg" loading="lazy">
+  <div class="caption"><b>view 24</b> / raw 240<br>suppressed by 18, overlap=0.940</div>
+</div>
+
+
+<div class="frame suppressed">
+  <img src="assets/frame_nms_spotcheck_20260514/scannet__scene0704_00__0__16937_view_0025_772803d9.jpg" loading="lazy">
+  <div class="caption"><b>view 25</b> / raw 250<br>suppressed by 18, overlap=0.917</div>
+</div>
+
+
+<div class="frame backfill">
+  <img src="assets/frame_nms_spotcheck_20260514/scannet__scene0704_00__0__16937_view_0029_e2343a28.jpg" loading="lazy">
+  <div class="caption"><b>view 29</b> / raw 290<br>relaxed backfill, max_overlap=0.850</div>
+</div>
+
+
+<div class="frame suppressed">
+  <img src="assets/frame_nms_spotcheck_20260514/scannet__scene0704_00__0__16937_view_0021_5ac0ded2.jpg" loading="lazy">
+  <div class="caption"><b>view 21</b> / raw 210<br>suppressed by 18, overlap=0.978</div>
+</div>
+
+
+<div class="frame backfill">
+  <img src="assets/frame_nms_spotcheck_20260514/scannet__scene0704_00__0__16937_view_0030_3ff09e8d.jpg" loading="lazy">
+  <div class="caption"><b>view 30</b> / raw 300<br>relaxed backfill, max_overlap=0.822</div>
+</div>
+
+
+<div class="frame suppressed">
+  <img src="assets/frame_nms_spotcheck_20260514/scannet__scene0704_00__0__16937_view_0020_6fafa35b.jpg" loading="lazy">
+  <div class="caption"><b>view 20</b> / raw 200<br>suppressed by 18, overlap=0.988</div>
+</div>
+</div>
+  <table><tr><th></th><th>18</th><th>22</th><th>23</th><th>27</th><th>26</th><th>28</th><th>24</th><th>25</th><th>29</th><th>21</th><th>30</th><th>20</th></tr><tr><th>18</th><td class="high">1.000</td><td class="high">0.943</td><td class="high">0.919</td><td class="high">0.789</td><td class="high">0.833</td><td class="high">0.760</td><td class="high">0.899</td><td class="high">0.855</td><td class="mid">0.744</td><td class="high">0.972</td><td class="mid">0.682</td><td class="high">0.984</td></tr><tr><th>22</th><td class="high">0.943</td><td class="high">1.000</td><td class="high">0.971</td><td class="high">0.816</td><td class="high">0.869</td><td class="high">0.786</td><td class="high">0.936</td><td class="high">0.895</td><td class="high">0.776</td><td class="high">0.976</td><td class="mid">0.720</td><td class="high">0.958</td></tr><tr><th>23</th><td class="high">0.919</td><td class="high">0.971</td><td class="high">1.000</td><td class="high">0.845</td><td class="high">0.901</td><td class="high">0.817</td><td class="high">0.966</td><td class="high">0.926</td><td class="high">0.809</td><td class="high">0.947</td><td class="high">0.753</td><td class="high">0.930</td></tr><tr><th>27</th><td class="high">0.789</td><td class="high">0.816</td><td class="high">0.845</td><td class="high">1.000</td><td class="high">0.945</td><td class="high">0.969</td><td class="high">0.881</td><td class="high">0.909</td><td class="high">0.931</td><td class="high">0.796</td><td class="high">0.853</td><td class="high">0.779</td></tr><tr><th>26</th><td class="high">0.833</td><td class="high">0.869</td><td class="high">0.901</td><td class="high">0.945</td><td class="high">1.000</td><td class="high">0.919</td><td class="high">0.938</td><td class="high">0.961</td><td class="high">0.908</td><td class="high">0.846</td><td class="high">0.839</td><td class="high">0.827</td></tr><tr><th>28</th><td class="high">0.760</td><td class="high">0.786</td><td class="high">0.817</td><td class="high">0.969</td><td class="high">0.919</td><td class="high">1.000</td><td class="high">0.853</td><td class="high">0.876</td><td class="high">0.953</td><td class="high">0.766</td><td class="high">0.878</td><td class="high">0.750</td></tr><tr><th>24</th><td class="high">0.899</td><td class="high">0.936</td><td class="high">0.966</td><td class="high">0.881</td><td class="high">0.938</td><td class="high">0.853</td><td class="high">1.000</td><td class="high">0.958</td><td class="high">0.846</td><td class="high">0.914</td><td class="high">0.789</td><td class="high">0.900</td></tr><tr><th>25</th><td class="high">0.855</td><td class="high">0.895</td><td class="high">0.926</td><td class="high">0.909</td><td class="high">0.961</td><td class="high">0.876</td><td class="high">0.958</td><td class="high">1.000</td><td class="high">0.878</td><td class="high">0.867</td><td class="high">0.828</td><td class="high">0.854</td></tr><tr><th>29</th><td class="mid">0.744</td><td class="high">0.776</td><td class="high">0.809</td><td class="high">0.931</td><td class="high">0.908</td><td class="high">0.953</td><td class="high">0.846</td><td class="high">0.878</td><td class="high">1.000</td><td class="high">0.752</td><td class="high">0.930</td><td class="mid">0.735</td></tr><tr><th>21</th><td class="high">0.972</td><td class="high">0.976</td><td class="high">0.947</td><td class="high">0.796</td><td class="high">0.846</td><td class="high">0.766</td><td class="high">0.914</td><td class="high">0.867</td><td class="high">0.752</td><td class="high">1.000</td><td class="mid">0.693</td><td class="high">0.983</td></tr><tr><th>30</th><td class="mid">0.682</td><td class="mid">0.720</td><td class="high">0.753</td><td class="high">0.853</td><td class="high">0.839</td><td class="high">0.878</td><td class="high">0.789</td><td class="high">0.828</td><td class="high">0.930</td><td class="mid">0.693</td><td class="high">1.000</td><td class="mid">0.676</td></tr><tr><th>20</th><td class="high">0.984</td><td class="high">0.958</td><td class="high">0.930</td><td class="high">0.779</td><td class="high">0.827</td><td class="high">0.750</td><td class="high">0.900</td><td class="high">0.854</td><td class="mid">0.735</td><td class="high">0.983</td><td class="mid">0.676</td><td class="high">1.000</td></tr></table>
+</section>
+
+
+<section class="case">
+  <h2>scene0025_00 target #10 desk</h2>
+  <div class="query">The desk that takes up most of the room</div>
+  <div class="summary">
+    <span class="pill">threshold=0.75</span>
+    <span class="pill">pre=[175, 5, 102, 101, 6, 3, 100, 4, 2, 7, 0, 103]</span>
+    <span class="pill">selected=[175, 5, 103]</span>
+    <span class="pill">strict=[175, 5]</span>
+    <span class="pill">suppressed=9</span>
+    <span class="pill">relaxed_backfill=1</span>
+  </div>
+  <div class="grid">
+<div class="frame kept">
+  <img src="assets/frame_nms_spotcheck_20260514/scannet__scene0025_00__10__39342_view_0175_316d3829.jpg" loading="lazy">
+  <div class="caption"><b>view 175</b> / raw 1750<br>kept</div>
+</div>
+
+
+<div class="frame kept">
+  <img src="assets/frame_nms_spotcheck_20260514/scannet__scene0025_00__10__39342_view_0005_6b18de80.jpg" loading="lazy">
+  <div class="caption"><b>view 5</b> / raw 50<br>kept</div>
+</div>
+
+
+<div class="frame suppressed">
+  <img src="assets/frame_nms_spotcheck_20260514/scannet__scene0025_00__10__39342_view_0102_8d08410e.jpg" loading="lazy">
+  <div class="caption"><b>view 102</b> / raw 1020<br>suppressed by 5, overlap=0.862</div>
+</div>
+
+
+<div class="frame suppressed">
+  <img src="assets/frame_nms_spotcheck_20260514/scannet__scene0025_00__10__39342_view_0101_bb54e1db.jpg" loading="lazy">
+  <div class="caption"><b>view 101</b> / raw 1010<br>suppressed by 5, overlap=0.933</div>
+</div>
+
+
+<div class="frame suppressed">
+  <img src="assets/frame_nms_spotcheck_20260514/scannet__scene0025_00__10__39342_view_0006_7c8691a8.jpg" loading="lazy">
+  <div class="caption"><b>view 6</b> / raw 60<br>suppressed by 5, overlap=0.980</div>
+</div>
+
+
+<div class="frame suppressed">
+  <img src="assets/frame_nms_spotcheck_20260514/scannet__scene0025_00__10__39342_view_0003_96459f5b.jpg" loading="lazy">
+  <div class="caption"><b>view 3</b> / raw 30<br>suppressed by 5, overlap=0.977</div>
+</div>
+
+
+<div class="frame suppressed">
+  <img src="assets/frame_nms_spotcheck_20260514/scannet__scene0025_00__10__39342_view_0100_399b3652.jpg" loading="lazy">
+  <div class="caption"><b>view 100</b> / raw 1000<br>suppressed by 5, overlap=0.964</div>
+</div>
+
+
+<div class="frame suppressed">
+  <img src="assets/frame_nms_spotcheck_20260514/scannet__scene0025_00__10__39342_view_0004_3a68ac40.jpg" loading="lazy">
+  <div class="caption"><b>view 4</b> / raw 40<br>suppressed by 5, overlap=0.989</div>
+</div>
+
+
+<div class="frame suppressed">
+  <img src="assets/frame_nms_spotcheck_20260514/scannet__scene0025_00__10__39342_view_0002_1d9d2dbe.jpg" loading="lazy">
+  <div class="caption"><b>view 2</b> / raw 20<br>suppressed by 5, overlap=0.957</div>
+</div>
+
+
+<div class="frame suppressed">
+  <img src="assets/frame_nms_spotcheck_20260514/scannet__scene0025_00__10__39342_view_0007_225ca978.jpg" loading="lazy">
+  <div class="caption"><b>view 7</b> / raw 70<br>suppressed by 5, overlap=0.951</div>
+</div>
+
+
+<div class="frame suppressed">
+  <img src="assets/frame_nms_spotcheck_20260514/scannet__scene0025_00__10__39342_view_0000_f5fa4009.jpg" loading="lazy">
+  <div class="caption"><b>view 0</b> / raw 0<br>suppressed by 5, overlap=0.941</div>
+</div>
+
+
+<div class="frame backfill">
+  <img src="assets/frame_nms_spotcheck_20260514/scannet__scene0025_00__10__39342_view_0103_25495239.jpg" loading="lazy">
+  <div class="caption"><b>view 103</b> / raw 1030<br>relaxed backfill, max_overlap=0.796</div>
+</div>
+</div>
+  <table><tr><th></th><th>175</th><th>5</th><th>102</th><th>101</th><th>6</th><th>3</th><th>100</th><th>4</th><th>2</th><th>7</th><th>0</th><th>103</th></tr><tr><th>175</th><td class="high">1.000</td><td class="low">0.394</td><td class="low">0.263</td><td class="low">0.331</td><td class="low">0.388</td><td class="low">0.445</td><td class="low">0.432</td><td class="low">0.473</td><td class="low">0.434</td><td class="low">0.403</td><td class="low">0.437</td><td class="low">0.203</td></tr><tr><th>5</th><td class="low">0.394</td><td class="high">1.000</td><td class="high">0.862</td><td class="high">0.933</td><td class="high">0.980</td><td class="high">0.977</td><td class="high">0.964</td><td class="high">0.989</td><td class="high">0.957</td><td class="high">0.951</td><td class="high">0.941</td><td class="high">0.796</td></tr><tr><th>102</th><td class="low">0.263</td><td class="high">0.862</td><td class="high">1.000</td><td class="high">0.925</td><td class="high">0.866</td><td class="high">0.860</td><td class="high">0.846</td><td class="high">0.853</td><td class="high">0.858</td><td class="high">0.844</td><td class="high">0.860</td><td class="high">0.932</td></tr><tr><th>101</th><td class="low">0.331</td><td class="high">0.933</td><td class="high">0.925</td><td class="high">1.000</td><td class="high">0.937</td><td class="high">0.930</td><td class="high">0.919</td><td class="high">0.922</td><td class="high">0.929</td><td class="high">0.914</td><td class="high">0.929</td><td class="high">0.857</td></tr><tr><th>6</th><td class="low">0.388</td><td class="high">0.980</td><td class="high">0.866</td><td class="high">0.937</td><td class="high">1.000</td><td class="high">0.966</td><td class="high">0.967</td><td class="high">0.965</td><td class="high">0.959</td><td class="high">0.969</td><td class="high">0.944</td><td class="high">0.800</td></tr><tr><th>3</th><td class="low">0.445</td><td class="high">0.977</td><td class="high">0.860</td><td class="high">0.930</td><td class="high">0.966</td><td class="high">1.000</td><td class="high">0.965</td><td class="high">0.980</td><td class="high">0.981</td><td class="high">0.950</td><td class="high">0.965</td><td class="high">0.796</td></tr><tr><th>100</th><td class="low">0.432</td><td class="high">0.964</td><td class="high">0.846</td><td class="high">0.919</td><td class="high">0.967</td><td class="high">0.965</td><td class="high">1.000</td><td class="high">0.963</td><td class="high">0.967</td><td class="high">0.972</td><td class="high">0.958</td><td class="high">0.781</td></tr><tr><th>4</th><td class="low">0.473</td><td class="high">0.989</td><td class="high">0.853</td><td class="high">0.922</td><td class="high">0.965</td><td class="high">0.980</td><td class="high">0.963</td><td class="high">1.000</td><td class="high">0.962</td><td class="high">0.943</td><td class="high">0.946</td><td class="high">0.790</td></tr><tr><th>2</th><td class="low">0.434</td><td class="high">0.957</td><td class="high">0.858</td><td class="high">0.929</td><td class="high">0.959</td><td class="high">0.981</td><td class="high">0.967</td><td class="high">0.962</td><td class="high">1.000</td><td class="high">0.946</td><td class="high">0.984</td><td class="high">0.795</td></tr><tr><th>7</th><td class="low">0.403</td><td class="high">0.951</td><td class="high">0.844</td><td class="high">0.914</td><td class="high">0.969</td><td class="high">0.950</td><td class="high">0.972</td><td class="high">0.943</td><td class="high">0.946</td><td class="high">1.000</td><td class="high">0.931</td><td class="high">0.779</td></tr><tr><th>0</th><td class="low">0.437</td><td class="high">0.941</td><td class="high">0.860</td><td class="high">0.929</td><td class="high">0.944</td><td class="high">0.965</td><td class="high">0.958</td><td class="high">0.946</td><td class="high">0.984</td><td class="high">0.931</td><td class="high">1.000</td><td class="high">0.798</td></tr><tr><th>103</th><td class="low">0.203</td><td class="high">0.796</td><td class="high">0.932</td><td class="high">0.857</td><td class="high">0.800</td><td class="high">0.796</td><td class="high">0.781</td><td class="high">0.790</td><td class="high">0.795</td><td class="high">0.779</td><td class="high">0.798</td><td class="high">1.000</td></tr></table>
+</section>
+
+
+<section class="case">
+  <h2>scene0025_00 target #32 cup</h2>
+  <div class="query">the cup is closer to the black mouse</div>
+  <div class="summary">
+    <span class="pill">threshold=0.75</span>
+    <span class="pill">pre=[180, 5, 102, 101, 6, 3, 100, 4, 2, 7, 0, 103]</span>
+    <span class="pill">selected=[180, 5, 103]</span>
+    <span class="pill">strict=[180, 5]</span>
+    <span class="pill">suppressed=9</span>
+    <span class="pill">relaxed_backfill=1</span>
+  </div>
+  <div class="grid">
+<div class="frame kept">
+  <img src="assets/frame_nms_spotcheck_20260514/scannet__scene0025_00__32__23687_view_0180_51974543.jpg" loading="lazy">
+  <div class="caption"><b>view 180</b> / raw 1800<br>kept</div>
+</div>
+
+
+<div class="frame kept">
+  <img src="assets/frame_nms_spotcheck_20260514/scannet__scene0025_00__32__23687_view_0005_2ec25675.jpg" loading="lazy">
+  <div class="caption"><b>view 5</b> / raw 50<br>kept</div>
+</div>
+
+
+<div class="frame suppressed">
+  <img src="assets/frame_nms_spotcheck_20260514/scannet__scene0025_00__32__23687_view_0102_3763fdd9.jpg" loading="lazy">
+  <div class="caption"><b>view 102</b> / raw 1020<br>suppressed by 5, overlap=0.862</div>
+</div>
+
+
+<div class="frame suppressed">
+  <img src="assets/frame_nms_spotcheck_20260514/scannet__scene0025_00__32__23687_view_0101_4712bdf4.jpg" loading="lazy">
+  <div class="caption"><b>view 101</b> / raw 1010<br>suppressed by 5, overlap=0.933</div>
+</div>
+
+
+<div class="frame suppressed">
+  <img src="assets/frame_nms_spotcheck_20260514/scannet__scene0025_00__32__23687_view_0006_0e16432e.jpg" loading="lazy">
+  <div class="caption"><b>view 6</b> / raw 60<br>suppressed by 5, overlap=0.980</div>
+</div>
+
+
+<div class="frame suppressed">
+  <img src="assets/frame_nms_spotcheck_20260514/scannet__scene0025_00__32__23687_view_0003_800fc091.jpg" loading="lazy">
+  <div class="caption"><b>view 3</b> / raw 30<br>suppressed by 5, overlap=0.977</div>
+</div>
+
+
+<div class="frame suppressed">
+  <img src="assets/frame_nms_spotcheck_20260514/scannet__scene0025_00__32__23687_view_0100_4a32bd66.jpg" loading="lazy">
+  <div class="caption"><b>view 100</b> / raw 1000<br>suppressed by 5, overlap=0.964</div>
+</div>
+
+
+<div class="frame suppressed">
+  <img src="assets/frame_nms_spotcheck_20260514/scannet__scene0025_00__32__23687_view_0004_4c15e94d.jpg" loading="lazy">
+  <div class="caption"><b>view 4</b> / raw 40<br>suppressed by 5, overlap=0.989</div>
+</div>
+
+
+<div class="frame suppressed">
+  <img src="assets/frame_nms_spotcheck_20260514/scannet__scene0025_00__32__23687_view_0002_55153468.jpg" loading="lazy">
+  <div class="caption"><b>view 2</b> / raw 20<br>suppressed by 5, overlap=0.957</div>
+</div>
+
+
+<div class="frame suppressed">
+  <img src="assets/frame_nms_spotcheck_20260514/scannet__scene0025_00__32__23687_view_0007_afabdc16.jpg" loading="lazy">
+  <div class="caption"><b>view 7</b> / raw 70<br>suppressed by 5, overlap=0.951</div>
+</div>
+
+
+<div class="frame suppressed">
+  <img src="assets/frame_nms_spotcheck_20260514/scannet__scene0025_00__32__23687_view_0000_eda54522.jpg" loading="lazy">
+  <div class="caption"><b>view 0</b> / raw 0<br>suppressed by 5, overlap=0.941</div>
+</div>
+
+
+<div class="frame backfill">
+  <img src="assets/frame_nms_spotcheck_20260514/scannet__scene0025_00__32__23687_view_0103_1b5ffcf0.jpg" loading="lazy">
+  <div class="caption"><b>view 103</b> / raw 1030<br>relaxed backfill, max_overlap=0.796</div>
+</div>
+</div>
+  <table><tr><th></th><th>180</th><th>5</th><th>102</th><th>101</th><th>6</th><th>3</th><th>100</th><th>4</th><th>2</th><th>7</th><th>0</th><th>103</th></tr><tr><th>180</th><td class="high">1.000</td><td class="low">0.201</td><td class="low">0.000</td><td class="low">0.068</td><td class="low">0.076</td><td class="low">0.266</td><td class="low">0.246</td><td class="low">0.299</td><td class="low">0.253</td><td class="low">0.004</td><td class="low">0.260</td><td class="low">0.000</td></tr><tr><th>5</th><td class="low">0.201</td><td class="high">1.000</td><td class="high">0.862</td><td class="high">0.933</td><td class="high">0.980</td><td class="high">0.977</td><td class="high">0.964</td><td class="high">0.989</td><td class="high">0.957</td><td class="high">0.951</td><td class="high">0.941</td><td class="high">0.796</td></tr><tr><th>102</th><td class="low">0.000</td><td class="high">0.862</td><td class="high">1.000</td><td class="high">0.925</td><td class="high">0.866</td><td class="high">0.860</td><td class="high">0.846</td><td class="high">0.853</td><td class="high">0.858</td><td class="high">0.844</td><td class="high">0.860</td><td class="high">0.932</td></tr><tr><th>101</th><td class="low">0.068</td><td class="high">0.933</td><td class="high">0.925</td><td class="high">1.000</td><td class="high">0.937</td><td class="high">0.930</td><td class="high">0.919</td><td class="high">0.922</td><td class="high">0.929</td><td class="high">0.914</td><td class="high">0.929</td><td class="high">0.857</td></tr><tr><th>6</th><td class="low">0.076</td><td class="high">0.980</td><td class="high">0.866</td><td class="high">0.937</td><td class="high">1.000</td><td class="high">0.966</td><td class="high">0.967</td><td class="high">0.965</td><td class="high">0.959</td><td class="high">0.969</td><td class="high">0.944</td><td class="high">0.800</td></tr><tr><th>3</th><td class="low">0.266</td><td class="high">0.977</td><td class="high">0.860</td><td class="high">0.930</td><td class="high">0.966</td><td class="high">1.000</td><td class="high">0.965</td><td class="high">0.980</td><td class="high">0.981</td><td class="high">0.950</td><td class="high">0.965</td><td class="high">0.796</td></tr><tr><th>100</th><td class="low">0.246</td><td class="high">0.964</td><td class="high">0.846</td><td class="high">0.919</td><td class="high">0.967</td><td class="high">0.965</td><td class="high">1.000</td><td class="high">0.963</td><td class="high">0.967</td><td class="high">0.972</td><td class="high">0.958</td><td class="high">0.781</td></tr><tr><th>4</th><td class="low">0.299</td><td class="high">0.989</td><td class="high">0.853</td><td class="high">0.922</td><td class="high">0.965</td><td class="high">0.980</td><td class="high">0.963</td><td class="high">1.000</td><td class="high">0.962</td><td class="high">0.943</td><td class="high">0.946</td><td class="high">0.790</td></tr><tr><th>2</th><td class="low">0.253</td><td class="high">0.957</td><td class="high">0.858</td><td class="high">0.929</td><td class="high">0.959</td><td class="high">0.981</td><td class="high">0.967</td><td class="high">0.962</td><td class="high">1.000</td><td class="high">0.946</td><td class="high">0.984</td><td class="high">0.795</td></tr><tr><th>7</th><td class="low">0.004</td><td class="high">0.951</td><td class="high">0.844</td><td class="high">0.914</td><td class="high">0.969</td><td class="high">0.950</td><td class="high">0.972</td><td class="high">0.943</td><td class="high">0.946</td><td class="high">1.000</td><td class="high">0.931</td><td class="high">0.779</td></tr><tr><th>0</th><td class="low">0.260</td><td class="high">0.941</td><td class="high">0.860</td><td class="high">0.929</td><td class="high">0.944</td><td class="high">0.965</td><td class="high">0.958</td><td class="high">0.946</td><td class="high">0.984</td><td class="high">0.931</td><td class="high">1.000</td><td class="high">0.798</td></tr><tr><th>103</th><td class="low">0.000</td><td class="high">0.796</td><td class="high">0.932</td><td class="high">0.857</td><td class="high">0.800</td><td class="high">0.796</td><td class="high">0.781</td><td class="high">0.790</td><td class="high">0.795</td><td class="high">0.779</td><td class="high">0.798</td><td class="high">1.000</td></tr></table>
+</section>
+
+
+<section class="case">
+  <h2>scene0144_00 target #3 chair</h2>
+  <div class="query">The chair closest to the bed.</div>
+  <div class="summary">
+    <span class="pill">threshold=0.75</span>
+    <span class="pill">pre=[83, 69, 141, 3, 70, 2, 142, 71, 140, 132, 68, 131]</span>
+    <span class="pill">selected=[83, 141, 69]</span>
+    <span class="pill">strict=[83, 141]</span>
+    <span class="pill">suppressed=9</span>
+    <span class="pill">relaxed_backfill=1</span>
+  </div>
+  <div class="grid">
+<div class="frame kept">
+  <img src="assets/frame_nms_spotcheck_20260514/scannet__scene0144_00__3__5034_view_0083_4ff27db8.jpg" loading="lazy">
+  <div class="caption"><b>view 83</b> / raw 830<br>kept</div>
+</div>
+
+
+<div class="frame backfill">
+  <img src="assets/frame_nms_spotcheck_20260514/scannet__scene0144_00__3__5034_view_0069_2f49a17a.jpg" loading="lazy">
+  <div class="caption"><b>view 69</b> / raw 690<br>relaxed backfill, max_overlap=0.802</div>
+</div>
+
+
+<div class="frame kept">
+  <img src="assets/frame_nms_spotcheck_20260514/scannet__scene0144_00__3__5034_view_0141_46dd5894.jpg" loading="lazy">
+  <div class="caption"><b>view 141</b> / raw 1410<br>kept</div>
+</div>
+
+
+<div class="frame suppressed">
+  <img src="assets/frame_nms_spotcheck_20260514/scannet__scene0144_00__3__5034_view_0003_1a18d357.jpg" loading="lazy">
+  <div class="caption"><b>view 3</b> / raw 30<br>suppressed by 141, overlap=0.928</div>
+</div>
+
+
+<div class="frame suppressed">
+  <img src="assets/frame_nms_spotcheck_20260514/scannet__scene0144_00__3__5034_view_0070_375e162e.jpg" loading="lazy">
+  <div class="caption"><b>view 70</b> / raw 700<br>suppressed by 83, overlap=0.808</div>
+</div>
+
+
+<div class="frame suppressed">
+  <img src="assets/frame_nms_spotcheck_20260514/scannet__scene0144_00__3__5034_view_0002_fdf3dff7.jpg" loading="lazy">
+  <div class="caption"><b>view 2</b> / raw 20<br>suppressed by 141, overlap=0.948</div>
+</div>
+
+
+<div class="frame suppressed">
+  <img src="assets/frame_nms_spotcheck_20260514/scannet__scene0144_00__3__5034_view_0142_f6c0e4dc.jpg" loading="lazy">
+  <div class="caption"><b>view 142</b> / raw 1420<br>suppressed by 141, overlap=0.970</div>
+</div>
+
+
+<div class="frame suppressed">
+  <img src="assets/frame_nms_spotcheck_20260514/scannet__scene0144_00__3__5034_view_0071_83b01bd1.jpg" loading="lazy">
+  <div class="caption"><b>view 71</b> / raw 710<br>suppressed by 83, overlap=0.813</div>
+</div>
+
+
+<div class="frame suppressed">
+  <img src="assets/frame_nms_spotcheck_20260514/scannet__scene0144_00__3__5034_view_0140_6dca63ac.jpg" loading="lazy">
+  <div class="caption"><b>view 140</b> / raw 1400<br>suppressed by 141, overlap=0.943</div>
+</div>
+
+
+<div class="frame suppressed">
+  <img src="assets/frame_nms_spotcheck_20260514/scannet__scene0144_00__3__5034_view_0132_d786c5f3.jpg" loading="lazy">
+  <div class="caption"><b>view 132</b> / raw 1320<br>suppressed by 141, overlap=0.928</div>
+</div>
+
+
+<div class="frame suppressed">
+  <img src="assets/frame_nms_spotcheck_20260514/scannet__scene0144_00__3__5034_view_0068_0044b435.jpg" loading="lazy">
+  <div class="caption"><b>view 68</b> / raw 680<br>suppressed by 83, overlap=0.809</div>
+</div>
+
+
+<div class="frame suppressed">
+  <img src="assets/frame_nms_spotcheck_20260514/scannet__scene0144_00__3__5034_view_0131_bbf039b3.jpg" loading="lazy">
+  <div class="caption"><b>view 131</b> / raw 1310<br>suppressed by 141, overlap=0.930</div>
+</div>
+</div>
+  <table><tr><th></th><th>83</th><th>69</th><th>141</th><th>3</th><th>70</th><th>2</th><th>142</th><th>71</th><th>140</th><th>132</th><th>68</th><th>131</th></tr><tr><th>83</th><td class="high">1.000</td><td class="mid">0.630</td><td class="low">0.000</td><td class="low">0.000</td><td class="mid">0.628</td><td class="low">0.000</td><td class="low">0.000</td><td class="mid">0.634</td><td class="low">0.000</td><td class="low">0.000</td><td class="mid">0.652</td><td class="low">0.000</td></tr><tr><th>69</th><td class="mid">0.630</td><td class="high">1.000</td><td class="low">0.000</td><td class="low">0.017</td><td class="high">0.983</td><td class="low">0.000</td><td class="low">0.000</td><td class="high">0.966</td><td class="low">0.000</td><td class="low">0.000</td><td class="high">0.960</td><td class="low">0.000</td></tr><tr><th>141</th><td class="low">0.000</td><td class="low">0.000</td><td class="high">1.000</td><td class="high">0.859</td><td class="low">0.000</td><td class="high">0.896</td><td class="high">0.942</td><td class="low">0.000</td><td class="high">0.889</td><td class="high">0.858</td><td class="low">0.000</td><td class="high">0.870</td></tr><tr><th>3</th><td class="low">0.000</td><td class="low">0.017</td><td class="high">0.859</td><td class="high">1.000</td><td class="low">0.019</td><td class="high">0.958</td><td class="high">0.919</td><td class="low">0.006</td><td class="high">0.750</td><td class="mid">0.718</td><td class="low">0.000</td><td class="mid">0.723</td></tr><tr><th>70</th><td class="mid">0.628</td><td class="high">0.983</td><td class="low">0.000</td><td class="low">0.019</td><td class="high">1.000</td><td class="low">0.000</td><td class="low">0.009</td><td class="high">0.978</td><td class="low">0.000</td><td class="low">0.000</td><td class="high">0.945</td><td class="low">0.000</td></tr><tr><th>2</th><td class="low">0.000</td><td class="low">0.000</td><td class="high">0.896</td><td class="high">0.958</td><td class="low">0.000</td><td class="high">1.000</td><td class="high">0.945</td><td class="low">0.000</td><td class="high">0.789</td><td class="mid">0.743</td><td class="low">0.000</td><td class="high">0.753</td></tr><tr><th>142</th><td class="low">0.000</td><td class="low">0.000</td><td class="high">0.942</td><td class="high">0.919</td><td class="low">0.009</td><td class="high">0.945</td><td class="high">1.000</td><td class="low">0.005</td><td class="high">0.837</td><td class="high">0.808</td><td class="low">0.000</td><td class="high">0.822</td></tr><tr><th>71</th><td class="mid">0.634</td><td class="high">0.966</td><td class="low">0.000</td><td class="low">0.006</td><td class="high">0.978</td><td class="low">0.000</td><td class="low">0.005</td><td class="high">1.000</td><td class="low">0.000</td><td class="low">0.000</td><td class="high">0.926</td><td class="low">0.000</td></tr><tr><th>140</th><td class="low">0.000</td><td class="low">0.000</td><td class="high">0.889</td><td class="high">0.750</td><td class="low">0.000</td><td class="high">0.789</td><td class="high">0.837</td><td class="low">0.000</td><td class="high">1.000</td><td class="high">0.941</td><td class="low">0.000</td><td class="high">0.933</td></tr><tr><th>132</th><td class="low">0.000</td><td class="low">0.000</td><td class="high">0.858</td><td class="mid">0.718</td><td class="low">0.000</td><td class="mid">0.743</td><td class="high">0.808</td><td class="low">0.000</td><td class="high">0.941</td><td class="high">1.000</td><td class="low">0.000</td><td class="high">0.956</td></tr><tr><th>68</th><td class="mid">0.652</td><td class="high">0.960</td><td class="low">0.000</td><td class="low">0.000</td><td class="high">0.945</td><td class="low">0.000</td><td class="low">0.000</td><td class="high">0.926</td><td class="low">0.000</td><td class="low">0.000</td><td class="high">1.000</td><td class="low">0.000</td></tr><tr><th>131</th><td class="low">0.000</td><td class="low">0.000</td><td class="high">0.870</td><td class="mid">0.723</td><td class="low">0.000</td><td class="high">0.753</td><td class="high">0.822</td><td class="low">0.000</td><td class="high">0.933</td><td class="high">0.956</td><td class="low">0.000</td><td class="high">1.000</td></tr></table>
+</section>
+
+
+<section class="case">
+  <h2>scene0144_00 target #4 chair</h2>
+  <div class="query">Choose the chair on the right.</div>
+  <div class="summary">
+    <span class="pill">threshold=0.75</span>
+    <span class="pill">pre=[83, 69, 141, 3, 70, 2, 142, 71, 140, 132, 68, 131]</span>
+    <span class="pill">selected=[83, 141, 69]</span>
+    <span class="pill">strict=[83, 141]</span>
+    <span class="pill">suppressed=9</span>
+    <span class="pill">relaxed_backfill=1</span>
+  </div>
+  <div class="grid">
+<div class="frame kept">
+  <img src="assets/frame_nms_spotcheck_20260514/scannet__scene0144_00__4__21147_view_0083_9586af08.jpg" loading="lazy">
+  <div class="caption"><b>view 83</b> / raw 830<br>kept</div>
+</div>
+
+
+<div class="frame backfill">
+  <img src="assets/frame_nms_spotcheck_20260514/scannet__scene0144_00__4__21147_view_0069_05c6e6f1.jpg" loading="lazy">
+  <div class="caption"><b>view 69</b> / raw 690<br>relaxed backfill, max_overlap=0.802</div>
+</div>
+
+
+<div class="frame kept">
+  <img src="assets/frame_nms_spotcheck_20260514/scannet__scene0144_00__4__21147_view_0141_eda7fa3d.jpg" loading="lazy">
+  <div class="caption"><b>view 141</b> / raw 1410<br>kept</div>
+</div>
+
+
+<div class="frame suppressed">
+  <img src="assets/frame_nms_spotcheck_20260514/scannet__scene0144_00__4__21147_view_0003_c7f4637b.jpg" loading="lazy">
+  <div class="caption"><b>view 3</b> / raw 30<br>suppressed by 141, overlap=0.928</div>
+</div>
+
+
+<div class="frame suppressed">
+  <img src="assets/frame_nms_spotcheck_20260514/scannet__scene0144_00__4__21147_view_0070_c8a71528.jpg" loading="lazy">
+  <div class="caption"><b>view 70</b> / raw 700<br>suppressed by 83, overlap=0.808</div>
+</div>
+
+
+<div class="frame suppressed">
+  <img src="assets/frame_nms_spotcheck_20260514/scannet__scene0144_00__4__21147_view_0002_dcbfc4d6.jpg" loading="lazy">
+  <div class="caption"><b>view 2</b> / raw 20<br>suppressed by 141, overlap=0.948</div>
+</div>
+
+
+<div class="frame suppressed">
+  <img src="assets/frame_nms_spotcheck_20260514/scannet__scene0144_00__4__21147_view_0142_d7d9876b.jpg" loading="lazy">
+  <div class="caption"><b>view 142</b> / raw 1420<br>suppressed by 141, overlap=0.970</div>
+</div>
+
+
+<div class="frame suppressed">
+  <img src="assets/frame_nms_spotcheck_20260514/scannet__scene0144_00__4__21147_view_0071_c60d8f39.jpg" loading="lazy">
+  <div class="caption"><b>view 71</b> / raw 710<br>suppressed by 83, overlap=0.813</div>
+</div>
+
+
+<div class="frame suppressed">
+  <img src="assets/frame_nms_spotcheck_20260514/scannet__scene0144_00__4__21147_view_0140_fcd7dcfa.jpg" loading="lazy">
+  <div class="caption"><b>view 140</b> / raw 1400<br>suppressed by 141, overlap=0.943</div>
+</div>
+
+
+<div class="frame suppressed">
+  <img src="assets/frame_nms_spotcheck_20260514/scannet__scene0144_00__4__21147_view_0132_4ea4c5dd.jpg" loading="lazy">
+  <div class="caption"><b>view 132</b> / raw 1320<br>suppressed by 141, overlap=0.928</div>
+</div>
+
+
+<div class="frame suppressed">
+  <img src="assets/frame_nms_spotcheck_20260514/scannet__scene0144_00__4__21147_view_0068_daea5f34.jpg" loading="lazy">
+  <div class="caption"><b>view 68</b> / raw 680<br>suppressed by 83, overlap=0.809</div>
+</div>
+
+
+<div class="frame suppressed">
+  <img src="assets/frame_nms_spotcheck_20260514/scannet__scene0144_00__4__21147_view_0131_873596f5.jpg" loading="lazy">
+  <div class="caption"><b>view 131</b> / raw 1310<br>suppressed by 141, overlap=0.930</div>
+</div>
+</div>
+  <table><tr><th></th><th>83</th><th>69</th><th>141</th><th>3</th><th>70</th><th>2</th><th>142</th><th>71</th><th>140</th><th>132</th><th>68</th><th>131</th></tr><tr><th>83</th><td class="high">1.000</td><td class="mid">0.630</td><td class="low">0.000</td><td class="low">0.000</td><td class="mid">0.628</td><td class="low">0.000</td><td class="low">0.000</td><td class="mid">0.634</td><td class="low">0.000</td><td class="low">0.000</td><td class="mid">0.652</td><td class="low">0.000</td></tr><tr><th>69</th><td class="mid">0.630</td><td class="high">1.000</td><td class="low">0.000</td><td class="low">0.017</td><td class="high">0.983</td><td class="low">0.000</td><td class="low">0.000</td><td class="high">0.966</td><td class="low">0.000</td><td class="low">0.000</td><td class="high">0.960</td><td class="low">0.000</td></tr><tr><th>141</th><td class="low">0.000</td><td class="low">0.000</td><td class="high">1.000</td><td class="high">0.859</td><td class="low">0.000</td><td class="high">0.896</td><td class="high">0.942</td><td class="low">0.000</td><td class="high">0.889</td><td class="high">0.858</td><td class="low">0.000</td><td class="high">0.870</td></tr><tr><th>3</th><td class="low">0.000</td><td class="low">0.017</td><td class="high">0.859</td><td class="high">1.000</td><td class="low">0.019</td><td class="high">0.958</td><td class="high">0.919</td><td class="low">0.006</td><td class="high">0.750</td><td class="mid">0.718</td><td class="low">0.000</td><td class="mid">0.723</td></tr><tr><th>70</th><td class="mid">0.628</td><td class="high">0.983</td><td class="low">0.000</td><td class="low">0.019</td><td class="high">1.000</td><td class="low">0.000</td><td class="low">0.009</td><td class="high">0.978</td><td class="low">0.000</td><td class="low">0.000</td><td class="high">0.945</td><td class="low">0.000</td></tr><tr><th>2</th><td class="low">0.000</td><td class="low">0.000</td><td class="high">0.896</td><td class="high">0.958</td><td class="low">0.000</td><td class="high">1.000</td><td class="high">0.945</td><td class="low">0.000</td><td class="high">0.789</td><td class="mid">0.743</td><td class="low">0.000</td><td class="high">0.753</td></tr><tr><th>142</th><td class="low">0.000</td><td class="low">0.000</td><td class="high">0.942</td><td class="high">0.919</td><td class="low">0.009</td><td class="high">0.945</td><td class="high">1.000</td><td class="low">0.005</td><td class="high">0.837</td><td class="high">0.808</td><td class="low">0.000</td><td class="high">0.822</td></tr><tr><th>71</th><td class="mid">0.634</td><td class="high">0.966</td><td class="low">0.000</td><td class="low">0.006</td><td class="high">0.978</td><td class="low">0.000</td><td class="low">0.005</td><td class="high">1.000</td><td class="low">0.000</td><td class="low">0.000</td><td class="high">0.926</td><td class="low">0.000</td></tr><tr><th>140</th><td class="low">0.000</td><td class="low">0.000</td><td class="high">0.889</td><td class="high">0.750</td><td class="low">0.000</td><td class="high">0.789</td><td class="high">0.837</td><td class="low">0.000</td><td class="high">1.000</td><td class="high">0.941</td><td class="low">0.000</td><td class="high">0.933</td></tr><tr><th>132</th><td class="low">0.000</td><td class="low">0.000</td><td class="high">0.858</td><td class="mid">0.718</td><td class="low">0.000</td><td class="mid">0.743</td><td class="high">0.808</td><td class="low">0.000</td><td class="high">0.941</td><td class="high">1.000</td><td class="low">0.000</td><td class="high">0.956</td></tr><tr><th>68</th><td class="mid">0.652</td><td class="high">0.960</td><td class="low">0.000</td><td class="low">0.000</td><td class="high">0.945</td><td class="low">0.000</td><td class="low">0.000</td><td class="high">0.926</td><td class="low">0.000</td><td class="low">0.000</td><td class="high">1.000</td><td class="low">0.000</td></tr><tr><th>131</th><td class="low">0.000</td><td class="low">0.000</td><td class="high">0.870</td><td class="mid">0.723</td><td class="low">0.000</td><td class="high">0.753</td><td class="high">0.822</td><td class="low">0.000</td><td class="high">0.933</td><td class="high">0.956</td><td class="low">0.000</td><td class="high">1.000</td></tr></table>
+</section>
+
+
+<section class="case">
+  <h2>scene0207_00 target #5 door</h2>
+  <div class="query">The door closest to the toilet and bathroom counter.</div>
+  <div class="summary">
+    <span class="pill">threshold=0.75</span>
+    <span class="pill">pre=[129, 98, 97, 104, 99, 103, 100, 102, 101, 130, 131, 132]</span>
+    <span class="pill">selected=[129, 98, 103]</span>
+    <span class="pill">strict=[129, 98]</span>
+    <span class="pill">suppressed=9</span>
+    <span class="pill">relaxed_backfill=1</span>
+  </div>
+  <div class="grid">
+<div class="frame kept">
+  <img src="assets/frame_nms_spotcheck_20260514/scannet__scene0207_00__5__16038_view_0129_94fc6fc2.jpg" loading="lazy">
+  <div class="caption"><b>view 129</b> / raw 1290<br>kept</div>
+</div>
+
+
+<div class="frame kept">
+  <img src="assets/frame_nms_spotcheck_20260514/scannet__scene0207_00__5__16038_view_0098_d64fab88.jpg" loading="lazy">
+  <div class="caption"><b>view 98</b> / raw 980<br>kept</div>
+</div>
+
+
+<div class="frame suppressed">
+  <img src="assets/frame_nms_spotcheck_20260514/scannet__scene0207_00__5__16038_view_0097_bbc7fa1d.jpg" loading="lazy">
+  <div class="caption"><b>view 97</b> / raw 970<br>suppressed by 98, overlap=0.988</div>
+</div>
+
+
+<div class="frame suppressed">
+  <img src="assets/frame_nms_spotcheck_20260514/scannet__scene0207_00__5__16038_view_0104_2bb2ca00.jpg" loading="lazy">
+  <div class="caption"><b>view 104</b> / raw 1040<br>suppressed by 98, overlap=0.820</div>
+</div>
+
+
+<div class="frame suppressed">
+  <img src="assets/frame_nms_spotcheck_20260514/scannet__scene0207_00__5__16038_view_0099_871ec7ab.jpg" loading="lazy">
+  <div class="caption"><b>view 99</b> / raw 990<br>suppressed by 98, overlap=0.959</div>
+</div>
+
+
+<div class="frame backfill">
+  <img src="assets/frame_nms_spotcheck_20260514/scannet__scene0207_00__5__16038_view_0103_67f422c0.jpg" loading="lazy">
+  <div class="caption"><b>view 103</b> / raw 1030<br>relaxed backfill, max_overlap=0.813</div>
+</div>
+
+
+<div class="frame suppressed">
+  <img src="assets/frame_nms_spotcheck_20260514/scannet__scene0207_00__5__16038_view_0100_4eeb16e6.jpg" loading="lazy">
+  <div class="caption"><b>view 100</b> / raw 1000<br>suppressed by 98, overlap=0.951</div>
+</div>
+
+
+<div class="frame suppressed">
+  <img src="assets/frame_nms_spotcheck_20260514/scannet__scene0207_00__5__16038_view_0102_2b3afe9d.jpg" loading="lazy">
+  <div class="caption"><b>view 102</b> / raw 1020<br>suppressed by 98, overlap=0.923</div>
+</div>
+
+
+<div class="frame suppressed">
+  <img src="assets/frame_nms_spotcheck_20260514/scannet__scene0207_00__5__16038_view_0101_c060ae3a.jpg" loading="lazy">
+  <div class="caption"><b>view 101</b> / raw 1010<br>suppressed by 98, overlap=0.931</div>
+</div>
+
+
+<div class="frame suppressed">
+  <img src="assets/frame_nms_spotcheck_20260514/scannet__scene0207_00__5__16038_view_0130_0bf1c199.jpg" loading="lazy">
+  <div class="caption"><b>view 130</b> / raw 1300<br>suppressed by 129, overlap=0.964</div>
+</div>
+
+
+<div class="frame suppressed">
+  <img src="assets/frame_nms_spotcheck_20260514/scannet__scene0207_00__5__16038_view_0131_3028d659.jpg" loading="lazy">
+  <div class="caption"><b>view 131</b> / raw 1310<br>suppressed by 129, overlap=0.937</div>
+</div>
+
+
+<div class="frame suppressed">
+  <img src="assets/frame_nms_spotcheck_20260514/scannet__scene0207_00__5__16038_view_0132_d2494dd7.jpg" loading="lazy">
+  <div class="caption"><b>view 132</b> / raw 1320<br>suppressed by 129, overlap=0.909</div>
+</div>
+</div>
+  <table><tr><th></th><th>129</th><th>98</th><th>97</th><th>104</th><th>99</th><th>103</th><th>100</th><th>102</th><th>101</th><th>130</th><th>131</th><th>132</th></tr><tr><th>129</th><td class="high">1.000</td><td class="low">0.304</td><td class="low">0.298</td><td class="low">0.237</td><td class="low">0.332</td><td class="low">0.242</td><td class="low">0.354</td><td class="low">0.344</td><td class="low">0.342</td><td class="high">0.964</td><td class="high">0.937</td><td class="high">0.909</td></tr><tr><th>98</th><td class="low">0.304</td><td class="high">1.000</td><td class="high">0.988</td><td class="high">0.820</td><td class="high">0.959</td><td class="high">0.813</td><td class="high">0.951</td><td class="high">0.923</td><td class="high">0.931</td><td class="low">0.319</td><td class="low">0.325</td><td class="low">0.341</td></tr><tr><th>97</th><td class="low">0.298</td><td class="high">0.988</td><td class="high">1.000</td><td class="high">0.805</td><td class="high">0.956</td><td class="high">0.797</td><td class="high">0.947</td><td class="high">0.889</td><td class="high">0.914</td><td class="low">0.313</td><td class="low">0.318</td><td class="low">0.334</td></tr><tr><th>104</th><td class="low">0.237</td><td class="high">0.820</td><td class="high">0.805</td><td class="high">1.000</td><td class="high">0.800</td><td class="high">0.928</td><td class="high">0.791</td><td class="high">0.856</td><td class="high">0.829</td><td class="low">0.250</td><td class="low">0.244</td><td class="low">0.248</td></tr><tr><th>99</th><td class="low">0.332</td><td class="high">0.959</td><td class="high">0.956</td><td class="high">0.800</td><td class="high">1.000</td><td class="high">0.814</td><td class="high">0.982</td><td class="high">0.916</td><td class="high">0.942</td><td class="low">0.352</td><td class="low">0.359</td><td class="low">0.378</td></tr><tr><th>103</th><td class="low">0.242</td><td class="high">0.813</td><td class="high">0.797</td><td class="high">0.928</td><td class="high">0.814</td><td class="high">1.000</td><td class="high">0.815</td><td class="high">0.878</td><td class="high">0.860</td><td class="low">0.262</td><td class="low">0.263</td><td class="low">0.273</td></tr><tr><th>100</th><td class="low">0.354</td><td class="high">0.951</td><td class="high">0.947</td><td class="high">0.791</td><td class="high">0.982</td><td class="high">0.815</td><td class="high">1.000</td><td class="high">0.910</td><td class="high">0.947</td><td class="low">0.376</td><td class="low">0.383</td><td class="low">0.401</td></tr><tr><th>102</th><td class="low">0.344</td><td class="high">0.923</td><td class="high">0.889</td><td class="high">0.856</td><td class="high">0.916</td><td class="high">0.878</td><td class="high">0.910</td><td class="high">1.000</td><td class="high">0.957</td><td class="low">0.361</td><td class="low">0.360</td><td class="low">0.367</td></tr><tr><th>101</th><td class="low">0.342</td><td class="high">0.931</td><td class="high">0.914</td><td class="high">0.829</td><td class="high">0.942</td><td class="high">0.860</td><td class="high">0.947</td><td class="high">0.957</td><td class="high">1.000</td><td class="low">0.363</td><td class="low">0.367</td><td class="low">0.380</td></tr><tr><th>130</th><td class="high">0.964</td><td class="low">0.319</td><td class="low">0.313</td><td class="low">0.250</td><td class="low">0.352</td><td class="low">0.262</td><td class="low">0.376</td><td class="low">0.361</td><td class="low">0.363</td><td class="high">1.000</td><td class="high">0.973</td><td class="high">0.943</td></tr><tr><th>131</th><td class="high">0.937</td><td class="low">0.325</td><td class="low">0.318</td><td class="low">0.244</td><td class="low">0.359</td><td class="low">0.263</td><td class="low">0.383</td><td class="low">0.360</td><td class="low">0.367</td><td class="high">0.973</td><td class="high">1.000</td><td class="high">0.970</td></tr><tr><th>132</th><td class="high">0.909</td><td class="low">0.341</td><td class="low">0.334</td><td class="low">0.248</td><td class="low">0.378</td><td class="low">0.273</td><td class="low">0.401</td><td class="low">0.367</td><td class="low">0.380</td><td class="high">0.943</td><td class="high">0.970</td><td class="high">1.000</td></tr></table>
+</section>
+
+</body>
+</html>

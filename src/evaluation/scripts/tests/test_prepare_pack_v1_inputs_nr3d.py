@@ -430,6 +430,126 @@ def test_query_driven_helper_falls_back_to_density(tmp_path) -> None:
     assert used_fallback is True
 
 
+def test_query_driven_density_fallback_can_apply_frame_nms(tmp_path) -> None:
+    from evaluation.scripts.prepare_pack_v1_inputs_nr3d import (
+        load_phase8_visibility_index,
+        select_keyframes_query_driven,
+    )
+
+    data_root = tmp_path / "scannet"
+    _write_phase8_tree(
+        data_root,
+        visibility={
+            "object_to_views": {0: [(0, 0.9)], 1: [(1, 0.7)]},
+            "view_to_objects": {0: [(0, 0.9)], 1: [(0, 0.8), (1, 0.7)]},
+            "metadata": {"use_depth": True},
+        },
+    )
+    visibility = load_phase8_visibility_index(data_root / "scene0001_00")
+
+    class FakeNmsResult:
+        selected = [1, 0]
+
+        def to_dict(self) -> dict[str, Any]:
+            return {
+                "selected": [1, 0],
+                "strict_selected": [1, 0],
+                "suppressed": [],
+                "relaxed_backfill": [],
+            }
+
+    class EmptySelector:
+        def __init__(self) -> None:
+            self.nms_calls: list[dict[str, Any]] = []
+
+        def select_keyframes_v2(self, **kwargs: Any) -> SimpleNamespace:
+            return SimpleNamespace(keyframe_indices=[], metadata={"status": "no_evidence"})
+
+        def _apply_frame_nms(self, candidate_frame_ids, **kwargs):
+            self.nms_calls.append(
+                {"candidate_frame_ids": candidate_frame_ids, **kwargs}
+            )
+            return FakeNmsResult()
+
+    selector = EmptySelector()
+    selection = select_keyframes_query_driven(
+        selector=selector,
+        scene_id="scene0001_00",
+        query="the missing object",
+        raw_frames_root=data_root,
+        k=2,
+        fallback_visibility=visibility,
+        enable_frame_nms=True,
+        frame_nms_overlap_threshold=0.75,
+        frame_nms_candidate_multiplier=2,
+        frame_nms_frustum_method="l1",
+    )
+    keyframes, used_fallback = selection
+
+    assert [item["frame_id"] for item in keyframes] == [1, 0]
+    assert used_fallback is True
+    assert selector.nms_calls == [
+        {
+            "candidate_frame_ids": [1, 0],
+            "max_views": 2,
+            "overlap_threshold": 0.75,
+            "frustum_method": "l1",
+        }
+    ]
+    assert selection.metadata["frame_nms"]["source"] == "density_fallback"
+    assert selection.metadata["frame_nms"]["pre_nms_keyframe_indices"] == [1, 0]
+
+
+def test_query_driven_helper_passes_frame_nms_options(tmp_path) -> None:
+    from evaluation.scripts.prepare_pack_v1_inputs_nr3d import (
+        select_keyframes_query_driven,
+    )
+
+    data_root = tmp_path / "scannet"
+    _write_phase8_tree(data_root)
+
+    class FakeSelector:
+        def __init__(self) -> None:
+            self.calls: list[dict[str, Any]] = []
+
+        def select_keyframes_v2(self, **kwargs: Any) -> SimpleNamespace:
+            self.calls.append(kwargs)
+            return SimpleNamespace(
+                keyframe_indices=[0, 1],
+                metadata={"frame_nms": {"selected": [0, 1]}},
+            )
+
+    selector = FakeSelector()
+    selection = select_keyframes_query_driven(
+        selector=selector,
+        scene_id="scene0001_00",
+        query="the chair by the table",
+        raw_frames_root=data_root,
+        k=3,
+        enable_frame_nms=True,
+        frame_nms_overlap_threshold=0.7,
+        frame_nms_candidate_multiplier=5,
+        frame_nms_frustum_method="l1",
+    )
+    keyframes, used_fallback = selection
+
+    assert selector.calls == [
+        {
+            "query": "the chair by the table",
+            "k": 3,
+            "use_visual_context": False,
+            "frustum_method": "l1",
+            "frame_nms": True,
+            "frame_nms_overlap_threshold": 0.7,
+            "frame_nms_candidate_multiplier": 5,
+        }
+    ]
+    assert [item["frame_id"] for item in keyframes] == [0, 1]
+    assert used_fallback is False
+    assert selection.metadata["frame_nms"] == {"selected": [0, 1]}
+    assert selection.metadata["raw_keyframe_indices"] == [0, 1]
+
+
 def test_load_phase8_visibility_index_rejects_projection_only_index(tmp_path) -> None:
     from evaluation.scripts.prepare_pack_v1_inputs_nr3d import (
         load_phase8_visibility_index,

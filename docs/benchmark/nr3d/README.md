@@ -12,6 +12,8 @@ the current human-facing index.
 | [protocol.md](protocol.md) | Consolidated protocol notes: metric family, fold/filter rules, candidate-pool equivalence, fairness boundary. |
 | [depth_visibility_rebuild_20260513.md](depth_visibility_rebuild_20260513.md) | Root-cause record and rebuild summary for depth-aware NR3D visibility indices. |
 | [depth_visibility_spotcheck_20260513.html](depth_visibility_spotcheck_20260513.html) | Visual spotcheck frames rendered from rebuilt depth-aware `view_to_objects`. |
+| [v8_frame_nms_random100](v8_frame_nms_random100_20260514.md) | Frame-overlap NMS random100 pilot plus matched pre-NMS ablation. |
+| [frame_nms_spotcheck_20260514.html](frame_nms_spotcheck_20260514.html) | Visual spotcheck of pre-NMS candidates, selected frames, suppressions, and overlap matrices. |
 | [v7_stage1_callbacks_noclip_random100](v7_stage1_callbacks_noclip_random100_20260513.md) | Latest depth-aware random100 callback-wired pilot. |
 | [v6_inline_labels_depth_visible_random100](v6_inline_labels_depth_visible_random100_20260513.md) | Depth-aware random100 no-NMS rerender pilot before NR3D callbacks were wired. |
 | [v6_random100_case_studies_20260513.html](v6_random100_case_studies_20260513.html) | Full Stage1+Stage2 visual walkthrough for 2 correct and 2 failed v6 random100 cases. |
@@ -68,7 +70,8 @@ Interpretation:
 
 Latest depth-aware partial pilot:
 
-- Version: `v7_stage1_callbacks_noclip_random100`
+- Best depth-aware random100 so far:
+  `v7_stage1_callbacks_noclip_random100`
 - Branch / commit: `feat/nr3d-v4-agent-guards-fair-views` / `690cbf6`
 - Scope: same v4 random100 fold; preserved v4 keyframe frame ids; no selector
   NMS
@@ -79,6 +82,21 @@ Latest depth-aware partial pilot:
 - Note: NR3D Stage1 callbacks are wired; `request_more_views` disables
   per-selector CLIP object-term fallback to stay within the 15GB RSS budget at
   `workers=100`.
+
+Latest selector-NMS attempt:
+
+- Version: `v8_frame_nms_random100`
+- Branch / run-time base commit:
+  `feat/nr3d-v4-agent-guards-fair-views` / `101acaa+dirty`
+- Scope: same v4 random100 fold; depth-aware Stage1 rerun with frame NMS
+  threshold `l1=0.75`; matched pre-NMS top3 ablation
+- Result: frame NMS Overall 65.00; matched pre-NMS Overall 69.00; pure NMS
+  delta `-4.00 pp`
+- Raw artifacts:
+  `tmp/nr3d_eval_v8_frame_nms_random100_20260514/` and
+  `tmp/nr3d_eval_v8_pre_nms_random100_20260514/`
+- Conclusion: keep frame NMS optional/off by default; hard suppression hurt
+  the fixed random100 fold.
 
 ## Version Timeline
 
@@ -92,6 +110,7 @@ Latest depth-aware partial pilot:
 | [v5p1_failed_rerun_full](v5p1_failed_rerun_full_20260513.md) | 2026-05-13 | `feat/nr3d-v4-agent-guards-fair-views` / `c404536` | Overall=68.48 | 8584Q / 7805Q filtered | Invalidated: projection-only visibility |
 | [v6_inline_labels_depth_visible_random100](v6_inline_labels_depth_visible_random100_20260513.md) | 2026-05-13 | `feat/nr3d-v4-agent-guards-fair-views` / `41253ad` | Overall=71.00 | 100Q pilot | Depth-aware partial, no NMS |
 | [v7_stage1_callbacks_noclip_random100](v7_stage1_callbacks_noclip_random100_20260513.md) | 2026-05-13 | `feat/nr3d-v4-agent-guards-fair-views` / `690cbf6` | Overall=73.00 | 100Q pilot | Depth-aware partial, callbacks wired, no NMS |
+| [v8_frame_nms_random100](v8_frame_nms_random100_20260514.md) | 2026-05-14 | `feat/nr3d-v4-agent-guards-fair-views` / `101acaa+dirty` | Overall=65.00; matched pre-NMS=69.00 | 100Q pilot | Depth-aware partial, frame NMS tested and rejected as default |
 
 ## Protocol Summary
 
@@ -107,6 +126,8 @@ Latest depth-aware partial pilot:
   query-driven keyframes but are invalidated because their object-frame
   visibility was projection-only. v6/v7 are depth-aware but partial and
   preserve v4 keyframe choices to isolate Stage2/runtime changes before NMS.
+  v8 is depth-aware and reruns Stage1 with optional frame NMS; use its
+  matched pre-NMS ablation, not v7, to isolate the NMS effect.
 
 See [protocol.md](protocol.md) for the consolidated evidence and caveats.
 

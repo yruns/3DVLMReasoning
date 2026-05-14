@@ -61,6 +61,17 @@ class Phase8Visibility:
 
 
 @dataclass(frozen=True)
+class QueryDrivenKeyframeSelection:
+    keyframes: list[dict[str, Any]]
+    used_fallback: bool
+    metadata: dict[str, Any]
+
+    def __iter__(self):
+        yield self.keyframes
+        yield self.used_fallback
+
+
+@dataclass(frozen=True)
 class SceneArtifacts:
     scene_dir: Path
     proposals_jsonl: Path
@@ -153,6 +164,30 @@ def parse_args() -> argparse.Namespace:
             "sample results do not fail because a cache was absent."
         ),
     )
+    parser.add_argument(
+        "--enable-frame-nms",
+        action="store_true",
+        default=False,
+        help="Apply hard camera-frustum NMS to query-driven keyframe candidates.",
+    )
+    parser.add_argument(
+        "--frame-nms-overlap-threshold",
+        type=float,
+        default=0.75,
+        help="Suppress a candidate frame when max overlap with kept frames exceeds this value.",
+    )
+    parser.add_argument(
+        "--frame-nms-candidate-multiplier",
+        type=int,
+        default=4,
+        help="Preselect k*multiplier candidate frames before frame NMS.",
+    )
+    parser.add_argument(
+        "--frame-nms-frustum-method",
+        default="l1",
+        choices=["l1", "l2"],
+        help="Frustum-overlap estimator for frame NMS. l1 is pose-only and memory-light.",
+    )
     return parser.parse_args()
 
 
@@ -169,6 +204,10 @@ def prepare_pack_v1_inputs_nr3d(
     max_selector_cache_size: int = 1,
     max_scene_artifact_cache_size: int = 1,
     ensure_lightweight_cache: bool = False,
+    enable_frame_nms: bool = False,
+    frame_nms_overlap_threshold: float = 0.75,
+    frame_nms_candidate_multiplier: int = 4,
+    frame_nms_frustum_method: str = "l1",
 ) -> list[Path]:
     if keyframe_mode not in ("gt_target", "query_driven"):
         raise ValueError(
@@ -230,6 +269,10 @@ def prepare_pack_v1_inputs_nr3d(
                 selector_cache=selector_cache,
                 max_selector_cache_size=max_selector_cache_size,
                 ensure_lightweight_cache=ensure_lightweight_cache,
+                enable_frame_nms=enable_frame_nms,
+                frame_nms_overlap_threshold=frame_nms_overlap_threshold,
+                frame_nms_candidate_multiplier=frame_nms_candidate_multiplier,
+                frame_nms_frustum_method=frame_nms_frustum_method,
             )
         )
     return written_samples
@@ -489,6 +532,10 @@ def write_sample_artifact(
     selector_cache: OrderedDict[str, Any] | None = None,
     max_selector_cache_size: int = 1,
     ensure_lightweight_cache: bool = False,
+    enable_frame_nms: bool = False,
+    frame_nms_overlap_threshold: float = 0.75,
+    frame_nms_candidate_multiplier: int = 4,
+    frame_nms_frustum_method: str = "l1",
 ) -> Path:
     visibility = load_phase8_visibility_index(data_root / request.scene_id)
     query = getattr(sample, "query", "") or getattr(sample, "text", "")
@@ -520,20 +567,28 @@ def write_sample_artifact(
             evict_lru_cache(selector_cache, max_selector_cache_size)
         else:
             selector_cache.move_to_end(request.scene_id)
-        keyframes, used_fallback = select_keyframes_query_driven(
+        selection = select_keyframes_query_driven(
             selector=selector,
             scene_id=request.scene_id,
             query=query,
             raw_frames_root=data_root,
             k=3,
             fallback_visibility=visibility,
+            enable_frame_nms=enable_frame_nms,
+            frame_nms_overlap_threshold=frame_nms_overlap_threshold,
+            frame_nms_candidate_multiplier=frame_nms_candidate_multiplier,
+            frame_nms_frustum_method=frame_nms_frustum_method,
         )
+        keyframes, used_fallback = selection
+        selection_metadata = selection.metadata
         uses_gt_target = False
     else:
         raise ValueError(
             "keyframe_mode must be 'gt_target' or 'query_driven', "
             f"got {keyframe_mode!r}"
         )
+    if keyframe_mode == "gt_target":
+        selection_metadata = {}
     normalized_keyframes = normalize_prepared_keyframes(
         keyframes,
         scene_artifacts.annotated_dir,
@@ -554,6 +609,7 @@ def write_sample_artifact(
         "keyframe_mode": keyframe_mode,
         "keyframe_selection_uses_gt_target": uses_gt_target,
         "keyframe_selection_used_fallback": used_fallback,
+        "keyframe_selection_metadata": selection_metadata,
         "keyframes": normalized_keyframes,
     }
     path = sample_artifact_path(
@@ -617,6 +673,17 @@ def select_keyframes_by_scene_density(
     visibility: Phase8Visibility,
     k: int = 3,
 ) -> list[dict[str, Any]]:
+    frame_ids = select_frame_ids_by_scene_density(visibility=visibility, limit=k)
+    return _keyframes_from_frame_ids(scene_root, frame_ids, k)
+
+
+def select_frame_ids_by_scene_density(
+    *,
+    visibility: Phase8Visibility,
+    limit: int,
+) -> list[int]:
+    if limit <= 0:
+        raise ValueError("limit must be positive")
     frame_ids = [
         frame_id
         for frame_id, _entries in sorted(
@@ -624,7 +691,7 @@ def select_keyframes_by_scene_density(
             key=lambda item: (-len(item[1]), int(item[0])),
         )
     ]
-    return _keyframes_from_frame_ids(scene_root, frame_ids, k)
+    return frame_ids[:limit]
 
 
 def select_keyframes_query_driven(
@@ -635,26 +702,73 @@ def select_keyframes_query_driven(
     raw_frames_root: Path,
     k: int = 3,
     fallback_visibility: Phase8Visibility | None = None,
-) -> tuple[list[dict[str, Any]], bool]:
+    enable_frame_nms: bool = False,
+    frame_nms_overlap_threshold: float = 0.75,
+    frame_nms_candidate_multiplier: int = 4,
+    frame_nms_frustum_method: str = "l1",
+) -> QueryDrivenKeyframeSelection:
+    select_kwargs: dict[str, Any] = {
+        "query": query,
+        "k": k,
+        "use_visual_context": False,
+    }
+    if enable_frame_nms:
+        select_kwargs.update(
+            {
+                "frustum_method": frame_nms_frustum_method,
+                "frame_nms": True,
+                "frame_nms_overlap_threshold": frame_nms_overlap_threshold,
+                "frame_nms_candidate_multiplier": frame_nms_candidate_multiplier,
+            }
+        )
     result = selector.select_keyframes_v2(
-        query=query,
-        k=k,
-        use_visual_context=False,
+        **select_kwargs,
+    )
+    metadata = dict(getattr(result, "metadata", {}) or {})
+    metadata["raw_keyframe_indices"] = list(
+        getattr(result, "keyframe_indices", []) or []
     )
     keyframe_indices = list(getattr(result, "keyframe_indices", []) or [])
     scene_root = raw_frames_root / scene_id
     if keyframe_indices:
-        return _keyframes_from_frame_ids(scene_root, keyframe_indices, k), False
-    if fallback_visibility is not None:
-        return (
-            select_keyframes_by_scene_density(
-                scene_root=scene_root,
-                visibility=fallback_visibility,
-                k=k,
-            ),
-            True,
+        return QueryDrivenKeyframeSelection(
+            _keyframes_from_frame_ids(scene_root, keyframe_indices, k),
+            False,
+            metadata,
         )
-    return [], True
+    if fallback_visibility is not None:
+        metadata["fallback_reason"] = "empty_selector_keyframes"
+        candidate_frame_ids = select_frame_ids_by_scene_density(
+            visibility=fallback_visibility,
+            limit=k * frame_nms_candidate_multiplier if enable_frame_nms else k,
+        )
+        if enable_frame_nms:
+            frame_nms_result = selector._apply_frame_nms(
+                candidate_frame_ids,
+                max_views=k,
+                overlap_threshold=frame_nms_overlap_threshold,
+                frustum_method=frame_nms_frustum_method,
+            )
+            keyframe_indices = frame_nms_result.selected
+            metadata["frame_nms"] = {
+                "enabled": True,
+                "source": "density_fallback",
+                "overlap_threshold": frame_nms_overlap_threshold,
+                "frustum_method": frame_nms_frustum_method,
+                "candidate_multiplier": frame_nms_candidate_multiplier,
+                "pre_nms_keyframe_indices": candidate_frame_ids,
+                **frame_nms_result.to_dict(),
+            }
+        else:
+            keyframe_indices = candidate_frame_ids[:k]
+        metadata["raw_keyframe_indices"] = list(keyframe_indices)
+        return QueryDrivenKeyframeSelection(
+            _keyframes_from_frame_ids(scene_root, keyframe_indices, k),
+            True,
+            metadata,
+        )
+    metadata["fallback_reason"] = "empty_selector_keyframes_without_visibility"
+    return QueryDrivenKeyframeSelection([], True, metadata)
 
 
 def render_annotated_frames(
@@ -927,6 +1041,10 @@ def main() -> None:
         max_selector_cache_size=args.max_selector_cache_size,
         max_scene_artifact_cache_size=args.max_scene_artifact_cache_size,
         ensure_lightweight_cache=args.ensure_lightweight_cache,
+        enable_frame_nms=args.enable_frame_nms,
+        frame_nms_overlap_threshold=args.frame_nms_overlap_threshold,
+        frame_nms_candidate_multiplier=args.frame_nms_candidate_multiplier,
+        frame_nms_frustum_method=args.frame_nms_frustum_method,
     )
     print(
         f"wrote {len(written)} sample artifacts under "
@@ -940,6 +1058,7 @@ if __name__ == "__main__":
 
 __all__ = [
     "Phase8Visibility",
+    "QueryDrivenKeyframeSelection",
     "SampleRequest",
     "SceneArtifacts",
     "SceneFrame",
@@ -952,6 +1071,7 @@ __all__ = [
     "prepare_scene_artifacts",
     "sample_artifact_path",
     "safe_sample_id",
+    "select_frame_ids_by_scene_density",
     "select_keyframes_by_scene_density",
     "select_keyframes_for_sample",
     "select_keyframes_query_driven",

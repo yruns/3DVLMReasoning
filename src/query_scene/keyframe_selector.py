@@ -642,42 +642,44 @@ class KeyframeSelector:
         """Load camera poses from trajectory file."""
         traj_file = self.scene_path / "traj.txt"
         if not traj_file.exists():
-            logger.warning(f"Trajectory file not found: {traj_file}")
-            return
-
-        with open(traj_file) as f:
-            lines = f.readlines()
-
-        # Check format: each line could be 16 numbers (4x4 matrix) or other formats
-        first_line_nums = len(lines[0].split()) if lines else 0
-
-        all_poses = []
-        if first_line_nums == 16:
-            # Each line is a full 4x4 matrix
-            for line in lines:
-                nums = [float(x) for x in line.split()]
-                if len(nums) == 16:
-                    pose = np.array(nums).reshape(4, 4)
-                    all_poses.append(pose)
+            all_poses = self._load_raw_camera_poses()
+            if not all_poses:
+                logger.warning(f"Trajectory file not found: {traj_file}")
+                return
         else:
-            # Traditional format: 4 lines per matrix
-            for i in range(0, len(lines), 4):
-                if i + 4 <= len(lines):
-                    try:
-                        pose = np.array(
-                            [
-                                [float(x) for x in lines[i].split()],
-                                [float(x) for x in lines[i + 1].split()],
-                                [float(x) for x in lines[i + 2].split()],
-                                [float(x) for x in lines[i + 3].split()],
-                            ]
-                        )
+            with open(traj_file) as f:
+                lines = f.readlines()
+
+            # Check format: each line could be 16 numbers (4x4 matrix) or other formats
+            first_line_nums = len(lines[0].split()) if lines else 0
+
+            all_poses = []
+            if first_line_nums == 16:
+                # Each line is a full 4x4 matrix
+                for line in lines:
+                    nums = [float(x) for x in line.split()]
+                    if len(nums) == 16:
+                        pose = np.array(nums).reshape(4, 4)
                         all_poses.append(pose)
-                    except (ValueError, IndexError) as exc:
-                        logger.warning(
-                            f"[KeyframeSelector] Malformed pose at line {i} in traj.txt: {exc}"
-                        )
-                        continue
+            else:
+                # Traditional format: 4 lines per matrix
+                for i in range(0, len(lines), 4):
+                    if i + 4 <= len(lines):
+                        try:
+                            pose = np.array(
+                                [
+                                    [float(x) for x in lines[i].split()],
+                                    [float(x) for x in lines[i + 1].split()],
+                                    [float(x) for x in lines[i + 2].split()],
+                                    [float(x) for x in lines[i + 3].split()],
+                                ]
+                            )
+                            all_poses.append(pose)
+                        except (ValueError, IndexError) as exc:
+                            logger.warning(
+                                f"[KeyframeSelector] Malformed pose at line {i} in traj.txt: {exc}"
+                            )
+                            continue
 
         # Apply stride
         self.camera_poses = [
@@ -685,6 +687,45 @@ class KeyframeSelector:
             for i in range(0, len(all_poses), self.stride)
             if i < len(all_poses)
         ]
+
+    def _load_raw_camera_poses(self) -> list[np.ndarray]:
+        """Load Phase8 raw-layout camera-to-world poses when traj.txt is absent."""
+        try:
+            raw_dir = self._resolve_raw_dir()
+        except FileNotFoundError:
+            return []
+
+        frame_ids: list[int] = []
+        info_path = raw_dir / "scene_info.json"
+        if info_path.exists():
+            info = json.loads(info_path.read_text(encoding="utf-8"))
+            kept = info.get("kept_frame_ids")
+            if isinstance(kept, list) and all(isinstance(v, int) for v in kept):
+                frame_ids = list(kept)
+            else:
+                raise ValueError(f"{info_path} missing integer kept_frame_ids")
+        else:
+            frame_ids = sorted(
+                int(path.stem)
+                for path in raw_dir.glob("*.txt")
+                if path.stem.isdigit()
+            )
+
+        poses: list[np.ndarray] = []
+        for frame_id in frame_ids:
+            pose_path = raw_dir / f"{frame_id:06d}.txt"
+            if not pose_path.exists():
+                raise FileNotFoundError(f"Missing raw camera pose: {pose_path}")
+            pose = np.asarray(np.loadtxt(pose_path), dtype=np.float64)
+            if pose.shape != (4, 4):
+                raise ValueError(f"raw camera pose must be 4x4: {pose_path}")
+            if not np.isfinite(pose).all():
+                raise ValueError(f"raw camera pose contains non-finite values: {pose_path}")
+            poses.append(pose)
+
+        if poses:
+            logger.info("Loaded {} raw-layout camera poses from {}", len(poses), raw_dir)
+        return poses
 
     def _compute_trajectory_stats(self) -> None:
         """Compute per-view translational and rotational trajectory saliency."""
@@ -1535,6 +1576,56 @@ class KeyframeSelector:
 
         return selected
 
+    def _apply_frame_nms(
+        self,
+        candidate_view_ids: list[int],
+        *,
+        max_views: int,
+        overlap_threshold: float,
+        frustum_method: str,
+    ):
+        """Apply hard camera-frustum NMS to ordered selector candidates."""
+        from .frame_nms import hard_nms_ordered_views
+
+        self._validate_frustum_method(frustum_method)
+        return hard_nms_ordered_views(
+            candidate_view_ids,
+            max_views=max_views,
+            overlap_fn=lambda view_a, view_b: self._compute_symmetric_view_frustum_overlap(
+                view_a,
+                view_b,
+                frustum_method=frustum_method,
+            ),
+            score_fn=self._view_total_visibility_score,
+            overlap_threshold=overlap_threshold,
+            allow_relaxed_backfill=True,
+        )
+
+    def _compute_symmetric_view_frustum_overlap(
+        self,
+        view_a: int,
+        view_b: int,
+        *,
+        frustum_method: str,
+    ) -> float:
+        """Conservative pairwise overlap for frame-level NMS."""
+        if view_a == view_b:
+            return 1.0
+        forward = self._compute_view_frustum_overlap(
+            anchor_view_id=view_a,
+            neighbor_view_id=view_b,
+            frustum_method=frustum_method,
+        )
+        backward = self._compute_view_frustum_overlap(
+            anchor_view_id=view_b,
+            neighbor_view_id=view_a,
+            frustum_method=frustum_method,
+        )
+        return max(float(forward), float(backward))
+
+    def _view_total_visibility_score(self, view_id: int) -> float:
+        return float(sum(score for _, score in self.view_to_objects.get(view_id, [])))
+
     def _spatial_filter(
         self,
         candidates: list[SceneObject],
@@ -1964,6 +2055,9 @@ class KeyframeSelector:
         use_visual_context: bool = True,
         pose_aware: bool = False,
         frustum_method: str = "l1",
+        frame_nms: bool = False,
+        frame_nms_overlap_threshold: float = 0.75,
+        frame_nms_candidate_multiplier: int = 4,
     ) -> KeyframeResult:
         """
         Select keyframes from the new structured output `HypothesisOutputV1`.
@@ -1978,6 +2072,10 @@ class KeyframeSelector:
                 query parsing. Set False when scene mesh is unavailable.
         """
         self.pose_aware_enabled = pose_aware
+        if frame_nms_overlap_threshold < 0.0 or frame_nms_overlap_threshold > 1.0:
+            raise ValueError("frame_nms_overlap_threshold must be in [0, 1]")
+        if frame_nms_candidate_multiplier <= 0:
+            raise ValueError("frame_nms_candidate_multiplier must be positive")
         logger.info(f"[V3] Selecting {k} keyframes for: '{query}'")
 
         # Step 1: Parse to new unified structure
@@ -2062,17 +2160,23 @@ class KeyframeSelector:
         if midpoint_object_ids:
             all_object_ids.extend(midpoint_object_ids)
 
+        max_selection_candidates = (
+            max(k, k * frame_nms_candidate_multiplier) if frame_nms else k
+        )
+        frame_nms_result = None
+        pre_frame_nms_keyframe_indices: list[int] | None = None
+
         if strategy == "joint_coverage":
             keyframe_indices = self.get_joint_coverage_views(
                 all_object_ids,
-                max_views=k,
+                max_views=max_selection_candidates,
                 pose_aware=pose_aware,
                 frustum_method=frustum_method,
             )
         else:
             keyframe_indices = self.get_joint_coverage_views(
                 [obj.obj_id for obj in target_objects[:5]],
-                max_views=k,
+                max_views=max_selection_candidates,
                 pose_aware=pose_aware,
                 frustum_method=frustum_method,
             )
@@ -2081,10 +2185,19 @@ class KeyframeSelector:
         keyframe_indices = self._pad_keyframes_to_minimum(
             keyframe_indices,
             all_object_ids,
-            min_count=min(k, 3),
+            min_count=max_selection_candidates if frame_nms else min(k, 3),
             pose_aware=pose_aware,
             frustum_method=frustum_method,
         )
+        if frame_nms:
+            pre_frame_nms_keyframe_indices = list(keyframe_indices)
+            frame_nms_result = self._apply_frame_nms(
+                keyframe_indices,
+                max_views=k,
+                overlap_threshold=frame_nms_overlap_threshold,
+                frustum_method=frustum_method,
+            )
+            keyframe_indices = frame_nms_result.selected
 
         keyframe_paths = []
         frame_mappings = []
@@ -2111,6 +2224,26 @@ class KeyframeSelector:
             if anchors:
                 anchor_term = anchors[0].category
 
+        metadata = {
+            "status": status,
+            "selected_hypothesis_kind": selected_hypothesis.kind.value,
+            "selected_hypothesis_rank": selected_hypothesis.rank,
+            "strategy": strategy,
+            "all_object_ids": all_object_ids,
+            "frame_mappings": frame_mappings,
+            "hypothesis_output": hypothesis_output.model_dump(),
+            "version": "v3",
+        }
+        if frame_nms_result is not None:
+            metadata["frame_nms"] = {
+                "enabled": True,
+                "overlap_threshold": frame_nms_overlap_threshold,
+                "frustum_method": frustum_method,
+                "candidate_multiplier": frame_nms_candidate_multiplier,
+                "pre_nms_keyframe_indices": pre_frame_nms_keyframe_indices or [],
+                **frame_nms_result.to_dict(),
+            }
+
         return KeyframeResult(
             query=query,
             target_term=selected_query.root.category,
@@ -2119,16 +2252,7 @@ class KeyframeSelector:
             keyframe_paths=keyframe_paths,
             target_objects=target_objects,
             anchor_objects=anchor_objects,
-            metadata={
-                "status": status,
-                "selected_hypothesis_kind": selected_hypothesis.kind.value,
-                "selected_hypothesis_rank": selected_hypothesis.rank,
-                "strategy": strategy,
-                "all_object_ids": all_object_ids,
-                "frame_mappings": frame_mappings,
-                "hypothesis_output": hypothesis_output.model_dump(),
-                "version": "v3",
-            },
+            metadata=metadata,
         )
 
 
