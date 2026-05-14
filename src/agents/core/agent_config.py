@@ -41,7 +41,7 @@ class Stage2DeepAgentConfig(BaseModel):
     """Runtime configuration for the DeepAgents-backed Stage-2 agent."""
 
     base_url: str = "https://aidp-i18ntt-sg.tiktok-row.net"
-    model_name: str = Field(default_factory=lambda: _default_modelhub_model_name())
+    model_name: str = "gpt-5.4-2026-03-05"
     api_keys: list[str] = Field(
         default_factory=lambda: _default_modelhub_api_keys(),
         description="ModelHub AKs rotated on retryable quota/rate-limit errors.",
@@ -216,10 +216,6 @@ def _default_modelhub_api_keys() -> list[str]:
         "hnJAK3LscxwLcy5OpZGQqQAzNyQmdx0a_GPT_AK",
         "K1Hn1GahMi3dpvLesYH67sS0S2Z1yFYE_GPT_AK",
     ]
-
-
-def _default_modelhub_model_name() -> str:
-    return os.environ.get("MODELHUB_MODEL_NAME") or "gpt-5.4-2026-03-05"
 
 
 def _default_modelhub_api_key_weights() -> list[float]:
