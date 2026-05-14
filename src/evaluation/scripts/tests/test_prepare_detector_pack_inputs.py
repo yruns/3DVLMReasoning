@@ -87,6 +87,9 @@ def test_prepare_detector_pack_inputs_smoke(tmp_path, monkeypatch) -> None:
     assert proposals[0]["metadata"]["class_id"] == 2
     assert proposals[0]["metadata"]["detector"] == "V-DETR"
     assert proposals[0]["metadata"]["raw_corners"] == _raw_corners(2.0)
+    assert "0" in proposals[0]["frame_views"]
+    assert proposals[0]["frame_views"]["0"]["raw_rgb_path"] == str(rgb_paths[0])
+    assert len(proposals[0]["frame_views"]["0"]["bbox_2d"]) == 4
 
     visibility = {
         int(k): [int(x) for x in v]
@@ -118,7 +121,7 @@ def test_prepare_detector_pack_inputs_smoke(tmp_path, monkeypatch) -> None:
         0.0,
     ]
     assert sample_payload["keyframes"] == [
-        {"keyframe_idx": 0, "image_path": str(annotated), "frame_id": 0}
+        {"keyframe_idx": 0, "image_path": str(rgb_paths[0]), "frame_id": 0}
     ]
     assert sample_payload["proposals"][0]["id"] == 0
     assert sample_payload["proposals"][0]["metadata"]["raw_corners"] == _raw_corners(

@@ -27,6 +27,13 @@ def _write_nr3d_pack_inputs(
     annotated.mkdir(parents=True, exist_ok=True)
     samples.mkdir(parents=True, exist_ok=True)
     (annotated / "frame_10.png").write_bytes(b"\x89PNG")
+    raw = tmp_path / scene_id / "raw"
+    raw.mkdir(parents=True, exist_ok=True)
+    (raw / "000010-rgb.png").write_bytes(b"\x89PNG")
+    (raw / "scene_info.json").write_text(
+        json.dumps({"kept_frame_ids": list(range(11))}),
+        encoding="utf-8",
+    )
     (scene_dir / "proposals.jsonl").write_text(
         json.dumps(
             {
@@ -72,6 +79,26 @@ def _write_nr3d_pack_inputs(
         encoding="utf-8",
     )
     return tmp_path
+
+
+def test_clean_keyframe_image_path_rewrites_annotated_nr3d(tmp_path) -> None:
+    from evaluation.scripts.run_nr3d_vg_side_by_side import clean_keyframe_image_path
+
+    scene_id = "scene0001_00"
+    raw = tmp_path / scene_id / "raw"
+    raw.mkdir(parents=True)
+    (raw / "000040-rgb.png").write_bytes(b"\x89PNG")
+    (raw / "scene_info.json").write_text(
+        json.dumps({"kept_frame_ids": [0, 10, 20, 30, 40]}),
+        encoding="utf-8",
+    )
+
+    assert clean_keyframe_image_path(
+        data_root=tmp_path,
+        scene_id=scene_id,
+        image_path=str(tmp_path / scene_id / "pack" / "annotated" / "frame_4.png"),
+        frame_id=4,
+    ) == str(raw / "000040-rgb.png")
 
 
 def test_parse_nr3d_sample_id_accepts_three_segments() -> None:

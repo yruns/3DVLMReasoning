@@ -9,6 +9,7 @@ from pathlib import Path
 from evaluation.scripts.prepare_pack_v1_inputs_nr3d import (
     load_sample_requests,
     prepare_scene_artifacts,
+    resolve_raw_rgb_path,
     sample_artifact_path,
 )
 
@@ -63,12 +64,14 @@ def main() -> None:
         payload["scene_artifacts_dir"] = str(scene_dir)
         for keyframe in payload.get("keyframes", []):
             frame_id = int(keyframe["frame_id"])
-            image_path = scene_dir / "annotated" / f"frame_{frame_id}.png"
-            if not image_path.exists():
+            marked_path = scene_dir / "annotated" / f"frame_{frame_id}.png"
+            if not marked_path.exists():
                 raise FileNotFoundError(
-                    f"missing rerendered keyframe for {request.sample_id}: {image_path}"
+                    f"missing rerendered keyframe for {request.sample_id}: {marked_path}"
                 )
-            keyframe["image_path"] = str(image_path)
+            keyframe["image_path"] = str(
+                resolve_raw_rgb_path(args.data_root / request.scene_id, frame_id)
+            )
 
         out_path = sample_artifact_path(
             args.data_root,

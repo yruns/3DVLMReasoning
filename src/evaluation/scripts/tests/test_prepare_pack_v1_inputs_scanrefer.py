@@ -131,6 +131,38 @@ def test_matching_proposal_ids_skips_unknow():
     assert _matching_proposal_ids(["unknown"], proposal_labels) == set()
 
 
+def test_normalize_prepared_keyframes_preserves_clean_rgb_path(tmp_path: Path):
+    from evaluation.scripts.prepare_pack_v1_inputs_scanrefer import (
+        normalize_prepared_keyframes,
+    )
+
+    raw_path = tmp_path / "scene0001_00" / "raw" / "000010-rgb.png"
+    raw_path.parent.mkdir(parents=True)
+    raw_path.write_bytes(b"raw")
+    annotated_dir = tmp_path / "scene0001_00" / "pack" / "annotated"
+    annotated_dir.mkdir(parents=True)
+    (annotated_dir / "frame_1.png").write_bytes(b"marked")
+
+    normalized = normalize_prepared_keyframes(
+        [
+            {
+                "keyframe_idx": 0,
+                "image_path": str(raw_path),
+                "frame_id": 1,
+            }
+        ],
+        annotated_dir,
+    )
+
+    assert normalized == [
+        {
+            "keyframe_idx": 0,
+            "image_path": str(raw_path),
+            "frame_id": 1,
+        }
+    ]
+
+
 def test_select_keyframes_mask3d_query_driven_happy_path(tmp_path: Path):
     """End-to-end with stub QueryParser + synthetic SceneArtifacts."""
     from evaluation.scripts.prepare_pack_v1_inputs_scanrefer import (

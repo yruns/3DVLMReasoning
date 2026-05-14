@@ -2,7 +2,8 @@
 
 日期：2026-05-14
 分支：`feat/nr3d-v4-agent-guards-fair-views`
-范围：NR3D 与 ScanRefer 的 pack-v1 visual grounding evidence flow
+范围：pack-v1 visual grounding evidence flow（NR3D、ScanRefer、共用的
+EmbodiedScan pack-v1 输入路径，以及 detector/V-DETR pack 输入路径）
 
 ## 问题
 

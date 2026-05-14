@@ -352,10 +352,21 @@ class DeepAgentsStage2Runtime(BaseStage2Runtime):
 
         # Inject VG candidate list for visual grounding tasks
         vg_candidates_section = ""
+        vg_initial_inventory_section = ""
         if task.task_type == Stage2TaskType.VISUAL_GROUNDING:
             vg_candidates_section = self._format_vg_candidates(
                 bundle.extra_metadata or {}
             )
+            if (bundle.extra_metadata or {}).get("vg_proposal_pool") is not None:
+                from agents.packs.vg_embodiedscan.ctx import build_ctx_from_bundle
+                from agents.packs.vg_embodiedscan.tools import (
+                    format_keyframe_proposal_inventory,
+                )
+
+                ctx = runtime.task_ctx or build_ctx_from_bundle(bundle)
+                vg_initial_inventory_section = (
+                    format_keyframe_proposal_inventory(ctx, bundle.keyframes) + "\n\n"
+                )
 
         prompt = (
             f"Task type: {task.task_type.value}\n"
@@ -366,6 +377,7 @@ class DeepAgentsStage2Runtime(BaseStage2Runtime):
             f"Stage-1 query: {bundle.stage1_query or task.user_query}\n"
             f"Scene id: {bundle.scene_id or 'unknown'}\n\n"
             f"Current keyframes:\n{chr(10).join(keyframe_lines)}\n\n"
+            f"{vg_initial_inventory_section}"
             f"Stage-1 hypothesis summary:\n{hypothesis_text}\n\n"
             f"{vg_candidates_section}"
             f"Scene summary:\n{bundle.scene_summary or 'N/A'}\n\n"

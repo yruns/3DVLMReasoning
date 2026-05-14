@@ -185,6 +185,11 @@ def test_prepare_pack_v1_inputs_nr3d_smoke(tmp_path, monkeypatch) -> None:
     assert proposals_payload["source"] == "gt"
     assert [p["id"] for p in proposals_payload["proposals"]] == [0, 1]
     assert proposals_payload["proposals"][0]["label"] == "chair"
+    assert "0" in proposals_payload["proposals"][0]["frame_views"]
+    assert proposals_payload["proposals"][0]["frame_views"]["0"]["raw_rgb_path"].endswith(
+        "000000-rgb.png"
+    )
+    assert len(proposals_payload["proposals"][0]["frame_views"]["0"]["bbox_2d"]) == 4
     assert json.loads((scene_dir / "visibility.json").read_text()) == {
         "0": [0],
         "1": [0, 1],
@@ -199,12 +204,12 @@ def test_prepare_pack_v1_inputs_nr3d_smoke(tmp_path, monkeypatch) -> None:
     assert payload["keyframes"] == [
         {
             "keyframe_idx": 0,
-            "image_path": str(scene_dir / "annotated" / "frame_0.png"),
+            "image_path": str(data_root / "scene0001_00" / "raw" / "000000-rgb.png"),
             "frame_id": 0,
         },
         {
             "keyframe_idx": 1,
-            "image_path": str(scene_dir / "annotated" / "frame_1.png"),
+            "image_path": str(data_root / "scene0001_00" / "raw" / "000010-rgb.png"),
             "frame_id": 1,
         },
     ]
@@ -535,7 +540,7 @@ def test_render_annotated_frames_uses_visible_bbox_projection(
     )
     monkeypatch.setattr(prep, "render_marked_keyframe", fake_render_marked_keyframe)
 
-    prep.render_annotated_frames(
+    frame_views = prep.render_annotated_frames(
         proposal_by_id={
             1: {"id": 1, "bbox_3d": [1.0] * 9, "label": "chair"},
             2: {"id": 2, "bbox_3d": [2.0] * 9, "label": "wall"},
@@ -562,6 +567,15 @@ def test_render_annotated_frames_uses_visible_bbox_projection(
     assert calls[0]["marks"] == [
         {"proposal_id": 1, "label": "chair", "bbox_2d": (5, 6, 30, 32)}
     ]
+    assert frame_views == {
+        1: {
+            "0": {
+                "bbox_2d": [5, 6, 30, 32],
+                "raw_rgb_path": str(rgb),
+            }
+        },
+        2: {},
+    }
 
 
 def test_prepare_query_driven_groups_by_scene_and_bounds_selector_cache(

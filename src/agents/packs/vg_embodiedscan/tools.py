@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Sequence
 from typing import Any
 
 from langchain_core.tools import BaseTool, tool
@@ -47,6 +48,47 @@ def _marked_frame_geometry(ctx: Any, frame_id: int, visible: list[int]) -> str:
         for _, proposal_id, _, (x1, y1, x2, y2) in rows
     }
     return f"; left_to_right={left_to_right}; boxes_2d={boxes}"
+
+
+def _left_to_right_entries(ctx: Any, frame_id: int, visible: Sequence[int]) -> list[str]:
+    proposal_by_id = {p.id: p for p in ctx.proposals}
+    rows: list[tuple[float, int, str]] = []
+    missing_geometry = False
+    for order, proposal_id in enumerate(visible):
+        proposal = proposal_by_id.get(int(proposal_id))
+        if proposal is None:
+            continue
+        view = proposal.frame_views.get(int(frame_id))
+        if view is None:
+            missing_geometry = True
+            rows.append((float(order), int(proposal_id), proposal.category))
+            continue
+        rows.append((_box_center_x(view.bbox_2d), int(proposal_id), proposal.category))
+
+    if not rows:
+        return []
+    if not missing_geometry:
+        rows.sort(key=lambda item: item[0])
+    return [f"#{proposal_id} {category}" for _, proposal_id, category in rows]
+
+
+def format_keyframe_proposal_inventory(ctx: Any, keyframes: Sequence[Any]) -> str:
+    """Text-only initial VG proposal inventory for clean keyframe images."""
+    lines = ["## Initial frame proposal inventory"]
+    for keyframe in keyframes:
+        frame_id = getattr(keyframe, "frame_id", None)
+        if frame_id is None:
+            lines.append(f"keyframe_idx={keyframe.keyframe_idx} frame_id=N/A")
+            continue
+        visible = ctx.frame_index.get(int(frame_id), [])
+        entries = _left_to_right_entries(ctx, int(frame_id), visible)
+        if entries:
+            lines.append(
+                f"frame_id={int(frame_id)} left_to_right: {', '.join(entries)}"
+            )
+        else:
+            lines.append(f"frame_id={int(frame_id)} left_to_right: none")
+    return "\n".join(lines)
 
 
 def _box_center_x(box: tuple[int, int, int, int]) -> float:
@@ -424,10 +466,10 @@ def build_vg_tools(runtime: Any) -> list[BaseTool]:
                     "keyframe_idx": kf.keyframe_idx,
                     "frame_id": fid,
                     "visible_proposal_ids": visible,
+                    "left_to_right": _left_to_right_entries(ctx, int(fid), visible)
+                    if fid is not None
+                    else [],
                     "n_proposals": len(visible),
-                    "annotated_image": str(
-                        ctx.annotated_image_dir / f"frame_{fid}.png"
-                    ),
                 }
             )
         text = json.dumps(items, ensure_ascii=False)

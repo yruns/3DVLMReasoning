@@ -379,42 +379,27 @@ def prepare_scene_artifacts(
     scene_dir = data_root / scene_id / pack_name
     scene_dir.mkdir(parents=True, exist_ok=True)
 
-    # CVRA M2 contract: when pack_name opts in via the substring 'cvra'
-    # (e.g. pack_scanrefer_v3p5_cvra_iterative), augment proposals.jsonl
-    # with per-(proposal, frame) bbox_2d + raw_rgb_path + visibility_weight
-    # so the runtime CVRA tool can crop on-the-fly without re-projecting.
-    # Schema contract per the M2 supervisor merge:
-    #   proposals[i].frame_views[<frame_id_str>] = {
-    #       bbox_2d: [x1, y1, x2, y2],   # int pixels, x1<=x2, y1<=y2
-    #       raw_rgb_path: str,            # project-root-relative
-    #       visibility_weight: float,     # from Mask3D-CG view_to_objects
-    #   }
-    proposals_for_jsonl: list[dict[str, Any]] = proposals
-    if "cvra" in pack_name.lower():
-        # Need scene frames + intrinsic up-front to compute the projection.
-        raw_scene_root = raw_frames_root / scene_id
-        cvra_frames = scene_frames(raw_scene_root, sorted(frame_visibility))
-        if not cvra_frames:
-            raise ValueError(
-                f"CVRA pack-prep requires at least one visible frame: {scene_id}"
-            )
-        cvra_frame_by_id = {f.frame_id: f for f in cvra_frames}
-        cvra_intrinsic = scene_intrinsic(raw_scene_root)
-        cvra_image_size = load_image_size(cvra_frames[0].rgb_path)
-        cvra_frame_views = compute_proposal_frame_views(
-            proposal_by_id={int(p["id"]): p for p in proposals},
-            frame_visibility=frame_visibility,
-            frame_by_id=cvra_frame_by_id,
-            intrinsic=cvra_intrinsic,
-            image_size=cvra_image_size,
-            view_to_objects=visibility.view_to_objects,
-            raw_frames_root=raw_frames_root,
-            scene_id=scene_id,
-        )
-        proposals_for_jsonl = [
-            {**p, "frame_views": cvra_frame_views.get(int(p["id"]), {})}
-            for p in proposals
-        ]
+    raw_scene_root = raw_frames_root / scene_id
+    frames = scene_frames(raw_scene_root, sorted(frame_visibility))
+    if not frames:
+        raise ValueError(f"scene has no visible frames: {scene_id}")
+    frame_by_id = {f.frame_id: f for f in frames}
+    intrinsic = scene_intrinsic(raw_scene_root)
+    image_size = load_image_size(frames[0].rgb_path)
+    proposal_frame_views = compute_proposal_frame_views(
+        proposal_by_id={int(p["id"]): p for p in proposals},
+        frame_visibility=frame_visibility,
+        frame_by_id=frame_by_id,
+        intrinsic=intrinsic,
+        image_size=image_size,
+        view_to_objects=visibility.view_to_objects,
+        raw_frames_root=raw_frames_root,
+        scene_id=scene_id,
+    )
+    proposals_for_jsonl = [
+        {**p, "frame_views": proposal_frame_views.get(int(p["id"]), {})}
+        for p in proposals
+    ]
 
     (scene_dir / "proposals.jsonl").write_text(
         json.dumps(
@@ -425,6 +410,7 @@ def prepare_scene_artifacts(
                 "proposals": proposals_for_jsonl,
                 "proposal_provenance": "mask3d",
                 "cvra_metadata_emitted": "cvra" in pack_name.lower(),
+                "frame_views_emitted": True,
             },
             ensure_ascii=False,
             indent=2,
@@ -439,14 +425,6 @@ def prepare_scene_artifacts(
         ),
         encoding="utf-8",
     )
-
-    raw_scene_root = raw_frames_root / scene_id
-    frames = scene_frames(raw_scene_root, sorted(frame_visibility))
-    if not frames:
-        raise ValueError(f"scene has no visible frames: {scene_id}")
-    frame_by_id = {f.frame_id: f for f in frames}
-    intrinsic = scene_intrinsic(raw_scene_root)
-    image_size = load_image_size(frames[0].rgb_path)
     annotated_dir = scene_dir / "annotated"
     render_annotated_frames(
         proposal_by_id={int(p["id"]): p for p in proposals},

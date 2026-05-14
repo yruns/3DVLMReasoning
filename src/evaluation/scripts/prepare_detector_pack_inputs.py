@@ -456,23 +456,6 @@ def prepare_detector_scene_artifacts(
         else None
     )
 
-    proposals_jsonl = scene_dir / "proposals.jsonl"
-    proposals_jsonl.write_text(
-        json.dumps(
-            {
-                "source": "vdetr",
-                "scene_id": scene_id,
-                "axis_align_matrix": (
-                    axis_align_arr.tolist() if axis_align_arr is not None else None
-                ),
-                "proposals": proposals,
-            },
-            ensure_ascii=False,
-            indent=2,
-        ),
-        encoding="utf-8",
-    )
-
     frame_visibility = derive_detector_visibility(
         proposals=proposals,
         frames=frames,
@@ -487,7 +470,7 @@ def prepare_detector_scene_artifacts(
     )
 
     annotated_dir = scene_dir / "annotated"
-    render_detector_annotated_frames(
+    proposal_frame_views = render_detector_annotated_frames(
         proposal_by_id={int(p["id"]): p for p in proposals},
         frame_visibility=frame_visibility,
         frame_by_id={frame.frame_id: frame for frame in frames},
@@ -495,6 +478,31 @@ def prepare_detector_scene_artifacts(
         annotated_dir=annotated_dir,
         visibility_min_area=visibility_min_area,
         axis_align_matrix=axis_align_arr,
+    )
+    proposals_jsonl = scene_dir / "proposals.jsonl"
+    proposals_jsonl.write_text(
+        json.dumps(
+            {
+                "source": "vdetr",
+                "scene_id": scene_id,
+                "axis_align_matrix": (
+                    axis_align_arr.tolist() if axis_align_arr is not None else None
+                ),
+                "proposals": [
+                    {
+                        **proposal,
+                        "frame_views": proposal_frame_views.get(
+                            int(proposal["id"]), {}
+                        ),
+                    }
+                    for proposal in proposals
+                ],
+                "frame_views_emitted": True,
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
     )
 
     return DetectorSceneArtifacts(
@@ -636,7 +644,10 @@ def render_detector_annotated_frames(
     annotated_dir: Path,
     visibility_min_area: float,
     axis_align_matrix: np.ndarray | None,
-) -> None:
+) -> dict[int, dict[str, dict[str, Any]]]:
+    frame_views: dict[int, dict[str, dict[str, Any]]] = {
+        int(pid): {} for pid in proposal_by_id
+    }
     for frame_id, visible_ids in frame_visibility.items():
         if frame_id not in frame_by_id:
             raise ValueError(f"visibility references missing frame_id={frame_id}")
@@ -669,11 +680,16 @@ def render_detector_annotated_frames(
                     "bbox_2d": rect,
                 }
             )
+            frame_views[int(proposal_id)][str(int(frame_id))] = {
+                "bbox_2d": [int(v) for v in rect],
+                "raw_rgb_path": str(frame.rgb_path),
+            }
         render_marked_keyframe(
             rgb_path=frame.rgb_path,
             out_path=annotated_dir / f"frame_{frame_id}.png",
             marks=marks,
         )
+    return frame_views
 
 
 def visible_projected_rect(
@@ -972,16 +988,10 @@ def normalize_prepared_keyframes(
     out = []
     for idx, keyframe in enumerate(keyframes):
         frame_id = int(keyframe["frame_id"])
-        annotated_path = annotated_dir / f"frame_{frame_id}.png"
-        image_path = (
-            annotated_path
-            if annotated_path.exists()
-            else Path(str(keyframe["image_path"]))
-        )
         out.append(
             {
                 "keyframe_idx": int(keyframe.get("keyframe_idx", idx)),
-                "image_path": str(image_path),
+                "image_path": str(Path(str(keyframe["image_path"]))),
                 "frame_id": frame_id,
             }
         )

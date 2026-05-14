@@ -113,6 +113,9 @@ def test_prepare_pack_v1_inputs_smoke(tmp_path, monkeypatch) -> None:
     by_id = {p["id"]: p for p in proposals}
     assert by_id[target_id]["label"] == "picture"
     assert by_id[target_id]["score"] == 1.0
+    assert "10" in by_id[target_id]["frame_views"]
+    assert by_id[target_id]["frame_views"]["10"]["raw_rgb_path"] == str(rgb_path)
+    assert len(by_id[target_id]["frame_views"]["10"]["bbox_2d"]) == 4
     assert by_id[99]["label"] == "table"
 
     visibility = json.loads(visibility_json.read_text())
@@ -128,7 +131,7 @@ def test_prepare_pack_v1_inputs_smoke(tmp_path, monkeypatch) -> None:
     assert sample_payload["gt_bbox_3d_9dof"] == [0.0, 0.0, 5.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0]
     assert sample_payload["scene_artifacts_dir"] == str(scene_dir)
     assert sample_payload["keyframes"] == [
-        {"keyframe_idx": 0, "image_path": str(annotated), "frame_id": 10}
+        {"keyframe_idx": 0, "image_path": str(rgb_path), "frame_id": 10}
     ]
 
     import agents.packs.vg_embodiedscan
@@ -146,7 +149,7 @@ def test_prepare_pack_v1_inputs_smoke(tmp_path, monkeypatch) -> None:
         source="gt",
         annotated_image_dir=scene_dir / "annotated",
         frame_visibility={10: [target_id]},
-        keyframes=[(0, str(annotated), 10)],
+        keyframes=[(0, str(rgb_path), 10)],
         scene_id=scene_id,
     )
     validate_packs(Stage2TaskType.VISUAL_GROUNDING, bundle)

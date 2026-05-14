@@ -330,25 +330,7 @@ def prepare_scene_artifacts(
     scene_dir = data_root / scene_id / pack_name
     scene_dir.mkdir(parents=True, exist_ok=True)
 
-    proposals_jsonl = scene_dir / "proposals.jsonl"
     axis_align_matrix = scene_info.get("axis_align_matrix")
-    proposals_jsonl.write_text(
-        json.dumps(
-            {
-                "source": "gt",
-                "scene_id": scene_id,
-                "axis_align_matrix": (
-                    np.asarray(axis_align_matrix).tolist()
-                    if axis_align_matrix is not None
-                    else None
-                ),
-                "proposals": proposals,
-            },
-            ensure_ascii=False,
-            indent=2,
-        ),
-        encoding="utf-8",
-    )
 
     image_size = load_image_size(frames[0].rgb_path)
     # Authoritative visibility from EmbodiedScan annotation (mask-based,
@@ -388,7 +370,7 @@ def prepare_scene_artifacts(
             raise ValueError(
                 f"axis_align_matrix must be 4x4, got {axis_align_arr.shape}"
             )
-    render_annotated_frames(
+    proposal_frame_views = render_annotated_frames(
         proposal_by_id=proposal_by_id,
         frame_visibility=frame_visibility,
         frame_by_id=frame_by_id,
@@ -396,6 +378,33 @@ def prepare_scene_artifacts(
         image_size=image_size,
         annotated_dir=annotated_dir,
         axis_align_matrix=axis_align_arr,
+    )
+    proposals_jsonl = scene_dir / "proposals.jsonl"
+    proposals_jsonl.write_text(
+        json.dumps(
+            {
+                "source": "gt",
+                "scene_id": scene_id,
+                "axis_align_matrix": (
+                    np.asarray(axis_align_matrix).tolist()
+                    if axis_align_matrix is not None
+                    else None
+                ),
+                "proposals": [
+                    {
+                        **proposal,
+                        "frame_views": proposal_frame_views.get(
+                            int(proposal["id"]), {}
+                        ),
+                    }
+                    for proposal in proposals
+                ],
+                "frame_views_emitted": True,
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
     )
 
     return SceneArtifacts(
@@ -731,10 +740,13 @@ def render_annotated_frames(
     image_size: tuple[int, int],
     annotated_dir: Path,
     axis_align_matrix: np.ndarray | None = None,
-) -> None:
+) -> dict[int, dict[str, dict[str, Any]]]:
     aligned_to_world = (
         np.linalg.inv(axis_align_matrix) if axis_align_matrix is not None else None
     )
+    frame_views: dict[int, dict[str, dict[str, Any]]] = {
+        int(pid): {} for pid in proposal_by_id
+    }
     for frame_id, visible_ids in frame_visibility.items():
         if frame_id not in frame_by_id:
             raise ValueError(f"visibility references missing frame_id={frame_id}")
@@ -758,11 +770,16 @@ def render_annotated_frames(
             )
             if rect is None:
                 continue
+            bbox_2d = [int(v) for v in rect]
+            frame_views[int(proposal_id)][str(int(frame_id))] = {
+                "bbox_2d": bbox_2d,
+                "raw_rgb_path": str(frame.rgb_path),
+            }
             marks.append(
                 {
                     "proposal_id": int(proposal_id),
                     "label": proposal["label"],
-                    "bbox_2d": rect,
+                    "bbox_2d": tuple(bbox_2d),
                 }
             )
         render_marked_keyframe(
@@ -770,6 +787,7 @@ def render_annotated_frames(
             out_path=annotated_dir / f"frame_{frame_id}.png",
             marks=marks,
         )
+    return frame_views
 
 
 def normalize_prepared_keyframes(
@@ -779,16 +797,10 @@ def normalize_prepared_keyframes(
     out = []
     for idx, keyframe in enumerate(keyframes):
         frame_id = int(keyframe["frame_id"])
-        annotated_path = annotated_dir / f"frame_{frame_id}.png"
-        image_path = (
-            annotated_path
-            if annotated_path.exists()
-            else Path(str(keyframe["image_path"]))
-        )
         out.append(
             {
                 "keyframe_idx": int(keyframe.get("keyframe_idx", idx)),
-                "image_path": str(image_path),
+                "image_path": str(Path(str(keyframe["image_path"]))),
                 "frame_id": frame_id,
             }
         )

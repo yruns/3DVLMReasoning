@@ -364,6 +364,7 @@ def build_pack_v1_bundle_from_sample(
             f"Sample {sample.get('sample_id')} must include non-empty source"
         )
     scene_dir = resolve_scene_artifacts_dir(sample, data_root, pack_name=pack_name)
+    scene_id = str(sample["scene_id"])
     visibility_json = scene_dir / "visibility.json"
     if not visibility_json.exists():
         raise FileNotFoundError(f"Missing visibility index: {visibility_json}")
@@ -374,7 +375,12 @@ def build_pack_v1_bundle_from_sample(
     keyframes = [
         (
             int(kf["keyframe_idx"]),
-            str(kf["image_path"]),
+            clean_keyframe_image_path(
+                data_root=data_root,
+                scene_id=scene_id,
+                image_path=str(kf["image_path"]),
+                frame_id=int(kf["frame_id"]),
+            ),
             int(kf["frame_id"]),
         )
         for kf in sample.get("keyframes", [])
@@ -393,8 +399,23 @@ def build_pack_v1_bundle_from_sample(
         annotated_image_dir=scene_dir / "annotated",
         frame_visibility=frame_visibility,
         keyframes=keyframes,
-        scene_id=str(sample["scene_id"]),
+        scene_id=scene_id,
     )
+
+
+def clean_keyframe_image_path(
+    *,
+    data_root: Path,
+    scene_id: str,
+    image_path: str,
+    frame_id: int,
+) -> str:
+    path = Path(image_path)
+    if path.parent.name != "annotated":
+        return str(path)
+    from evaluation.scripts.prepare_pack_v1_inputs_nr3d import resolve_raw_rgb_path
+
+    return str(resolve_raw_rgb_path(Path(data_root) / scene_id, int(frame_id)))
 
 
 def resolve_scene_artifacts_dir(

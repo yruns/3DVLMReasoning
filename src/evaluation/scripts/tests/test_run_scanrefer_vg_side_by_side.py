@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import gzip
+import json
 import pickle
 import sys
 from types import SimpleNamespace
@@ -36,6 +37,28 @@ def test_safe_sample_id():
     from evaluation.scripts.run_scanrefer_vg_side_by_side import safe_sample_id
 
     assert safe_sample_id("scannet/scene_a::5::3") == "scannet__scene_a__5__3"
+
+
+def test_clean_keyframe_image_path_rewrites_annotated_scanrefer(tmp_path):
+    from evaluation.scripts.run_scanrefer_vg_side_by_side import (
+        clean_keyframe_image_path,
+    )
+
+    scene_id = "scene0001_00"
+    raw = tmp_path / scene_id / "raw"
+    raw.mkdir(parents=True)
+    (raw / "000040-rgb.png").write_bytes(b"\x89PNG")
+    (raw / "scene_info.json").write_text(
+        json.dumps({"kept_frame_ids": [0, 10, 20, 30, 40]}),
+        encoding="utf-8",
+    )
+
+    assert clean_keyframe_image_path(
+        raw_frames_root=tmp_path,
+        scene_id=scene_id,
+        image_path=str(tmp_path / scene_id / "pack" / "annotated" / "frame_4.png"),
+        frame_id=4,
+    ) == str(raw / "000040-rgb.png")
 
 
 def test_compare_backends_persists_failed_sentinel_on_sample_exception(

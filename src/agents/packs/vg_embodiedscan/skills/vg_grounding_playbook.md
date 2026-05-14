@@ -11,16 +11,20 @@ until this skill is loaded into `runtime.skills_loaded`.
 You are answering a query of the form "find the X in the scene", where
 X may be a single object referent or a referring expression with
 spatial constraints. The scene comes with a pre-computed proposal pool
-(V-DETR or 2D-CG) and a set of pre-rendered set-of-marks keyframes.
+(V-DETR or 2D-CG), clean initial RGB keyframes, and pre-rendered
+set-of-marks frames available on demand.
 Your job is to pick the proposal id that matches the referent, or to
 mark the sample as failed if no proposal in the pool plausibly matches.
 
 ## Decision tree
 
-This is a ReAct loop. The 1-3 initial keyframes are a *starting point*,
-not the final evidence. You have **four independent paths** to acquire
-fresh visual evidence when the initial keyframes don't show the target,
-ordered cheapest-first:
+This is a ReAct loop. The 1-3 initial keyframes are clean RGB images
+without drawn proposal boxes. The prompt also includes a text-only
+initial proposal inventory in left-to-right order (`#id category`) for
+each initial frame. Treat these clean keyframes as a *starting point*,
+not final grounding evidence. You have **four independent paths** to
+acquire fresh visual evidence when the initial keyframes don't show the
+target, ordered cheapest-first:
 
 - **`view_keyframe_marked(frame_id=N)`** — instant. For any N in the
   scene-wide frame index (typically 50-300 frames per scene). Use this
@@ -104,8 +108,8 @@ Returns a JSON list, one entry per keyframe in the bundle:
 [{"keyframe_idx": int,
   "frame_id": int|None,
   "visible_proposal_ids": list[int],
-  "n_proposals": int,
-  "annotated_image": str (path to a frame_<frame_id>.png on disk)},
+  "left_to_right": list[str],  # ["#12 chair", "#31 desk", ...]
+  "n_proposals": int},
  ...]
 ```
 
@@ -468,7 +472,7 @@ named proposal from another frame.
 
 ## Anti-patterns
 
-- Do NOT call `submit_final` before viewing at least one annotated
+- Do NOT call `submit_final` before viewing at least one marked
   keyframe — proposal ids alone do not tell you what the proposal
   looks like.
 - Do NOT re-call `view_keyframe_marked` on a frame you already viewed

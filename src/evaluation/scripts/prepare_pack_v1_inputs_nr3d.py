@@ -371,21 +371,6 @@ def prepare_scene_artifacts(
 
     scene_dir = data_root / scene_id / pack_name
     scene_dir.mkdir(parents=True, exist_ok=True)
-    proposals_jsonl = scene_dir / "proposals.jsonl"
-    proposals_jsonl.write_text(
-        json.dumps(
-            {
-                "source": "gt",
-                "scene_id": scene_id,
-                "axis_align_matrix": None,
-                "proposals": proposals,
-            },
-            ensure_ascii=False,
-            indent=2,
-        ),
-        encoding="utf-8",
-    )
-
     visibility_json = scene_dir / "visibility.json"
     visibility_json.write_text(
         json.dumps(
@@ -403,7 +388,7 @@ def prepare_scene_artifacts(
     intrinsic = scene_intrinsic(scene_root)
     image_size = load_image_size(frames[0].rgb_path)
     annotated_dir = scene_dir / "annotated"
-    render_annotated_frames(
+    proposal_frame_views = render_annotated_frames(
         proposal_by_id={int(p["id"]): p for p in proposals},
         proposal_points_by_id={
             int(obj_id): np.asarray(objects[int(obj_id)]["pcd_np"], dtype=np.float64)
@@ -414,6 +399,28 @@ def prepare_scene_artifacts(
         intrinsic=intrinsic,
         image_size=image_size,
         annotated_dir=annotated_dir,
+    )
+    proposals_jsonl = scene_dir / "proposals.jsonl"
+    proposals_jsonl.write_text(
+        json.dumps(
+            {
+                "source": "gt",
+                "scene_id": scene_id,
+                "axis_align_matrix": None,
+                "proposals": [
+                    {
+                        **proposal,
+                        "frame_views": proposal_frame_views.get(
+                            int(proposal["id"]), {}
+                        ),
+                    }
+                    for proposal in proposals
+                ],
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
     )
 
     return SceneArtifacts(
@@ -666,7 +673,10 @@ def render_annotated_frames(
     intrinsic: np.ndarray,
     image_size: tuple[int, int],
     annotated_dir: Path,
-) -> None:
+) -> dict[int, dict[str, dict[str, Any]]]:
+    frame_views: dict[int, dict[str, dict[str, Any]]] = {
+        int(pid): {} for pid in proposal_by_id
+    }
     for frame_id, visible_ids in frame_visibility.items():
         if frame_id not in frame_by_id:
             raise ValueError(f"visibility references missing frame_id={frame_id}")
@@ -694,11 +704,16 @@ def render_annotated_frames(
             )
             if rect is None:
                 continue
+            bbox_2d = [int(v) for v in rect]
+            frame_views[int(proposal_id)][str(int(frame_id))] = {
+                "bbox_2d": bbox_2d,
+                "raw_rgb_path": str(frame.rgb_path),
+            }
             marks.append(
                 {
                     "proposal_id": int(proposal_id),
                     "label": proposal["label"],
-                    "bbox_2d": rect,
+                    "bbox_2d": tuple(bbox_2d),
                 }
             )
         render_marked_keyframe(
@@ -706,6 +721,7 @@ def render_annotated_frames(
             out_path=annotated_dir / f"frame_{frame_id}.png",
             marks=marks,
         )
+    return frame_views
 
 
 def scene_frames(scene_root: Path, frame_ids: Sequence[int]) -> list[SceneFrame]:

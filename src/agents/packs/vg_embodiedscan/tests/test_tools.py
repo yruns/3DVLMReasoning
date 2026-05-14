@@ -109,7 +109,8 @@ def test_list_keyframes_with_proposals_returns_structured(tmp_path: Path) -> Non
     assert len(payload) == 2
     assert payload[0]["frame_id"] == 10
     assert payload[0]["visible_proposal_ids"] == [0, 1]
-    assert payload[0]["annotated_image"].endswith("/ann/frame_10.png")
+    assert payload[0]["left_to_right"] == ["#0 chair", "#1 desk"]
+    assert "annotated_image" not in payload[0]
 
 
 def test_view_keyframe_marked_returns_image_content(tmp_path: Path) -> None:

@@ -1673,6 +1673,85 @@ def test_wrapper_build_agent_supports_pack_v1(tmp_path) -> None:
     assert runtime.task_ctx.proposal_pool_source == "vdetr"
 
 
+def test_vg_initial_prompt_includes_clean_text_inventory_only(tmp_path) -> None:
+    from PIL import Image
+
+    from agents.core.agent_config import Stage2DeepAgentConfig, Stage2TaskType
+    from agents.core.task_types import (
+        KeyframeEvidence,
+        Stage2EvidenceBundle,
+        Stage2TaskSpec,
+    )
+    from agents.runtime.base import Stage2RuntimeState
+    from agents.runtime.deepagents_agent import DeepAgentsStage2Runtime
+
+    clean = tmp_path / "raw" / "000010-rgb.png"
+    clean.parent.mkdir(parents=True)
+    Image.new("RGB", (4, 4), color=(255, 255, 255)).save(clean)
+    annotated = tmp_path / "ann"
+    annotated.mkdir()
+
+    bundle = Stage2EvidenceBundle(
+        scene_id="scene0001_00",
+        keyframes=[
+            KeyframeEvidence(keyframe_idx=0, image_path=str(clean), frame_id=10)
+        ],
+        extra_metadata={
+            "vg_proposal_pool": {
+                "source": "vdetr",
+                "proposals": [
+                    {
+                        "id": 1,
+                        "bbox_3d_9dof": [0] * 9,
+                        "category": "desk",
+                        "score": 0.8,
+                        "frame_views": {
+                            "10": {
+                                "bbox_2d": [80, 20, 120, 40],
+                                "raw_rgb_path": str(clean),
+                                "visibility_weight": 0.7,
+                            }
+                        },
+                    },
+                    {
+                        "id": 0,
+                        "bbox_3d_9dof": [0] * 9,
+                        "category": "chair",
+                        "score": 0.9,
+                        "frame_views": {
+                            "10": {
+                                "bbox_2d": [10, 20, 30, 40],
+                                "raw_rgb_path": str(clean),
+                                "visibility_weight": 0.9,
+                            }
+                        },
+                    },
+                ],
+                "frame_index": {10: [1, 0]},
+                "proposal_index": {0: [10], 1: [10]},
+                "annotated_image_dir": str(annotated),
+            }
+        },
+    )
+    task = Stage2TaskSpec(
+        task_type=Stage2TaskType.VISUAL_GROUNDING,
+        user_query="the chair left of the desk",
+    )
+    state = Stage2RuntimeState(bundle=bundle)
+    runtime = DeepAgentsStage2Runtime(config=Stage2DeepAgentConfig())
+
+    msg = runtime.build_user_message(task, state)
+    text = msg.content[0]["text"]
+
+    assert "Initial frame proposal inventory" in text
+    assert "frame_id=10 left_to_right: #0 chair, #1 desk" in text
+    assert "bbox_2d" not in text
+    assert "visibility score" not in text
+    assert "visibility_weight" not in text
+    assert "annotated_image" not in text
+    assert str(annotated) not in text
+
+
 def test_wrapper_build_agent_rejects_removed_vg_backend() -> None:
     from agents.core.agent_config import Stage2DeepAgentConfig, Stage2TaskType
     from agents.core.task_types import Stage2EvidenceBundle, Stage2TaskSpec
