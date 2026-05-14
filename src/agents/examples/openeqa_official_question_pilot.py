@@ -278,7 +278,7 @@ def derive_eval_session_id(
     chassis_tools_version: int = 3,
     vg_backend: str = "pack_v1",
     explicit_session_id: str | None = None,
-    enable_temporal_fan: bool | None = None,  # deprecated, ignored
+    **deprecated_kwargs,  # accepts pre-v9 kwargs for back-compat (e.g. temporal-fan flag)
 ) -> str:
     if explicit_session_id:
         return explicit_session_id
@@ -290,7 +290,7 @@ def derive_eval_session_id(
             f"vg_backend={vg_backend}"
         ).encode()
     ).hexdigest()[:16]
-    del enable_temporal_fan  # kept for back-compat; not part of session id
+    del deprecated_kwargs
     return f"v15_{digest}"
 
 

@@ -81,22 +81,15 @@ def cumulative_seen_frame_ids(runtime: object) -> set[int]:
             tool_name = getattr(obs, "tool_name", "")
             response_text = str(getattr(obs, "response_text", ""))
             tool_input = getattr(obs, "tool_input", {}) or {}
-        if tool_name == "view_keyframe_marked":
+        # v9: view_keyframe (any mode) is the canonical frame-injection tool.
+        # The pre-v9 stage-1 callback tools were removed and their trace
+        # entries are no longer produced.
+        if tool_name == "view_keyframe":
             if response_text.startswith("ERROR"):
                 continue
             frame_id = tool_input.get("frame_id")
             if frame_id is not None:
                 frame_ids.add(int(frame_id))
-            continue
-
-        if tool_name not in ("request_more_views", "switch_or_expand_hypothesis"):
-            continue
-        for match in _NEW_VIEW_IDS_RE.finditer(response_text):
-            for chunk in match.group(1).split(","):
-                chunk = chunk.strip()
-                if not chunk:
-                    continue
-                frame_ids.add(int(chunk))
     return frame_ids
 
 

@@ -533,7 +533,7 @@ class DeepAgentsStage2Runtime(BaseStage2Runtime):
                     new_images.append(keyframe.image_path)
 
         # Drain any pack-pushed pending images (e.g. VG pack's
-        # `view_keyframe_marked` queues annotated keyframes here).
+        # `view_keyframe` queues annotated keyframes here).
         extra = runtime.bundle.extra_metadata or {}
         pending = extra.get("vg_pending_images", [])
         for marked_path in pending:
