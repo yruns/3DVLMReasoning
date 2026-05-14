@@ -651,32 +651,6 @@ def build_vg_tools(runtime: Any) -> list[BaseTool]:
     ctx = runtime.task_ctx  # VgEmbodiedScanCtx
 
     @tool
-    def list_keyframes_with_proposals() -> str:
-        """VG tool. Detailed usage in skill 'vg-grounding-playbook'."""
-        gate = _gate(runtime)
-        if gate is not None:
-            runtime.record("list_keyframes_with_proposals", {}, gate)
-            return gate
-        items = []
-        for kf in runtime.bundle.keyframes:
-            fid = kf.frame_id
-            visible = ctx.frame_index.get(fid, []) if fid is not None else []
-            items.append(
-                {
-                    "keyframe_idx": kf.keyframe_idx,
-                    "frame_id": fid,
-                    "visible_proposal_ids": visible,
-                    "left_to_right": _left_to_right_entries(ctx, int(fid), visible)
-                    if fid is not None
-                    else [],
-                    "n_proposals": len(visible),
-                }
-            )
-        text = json.dumps(items, ensure_ascii=False)
-        runtime.record("list_keyframes_with_proposals", {}, text)
-        return text
-
-    @tool
     def list_frame_proposals(frame_id: int) -> str:
         """VG tool. Detailed usage in skill 'vg-grounding-playbook'."""
         gate = _gate(runtime)
@@ -820,49 +794,6 @@ def build_vg_tools(runtime: Any) -> list[BaseTool]:
         return text
 
     @tool
-    def find_proposals_by_category(category: str) -> str:
-        """VG tool. Detailed usage in skill 'vg-grounding-playbook'."""
-        gate = _gate(runtime)
-        if gate is not None:
-            runtime.record("find_proposals_by_category", {"category": category}, gate)
-            return gate
-        if getattr(runtime, "use_clip_visible_aug", False):
-            try:
-                payload = _find_proposals_by_category_with_cvra(
-                    runtime=runtime,
-                    ctx=ctx,
-                    category=category,
-                )
-            except Exception as exc:
-                err = (
-                    "ERROR: clip_visible augmentation failed: "
-                    f"{type(exc).__name__}: {exc}"
-                )
-                runtime.record(
-                    "find_proposals_by_category", {"category": category}, err
-                )
-                return err
-            text = json.dumps(payload, ensure_ascii=False)
-            runtime.record("find_proposals_by_category", {"category": category}, text)
-            return text
-
-        ids = [
-            p.id
-            for p in ctx.proposals
-            if p.category.strip().lower() == category.strip().lower()
-        ]
-        payload = {
-            "category": category,
-            "proposal_ids": ids,
-            "available_categories": sorted(
-                {p.category for p in ctx.proposals if p.category}
-            ),
-        }
-        text = json.dumps(payload, ensure_ascii=False)
-        runtime.record("find_proposals_by_category", {"category": category}, text)
-        return text
-
-    @tool
     def compare_proposals_spatial(
         candidate_ids: list[int],
         anchor_id: int,
@@ -995,11 +926,9 @@ def build_vg_tools(runtime: Any) -> list[BaseTool]:
         return text
 
     return [
-        list_keyframes_with_proposals,
         list_frame_proposals,
         view_keyframe_marked,
         inspect_proposal,
-        find_proposals_by_category,
         compare_proposals_spatial,
     ]
 

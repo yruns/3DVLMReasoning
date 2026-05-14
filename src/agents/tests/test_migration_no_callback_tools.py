@@ -44,3 +44,12 @@ def test_runtime_tool_list_does_not_include_dead_names():
         "view_keyframe_marked",
     ):
         assert dead not in names, f"{dead} should not be wired"
+
+
+def test_pack_tools_module_no_longer_defines_dead_helpers():
+    import agents.packs.vg_embodiedscan.tools as mod
+    for dead in (
+        "find_proposals_by_category",
+        "list_keyframes_with_proposals",
+    ):
+        assert not hasattr(mod, dead), f"{dead} still exported"
