@@ -361,6 +361,115 @@ def build_selector_tools(runtime: Any) -> list[BaseTool]:
         return text
 
     tools.append(select_by_region)
+
+    def _seen_frame_ids_from_runtime() -> set[int]:
+        seen: set[int] = set()
+        for entry in list(getattr(runtime, "tool_trace", []) or []):
+            tool_input = getattr(entry, "tool_input", {}) or {}
+            if getattr(entry, "tool_name", "") in (
+                "view_keyframe",
+                "select_by_text",
+                "select_by_hypothesis",
+                "select_by_proposal",
+                "select_by_region",
+                "select_by_frame_neighbor",
+                "select_by_coverage",
+            ):
+                fid = tool_input.get("frame_id")
+                if isinstance(fid, int):
+                    seen.add(fid)
+        return seen
+
+    @tool
+    def select_by_coverage(
+        method: str = "obj_iou",
+        k: int = 3,
+        seen_frame_ids: list[int] | None = None,
+    ) -> str:
+        """Selector F. Detailed usage in 'scene-exploration-playbook'."""
+        request = {"method": method, "k": int(k), "seen_frame_ids": seen_frame_ids}
+        gate = _gate(runtime)
+        if gate is not None:
+            runtime.record("select_by_coverage", request, gate)
+            return gate
+        if method not in ("obj_iou", "pose_depth"):
+            err = f"ERROR: method must be 'obj_iou' or 'pose_depth'; got {method!r}"
+            runtime.record("select_by_coverage", request, err)
+            return err
+        catalog = get_scene_catalog(runtime)
+        valid = sorted(int(f) for f in catalog.valid_frame_ids)
+        seen_set: set[int]
+        if seen_frame_ids is None:
+            seen_set = _seen_frame_ids_from_runtime()
+        else:
+            seen_set = {int(f) for f in seen_frame_ids}
+        unseen = [f for f in valid if f not in seen_set]
+        if not unseen:
+            payload = {"hypothesis_summary": "all frames already seen", "frames": []}
+            text = json.dumps(payload, ensure_ascii=False)
+            runtime.record("select_by_coverage", request, text)
+            return text
+        if method == "obj_iou":
+            frame_to_props = _frame_to_proposals(catalog)
+            if not seen_set:
+                chosen = unseen[: int(k)]
+            else:
+                seen_union: set[int] = set()
+                for s in seen_set:
+                    seen_union.update(frame_to_props.get(int(s), []))
+
+                def jaccard_distance(fid: int) -> float:
+                    a = set(frame_to_props.get(int(fid), []))
+                    if not a and not seen_union:
+                        return 0.0
+                    union = a | seen_union
+                    inter = a & seen_union
+                    return 1.0 - (len(inter) / len(union)) if union else 0.0
+
+                unseen.sort(key=lambda f: (-jaccard_distance(f), f))
+                chosen = unseen[: int(k)]
+        else:  # pose_depth
+            if not seen_set:
+                chosen = unseen[: int(k)]
+            else:
+                centroid_x = 0.0
+                centroid_y = 0.0
+                count = 0
+                for s in seen_set:
+                    pose, _ = _camera_pose(runtime, int(s))
+                    if pose is None:
+                        continue
+                    centroid_x += pose[0]
+                    centroid_y += pose[1]
+                    count += 1
+                if count == 0:
+                    chosen = unseen[: int(k)]
+                else:
+                    centroid_x /= count
+                    centroid_y /= count
+
+                    def dist(fid: int) -> float:
+                        pose, _ = _camera_pose(runtime, int(fid))
+                        if pose is None:
+                            return float("inf")
+                        return -math.hypot(pose[0] - centroid_x, pose[1] - centroid_y)
+
+                    unseen.sort(key=lambda f: (dist(f), f))
+                    chosen = unseen[: int(k)]
+        frames = [
+            _build_frame_payload(
+                runtime, catalog, int(fid),
+                selected_because=f"select_by_coverage(method={method!r})",
+                hidden_categories=[],
+            )
+            for fid in chosen
+        ]
+        payload = {"hypothesis_summary": "", "frames": frames}
+        text = json.dumps(payload, ensure_ascii=False)
+        runtime.record("select_by_coverage", request, text)
+        return text
+
+    tools.append(select_by_coverage)
     return tools
 
 
