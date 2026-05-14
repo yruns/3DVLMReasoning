@@ -13,6 +13,7 @@ Stage1 rerun drift with the NMS decision itself.
 - Branch: `feat/nr3d-v4-agent-guards-fair-views`
 - Run-time base commit: `101acaa` plus uncommitted frame-NMS implementation
   and docs changes recorded in this branch.
+- First committed implementation/doc artifact: `51a889a`
 - Internal version: `v8_frame_nms_random100`
 - Main run ID:
   `v8_frame_nms_random100_20260514`
@@ -347,5 +348,6 @@ first `k` views are near-identical and object coverage is unchanged.
   frame IDs; v8 reruns Stage1 query-driven keyframe selection on depth-aware
   visibility. The pure NMS effect is the v8 pre-NMS -> v8 NMS comparison.
 - The run-time commit is recorded as `101acaa+dirty` because the code changes
-  were intentionally evaluated before being committed. The committed branch
-  state after this doc contains the implementation and this record.
+  were intentionally evaluated before being committed. The first committed
+  implementation/doc artifact is `51a889a`; later commits may update only
+  provenance text.

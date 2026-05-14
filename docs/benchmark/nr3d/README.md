@@ -88,6 +88,7 @@ Latest selector-NMS attempt:
 - Version: `v8_frame_nms_random100`
 - Branch / run-time base commit:
   `feat/nr3d-v4-agent-guards-fair-views` / `101acaa+dirty`
+- First committed implementation/doc artifact: `51a889a`
 - Scope: same v4 random100 fold; depth-aware Stage1 rerun with frame NMS
   threshold `l1=0.75`; matched pre-NMS top3 ablation
 - Result: frame NMS Overall 65.00; matched pre-NMS Overall 69.00; pure NMS
@@ -110,7 +111,7 @@ Latest selector-NMS attempt:
 | [v5p1_failed_rerun_full](v5p1_failed_rerun_full_20260513.md) | 2026-05-13 | `feat/nr3d-v4-agent-guards-fair-views` / `c404536` | Overall=68.48 | 8584Q / 7805Q filtered | Invalidated: projection-only visibility |
 | [v6_inline_labels_depth_visible_random100](v6_inline_labels_depth_visible_random100_20260513.md) | 2026-05-13 | `feat/nr3d-v4-agent-guards-fair-views` / `41253ad` | Overall=71.00 | 100Q pilot | Depth-aware partial, no NMS |
 | [v7_stage1_callbacks_noclip_random100](v7_stage1_callbacks_noclip_random100_20260513.md) | 2026-05-13 | `feat/nr3d-v4-agent-guards-fair-views` / `690cbf6` | Overall=73.00 | 100Q pilot | Depth-aware partial, callbacks wired, no NMS |
-| [v8_frame_nms_random100](v8_frame_nms_random100_20260514.md) | 2026-05-14 | `feat/nr3d-v4-agent-guards-fair-views` / `101acaa+dirty` | Overall=65.00; matched pre-NMS=69.00 | 100Q pilot | Depth-aware partial, frame NMS tested and rejected as default |
+| [v8_frame_nms_random100](v8_frame_nms_random100_20260514.md) | 2026-05-14 | `feat/nr3d-v4-agent-guards-fair-views` / `101acaa+dirty`; committed `51a889a` | Overall=65.00; matched pre-NMS=69.00 | 100Q pilot | Depth-aware partial, frame NMS tested and rejected as default |
 
 ## Protocol Summary
 
