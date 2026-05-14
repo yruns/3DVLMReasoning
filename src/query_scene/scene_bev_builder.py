@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 from abc import ABC, abstractmethod
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -173,4 +174,32 @@ class ScanNetSceneBEVBuilderBase(ABC):
         return img
 
 
+def _scannet_data_root() -> Path:
+    root = os.environ.get("SCANNET_DATA_ROOT", "data/scannetv2")
+    return Path(root)
+
+
+def _find_scannet_mesh(scannet_root: Path, scene_id: str) -> Path:
+    for filename in (f"{scene_id}_vh_clean.ply", f"{scene_id}_vh_clean_2.ply"):
+        candidate = scannet_root / scene_id / filename
+        if candidate.exists():
+            return candidate
+    raise FileNotFoundError(
+        f"scannet mesh for {scene_id} not under {scannet_root}; "
+        f"expected {scene_id}_vh_clean.ply"
+    )
+
+
+class Nr3dScanNetBEVBuilder(ScanNetSceneBEVBuilderBase):
+    benchmark = "nr3d"
+
+    def resolve_paths(self, scene_id: str, data_root: Path) -> tuple[Path, Path, Path]:
+        scene_dir = data_root / scene_id
+        traj = scene_dir / "conceptgraph" / "traj.txt"
+        intr = scene_dir / "raw" / "intrinsic_color.txt"
+        mesh = _find_scannet_mesh(_scannet_data_root(), scene_id)
+        return mesh, traj, intr
+
+
 __all__ = ["SceneBEVConfig", "ScanNetSceneBEVBuilderBase"]
+__all__ += ["Nr3dScanNetBEVBuilder"]
