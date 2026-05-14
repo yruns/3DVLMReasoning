@@ -41,6 +41,7 @@ only. They must not be quoted as public NR3D leaderboard results.
 | [v6 inline labels + depth-visible marks](v6_inline_labels_depth_visible_random100_20260513.md) | preserved v4 keyframe ids + depth-aware marked frames + inline `#id category` labels + guards; no NMS | 100 | 71.00 | 78.05 | 66.10 | 70.59 | 71.21 | Depth-aware partial pilot; not a full leaderboard row. |
 | [v7 Stage1 callbacks no-CLIP](v7_stage1_callbacks_noclip_random100_20260513.md) | v6 fixed fold/pack + NR3D Stage1 callbacks wired + no per-selector CLIP fallback in `request_more_views`; no NMS | 100 | 73.00 | 82.93 | 66.10 | 70.59 | 74.24 | Depth-aware partial pilot; not a full leaderboard row. |
 | [v8 clean initial marked-on-demand](v8_clean_initial_marked_on_demand_random100_20260514.md) | clean initial RGB keyframes + text-only left-to-right proposal inventory; marked images only via `view_keyframe_marked`; same guards; no NMS | 100 | 67.00 | 85.37 | 54.24 | 58.82 | 71.21 | Negative ablation vs v7; not a full leaderboard row. |
+| [v9 selective marked images](v9_selective_mark_random100_20260514.md) | v8 clean initial contract + `list_frame_proposals` text inventory + filtered `view_keyframe_marked(categories/proposal_ids)` rendering; same guards; no NMS | 100 | 74.00 | 90.24 | 62.71 | 64.71 | 78.79 | Best depth-aware random100 pilot so far; still not a full leaderboard row. |
 
 ## Memory / Throughput Note
 
@@ -63,3 +64,7 @@ The v8 random100 clean-initial run stayed below the same 15GB guard as well
 (observed around 4.1GB RSS), and completed 100/100 checkpoints with no failed
 sentinels. It produced 192 retryable ModelHub `429` lines, so the practical
 throughput limit on this fold is qpm/tpm rather than local memory.
+
+The v9 selective-mark run also completed 100/100 checkpoints under the 15GB RSS
+guard with no failed sentinels. It produced 212 retryable ModelHub `429` lines;
+the local memory issue did not recur, and throughput remained LLM-limit bound.

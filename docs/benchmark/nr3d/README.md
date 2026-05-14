@@ -12,7 +12,9 @@ the current human-facing index.
 | [protocol.md](protocol.md) | Consolidated protocol notes: metric family, fold/filter rules, candidate-pool equivalence, fairness boundary. |
 | [depth_visibility_rebuild_20260513.md](depth_visibility_rebuild_20260513.md) | Root-cause record and rebuild summary for depth-aware NR3D visibility indices. |
 | [depth_visibility_spotcheck_20260513.html](depth_visibility_spotcheck_20260513.html) | Visual spotcheck frames rendered from rebuilt depth-aware `view_to_objects`. |
-| [v8_clean_initial_marked_on_demand_random100](v8_clean_initial_marked_on_demand_random100_20260514.md) | Latest clean-initial/marked-on-demand random100 ablation. |
+| [v9_selective_mark_random100](v9_selective_mark_random100_20260514.md) | Latest clean-initial + selective marked-image random100 pilot. |
+| [v9_selective_mark_trace_2t2f_20260514.html](v9_selective_mark_trace_2t2f_20260514.html) | Static VG agent trace viewer for 2 correct and 2 failed v9 random100 cases. |
+| [v8_clean_initial_marked_on_demand_random100](v8_clean_initial_marked_on_demand_random100_20260514.md) | Clean-initial/marked-on-demand negative random100 ablation. |
 | [v8_clean_initial_trace_2t2f_20260514.html](v8_clean_initial_trace_2t2f_20260514.html) | Static VG agent trace viewer for 2 correct and 2 failed v8 random100 cases. |
 | [v7_stage1_callbacks_noclip_random100](v7_stage1_callbacks_noclip_random100_20260513.md) | Best current depth-aware random100 callback-wired pilot. |
 | [v6_inline_labels_depth_visible_random100](v6_inline_labels_depth_visible_random100_20260513.md) | Depth-aware random100 no-NMS rerender pilot before NR3D callbacks were wired. |
@@ -70,6 +72,23 @@ Interpretation:
 
 Latest depth-aware partial pilot:
 
+- Version: `v9_selective_mark_random100`
+- Branch / commit: `feat/nr3d-v4-agent-guards-fair-views` /
+  `4a1fba1-dirty-selective-mark`
+- Scope: same v4/v6/v7/v8 random100 fold; clean initial RGB keyframes with
+  text-only inventories; `list_frame_proposals` plus filtered
+  `view_keyframe_marked(categories/proposal_ids)` for crowded frames
+- Result: Overall 74.00, Easy 90.24, Hard 62.71, View-Dep 64.71,
+  View-Indep 78.79
+- Raw artifacts:
+  `tmp/nr3d_eval_v9_selective_mark_random100_20260514/`
+- Case-study HTML:
+  [v9_selective_mark_trace_2t2f_20260514.html](v9_selective_mark_trace_2t2f_20260514.html)
+- Note: Best depth-aware random100 result on this fixed fold, but still trails
+  v7 on Hard and View-Dep.
+
+Previous depth-aware partial pilot:
+
 - Version: `v8_clean_initial_marked_on_demand_random100`
 - Branch / commit: `feat/nr3d-v4-agent-guards-fair-views` / `f86c161`
 - Scope: same v4/v6/v7 random100 fold; clean initial RGB keyframes with
@@ -82,7 +101,7 @@ Latest depth-aware partial pilot:
 - Note: Negative ablation vs v7. The change improves Easy but significantly
   hurts Hard and View-Dep; keep v7 as the stronger random100 baseline.
 
-Best current depth-aware random100 pilot:
+Previous best depth-aware random100 pilot:
 
 - Version: `v7_stage1_callbacks_noclip_random100`
 - Branch / commit: `feat/nr3d-v4-agent-guards-fair-views` / `690cbf6`
@@ -109,6 +128,7 @@ Best current depth-aware random100 pilot:
 | [v6_inline_labels_depth_visible_random100](v6_inline_labels_depth_visible_random100_20260513.md) | 2026-05-13 | `feat/nr3d-v4-agent-guards-fair-views` / `41253ad` | Overall=71.00 | 100Q pilot | Depth-aware partial, no NMS |
 | [v7_stage1_callbacks_noclip_random100](v7_stage1_callbacks_noclip_random100_20260513.md) | 2026-05-13 | `feat/nr3d-v4-agent-guards-fair-views` / `690cbf6` | Overall=73.00 | 100Q pilot | Depth-aware partial, callbacks wired, no NMS |
 | [v8_clean_initial_marked_on_demand_random100](v8_clean_initial_marked_on_demand_random100_20260514.md) | 2026-05-14 | `feat/nr3d-v4-agent-guards-fair-views` / `f86c161` | Overall=67.00 | 100Q pilot | Depth-aware partial, negative clean-initial ablation |
+| [v9_selective_mark_random100](v9_selective_mark_random100_20260514.md) | 2026-05-14 | `feat/nr3d-v4-agent-guards-fair-views` / `4a1fba1-dirty-selective-mark` | Overall=74.00 | 100Q pilot | Depth-aware partial, selective marked-image rendering |
 
 ## Protocol Summary
 
@@ -122,7 +142,7 @@ Best current depth-aware random100 pilot:
   "target-type-only public pool" assumption is retracted.
 - Fairness boundary: v3 uses GT-target-visible keyframes; v5/v5.1 use
   query-driven keyframes but are invalidated because their object-frame
-  visibility was projection-only. v6/v7/v8 are depth-aware but partial and
+  visibility was projection-only. v6/v7/v8/v9 are depth-aware but partial and
   preserve v4 keyframe choices to isolate Stage2/runtime changes before NMS.
 
 See [protocol.md](protocol.md) for the consolidated evidence and caveats.
