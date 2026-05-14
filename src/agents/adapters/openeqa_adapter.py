@@ -11,12 +11,11 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from loguru import logger
 
 from agents.core.agent_config import Stage2TaskType
 from agents.core.task_types import Stage2AgentResult, Stage2TaskSpec
 from benchmarks.base import BenchmarkAdapter, BenchmarkSample
-from benchmarks.openeqa_loader import OpenEQADataset, OpenEQASample
+from benchmarks.openeqa_loader import OpenEQADataset
 
 
 class OpenEQAAdapter(BenchmarkAdapter):

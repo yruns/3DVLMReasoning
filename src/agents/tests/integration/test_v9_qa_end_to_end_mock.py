@@ -12,7 +12,11 @@ from pathlib import Path
 
 from PIL import Image
 
+import importlib
+
+import agents.packs.qa_default
 import agents.packs.qa_default.registration  # noqa: F401
+import agents.packs.vg_embodiedscan
 import agents.packs.vg_embodiedscan.registration  # noqa: F401
 from agents.catalog import FrameView, SceneCatalog, SceneProposal
 from agents.core.agent_config import (
@@ -23,6 +27,14 @@ from agents.core.agent_config import (
 from agents.core.task_types import Stage2EvidenceBundle, Stage2TaskSpec
 from agents.runtime.base import Stage2RuntimeState
 from agents.runtime.deepagents_agent import DeepAgentsStage2Runtime
+from agents.skills import PACKS
+
+
+def _ensure_packs_registered() -> None:
+    if Stage2TaskType.VISUAL_GROUNDING not in PACKS:
+        importlib.reload(agents.packs.vg_embodiedscan)
+    if Stage2TaskType.QA not in PACKS:
+        importlib.reload(agents.packs.qa_default)
 
 
 def _bundle(tmp_path: Path) -> Stage2EvidenceBundle:
@@ -66,6 +78,7 @@ def test_qa_v9_tool_surface_end_to_end(tmp_path: Path):
     """Sanity check: the v9 QA tool surface is wired and a scripted call
     sequence produces a clean tool_trace including select_by_proposal +
     view_keyframe(mode='rgb')."""
+    _ensure_packs_registered()
     bundle = _bundle(tmp_path)
     task = Stage2TaskSpec(
         user_query="what colour is the bed?",

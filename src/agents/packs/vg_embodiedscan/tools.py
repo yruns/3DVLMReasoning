@@ -9,7 +9,6 @@ from typing import Any
 
 from langchain_core.tools import BaseTool, tool
 
-from agents.packs.vg_embodiedscan.ctx import cumulative_seen_frame_ids
 
 PRIMARY_SKILL = "vg-grounding-playbook"
 CLIP_VISIBLE_OVERFLOW_K = 3

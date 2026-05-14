@@ -12,8 +12,6 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any
 
-from loguru import logger
-from PIL import Image, ImageDraw
 
 from .models import (
     Stage2EvidenceBundle,
@@ -67,7 +65,7 @@ def create_crop_callback(
         # that wrap this and have access to the visibility index. v9 retains
         # the textual entry point so VG / QA can call request_crops without
         # the full machinery during tests.
-        del bundle, scene_id, crop_scale, Image, ImageDraw, logger
+        del bundle
         return Stage2ToolResult(
             response_text=(
                 f"request_crops received object_terms={object_terms}; "

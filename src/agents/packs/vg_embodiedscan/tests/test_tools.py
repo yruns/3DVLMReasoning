@@ -3,12 +3,10 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
 from pathlib import Path
 
-import pytest
 
-from agents.core.agent_config import Stage2DeepAgentConfig, Stage2TaskType
+from agents.core.agent_config import Stage2TaskType
 from agents.core.task_types import KeyframeEvidence, Stage2EvidenceBundle
 from agents.packs.vg_embodiedscan.ctx import (
     Proposal,
