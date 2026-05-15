@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -21,6 +22,15 @@ BBOX_PALETTE: list[tuple[int, int, int]] = [
     (168, 85, 247),  # purple
 ]
 BLACK_OUTLINE_PAD: int = 2
+LABEL_AREA_RATIO_THRESHOLD: float = 0.15
+LABEL_PADDING_PX: int = 4
+
+
+@dataclass(frozen=True)
+class LabelAnchor:
+    mode: str  # 'centre' | 'topleft'
+    origin: tuple[int, int]  # cv2.putText origin (x, baseline-y)
+    bg_box: tuple[int, int, int, int]  # (x1, y1, x2, y2) for the opaque rect
 
 
 def _bbox_stroke_thickness(img_width: int) -> int:
@@ -36,6 +46,64 @@ def _draw_palette_bbox(
     stroke = _bbox_stroke_thickness(img.shape[1])
     cv2.rectangle(img, (x1, y1), (x2, y2), (0, 0, 0), stroke + 2 * BLACK_OUTLINE_PAD)
     cv2.rectangle(img, (x1, y1), (x2, y2), colour, stroke)
+
+
+def _decide_label_anchor(
+    bbox: tuple[float, float, float, float],
+    text_w: int,
+    text_h: int,
+) -> LabelAnchor:
+    x1, y1, x2, y2 = (int(round(v)) for v in bbox)
+    bbox_w = max(1, x2 - x1)
+    bbox_h = max(1, y2 - y1)
+    area_ratio = (text_w * text_h) / float(bbox_w * bbox_h)
+    if area_ratio < LABEL_AREA_RATIO_THRESHOLD:
+        cx, cy = (x1 + x2) // 2, (y1 + y2) // 2
+        origin = (cx - text_w // 2, cy + text_h // 2)
+        bg = (
+            origin[0] - LABEL_PADDING_PX,
+            origin[1] - text_h - LABEL_PADDING_PX,
+            origin[0] + text_w + LABEL_PADDING_PX,
+            origin[1] + LABEL_PADDING_PX,
+        )
+        return LabelAnchor(mode="centre", origin=origin, bg_box=bg)
+    origin = (x1 + LABEL_PADDING_PX, y1 + text_h + LABEL_PADDING_PX)
+    bg = (
+        x1,
+        y1,
+        x1 + text_w + 2 * LABEL_PADDING_PX,
+        y1 + text_h + 2 * LABEL_PADDING_PX,
+    )
+    return LabelAnchor(mode="topleft", origin=origin, bg_box=bg)
+
+
+def _draw_label(
+    img: np.ndarray,
+    text: str,
+    bbox: tuple[float, float, float, float],
+) -> None:
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    scale = max(0.7, img.shape[1] / 1800.0)
+    thickness = max(2, img.shape[1] // 600)
+    (text_w, text_h), _ = cv2.getTextSize(text, font, scale, thickness)
+    anchor = _decide_label_anchor(bbox, text_w, text_h)
+    cv2.rectangle(
+        img,
+        (anchor.bg_box[0], anchor.bg_box[1]),
+        (anchor.bg_box[2], anchor.bg_box[3]),
+        (0, 0, 0),
+        -1,
+    )
+    cv2.putText(
+        img,
+        text,
+        anchor.origin,
+        font,
+        scale,
+        (255, 255, 255),
+        thickness,
+        cv2.LINE_AA,
+    )
 
 
 def _norm_category(category: str) -> str:
@@ -115,7 +183,9 @@ def build_mark_frame_with_bbox_tool(runtime: Any) -> BaseTool:
         img = np.asarray(Image.open(raw_path).convert("RGB")).copy()
         for idx, prop in enumerate(visible):
             colour = BBOX_PALETTE[idx % len(BBOX_PALETTE)]
-            _draw_palette_bbox(img, prop.frame_views[int(frame_id)].bbox_2d, colour)
+            view = prop.frame_views[int(frame_id)]
+            _draw_palette_bbox(img, view.bbox_2d, colour)
+            _draw_label(img, f"#{prop.proposal_id} {prop.category}", view.bbox_2d)
         catalog_dir = Path(catalog.bev_image_path).parent
         cache_dir = catalog_dir / "filtered_marks"
         cache_dir.mkdir(parents=True, exist_ok=True)
@@ -155,5 +225,8 @@ def build_mark_frame_with_bbox_tool(runtime: Any) -> BaseTool:
 __all__ = [
     "BBOX_PALETTE",
     "BLACK_OUTLINE_PAD",
+    "LABEL_AREA_RATIO_THRESHOLD",
+    "LABEL_PADDING_PX",
+    "LabelAnchor",
     "build_mark_frame_with_bbox_tool",
 ]
