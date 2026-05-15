@@ -45,4 +45,19 @@ def queue_pending_image(runtime: Any, image_path: str) -> None:
     runtime.mark_evidence_updated()
 
 
-__all__ = ["get_scene_catalog", "queue_pending_image"]
+def queue_pending_image_if_new(runtime: Any, path: str) -> bool:
+    """Queue `path` for the next evidence update only if it has not already been seen.
+
+    Returns True if the image was queued (caller should mark `already_seen=False`),
+    False if it was a no-op (caller should mark `already_seen=True`). Empty paths
+    are silently skipped (returns False).
+    """
+    if not path:
+        return False
+    if path in runtime.seen_image_paths:
+        return False
+    queue_pending_image(runtime, path)
+    return True
+
+
+__all__ = ["get_scene_catalog", "queue_pending_image", "queue_pending_image_if_new"]
