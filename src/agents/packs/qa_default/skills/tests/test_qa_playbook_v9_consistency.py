@@ -1,4 +1,4 @@
-"""Consistency tests for v9 QA playbook (catalog-first)."""
+"""Consistency tests for v9.1 QA playbook (selectors-as-RGB-source)."""
 
 from pathlib import Path
 
@@ -20,15 +20,29 @@ _PB = (
         "inspect_stage1_metadata",
         "view_keyframe_marked",
         "retrieve_object_context",
+        "view_keyframe(mode='rgb')",
+        "view_keyframe",
+        "select_by_hypothesis",
     ],
 )
 def test_no_dead_tool_names(dead: str):
     assert dead not in _PB.read_text(), f"{dead} still in qa_answering_playbook"
 
 
-def test_qa_playbook_recommends_rgb_mode():
+def test_qa_playbook_recommends_select_by_text_as_first_move():
     text = _PB.read_text()
-    assert "view_keyframe(frame_id, mode='rgb')" in text or 'mode="rgb"' in text
+    assert "select_by_text" in text
+    assert "First move" in text or "first move" in text.lower()
+
+
+def test_qa_playbook_lists_v9_1_tools():
+    text = _PB.read_text()
+    for tool in (
+        "select_by_text",
+        "mark_frame_with_bbox",
+        "request_crops",
+    ):
+        assert tool in text, f"{tool} missing from qa_answering_playbook"
 
 
 def test_qa_playbook_mentions_supporting_claims():
