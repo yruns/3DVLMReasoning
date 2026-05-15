@@ -145,12 +145,18 @@ def test_build_one_scene_smoke(tmp_path):
         ins_scores=np.array([0.9, 0.7], dtype=np.float32),
     )
 
-    # Synthetic raw dir with 1 frame: identity pose, identity intrinsic
+    # Synthetic raw dir with 1 frame: identity pose, identity intrinsic, far-wall depth.
     raw_dir = tmp_path / "raw"
     raw_dir.mkdir()
     np.savetxt(raw_dir / "intrinsic_color.txt",
                np.array([[500, 0, 320], [0, 500, 240], [0, 0, 1]], dtype=np.float64))
     np.savetxt(raw_dir / "000000.txt", np.eye(4, dtype=np.float64))
+    # Synthetic depth: 480x640 uint16 PNG with all pixels = 60000 (=60m at depth_scale=1000).
+    # The visibility index requires a real depth map; "far wall" semantics mean every
+    # projected object centroid is treated as closer than the depth → visible.
+    import cv2
+    depth_arr = np.full((480, 640), 60000, dtype=np.uint16)
+    cv2.imwrite(str(raw_dir / "000000-depth.png"), depth_arr)
     # scene_info.json with kept_frame_ids=[0]
     (raw_dir / "scene_info.json").write_text(
         json.dumps({"kept_frame_ids": [0]}), encoding="utf-8"
