@@ -13,7 +13,8 @@ the current human-facing index.
 | [depth_visibility_rebuild_20260513.md](depth_visibility_rebuild_20260513.md) | Root-cause record and rebuild summary for depth-aware NR3D visibility indices. |
 | [depth_visibility_spotcheck_20260513.html](depth_visibility_spotcheck_20260513.html) | Visual spotcheck frames rendered from rebuilt depth-aware `view_to_objects`. |
 | [v9_1_fix_keyframe_selector_wiring_20260515.md](v9_1_fix_keyframe_selector_wiring_20260515.md) | v9.1_fix — wired Stage-1 `KeyframeSelector` through agent → runtime (Overall **86.00**, Hard **84.75**, View-dep **82.35**). Recovers full parity with v9 clean. **Ship state.** |
-| [v9_1_fix_trace_20260515.html](v9_1_fix_trace_20260515.html) | VG agent trace viewer (2T+2F) on the v9.1_fix run — shows `select_by_text` reaching Stage-1 properly. |
+| [v9_1_fix_trace_20260515.html](v9_1_fix_trace_20260515.html) | VG agent trace viewer (2T+2F batch 1) on the v9.1_fix run — same 4 sample IDs as the v9.1 broken trace for side-by-side comparison. |
+| [v9_1_fix_trace_batch2_20260515.html](v9_1_fix_trace_batch2_20260515.html) | VG agent trace viewer (2T+2F batch 2) on the v9.1_fix run — 4 fresh cases including hard / view-dep wins (scene0164, scene0131) and instructive failures (scene0697, scene0149). |
 | [v9_1_selectors_return_images_20260515.md](v9_1_selectors_return_images_20260515.md) | v9.1 initial — selectors-return-RGB + mark_frame_with_bbox + BEV fixes (Overall **81.00**, Hard **79.66**). −5 pp regression caused by a Stage-1 wiring bug; see v9.1_fix for the resolution. |
 | [v9_1_selectors_return_images_trace_20260515.html](v9_1_selectors_return_images_trace_20260515.html) | VG agent trace viewer (4 cases) from the v9.1 initial run; mostly useful as a "before-fix" reference. |
 | [v9_catalog_first_20260515.md](v9_catalog_first_20260515.md) | v9 catalog-first random100 pilot, leak-fixed (Overall **86.00**, Hard **81.36**). |
