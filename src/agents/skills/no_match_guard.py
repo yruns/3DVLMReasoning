@@ -100,10 +100,7 @@ def _candidate_evidence(runtime: Any) -> dict[str, Any]:
                     category_labels.append(label)
             continue
 
-        if name == "view_keyframe" and (tool_input.get("mode") or "auto") in (
-            "marked",
-            "auto",
-        ):
+        if name == "mark_frame_with_bbox":
             response = _response_text(entry)
             frame_id_raw = tool_input.get("frame_id")
             frame_id = frame_id_raw if isinstance(frame_id_raw, int) else None
