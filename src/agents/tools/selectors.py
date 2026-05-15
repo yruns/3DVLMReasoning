@@ -4,12 +4,13 @@ from __future__ import annotations
 
 import json
 import math
+from pathlib import Path
 from typing import Any
 
 from langchain_core.tools import BaseTool, tool
 
 from agents.catalog import SceneCatalog
-from agents.runtime.scene_runtime import get_scene_catalog
+from agents.runtime.scene_runtime import get_scene_catalog, queue_pending_image_if_new
 from agents.tools.scene_perception import _gate
 
 
@@ -64,6 +65,14 @@ def _build_frame_payload(
     }
 
 
+def _resolve_raw_rgb_path(catalog: SceneCatalog, frame_id: int) -> Path | None:
+    for p in catalog.proposals:
+        view = p.frame_views.get(int(frame_id))
+        if view is not None and view.raw_rgb_path:
+            return Path(view.raw_rgb_path)
+    return None
+
+
 def build_selector_tools(runtime: Any) -> list[BaseTool]:
     @tool
     def select_by_text(
@@ -86,10 +95,13 @@ def build_selector_tools(runtime: Any) -> list[BaseTool]:
             err = "ERROR: runtime.keyframe_selector is None; cannot run Stage-1 text retrieval"
             runtime.record("select_by_text", request, err)
             return err
+        k_in = int(k)
+        capped = min(k_in, 3)
+        k_warning = "" if k_in == capped else f" (k capped at 3 from {k_in})"
         try:
             result = selector.select_keyframes_v2(
                 query=str(query),
-                k=int(k),
+                k=capped,
                 hidden_categories=list(hidden_categories or []),
                 use_visual_context=False,
             )
@@ -99,23 +111,28 @@ def build_selector_tools(runtime: Any) -> list[BaseTool]:
             return err
 
         catalog = get_scene_catalog(runtime)
-        frames = [
-            _build_frame_payload(
+        frames: list[dict] = []
+        for fid in (result.keyframe_indices or [])[:capped]:
+            base = _build_frame_payload(
                 runtime,
                 catalog,
                 int(fid),
-                selected_because=f"select_by_text(query={query!r})",
+                selected_because=f"select_by_text(query={query!r}){k_warning}",
                 hidden_categories=list(hidden_categories or []),
             )
-            for fid in (result.keyframe_indices or [])
-        ]
+            image_path = _resolve_raw_rgb_path(catalog, int(fid))
+            base["image_path"] = str(image_path) if image_path else None
+            queued = queue_pending_image_if_new(runtime, base["image_path"] or "")
+            base["already_seen"] = (not queued) and (base["image_path"] in runtime.seen_image_paths)
+            frames.append(base)
+
         summary = ""
         hyp = (result.metadata or {}).get("hypothesis_output")
         if isinstance(hyp, dict) and hyp.get("hypotheses"):
             first = hyp["hypotheses"][0]
             root = (first.get("grounding_query") or {}).get("root") or {}
             summary = f"target={root.get('category')!r} kind={first.get('kind', 'direct')}"
-        payload = {"hypothesis_summary": summary, "frames": frames}
+        payload = {"hypothesis_summary": summary + k_warning, "frames": frames}
         text = json.dumps(payload, ensure_ascii=False)
         runtime.record("select_by_text", request, text)
         return text

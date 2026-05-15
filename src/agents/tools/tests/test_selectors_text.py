@@ -1,91 +1,99 @@
-import json
+from __future__ import annotations
 
+import json
+from pathlib import Path
+from types import SimpleNamespace
+
+from PIL import Image
+
+from agents.catalog import FrameView, SceneCatalog, SceneProposal
+from agents.runtime.base import Stage2RuntimeState
 from agents.tools.selectors import build_selector_tools
-from agents.tools.tests._selector_fixtures import PRIMARY_SKILL, make_runtime
 
 
 class _FakeKeyframeSelector:
-    def __init__(self):
-        self.calls: list[tuple[str, int]] = []
+    def __init__(self, fids: list[int]) -> None:
+        self._fids = fids
 
-    def select_keyframes_v2(self, query, k=3, **kwargs):
-        self.calls.append((query, k))
-        from query_scene.keyframe_selector import KeyframeResult
-
-        return KeyframeResult(
-            query=query,
-            target_term="chair",
-            anchor_term=None,
-            keyframe_indices=[10, 20, 30],
-            keyframe_paths=[],
-            target_objects=[],
-            anchor_objects=[],
-            metadata={"hypothesis_output": {"hypotheses": [{"grounding_query": {"root": {"category": "chair"}}}]}},
+    def select_keyframes_v2(self, **_kwargs):
+        return SimpleNamespace(
+            keyframe_indices=list(self._fids),
+            metadata={"hypothesis_output": {"hypotheses": [
+                {"grounding_query": {"root": {"category": "chair"}}, "kind": "direct"}
+            ]}},
         )
 
 
-def _attach_selector(runtime):
-    runtime.keyframe_selector = _FakeKeyframeSelector()
-    return runtime.keyframe_selector
-
-
-def test_select_by_text_gates_on_skill():
-    rs = make_runtime()
-    rs.skills_loaded.discard(PRIMARY_SKILL)
-    tool = next(t for t in build_selector_tools(rs) if t.name == "select_by_text")
-    resp = tool.invoke({"query": "a chair"})
-    assert resp.startswith("ERROR")
-
-
-def test_select_by_text_calls_keyframe_selector_and_returns_frames():
-    rs = make_runtime()
-    fake = _attach_selector(rs)
-    tool = next(t for t in build_selector_tools(rs) if t.name == "select_by_text")
-    payload = json.loads(tool.invoke({"query": "a chair", "k": 3}))
-    assert fake.calls == [("a chair", 3)]
-    fids = [f["frame_id"] for f in payload["frames"]]
-    assert fids == [10, 20, 30]
-    assert payload["hypothesis_summary"]
-
-
-def test_select_by_text_attaches_visible_proposal_ids_from_catalog():
-    rs = make_runtime()
-    _attach_selector(rs)
-    tool = next(t for t in build_selector_tools(rs) if t.name == "select_by_text")
-    payload = json.loads(tool.invoke({"query": "a chair"}))
-    f10 = next(f for f in payload["frames"] if f["frame_id"] == 10)
-    assert sorted(f10["visible_proposal_ids"]) == [0, 2]
-
-
-def test_select_by_text_attaches_camera_pose_when_available():
-    rs = make_runtime()
-    _attach_selector(rs)
-    tool = next(t for t in build_selector_tools(rs) if t.name == "select_by_text")
-    payload = json.loads(tool.invoke({"query": "a chair"}))
-    f10 = next(f for f in payload["frames"] if f["frame_id"] == 10)
-    assert f10["bev_xy"] == [0.0, 0.0]
-    assert f10["camera_yaw"] == 0.0
-
-
-def test_select_by_text_filters_hidden_categories():
-    rs = make_runtime()
-    fake = _attach_selector(rs)
-    tool = next(t for t in build_selector_tools(rs) if t.name == "select_by_text")
-    payload = json.loads(
-        tool.invoke({"query": "a chair", "k": 3, "hidden_categories": ["chair"]})
+def _runtime(tmp_path: Path, fids: list[int]) -> Stage2RuntimeState:
+    bev_path = tmp_path / "bev.png"
+    Image.new("RGB", (10, 10), (255, 255, 255)).save(bev_path)
+    proposals: list[SceneProposal] = []
+    for idx, fid in enumerate(fids):
+        rgb = tmp_path / f"frame_{fid}.png"
+        Image.new("RGB", (320, 240), (200, 200, 200)).save(rgb)
+        proposals.append(
+            SceneProposal(
+                proposal_id=10 + idx,
+                category="chair",
+                position_3d=(0.0, 0.0, 0.0),
+                source="mask3d",
+                frame_views={fid: FrameView(frame_id=fid, raw_rgb_path=str(rgb), bbox_2d=(0, 0, 20, 20))},
+            )
+        )
+    catalog = SceneCatalog(
+        scene_id="s",
+        proposals=proposals,
+        total_frames=max(fids) + 1,
+        frame_id_range=(0, max(fids)),
+        valid_frame_ids=list(fids),
+        bev_image_path=str(bev_path),
     )
-    # Stage 1 still returned 3 frames; selector strips chair from visible_proposal_ids
-    for frame in payload["frames"]:
-        assert 0 not in frame["visible_proposal_ids"]
-        assert 1 not in frame["visible_proposal_ids"]
-    # And Stage 1 was called with hidden categories
-    assert fake.calls and fake.calls[0][0] == "a chair"
+    bundle = SimpleNamespace(
+        extra_metadata={
+            "scene_catalog": catalog.model_dump(),
+            "vg_pending_images": [],
+            "camera_trajectory_xy_yaw": {f: [float(f), float(f), 0.0] for f in fids},
+        }
+    )
+    rs = Stage2RuntimeState(bundle=bundle)
+    rs.seen_image_paths = set()
+    rs.skills_loaded = {"scene-exploration-playbook"}
+    rs.keyframe_selector = _FakeKeyframeSelector(fids)
+    return rs
 
 
-def test_select_by_text_missing_keyframe_selector_errors():
-    rs = make_runtime()
-    rs.keyframe_selector = None
+def test_select_by_text_returns_image_paths_and_queues_them(tmp_path: Path):
+    rs = _runtime(tmp_path, fids=[1, 2, 3])
     tool = next(t for t in build_selector_tools(rs) if t.name == "select_by_text")
-    resp = tool.invoke({"query": "a chair"})
-    assert resp.startswith("ERROR")
-    assert "keyframe_selector" in resp
+    raw = tool.invoke({"query": "wooden chair"})
+    payload = json.loads(raw)
+    assert len(payload["frames"]) == 3
+    for frame, fid in zip(payload["frames"], [1, 2, 3]):
+        assert frame["frame_id"] == fid
+        assert "image_path" in frame
+        assert frame["already_seen"] is False
+    pending = rs.bundle.extra_metadata["vg_pending_images"]
+    assert len(pending) == 3
+
+
+def test_select_by_text_caps_k_at_3(tmp_path: Path):
+    rs = _runtime(tmp_path, fids=[1, 2, 3, 4, 5])
+    tool = next(t for t in build_selector_tools(rs) if t.name == "select_by_text")
+    raw = tool.invoke({"query": "chair", "k": 5})
+    payload = json.loads(raw)
+    assert len(payload["frames"]) == 3
+    assert "k capped at 3" in raw.lower()
+
+
+def test_select_by_text_marks_already_seen(tmp_path: Path):
+    rs = _runtime(tmp_path, fids=[1, 2])
+    seen_path = str(tmp_path / "frame_1.png")
+    rs.seen_image_paths.add(seen_path)
+    tool = next(t for t in build_selector_tools(rs) if t.name == "select_by_text")
+    raw = tool.invoke({"query": "chair"})
+    payload = json.loads(raw)
+    by_fid = {f["frame_id"]: f for f in payload["frames"]}
+    assert by_fid[1]["already_seen"] is True
+    assert by_fid[2]["already_seen"] is False
+    pending = rs.bundle.extra_metadata["vg_pending_images"]
+    assert pending == [str(tmp_path / "frame_2.png")]
