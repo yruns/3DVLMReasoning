@@ -40,6 +40,27 @@ def _crop_to_non_white(
     return img[y_min:y_max, x_min:x_max], (x_min, y_min)
 
 
+def _stack_overlapping_anchors(
+    anchors: list[tuple[int, int]],
+    *,
+    ref_w: int,
+    ref_h: int,
+    gap_px: int = 6,
+) -> list[tuple[int, int]]:
+    """Nudge labels whose anchor (u, v) sits within (ref_w, ref_h) of a prior
+    placed anchor downward by ``ref_h + gap_px`` until separable."""
+    out: list[tuple[int, int]] = []
+    for u, v in anchors:
+        offset = 0
+        while any(
+            abs(u - ou) <= ref_w and abs(v + offset - ov) <= ref_h
+            for ou, ov in out
+        ):
+            offset += ref_h + gap_px
+        out.append((u, v + offset))
+    return out
+
+
 @dataclass(frozen=True)
 class SceneBEVConfig:
     image_size: int = 1500
@@ -56,6 +77,7 @@ class SceneBEVConfig:
     crop_margin: int = 8
     label_font_scale: float = 0.85
     label_font_thickness: int = 2
+    label_declutter_gap_px: int = 6
 
 
 class ScanNetSceneBEVBuilderBase(ABC):
@@ -366,6 +388,11 @@ class ScanNetSceneBEVBuilderBase(ABC):
         highlight_set: set[int] = (
             set(highlight_ids) if highlight_ids is not None else set()
         )
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        scale = self.config.label_font_scale
+        thickness = self.config.label_font_thickness
+
+        items: list[tuple[SceneProposal, int, int, bool]] = []
         for proposal in proposals:
             if highlight_ids is not None and proposal.proposal_id not in highlight_set:
                 continue
@@ -383,13 +410,25 @@ class ScanNetSceneBEVBuilderBase(ABC):
                 else self.config.label_color_default
             )
             cv2.circle(img, (u, v), self.config.proposal_marker_radius, color, -1)
+            items.append((proposal, u, v, highlighted))
+
+        if not items:
+            return img
+
+        longest_cat = max((p.category for p, _, _, _ in items), key=len)
+        (ref_w, ref_h), _ = cv2.getTextSize(longest_cat, font, scale, thickness)
+        stacked = _stack_overlapping_anchors(
+            [(u, v) for _, u, v, _ in items],
+            ref_w=ref_w,
+            ref_h=ref_h,
+            gap_px=self.config.label_declutter_gap_px,
+        )
+
+        for (proposal, _u, _v, highlighted), (us, vs) in zip(items, stacked):
             label = f"#{proposal.proposal_id} {proposal.category}"
-            font = cv2.FONT_HERSHEY_SIMPLEX
-            scale = self.config.label_font_scale
-            thickness = self.config.label_font_thickness
             (tw, th), baseline = cv2.getTextSize(label, font, scale, thickness)
-            text_org = (u + 6, v - 6)
-            bg = (
+            text_org = (us + 6, vs - 6)
+            bg_rect = (
                 text_org[0] - 4,
                 text_org[1] - th - 4,
                 text_org[0] + tw + 4,
@@ -397,8 +436,8 @@ class ScanNetSceneBEVBuilderBase(ABC):
             )
             cv2.rectangle(
                 img,
-                (bg[0], bg[1]),
-                (bg[2], bg[3]),
+                (bg_rect[0], bg_rect[1]),
+                (bg_rect[2], bg_rect[3]),
                 self.config.label_bg_highlight if highlighted else self.config.label_bg_default,
                 -1,
             )

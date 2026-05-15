@@ -44,7 +44,8 @@ def test_overlay_proposal_labels_draws_id_and_category(tmp_path: Path):
 
 def test_overlay_proposal_labels_highlight_subset_draws_fewer(tmp_path: Path):
     builder = _DummyBuilder(config=SceneBEVConfig(image_size=400))
-    img = np.full((400, 400, 3), 255, dtype=np.uint8)
+    # Off-white canvas so default white label panels register; pure white hides them.
+    img = np.full((400, 400, 3), 240, dtype=np.uint8)
     proposals = [
         SceneProposal(proposal_id=1, category="chair", position_3d=(0.5, 0.5, 0.0), source="mask3d"),
         SceneProposal(proposal_id=2, category="chair", position_3d=(0.0, 0.0, 0.0), source="mask3d"),
