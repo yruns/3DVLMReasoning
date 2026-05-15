@@ -61,6 +61,66 @@ def _stack_overlapping_anchors(
     return out
 
 
+def _view_params_path(png_path: Path) -> Path:
+    """Sidecar JSON path for a cached/output BEV PNG.
+
+    ``scene_bev_<hash>.png`` -> ``scene_bev_<hash>.view.json``. The sidecar
+    persists the perspective camera (R, t, f, c, image_size, crop_offset)
+    used to draw labels on the base BEV, so highlight overlays can reuse the
+    SAME projection (see ``_render_highlighted_bev``).
+    """
+    return png_path.with_suffix(".view.json")
+
+
+def _save_view_params(view: dict | tuple, path: Path) -> None:
+    """Serialise a ``view`` (perspective dict or linear-bounds tuple) to JSON.
+
+    Numpy arrays / tuples inside a dict view are converted to plain lists so
+    the JSON encoder accepts them. Linear-bounds tuples (test path that
+    doesn't spin up open3d) are saved as a 4-element list at the top level.
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if isinstance(view, dict):
+        payload: dict = {}
+        for key, value in view.items():
+            if isinstance(value, np.ndarray):
+                payload[key] = value.tolist()
+            elif isinstance(value, tuple):
+                payload[key] = list(value)
+            else:
+                payload[key] = value
+        path.write_text(json.dumps(payload), encoding="utf-8")
+        return
+    path.write_text(json.dumps(list(view)), encoding="utf-8")
+
+
+def _load_view_params(path: Path) -> dict:
+    """Read a sidecar JSON written by ``_save_view_params``.
+
+    Returns a dict with ``R`` / ``t`` rehydrated as ``np.ndarray`` so the
+    perspective branch of ``_project_centroid`` accepts the view unchanged.
+    ``crop_offset`` is left as a list (the projection code only indexes it).
+    Raises ``FileNotFoundError`` when the sidecar is missing so callers can
+    fail fast.
+    """
+    if not path.exists():
+        raise FileNotFoundError(f"view_params sidecar missing: {path}")
+    raw = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(raw, dict):
+        raise ValueError(
+            f"view_params sidecar at {path} is not a perspective view dict "
+            f"(got {type(raw).__name__}); highlight overlay requires the "
+            "perspective camera written by _render_mesh_with_traj"
+        )
+    out: dict = {}
+    for key, value in raw.items():
+        if key in ("R", "t") and isinstance(value, list):
+            out[key] = np.asarray(value, dtype=np.float64)
+        else:
+            out[key] = value
+    return out
+
+
 @dataclass(frozen=True)
 class SceneBEVConfig:
     image_size: int = 1500
@@ -203,10 +263,12 @@ class ScanNetSceneBEVBuilderBase(ABC):
 
         When ``use_cache`` is True (default), the renderer first checks the
         per-scene cache directory for an image whose filename matches the
-        current (config, proposals, highlights) tuple. If a hit is found, that
-        path is copied to ``output_path`` and returned. Otherwise the BEV is
-        rendered fresh and written to BOTH ``output_path`` and the cache slot
-        so the next caller in this scene benefits from the warm cache.
+        current (config, proposals, highlights) tuple. A cache hit requires
+        BOTH the PNG and its ``*.view.json`` sidecar (perspective camera) to
+        exist; if either is missing the BEV is re-rendered. On a fresh render
+        the PNG and sidecar are written to both ``output_path`` and the cache
+        slot so subsequent highlight overlays can re-project labels through
+        the same camera.
         """
         cache_target = self.cache_path(
             scene_id=scene_id,
@@ -214,10 +276,16 @@ class ScanNetSceneBEVBuilderBase(ABC):
             proposals=proposals,
             highlight_ids=highlight_ids,
         )
+        cache_view_target = _view_params_path(cache_target)
+        output_view_path = _view_params_path(output_path)
         output_path.parent.mkdir(parents=True, exist_ok=True)
-        if use_cache and cache_target.exists():
+        if use_cache and cache_target.exists() and cache_view_target.exists():
             if cache_target.resolve() != output_path.resolve():
                 output_path.write_bytes(cache_target.read_bytes())
+            if cache_view_target.resolve() != output_view_path.resolve():
+                output_view_path.write_text(
+                    cache_view_target.read_text(encoding="utf-8"), encoding="utf-8"
+                )
             logger.info(
                 f"[scene_bev] cache hit for scene_id={scene_id}: {cache_target.name}"
             )
@@ -244,9 +312,11 @@ class ScanNetSceneBEVBuilderBase(ABC):
         )
         bgr = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
         cv2.imwrite(str(output_path), bgr)
+        _save_view_params(scene_bounds, output_view_path)
         if use_cache:
             cache_target.parent.mkdir(parents=True, exist_ok=True)
             cv2.imwrite(str(cache_target), bgr)
+            _save_view_params(scene_bounds, cache_view_target)
         logger.info(
             f"[scene_bev] rendered scene_id={scene_id} -> {output_path}"
             f"{' + cached ' + cache_target.name if use_cache else ''}"
@@ -604,3 +674,4 @@ __all__ += ["Nr3dScanNetBEVBuilder"]
 __all__ += ["ScanReferScanNetBEVBuilder"]
 __all__ += ["OpenEqaScanNetBEVBuilder"]
 __all__ += ["Sqa3dScanNetBEVBuilder"]
+__all__ += ["_view_params_path", "_save_view_params", "_load_view_params"]

@@ -28,37 +28,46 @@ def _in_bev_box(position_3d: tuple[float, float, float], box: list[float]) -> bo
 
 
 def _render_highlighted_bev(catalog, highlight_ids: list[int], output_path: Path) -> Path:
-    """Render a focused BEV. Uses the legacy unmodified BEV as a backdrop and
-    overlays only the highlighted proposal labels via the v9 BEV builder.
+    """Render a highlight overlay using the SAME perspective view params as the base BEV.
 
-    Implemented as a thin function so tests can monkeypatch it without touching
-    open3d / cv2 / mesh assets.
+    Reads the persisted ``view_params`` sidecar (``*.view.json``) that
+    ``build_with_labels`` wrote next to the base BEV PNG, loads the cached
+    PNG as the backdrop, and re-runs ``_overlay_proposal_labels`` through
+    the perspective branch of ``_project_centroid``. No mesh re-render —
+    this is purely a label refresh that lands on the same pixels as the
+    original BEV. See Task 18 of the v9.1 plan.
     """
     import cv2
 
     from query_scene.scene_bev_builder import (
         ScanNetSceneBEVBuilderBase,
         SceneBEVConfig,
+        _load_view_params,
+        _view_params_path,
     )
 
-    class _BackdropBuilder(ScanNetSceneBEVBuilderBase):
+    base_png = Path(catalog.bev_image_path)
+    view_path = _view_params_path(base_png)
+    if not view_path.exists():
+        raise FileNotFoundError(
+            f"view_params sidecar missing for base BEV {base_png}; "
+            "rerun pack-prep so build_with_labels writes the .view.json sidecar"
+        )
+    view = _load_view_params(view_path)
+
+    class _Backdrop(ScanNetSceneBEVBuilderBase):
         benchmark = "backdrop"
 
         def resolve_paths(self, scene_id, data_root):
             raise NotImplementedError
 
-    base = cv2.imread(str(catalog.bev_image_path))
+    base = cv2.imread(str(base_png))
     if base is None:
-        raise FileNotFoundError(
-            f"backing BEV image not readable: {catalog.bev_image_path}"
-        )
+        raise FileNotFoundError(f"backing BEV image not readable: {base_png}")
     img = cv2.cvtColor(base, cv2.COLOR_BGR2RGB)
-    builder = _BackdropBuilder(config=SceneBEVConfig(image_size=img.shape[1]))
-    xs = [p.position_3d[0] for p in catalog.proposals] or [0.0, 1.0]
-    ys = [p.position_3d[1] for p in catalog.proposals] or [0.0, 1.0]
-    scene_bounds = (min(xs), min(ys), max(xs), max(ys))
+    builder = _Backdrop(config=SceneBEVConfig(image_size=img.shape[1]))
     out = builder._overlay_proposal_labels(
-        img, catalog.proposals, scene_bounds, list(highlight_ids)
+        img, catalog.proposals, view, list(highlight_ids)
     )
     output_path.parent.mkdir(parents=True, exist_ok=True)
     cv2.imwrite(str(output_path), cv2.cvtColor(out, cv2.COLOR_RGB2BGR))

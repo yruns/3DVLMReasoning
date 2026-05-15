@@ -104,7 +104,11 @@ def test_build_with_labels_cache_hit_skips_render(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ):
     """If a BEV with matching render_hash exists in <scene>/bev_cache/, the
-    builder must NOT call _render_mesh_with_traj again."""
+    builder must NOT call _render_mesh_with_traj again. The cache slot is
+    only considered complete when both the PNG and its ``.view.json``
+    sidecar (perspective camera) exist; see Task 18."""
+    from query_scene.scene_bev_builder import _view_params_path
+
     class CachingBuilder(_DummyBuilder):
         def __init__(self):
             super().__init__(config=SceneBEVConfig(image_size=200))
@@ -122,7 +126,6 @@ def test_build_with_labels_cache_hit_skips_render(
     proposals = [
         SceneProposal(proposal_id=7, category="chair", position_3d=(0, 0, 0), source="mask3d"),
     ]
-    # Pre-populate the cache slot with a dummy PNG.
     cache_target = builder.cache_path(
         scene_id="scene_x",
         data_root=tmp_path,
@@ -131,6 +134,10 @@ def test_build_with_labels_cache_hit_skips_render(
     )
     cache_target.parent.mkdir(parents=True, exist_ok=True)
     cache_target.write_bytes(b"\x89PNG\r\n\x1a\nCACHED")
+    _view_params_path(cache_target).write_text(
+        '{"R": [[1,0,0],[0,1,0],[0,0,1]], "t": [0,0,1], "f": 1.0, '
+        '"c": 100.0, "image_size": 200, "crop_offset": [0, 0]}'
+    )
 
     out = tmp_path / "scene_x" / "bev_out.png"
     result = builder.build_with_labels(
@@ -142,12 +149,14 @@ def test_build_with_labels_cache_hit_skips_render(
     assert result == out
     assert out.read_bytes() == b"\x89PNG\r\n\x1a\nCACHED"
     assert builder.render_calls == 0
-    # Cache filename pattern check.
+    assert _view_params_path(out).exists(), "sidecar must also be copied to output_path"
     assert cache_target.name.startswith("scene_bev_")
     assert cache_target.name.endswith(".png")
 
 
 def test_build_with_labels_cache_miss_writes_both(tmp_path: Path):
+    from query_scene.scene_bev_builder import _view_params_path
+
     class TinyBuilder(_DummyBuilder):
         def __init__(self):
             super().__init__(config=SceneBEVConfig(image_size=200))
@@ -184,3 +193,8 @@ def test_build_with_labels_cache_miss_writes_both(tmp_path: Path):
         proposals=proposals, highlight_ids=None,
     )
     assert cache_target.exists(), "cache slot must also be written on miss"
+    assert _view_params_path(cache_target).exists(), (
+        "view_params sidecar must accompany the cached PNG so highlight "
+        "overlays can reuse the perspective camera (Task 18)"
+    )
+    assert _view_params_path(out).exists(), "sidecar must also sit next to output_path"
