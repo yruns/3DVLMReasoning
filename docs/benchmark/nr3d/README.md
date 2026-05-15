@@ -13,6 +13,7 @@ the current human-facing index.
 | [depth_visibility_rebuild_20260513.md](depth_visibility_rebuild_20260513.md) | Root-cause record and rebuild summary for depth-aware NR3D visibility indices. |
 | [depth_visibility_spotcheck_20260513.html](depth_visibility_spotcheck_20260513.html) | Visual spotcheck frames rendered from rebuilt depth-aware `view_to_objects`. |
 | [v9_1_selectors_return_images_20260515.md](v9_1_selectors_return_images_20260515.md) | v9.1 selectors-return-RGB + mark_frame_with_bbox + BEV fixes (Overall **81.00**, Hard **79.66**) — **−5 pp regression** vs v9 clean; tool surface correct, params need tuning. |
+| [v9_1_selectors_return_images_trace_20260515.html](v9_1_selectors_return_images_trace_20260515.html) | Static VG agent trace viewer for 2 correct + 2 failed v9.1 random100 cases. |
 | [v9_catalog_first_20260515.md](v9_catalog_first_20260515.md) | v9 catalog-first random100 pilot, leak-fixed (Overall **86.00**, Hard **81.36**). |
 | [v9_selective_mark_random100](v9_selective_mark_random100_20260514.md) | Latest clean-initial + selective marked-image random100 pilot. |
 | [v9_selective_mark_trace_2t2f_20260514.html](v9_selective_mark_trace_2t2f_20260514.html) | Static VG agent trace viewer for 2 correct and 2 failed v9 random100 cases. |
