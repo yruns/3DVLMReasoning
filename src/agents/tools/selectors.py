@@ -343,6 +343,9 @@ def build_selector_tools(runtime: Any) -> list[BaseTool]:
             err = f"ERROR: region_type must be 'bev_2d' or 'bbox_3d'; got {region_type!r}"
             runtime.record("select_by_region", request, err)
             return err
+        k_in = int(k)
+        capped = min(k_in, 3)
+        k_warning = "" if k_in == capped else f" (k capped at 3 from {k_in})"
         if region_type == "bev_2d":
             if len(region) != 4:
                 err = "ERROR: bev_2d region must be [xmin, ymin, xmax, ymax]"
@@ -357,7 +360,7 @@ def build_selector_tools(runtime: Any) -> list[BaseTool]:
                     continue
                 if xmin <= pose[0] <= xmax and ymin <= pose[1] <= ymax:
                     chosen.append(fid)
-                    if len(chosen) >= int(k):
+                    if len(chosen) >= capped:
                         break
         else:
             if len(region) != 6:
@@ -378,16 +381,19 @@ def build_selector_tools(runtime: Any) -> list[BaseTool]:
             for fid, props in frame_to_props.items():
                 if any(pid in inside_proposals for pid in props):
                     chosen_set.add(int(fid))
-            chosen = sorted(chosen_set)[: int(k)]
-        catalog = get_scene_catalog(runtime)
-        frames = [
-            _build_frame_payload(
+            chosen = sorted(chosen_set)[:capped]
+        frames: list[dict] = []
+        for fid in chosen:
+            base = _build_frame_payload(
                 runtime, catalog, int(fid),
-                selected_because=f"select_by_region(type={region_type!r})",
+                selected_because=f"select_by_region(type={region_type!r}){k_warning}",
                 hidden_categories=[],
             )
-            for fid in chosen
-        ]
+            image_path = _resolve_raw_rgb_path(catalog, int(fid))
+            base["image_path"] = str(image_path) if image_path else None
+            queued = queue_pending_image_if_new(runtime, base["image_path"] or "")
+            base["already_seen"] = (not queued) and (base["image_path"] in runtime.seen_image_paths)
+            frames.append(base)
         payload = {"hypothesis_summary": "", "frames": frames}
         text = json.dumps(payload, ensure_ascii=False)
         runtime.record("select_by_region", request, text)
