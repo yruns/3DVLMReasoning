@@ -1,0 +1,3558 @@
+{
+  "config": {
+    "sample_ids": "tmp/nr3d_artifacts/v4_agent_guards_fair_views_random100_sample_ids.json",
+    "data_root": "data/nr3d/scannet",
+    "pack_name": "pack_nr3d_v1",
+    "llm_model": "gemini-2.5-pro",
+    "k_values": [
+      1,
+      3,
+      5,
+      10
+    ],
+    "use_visual_context": false
+  },
+  "wall_clock_s": 2208.6,
+  "summary": {
+    "n_total": 100,
+    "n_measurable": 100,
+    "n_unmeasurable_no_gt_frames": 0,
+    "n_error": 0,
+    "hit_at_1": 0.47,
+    "mean_recall_at_1": 0.47,
+    "hit_at_3": 0.55,
+    "mean_recall_at_3": 0.42,
+    "hit_at_5": 0.55,
+    "mean_recall_at_5": 0.284,
+    "hit_at_10": 0.55,
+    "mean_recall_at_10": 0.146,
+    "mean_first_hit_rank_when_hit_at_10": 1.164,
+    "hit_at_1_easy_cov>=0.10": 0.5,
+    "hit_at_3_easy_cov>=0.10": 0.561,
+    "hit_at_5_easy_cov>=0.10": 0.561,
+    "hit_at_10_easy_cov>=0.10": 0.561,
+    "n_easy": 82,
+    "hit_at_1_hard_cov<0.10": 0.3333,
+    "hit_at_3_hard_cov<0.10": 0.5,
+    "hit_at_5_hard_cov<0.10": 0.5,
+    "hit_at_10_hard_cov<0.10": 0.5,
+    "n_hard": 18,
+    "mean_gt_coverage": 0.2097
+  },
+  "samples": [
+    {
+      "sample_id": "scannet/scene0011_00::20::19023",
+      "scene_id": "scene0011_00",
+      "target_id": 20,
+      "category": "cabinet",
+      "query": "cabinet touching the wall farthest from entrance door",
+      "gt_frame_count": 42,
+      "valid_frame_count": 238,
+      "gt_coverage": 0.17647058823529413,
+      "latency_s": 27.199,
+      "target_term": "cabinet",
+      "anchor_term": null,
+      "parse_status": "no_evidence",
+      "parse_mode": "single",
+      "hypothesis_count": 1,
+      "pred_top_k": [],
+      "hit_at_K": {
+        "1": 0,
+        "3": 0,
+        "5": 0,
+        "10": 0
+      },
+      "recall_at_K": {
+        "1": 0.0,
+        "3": 0.0,
+        "5": 0.0,
+        "10": 0.0
+      },
+      "first_hit_rank": null,
+      "n_pred_in_gt": 0,
+      "unmeasurable": false
+    },
+    {
+      "sample_id": "scannet/scene0025_00::10::39342",
+      "scene_id": "scene0025_00",
+      "target_id": 10,
+      "category": "desk",
+      "query": "The desk that takes up most of the room",
+      "gt_frame_count": 88,
+      "valid_frame_count": 195,
+      "gt_coverage": 0.4512820512820513,
+      "latency_s": 12.75,
+      "target_term": "desk",
+      "anchor_term": null,
+      "parse_status": "direct_grounded",
+      "parse_mode": "single",
+      "hypothesis_count": 1,
+      "pred_top_k": [
+        175,
+        5,
+        102
+      ],
+      "hit_at_K": {
+        "1": 0,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "recall_at_K": {
+        "1": 0.0,
+        "3": 0.6666666666666666,
+        "5": 0.4,
+        "10": 0.2
+      },
+      "first_hit_rank": 2,
+      "n_pred_in_gt": 2,
+      "unmeasurable": false
+    },
+    {
+      "sample_id": "scannet/scene0025_00::30::25001",
+      "scene_id": "scene0025_00",
+      "target_id": 30,
+      "category": "keyboard",
+      "query": "The black keyboard.",
+      "gt_frame_count": 27,
+      "valid_frame_count": 195,
+      "gt_coverage": 0.13846153846153847,
+      "latency_s": 10.232,
+      "target_term": "computer keyboard",
+      "anchor_term": null,
+      "parse_status": "direct_grounded",
+      "parse_mode": "single",
+      "hypothesis_count": 1,
+      "pred_top_k": [
+        179,
+        180,
+        177
+      ],
+      "hit_at_K": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "recall_at_K": {
+        "1": 1.0,
+        "3": 1.0,
+        "5": 0.6,
+        "10": 0.3
+      },
+      "first_hit_rank": 1,
+      "n_pred_in_gt": 3,
+      "unmeasurable": false
+    },
+    {
+      "sample_id": "scannet/scene0025_00::32::23687",
+      "scene_id": "scene0025_00",
+      "target_id": 32,
+      "category": "cup",
+      "query": "the cup is closer to the black mouse",
+      "gt_frame_count": 46,
+      "valid_frame_count": 195,
+      "gt_coverage": 0.2358974358974359,
+      "latency_s": 22.102,
+      "target_term": "cup",
+      "anchor_term": null,
+      "parse_status": "proxy_grounded",
+      "parse_mode": "multi",
+      "hypothesis_count": 3,
+      "pred_top_k": [
+        180,
+        5,
+        102
+      ],
+      "hit_at_K": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "recall_at_K": {
+        "1": 1.0,
+        "3": 1.0,
+        "5": 0.6,
+        "10": 0.3
+      },
+      "first_hit_rank": 1,
+      "n_pred_in_gt": 3,
+      "unmeasurable": false
+    },
+    {
+      "sample_id": "scannet/scene0030_00::19::5859",
+      "scene_id": "scene0030_00",
+      "target_id": 19,
+      "category": "bookshelf",
+      "query": "The small bookshelf by the chalkboard and window",
+      "gt_frame_count": 73,
+      "valid_frame_count": 250,
+      "gt_coverage": 0.292,
+      "latency_s": 16.036,
+      "target_term": "bookshelf",
+      "anchor_term": "chalkboard",
+      "parse_status": "direct_grounded",
+      "parse_mode": "single",
+      "hypothesis_count": 1,
+      "pred_top_k": [
+        46,
+        153,
+        172,
+        186,
+        205
+      ],
+      "hit_at_K": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "recall_at_K": {
+        "1": 1.0,
+        "3": 0.6666666666666666,
+        "5": 0.8,
+        "10": 0.4
+      },
+      "first_hit_rank": 1,
+      "n_pred_in_gt": 4,
+      "unmeasurable": false
+    },
+    {
+      "sample_id": "scannet/scene0063_00::3::7745",
+      "scene_id": "scene0063_00",
+      "target_id": 3,
+      "category": "microwave",
+      "query": "microwave on the small wood table.",
+      "gt_frame_count": 8,
+      "valid_frame_count": 57,
+      "gt_coverage": 0.14035087719298245,
+      "latency_s": 16.272,
+      "target_term": "microwave",
+      "anchor_term": "table",
+      "parse_status": "direct_grounded",
+      "parse_mode": "single",
+      "hypothesis_count": 1,
+      "pred_top_k": [
+        3,
+        10,
+        4
+      ],
+      "hit_at_K": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "recall_at_K": {
+        "1": 1.0,
+        "3": 0.6666666666666666,
+        "5": 0.4,
+        "10": 0.2
+      },
+      "first_hit_rank": 1,
+      "n_pred_in_gt": 2,
+      "unmeasurable": false
+    },
+    {
+      "sample_id": "scannet/scene0084_00::35::19742",
+      "scene_id": "scene0084_00",
+      "target_id": 35,
+      "category": "toilet paper",
+      "query": "the toilet paper roll on the right side of the room.",
+      "gt_frame_count": 41,
+      "valid_frame_count": 198,
+      "gt_coverage": 0.20707070707070707,
+      "latency_s": 27.122,
+      "target_term": "toilet paper rolls",
+      "anchor_term": "accessible bathroom stall",
+      "parse_status": "proxy_grounded",
+      "parse_mode": "multi",
+      "hypothesis_count": 3,
+      "pred_top_k": [
+        113,
+        28,
+        89,
+        117
+      ],
+      "hit_at_K": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "recall_at_K": {
+        "1": 1.0,
+        "3": 0.3333333333333333,
+        "5": 0.4,
+        "10": 0.2
+      },
+      "first_hit_rank": 1,
+      "n_pred_in_gt": 2,
+      "unmeasurable": false
+    },
+    {
+      "sample_id": "scannet/scene0084_00::44::13751",
+      "scene_id": "scene0084_00",
+      "target_id": 44,
+      "category": "rail",
+      "query": "Choose the horizontal rail under the shower head",
+      "gt_frame_count": 38,
+      "valid_frame_count": 198,
+      "gt_coverage": 0.1919191919191919,
+      "latency_s": 19.609,
+      "target_term": "shower control valve",
+      "anchor_term": null,
+      "parse_status": "context_only",
+      "parse_mode": "multi",
+      "hypothesis_count": 3,
+      "pred_top_k": [
+        90,
+        77,
+        73
+      ],
+      "hit_at_K": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "recall_at_K": {
+        "1": 1.0,
+        "3": 1.0,
+        "5": 0.6,
+        "10": 0.3
+      },
+      "first_hit_rank": 1,
+      "n_pred_in_gt": 3,
+      "unmeasurable": false
+    },
+    {
+      "sample_id": "scannet/scene0095_00::24::39202",
+      "scene_id": "scene0095_00",
+      "target_id": 24,
+      "category": "mouse",
+      "query": "The mouse close to the two chairs in the corner",
+      "gt_frame_count": 43,
+      "valid_frame_count": 163,
+      "gt_coverage": 0.26380368098159507,
+      "latency_s": 32.809,
+      "target_term": "computer mouse",
+      "anchor_term": "Side chair",
+      "parse_status": "proxy_grounded",
+      "parse_mode": "multi",
+      "hypothesis_count": 3,
+      "pred_top_k": [
+        59,
+        27,
+        30,
+        133,
+        26
+      ],
+      "hit_at_K": {
+        "1": 0,
+        "3": 0,
+        "5": 0,
+        "10": 0
+      },
+      "recall_at_K": {
+        "1": 0.0,
+        "3": 0.0,
+        "5": 0.0,
+        "10": 0.0
+      },
+      "first_hit_rank": null,
+      "n_pred_in_gt": 0,
+      "unmeasurable": false
+    },
+    {
+      "sample_id": "scannet/scene0095_00::28::8465",
+      "scene_id": "scene0095_00",
+      "target_id": 28,
+      "category": "keyboard",
+      "query": "Look at the desk with the keyboards on it so that you can see the two windows behind the desk. You will see that there are 4 selected keyboards on the long side of this desk. If you count from left to right, you will choose the third keyboard. This is the keyboard which also appears to be in the middle most part of the desk.",
+      "gt_frame_count": 42,
+      "valid_frame_count": 163,
+      "gt_coverage": 0.25766871165644173,
+      "latency_s": 23.346,
+      "target_term": "Apple keyboard",
+      "anchor_term": null,
+      "parse_status": "no_evidence",
+      "parse_mode": "single",
+      "hypothesis_count": 1,
+      "pred_top_k": [],
+      "hit_at_K": {
+        "1": 0,
+        "3": 0,
+        "5": 0,
+        "10": 0
+      },
+      "recall_at_K": {
+        "1": 0.0,
+        "3": 0.0,
+        "5": 0.0,
+        "10": 0.0
+      },
+      "first_hit_rank": null,
+      "n_pred_in_gt": 0,
+      "unmeasurable": false
+    },
+    {
+      "sample_id": "scannet/scene0095_00::46::33663",
+      "scene_id": "scene0095_00",
+      "target_id": 46,
+      "category": "whiteboard",
+      "query": "When standing in the middle of room looking at the whiteboards the correct one is on the right.",
+      "gt_frame_count": 12,
+      "valid_frame_count": 163,
+      "gt_coverage": 0.0736196319018405,
+      "latency_s": 18.176,
+      "target_term": "wall-mounted whiteboard",
+      "anchor_term": null,
+      "parse_status": "direct_grounded",
+      "parse_mode": "single",
+      "hypothesis_count": 1,
+      "pred_top_k": [
+        91,
+        101,
+        85
+      ],
+      "hit_at_K": {
+        "1": 0,
+        "3": 0,
+        "5": 0,
+        "10": 0
+      },
+      "recall_at_K": {
+        "1": 0.0,
+        "3": 0.0,
+        "5": 0.0,
+        "10": 0.0
+      },
+      "first_hit_rank": null,
+      "n_pred_in_gt": 0,
+      "unmeasurable": false
+    },
+    {
+      "sample_id": "scannet/scene0100_00::19::16619",
+      "scene_id": "scene0100_00",
+      "target_id": 19,
+      "category": "cup",
+      "query": "The cup that is the closest to the sink.",
+      "gt_frame_count": 25,
+      "valid_frame_count": 102,
+      "gt_coverage": 0.24509803921568626,
+      "latency_s": 10.986,
+      "target_term": "cup",
+      "anchor_term": null,
+      "parse_status": "direct_grounded",
+      "parse_mode": "single",
+      "hypothesis_count": 1,
+      "pred_top_k": [
+        18,
+        16,
+        17
+      ],
+      "hit_at_K": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "recall_at_K": {
+        "1": 1.0,
+        "3": 1.0,
+        "5": 0.6,
+        "10": 0.3
+      },
+      "first_hit_rank": 1,
+      "n_pred_in_gt": 3,
+      "unmeasurable": false
+    },
+    {
+      "sample_id": "scannet/scene0131_00::30::33154",
+      "scene_id": "scene0131_00",
+      "target_id": 30,
+      "category": "computer tower",
+      "query": "Facing the picture with blue sky, clouds and yellow flowers, choose the computer tower furthest to the right of the room.",
+      "gt_frame_count": 12,
+      "valid_frame_count": 108,
+      "gt_coverage": 0.1111111111111111,
+      "latency_s": 16.498,
+      "target_term": "computer tower",
+      "anchor_term": null,
+      "parse_status": "direct_grounded",
+      "parse_mode": "single",
+      "hypothesis_count": 1,
+      "pred_top_k": [
+        59,
+        48,
+        49
+      ],
+      "hit_at_K": {
+        "1": 0,
+        "3": 0,
+        "5": 0,
+        "10": 0
+      },
+      "recall_at_K": {
+        "1": 0.0,
+        "3": 0.0,
+        "5": 0.0,
+        "10": 0.0
+      },
+      "first_hit_rank": null,
+      "n_pred_in_gt": 0,
+      "unmeasurable": false
+    },
+    {
+      "sample_id": "scannet/scene0144_00::3::5034",
+      "scene_id": "scene0144_00",
+      "target_id": 3,
+      "category": "chair",
+      "query": "The chair closest to the bed.",
+      "gt_frame_count": 65,
+      "valid_frame_count": 144,
+      "gt_coverage": 0.4513888888888889,
+      "latency_s": 14.9,
+      "target_term": "Padded folding chair",
+      "anchor_term": null,
+      "parse_status": "direct_grounded",
+      "parse_mode": "single",
+      "hypothesis_count": 1,
+      "pred_top_k": [
+        83,
+        69,
+        141
+      ],
+      "hit_at_K": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "recall_at_K": {
+        "1": 1.0,
+        "3": 1.0,
+        "5": 0.6,
+        "10": 0.3
+      },
+      "first_hit_rank": 1,
+      "n_pred_in_gt": 3,
+      "unmeasurable": false
+    },
+    {
+      "sample_id": "scannet/scene0144_00::4::21147",
+      "scene_id": "scene0144_00",
+      "target_id": 4,
+      "category": "chair",
+      "query": "Choose the chair on the right.",
+      "gt_frame_count": 63,
+      "valid_frame_count": 144,
+      "gt_coverage": 0.4375,
+      "latency_s": 13.677,
+      "target_term": "Padded folding chair",
+      "anchor_term": null,
+      "parse_status": "no_evidence",
+      "parse_mode": "single",
+      "hypothesis_count": 1,
+      "pred_top_k": [],
+      "hit_at_K": {
+        "1": 0,
+        "3": 0,
+        "5": 0,
+        "10": 0
+      },
+      "recall_at_K": {
+        "1": 0.0,
+        "3": 0.0,
+        "5": 0.0,
+        "10": 0.0
+      },
+      "first_hit_rank": null,
+      "n_pred_in_gt": 0,
+      "unmeasurable": false
+    },
+    {
+      "sample_id": "scannet/scene0149_00::3::7121",
+      "scene_id": "scene0149_00",
+      "target_id": 3,
+      "category": "kitchen cabinet",
+      "query": "Select the kitchen cabinet above the fridge.",
+      "gt_frame_count": 20,
+      "valid_frame_count": 139,
+      "gt_coverage": 0.14388489208633093,
+      "latency_s": 16.566,
+      "target_term": "kitchen cabinet",
+      "anchor_term": "refrigerator",
+      "parse_status": "direct_grounded",
+      "parse_mode": "single",
+      "hypothesis_count": 1,
+      "pred_top_k": [
+        88,
+        11,
+        91,
+        89
+      ],
+      "hit_at_K": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "recall_at_K": {
+        "1": 1.0,
+        "3": 0.6666666666666666,
+        "5": 0.6,
+        "10": 0.3
+      },
+      "first_hit_rank": 1,
+      "n_pred_in_gt": 3,
+      "unmeasurable": false
+    },
+    {
+      "sample_id": "scannet/scene0164_00::11::8924",
+      "scene_id": "scene0164_00",
+      "target_id": 11,
+      "category": "kitchen cabinet",
+      "query": "Facing fridge, this cabinet is middle of the three upper cabinets to the right.",
+      "gt_frame_count": 31,
+      "valid_frame_count": 189,
+      "gt_coverage": 0.164021164021164,
+      "latency_s": 31.607,
+      "target_term": "Upper kitchen cabinet",
+      "anchor_term": null,
+      "parse_status": "no_evidence",
+      "parse_mode": "single",
+      "hypothesis_count": 1,
+      "pred_top_k": [],
+      "hit_at_K": {
+        "1": 0,
+        "3": 0,
+        "5": 0,
+        "10": 0
+      },
+      "recall_at_K": {
+        "1": 0.0,
+        "3": 0.0,
+        "5": 0.0,
+        "10": 0.0
+      },
+      "first_hit_rank": null,
+      "n_pred_in_gt": 0,
+      "unmeasurable": false
+    },
+    {
+      "sample_id": "scannet/scene0187_00::13::24713",
+      "scene_id": "scene0187_00",
+      "target_id": 13,
+      "category": "chair",
+      "query": "Of the two chairs on the table, the chair on the right closest to the other chairs.",
+      "gt_frame_count": 58,
+      "valid_frame_count": 227,
+      "gt_coverage": 0.2555066079295154,
+      "latency_s": 53.222,
+      "target_term": "chair",
+      "anchor_term": null,
+      "parse_status": "no_evidence",
+      "parse_mode": "single",
+      "hypothesis_count": 1,
+      "pred_top_k": [],
+      "hit_at_K": {
+        "1": 0,
+        "3": 0,
+        "5": 0,
+        "10": 0
+      },
+      "recall_at_K": {
+        "1": 0.0,
+        "3": 0.0,
+        "5": 0.0,
+        "10": 0.0
+      },
+      "first_hit_rank": null,
+      "n_pred_in_gt": 0,
+      "unmeasurable": false
+    },
+    {
+      "sample_id": "scannet/scene0207_00::50::3098",
+      "scene_id": "scene0207_00",
+      "target_id": 50,
+      "category": "door",
+      "query": "This is the door that is closed",
+      "gt_frame_count": 31,
+      "valid_frame_count": 199,
+      "gt_coverage": 0.15577889447236182,
+      "latency_s": 10.755,
+      "target_term": "Apartment entrance door",
+      "anchor_term": null,
+      "parse_status": "direct_grounded",
+      "parse_mode": "single",
+      "hypothesis_count": 1,
+      "pred_top_k": [
+        79,
+        88,
+        78
+      ],
+      "hit_at_K": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "recall_at_K": {
+        "1": 1.0,
+        "3": 1.0,
+        "5": 0.6,
+        "10": 0.3
+      },
+      "first_hit_rank": 1,
+      "n_pred_in_gt": 3,
+      "unmeasurable": false
+    },
+    {
+      "sample_id": "scannet/scene0207_00::5::16038",
+      "scene_id": "scene0207_00",
+      "target_id": 5,
+      "category": "door",
+      "query": "The door closest to the toilet and bathroom counter.",
+      "gt_frame_count": 18,
+      "valid_frame_count": 199,
+      "gt_coverage": 0.09045226130653267,
+      "latency_s": 16.098,
+      "target_term": "Apartment entrance door",
+      "anchor_term": null,
+      "parse_status": "direct_grounded",
+      "parse_mode": "single",
+      "hypothesis_count": 1,
+      "pred_top_k": [
+        129,
+        98,
+        97
+      ],
+      "hit_at_K": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "recall_at_K": {
+        "1": 1.0,
+        "3": 1.0,
+        "5": 0.6,
+        "10": 0.3
+      },
+      "first_hit_rank": 1,
+      "n_pred_in_gt": 3,
+      "unmeasurable": false
+    },
+    {
+      "sample_id": "scannet/scene0221_00::22::33555",
+      "scene_id": "scene0221_00",
+      "target_id": 22,
+      "category": "picture",
+      "query": "facing the beds, right picture",
+      "gt_frame_count": 20,
+      "valid_frame_count": 98,
+      "gt_coverage": 0.20408163265306123,
+      "latency_s": 33.041,
+      "target_term": "framed art",
+      "anchor_term": null,
+      "parse_status": "no_evidence",
+      "parse_mode": "single",
+      "hypothesis_count": 1,
+      "pred_top_k": [],
+      "hit_at_K": {
+        "1": 0,
+        "3": 0,
+        "5": 0,
+        "10": 0
+      },
+      "recall_at_K": {
+        "1": 0.0,
+        "3": 0.0,
+        "5": 0.0,
+        "10": 0.0
+      },
+      "first_hit_rank": null,
+      "n_pred_in_gt": 0,
+      "unmeasurable": false
+    },
+    {
+      "sample_id": "scannet/scene0221_00::50::36194",
+      "scene_id": "scene0221_00",
+      "target_id": 50,
+      "category": "towel",
+      "query": "Choose the towel closest to the door.",
+      "gt_frame_count": 17,
+      "valid_frame_count": 98,
+      "gt_coverage": 0.17346938775510204,
+      "latency_s": 13.605,
+      "target_term": "towel",
+      "anchor_term": null,
+      "parse_status": "direct_grounded",
+      "parse_mode": "single",
+      "hypothesis_count": 1,
+      "pred_top_k": [
+        96,
+        79,
+        80
+      ],
+      "hit_at_K": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "recall_at_K": {
+        "1": 1.0,
+        "3": 1.0,
+        "5": 0.6,
+        "10": 0.3
+      },
+      "first_hit_rank": 1,
+      "n_pred_in_gt": 3,
+      "unmeasurable": false
+    },
+    {
+      "sample_id": "scannet/scene0231_00::40::19465",
+      "scene_id": "scene0231_00",
+      "target_id": 40,
+      "category": "chair",
+      "query": "The middle chair.",
+      "gt_frame_count": 54,
+      "valid_frame_count": 444,
+      "gt_coverage": 0.12162162162162163,
+      "latency_s": 17.148,
+      "target_term": "Woven-back dining chair",
+      "anchor_term": null,
+      "parse_status": "direct_grounded",
+      "parse_mode": "single",
+      "hypothesis_count": 1,
+      "pred_top_k": [
+        402,
+        255,
+        256
+      ],
+      "hit_at_K": {
+        "1": 0,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "recall_at_K": {
+        "1": 0.0,
+        "3": 0.6666666666666666,
+        "5": 0.4,
+        "10": 0.2
+      },
+      "first_hit_rank": 2,
+      "n_pred_in_gt": 2,
+      "unmeasurable": false
+    },
+    {
+      "sample_id": "scannet/scene0231_00::46::12388",
+      "scene_id": "scene0231_00",
+      "target_id": 46,
+      "category": "kitchen cabinets",
+      "query": "the cabinets under the higher cabinets",
+      "gt_frame_count": 79,
+      "valid_frame_count": 444,
+      "gt_coverage": 0.17792792792792791,
+      "latency_s": 33.759,
+      "target_term": "Corner kitchen cabinet",
+      "anchor_term": "Corner kitchen cabinet",
+      "parse_status": "direct_grounded",
+      "parse_mode": "single",
+      "hypothesis_count": 1,
+      "pred_top_k": [
+        248,
+        271,
+        269
+      ],
+      "hit_at_K": {
+        "1": 0,
+        "3": 0,
+        "5": 0,
+        "10": 0
+      },
+      "recall_at_K": {
+        "1": 0.0,
+        "3": 0.0,
+        "5": 0.0,
+        "10": 0.0
+      },
+      "first_hit_rank": null,
+      "n_pred_in_gt": 0,
+      "unmeasurable": false
+    },
+    {
+      "sample_id": "scannet/scene0231_00::73::34095",
+      "scene_id": "scene0231_00",
+      "target_id": 73,
+      "category": "sink",
+      "query": "The sink that is on the island",
+      "gt_frame_count": 84,
+      "valid_frame_count": 444,
+      "gt_coverage": 0.1891891891891892,
+      "latency_s": 12.956,
+      "target_term": "sink",
+      "anchor_term": null,
+      "parse_status": "no_evidence",
+      "parse_mode": "single",
+      "hypothesis_count": 1,
+      "pred_top_k": [],
+      "hit_at_K": {
+        "1": 0,
+        "3": 0,
+        "5": 0,
+        "10": 0
+      },
+      "recall_at_K": {
+        "1": 0.0,
+        "3": 0.0,
+        "5": 0.0,
+        "10": 0.0
+      },
+      "first_hit_rank": null,
+      "n_pred_in_gt": 0,
+      "unmeasurable": false
+    },
+    {
+      "sample_id": "scannet/scene0246_00::4::29367",
+      "scene_id": "scene0246_00",
+      "target_id": 4,
+      "category": "lamp",
+      "query": "white floor lamp behind a black chair",
+      "gt_frame_count": 20,
+      "valid_frame_count": 296,
+      "gt_coverage": 0.06756756756756757,
+      "latency_s": 15.053,
+      "target_term": "floor lamp with table",
+      "anchor_term": null,
+      "parse_status": "no_evidence",
+      "parse_mode": "single",
+      "hypothesis_count": 1,
+      "pred_top_k": [],
+      "hit_at_K": {
+        "1": 0,
+        "3": 0,
+        "5": 0,
+        "10": 0
+      },
+      "recall_at_K": {
+        "1": 0.0,
+        "3": 0.0,
+        "5": 0.0,
+        "10": 0.0
+      },
+      "first_hit_rank": null,
+      "n_pred_in_gt": 0,
+      "unmeasurable": false
+    },
+    {
+      "sample_id": "scannet/scene0249_00::33::17122",
+      "scene_id": "scene0249_00",
+      "target_id": 33,
+      "category": "window",
+      "query": "The window with  the most chairs beneath it.",
+      "gt_frame_count": 46,
+      "valid_frame_count": 272,
+      "gt_coverage": 0.16911764705882354,
+      "latency_s": 58.541,
+      "target_term": "window",
+      "anchor_term": null,
+      "parse_status": "direct_grounded",
+      "parse_mode": "single",
+      "hypothesis_count": 1,
+      "pred_top_k": [
+        61,
+        221,
+        220
+      ],
+      "hit_at_K": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "recall_at_K": {
+        "1": 1.0,
+        "3": 1.0,
+        "5": 0.6,
+        "10": 0.3
+      },
+      "first_hit_rank": 1,
+      "n_pred_in_gt": 3,
+      "unmeasurable": false
+    },
+    {
+      "sample_id": "scannet/scene0249_00::36::39076",
+      "scene_id": "scene0249_00",
+      "target_id": 36,
+      "category": "trash can",
+      "query": "Trash can against the wall next to grey chair.",
+      "gt_frame_count": 16,
+      "valid_frame_count": 272,
+      "gt_coverage": 0.058823529411764705,
+      "latency_s": 16.311,
+      "target_term": "trash can",
+      "anchor_term": null,
+      "parse_status": "no_evidence",
+      "parse_mode": "single",
+      "hypothesis_count": 1,
+      "pred_top_k": [],
+      "hit_at_K": {
+        "1": 0,
+        "3": 0,
+        "5": 0,
+        "10": 0
+      },
+      "recall_at_K": {
+        "1": 0.0,
+        "3": 0.0,
+        "5": 0.0,
+        "10": 0.0
+      },
+      "first_hit_rank": null,
+      "n_pred_in_gt": 0,
+      "unmeasurable": false
+    },
+    {
+      "sample_id": "scannet/scene0300_00::8::22495",
+      "scene_id": "scene0300_00",
+      "target_id": 8,
+      "category": "chair",
+      "query": "the chair on the right-hand side closest to the window",
+      "gt_frame_count": 52,
+      "valid_frame_count": 175,
+      "gt_coverage": 0.29714285714285715,
+      "latency_s": 17.001,
+      "target_term": "chair",
+      "anchor_term": null,
+      "parse_status": "no_evidence",
+      "parse_mode": "single",
+      "hypothesis_count": 1,
+      "pred_top_k": [],
+      "hit_at_K": {
+        "1": 0,
+        "3": 0,
+        "5": 0,
+        "10": 0
+      },
+      "recall_at_K": {
+        "1": 0.0,
+        "3": 0.0,
+        "5": 0.0,
+        "10": 0.0
+      },
+      "first_hit_rank": null,
+      "n_pred_in_gt": 0,
+      "unmeasurable": false
+    },
+    {
+      "sample_id": "scannet/scene0328_00::28::19096",
+      "scene_id": "scene0328_00",
+      "target_id": 28,
+      "category": "sign",
+      "query": "Choose the sign directly beside the sink on the right.",
+      "gt_frame_count": 40,
+      "valid_frame_count": 134,
+      "gt_coverage": 0.29850746268656714,
+      "latency_s": 20.991,
+      "target_term": "display sign",
+      "anchor_term": null,
+      "parse_status": "no_evidence",
+      "parse_mode": "single",
+      "hypothesis_count": 1,
+      "pred_top_k": [],
+      "hit_at_K": {
+        "1": 0,
+        "3": 0,
+        "5": 0,
+        "10": 0
+      },
+      "recall_at_K": {
+        "1": 0.0,
+        "3": 0.0,
+        "5": 0.0,
+        "10": 0.0
+      },
+      "first_hit_rank": null,
+      "n_pred_in_gt": 0,
+      "unmeasurable": false
+    },
+    {
+      "sample_id": "scannet/scene0329_00::13::29568",
+      "scene_id": "scene0329_00",
+      "target_id": 13,
+      "category": "chair",
+      "query": "red office chair that's facing away from desk",
+      "gt_frame_count": 22,
+      "valid_frame_count": 156,
+      "gt_coverage": 0.14102564102564102,
+      "latency_s": 33.384,
+      "target_term": "office chair",
+      "anchor_term": "office desk",
+      "parse_status": "direct_grounded",
+      "parse_mode": "single",
+      "hypothesis_count": 1,
+      "pred_top_k": [
+        100,
+        131,
+        96
+      ],
+      "hit_at_K": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "recall_at_K": {
+        "1": 1.0,
+        "3": 0.6666666666666666,
+        "5": 0.4,
+        "10": 0.2
+      },
+      "first_hit_rank": 1,
+      "n_pred_in_gt": 2,
+      "unmeasurable": false
+    },
+    {
+      "sample_id": "scannet/scene0329_00::32::16500",
+      "scene_id": "scene0329_00",
+      "target_id": 32,
+      "category": "monitor",
+      "query": "the monitor is farthest from the blue trash can",
+      "gt_frame_count": 20,
+      "valid_frame_count": 156,
+      "gt_coverage": 0.1282051282051282,
+      "latency_s": 14.241,
+      "target_term": "computer monitor",
+      "anchor_term": null,
+      "parse_status": "direct_grounded",
+      "parse_mode": "single",
+      "hypothesis_count": 1,
+      "pred_top_k": [
+        133,
+        134,
+        135
+      ],
+      "hit_at_K": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "recall_at_K": {
+        "1": 1.0,
+        "3": 1.0,
+        "5": 0.6,
+        "10": 0.3
+      },
+      "first_hit_rank": 1,
+      "n_pred_in_gt": 3,
+      "unmeasurable": false
+    },
+    {
+      "sample_id": "scannet/scene0329_00::36::39361",
+      "scene_id": "scene0329_00",
+      "target_id": 36,
+      "category": "file cabinet",
+      "query": "Pick the cabinet under the desk that does NOT have a red chair. It is on the side of the office with the whiteboard.",
+      "gt_frame_count": 11,
+      "valid_frame_count": 156,
+      "gt_coverage": 0.07051282051282051,
+      "latency_s": 40.626,
+      "target_term": "file cabinet",
+      "anchor_term": null,
+      "parse_status": "no_evidence",
+      "parse_mode": "single",
+      "hypothesis_count": 1,
+      "pred_top_k": [],
+      "hit_at_K": {
+        "1": 0,
+        "3": 0,
+        "5": 0,
+        "10": 0
+      },
+      "recall_at_K": {
+        "1": 0.0,
+        "3": 0.0,
+        "5": 0.0,
+        "10": 0.0
+      },
+      "first_hit_rank": null,
+      "n_pred_in_gt": 0,
+      "unmeasurable": false
+    },
+    {
+      "sample_id": "scannet/scene0329_00::7::11351",
+      "scene_id": "scene0329_00",
+      "target_id": 7,
+      "category": "table",
+      "query": "The table on the same side of the room as the three trash cans.",
+      "gt_frame_count": 24,
+      "valid_frame_count": 156,
+      "gt_coverage": 0.15384615384615385,
+      "latency_s": 20.085,
+      "target_term": "table",
+      "anchor_term": "trash can",
+      "parse_status": "direct_grounded",
+      "parse_mode": "single",
+      "hypothesis_count": 1,
+      "pred_top_k": [
+        91,
+        96,
+        89,
+        92
+      ],
+      "hit_at_K": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "recall_at_K": {
+        "1": 1.0,
+        "3": 0.6666666666666666,
+        "5": 0.6,
+        "10": 0.3
+      },
+      "first_hit_rank": 1,
+      "n_pred_in_gt": 3,
+      "unmeasurable": false
+    },
+    {
+      "sample_id": "scannet/scene0338_00::0::33421",
+      "scene_id": "scene0338_00",
+      "target_id": 0,
+      "category": "box",
+      "query": "The box on right facing the wall.",
+      "gt_frame_count": 25,
+      "valid_frame_count": 81,
+      "gt_coverage": 0.30864197530864196,
+      "latency_s": 31.552,
+      "target_term": "Boxes of paper",
+      "anchor_term": "wall",
+      "parse_status": "direct_grounded",
+      "parse_mode": "single",
+      "hypothesis_count": 1,
+      "pred_top_k": [
+        50,
+        18,
+        29,
+        57
+      ],
+      "hit_at_K": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "recall_at_K": {
+        "1": 1.0,
+        "3": 0.3333333333333333,
+        "5": 0.4,
+        "10": 0.2
+      },
+      "first_hit_rank": 1,
+      "n_pred_in_gt": 2,
+      "unmeasurable": false
+    },
+    {
+      "sample_id": "scannet/scene0338_00::21::15697",
+      "scene_id": "scene0338_00",
+      "target_id": 21,
+      "category": "box",
+      "query": "The box at the bottom and up against the wall facing something red on a cabinet",
+      "gt_frame_count": 16,
+      "valid_frame_count": 81,
+      "gt_coverage": 0.19753086419753085,
+      "latency_s": 45.332,
+      "target_term": "wall",
+      "anchor_term": null,
+      "parse_status": "context_only",
+      "parse_mode": "multi",
+      "hypothesis_count": 3,
+      "pred_top_k": [
+        46,
+        30,
+        18,
+        36,
+        3,
+        50,
+        29
+      ],
+      "hit_at_K": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "recall_at_K": {
+        "1": 1.0,
+        "3": 0.3333333333333333,
+        "5": 0.4,
+        "10": 0.3
+      },
+      "first_hit_rank": 1,
+      "n_pred_in_gt": 3,
+      "unmeasurable": false
+    },
+    {
+      "sample_id": "scannet/scene0353_00::31::34521",
+      "scene_id": "scene0353_00",
+      "target_id": 31,
+      "category": "shoes",
+      "query": "The black shoes closest to the computer chair",
+      "gt_frame_count": 22,
+      "valid_frame_count": 298,
+      "gt_coverage": 0.0738255033557047,
+      "latency_s": 14.416,
+      "target_term": "shoes",
+      "anchor_term": null,
+      "parse_status": "direct_grounded",
+      "parse_mode": "single",
+      "hypothesis_count": 1,
+      "pred_top_k": [
+        257,
+        74,
+        77
+      ],
+      "hit_at_K": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "recall_at_K": {
+        "1": 1.0,
+        "3": 1.0,
+        "5": 0.6,
+        "10": 0.3
+      },
+      "first_hit_rank": 1,
+      "n_pred_in_gt": 3,
+      "unmeasurable": false
+    },
+    {
+      "sample_id": "scannet/scene0353_00::50::24580",
+      "scene_id": "scene0353_00",
+      "target_id": 50,
+      "category": "desk",
+      "query": "When standing in the middle of the room facing the window the correct desk is on the left.",
+      "gt_frame_count": 78,
+      "valid_frame_count": 298,
+      "gt_coverage": 0.26174496644295303,
+      "latency_s": 20.651,
+      "target_term": "desk",
+      "anchor_term": "window",
+      "parse_status": "direct_grounded",
+      "parse_mode": "single",
+      "hypothesis_count": 1,
+      "pred_top_k": [
+        67,
+        185,
+        68,
+        70
+      ],
+      "hit_at_K": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "recall_at_K": {
+        "1": 1.0,
+        "3": 1.0,
+        "5": 0.8,
+        "10": 0.4
+      },
+      "first_hit_rank": 1,
+      "n_pred_in_gt": 4,
+      "unmeasurable": false
+    },
+    {
+      "sample_id": "scannet/scene0353_00::52::27519",
+      "scene_id": "scene0353_00",
+      "target_id": 52,
+      "category": "book",
+      "query": "The book that is sitting on the bottom bunk bed next to the sofa.",
+      "gt_frame_count": 58,
+      "valid_frame_count": 298,
+      "gt_coverage": 0.19463087248322147,
+      "latency_s": 13.441,
+      "target_term": "book",
+      "anchor_term": null,
+      "parse_status": "no_evidence",
+      "parse_mode": "single",
+      "hypothesis_count": 1,
+      "pred_top_k": [],
+      "hit_at_K": {
+        "1": 0,
+        "3": 0,
+        "5": 0,
+        "10": 0
+      },
+      "recall_at_K": {
+        "1": 0.0,
+        "3": 0.0,
+        "5": 0.0,
+        "10": 0.0
+      },
+      "first_hit_rank": null,
+      "n_pred_in_gt": 0,
+      "unmeasurable": false
+    },
+    {
+      "sample_id": "scannet/scene0389_00::27::14318",
+      "scene_id": "scene0389_00",
+      "target_id": 27,
+      "category": "backpack",
+      "query": "The backpack closer to the door.",
+      "gt_frame_count": 13,
+      "valid_frame_count": 142,
+      "gt_coverage": 0.09154929577464789,
+      "latency_s": 12.488,
+      "target_term": "backpack",
+      "anchor_term": null,
+      "parse_status": "direct_grounded",
+      "parse_mode": "single",
+      "hypothesis_count": 1,
+      "pred_top_k": [
+        68,
+        69,
+        70
+      ],
+      "hit_at_K": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "recall_at_K": {
+        "1": 1.0,
+        "3": 1.0,
+        "5": 0.6,
+        "10": 0.3
+      },
+      "first_hit_rank": 1,
+      "n_pred_in_gt": 3,
+      "unmeasurable": false
+    },
+    {
+      "sample_id": "scannet/scene0427_00::5::37124",
+      "scene_id": "scene0427_00",
+      "target_id": 5,
+      "category": "chair",
+      "query": "The chair closest to the door.",
+      "gt_frame_count": 45,
+      "valid_frame_count": 132,
+      "gt_coverage": 0.3409090909090909,
+      "latency_s": 10.807,
+      "target_term": "Mesh guest chair",
+      "anchor_term": null,
+      "parse_status": "direct_grounded",
+      "parse_mode": "single",
+      "hypothesis_count": 1,
+      "pred_top_k": [
+        92,
+        36,
+        30
+      ],
+      "hit_at_K": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "recall_at_K": {
+        "1": 1.0,
+        "3": 1.0,
+        "5": 0.6,
+        "10": 0.3
+      },
+      "first_hit_rank": 1,
+      "n_pred_in_gt": 3,
+      "unmeasurable": false
+    },
+    {
+      "sample_id": "scannet/scene0435_00::38::20355",
+      "scene_id": "scene0435_00",
+      "target_id": 38,
+      "category": "lamp",
+      "query": "'The lamp between the two beds.'",
+      "gt_frame_count": 27,
+      "valid_frame_count": 328,
+      "gt_coverage": 0.08231707317073171,
+      "latency_s": 16.238,
+      "target_term": "bedside lamp",
+      "anchor_term": null,
+      "parse_status": "no_evidence",
+      "parse_mode": "single",
+      "hypothesis_count": 1,
+      "pred_top_k": [],
+      "hit_at_K": {
+        "1": 0,
+        "3": 0,
+        "5": 0,
+        "10": 0
+      },
+      "recall_at_K": {
+        "1": 0.0,
+        "3": 0.0,
+        "5": 0.0,
+        "10": 0.0
+      },
+      "first_hit_rank": null,
+      "n_pred_in_gt": 0,
+      "unmeasurable": false
+    },
+    {
+      "sample_id": "scannet/scene0435_00::60::25927",
+      "scene_id": "scene0435_00",
+      "target_id": 60,
+      "category": "suitcase",
+      "query": "When you enter the room, walk towards the window and find the suitcase directly opposite the bed closest to the window.",
+      "gt_frame_count": 77,
+      "valid_frame_count": 328,
+      "gt_coverage": 0.2347560975609756,
+      "latency_s": 23.859,
+      "target_term": "rolling suitcase",
+      "anchor_term": null,
+      "parse_status": "no_evidence",
+      "parse_mode": "single",
+      "hypothesis_count": 1,
+      "pred_top_k": [],
+      "hit_at_K": {
+        "1": 0,
+        "3": 0,
+        "5": 0,
+        "10": 0
+      },
+      "recall_at_K": {
+        "1": 0.0,
+        "3": 0.0,
+        "5": 0.0,
+        "10": 0.0
+      },
+      "first_hit_rank": null,
+      "n_pred_in_gt": 0,
+      "unmeasurable": false
+    },
+    {
+      "sample_id": "scannet/scene0458_00::27::28750",
+      "scene_id": "scene0458_00",
+      "target_id": 27,
+      "category": "box",
+      "query": "This is the top box, stacked atop the other two.",
+      "gt_frame_count": 49,
+      "valid_frame_count": 199,
+      "gt_coverage": 0.24623115577889448,
+      "latency_s": 26.078,
+      "target_term": "box",
+      "anchor_term": "box",
+      "parse_status": "direct_grounded",
+      "parse_mode": "single",
+      "hypothesis_count": 1,
+      "pred_top_k": [
+        94,
+        9,
+        125
+      ],
+      "hit_at_K": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "recall_at_K": {
+        "1": 1.0,
+        "3": 0.6666666666666666,
+        "5": 0.4,
+        "10": 0.2
+      },
+      "first_hit_rank": 1,
+      "n_pred_in_gt": 2,
+      "unmeasurable": false
+    },
+    {
+      "sample_id": "scannet/scene0458_00::28::11730",
+      "scene_id": "scene0458_00",
+      "target_id": 28,
+      "category": "bottle",
+      "query": "choose the bottle on the middle triangular shelf inside the shower.",
+      "gt_frame_count": 23,
+      "valid_frame_count": 199,
+      "gt_coverage": 0.11557788944723618,
+      "latency_s": 22.202,
+      "target_term": "bottle",
+      "anchor_term": null,
+      "parse_status": "no_evidence",
+      "parse_mode": "single",
+      "hypothesis_count": 1,
+      "pred_top_k": [],
+      "hit_at_K": {
+        "1": 0,
+        "3": 0,
+        "5": 0,
+        "10": 0
+      },
+      "recall_at_K": {
+        "1": 0.0,
+        "3": 0.0,
+        "5": 0.0,
+        "10": 0.0
+      },
+      "first_hit_rank": null,
+      "n_pred_in_gt": 0,
+      "unmeasurable": false
+    },
+    {
+      "sample_id": "scannet/scene0474_00::12::7632",
+      "scene_id": "scene0474_00",
+      "target_id": 12,
+      "category": "monitor",
+      "query": "It is the monitor that is directly in front of the man. It is the one on the left or far left. It is also right next to a phone. the screen right next to it is under a poster on the wall. The poster kinda looks like a collage of small photos.",
+      "gt_frame_count": 20,
+      "valid_frame_count": 163,
+      "gt_coverage": 0.12269938650306748,
+      "latency_s": 56.935,
+      "target_term": "computer monitor",
+      "anchor_term": "office chair",
+      "parse_status": "proxy_grounded",
+      "parse_mode": "multi",
+      "hypothesis_count": 3,
+      "pred_top_k": [
+        149,
+        30,
+        58,
+        21,
+        157,
+        145
+      ],
+      "hit_at_K": {
+        "1": 0,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "recall_at_K": {
+        "1": 0.0,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.2
+      },
+      "first_hit_rank": 3,
+      "n_pred_in_gt": 2,
+      "unmeasurable": false
+    },
+    {
+      "sample_id": "scannet/scene0474_00::40::26012",
+      "scene_id": "scene0474_00",
+      "target_id": 40,
+      "category": "computer tower",
+      "query": "Computer tower directly behind human, it's underneath desk",
+      "gt_frame_count": 27,
+      "valid_frame_count": 163,
+      "gt_coverage": 0.1656441717791411,
+      "latency_s": 25.9,
+      "target_term": "computer tower",
+      "anchor_term": null,
+      "parse_status": "no_evidence",
+      "parse_mode": "multi",
+      "hypothesis_count": 2,
+      "pred_top_k": [],
+      "hit_at_K": {
+        "1": 0,
+        "3": 0,
+        "5": 0,
+        "10": 0
+      },
+      "recall_at_K": {
+        "1": 0.0,
+        "3": 0.0,
+        "5": 0.0,
+        "10": 0.0
+      },
+      "first_hit_rank": null,
+      "n_pred_in_gt": 0,
+      "unmeasurable": false
+    },
+    {
+      "sample_id": "scannet/scene0490_00::14::39189",
+      "scene_id": "scene0490_00",
+      "target_id": 14,
+      "category": "whiteboard",
+      "query": "The whiteboard near the chair in the corner",
+      "gt_frame_count": 23,
+      "valid_frame_count": 109,
+      "gt_coverage": 0.21100917431192662,
+      "latency_s": 18.935,
+      "target_term": "whiteboard",
+      "anchor_term": "chair",
+      "parse_status": "direct_grounded",
+      "parse_mode": "single",
+      "hypothesis_count": 1,
+      "pred_top_k": [
+        34,
+        24,
+        75,
+        36,
+        33
+      ],
+      "hit_at_K": {
+        "1": 0,
+        "3": 0,
+        "5": 0,
+        "10": 0
+      },
+      "recall_at_K": {
+        "1": 0.0,
+        "3": 0.0,
+        "5": 0.0,
+        "10": 0.0
+      },
+      "first_hit_rank": null,
+      "n_pred_in_gt": 0,
+      "unmeasurable": false
+    },
+    {
+      "sample_id": "scannet/scene0496_00::25::33990",
+      "scene_id": "scene0496_00",
+      "target_id": 25,
+      "category": "window",
+      "query": "The window directly from door",
+      "gt_frame_count": 11,
+      "valid_frame_count": 118,
+      "gt_coverage": 0.09322033898305085,
+      "latency_s": 14.075,
+      "target_term": "multi-pane window",
+      "anchor_term": "door",
+      "parse_status": "direct_grounded",
+      "parse_mode": "single",
+      "hypothesis_count": 1,
+      "pred_top_k": [
+        96,
+        31,
+        89
+      ],
+      "hit_at_K": {
+        "1": 0,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "recall_at_K": {
+        "1": 0.0,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.1
+      },
+      "first_hit_rank": 2,
+      "n_pred_in_gt": 1,
+      "unmeasurable": false
+    },
+    {
+      "sample_id": "scannet/scene0500_00::23::36588",
+      "scene_id": "scene0500_00",
+      "target_id": 23,
+      "category": "window",
+      "query": "If you are standing at the table facing the windows with the blackboard on your right, you are looking for the large window all the way to the right, closest to the blackboard.",
+      "gt_frame_count": 15,
+      "valid_frame_count": 213,
+      "gt_coverage": 0.07042253521126761,
+      "latency_s": 25.993,
+      "target_term": "multi-pane window",
+      "anchor_term": null,
+      "parse_status": "direct_grounded",
+      "parse_mode": "single",
+      "hypothesis_count": 1,
+      "pred_top_k": [
+        147,
+        137,
+        142
+      ],
+      "hit_at_K": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "recall_at_K": {
+        "1": 1.0,
+        "3": 1.0,
+        "5": 0.6,
+        "10": 0.3
+      },
+      "first_hit_rank": 1,
+      "n_pred_in_gt": 3,
+      "unmeasurable": false
+    },
+    {
+      "sample_id": "scannet/scene0500_00::27::34282",
+      "scene_id": "scene0500_00",
+      "target_id": 27,
+      "category": "window",
+      "query": "The window on the far left that's on the wall with four windows.",
+      "gt_frame_count": 12,
+      "valid_frame_count": 213,
+      "gt_coverage": 0.056338028169014086,
+      "latency_s": 17.591,
+      "target_term": "window",
+      "anchor_term": null,
+      "parse_status": "no_evidence",
+      "parse_mode": "single",
+      "hypothesis_count": 1,
+      "pred_top_k": [],
+      "hit_at_K": {
+        "1": 0,
+        "3": 0,
+        "5": 0,
+        "10": 0
+      },
+      "recall_at_K": {
+        "1": 0.0,
+        "3": 0.0,
+        "5": 0.0,
+        "10": 0.0
+      },
+      "first_hit_rank": null,
+      "n_pred_in_gt": 0,
+      "unmeasurable": false
+    },
+    {
+      "sample_id": "scannet/scene0527_00::18::13769",
+      "scene_id": "scene0527_00",
+      "target_id": 18,
+      "category": "picture",
+      "query": "Of the two pictures together on the wall, the bottom one.",
+      "gt_frame_count": 20,
+      "valid_frame_count": 68,
+      "gt_coverage": 0.29411764705882354,
+      "latency_s": 19.567,
+      "target_term": "Framed picture",
+      "anchor_term": "wall",
+      "parse_status": "direct_grounded",
+      "parse_mode": "single",
+      "hypothesis_count": 1,
+      "pred_top_k": [
+        5,
+        32,
+        54,
+        6,
+        9
+      ],
+      "hit_at_K": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "recall_at_K": {
+        "1": 1.0,
+        "3": 0.3333333333333333,
+        "5": 0.6,
+        "10": 0.3
+      },
+      "first_hit_rank": 1,
+      "n_pred_in_gt": 3,
+      "unmeasurable": false
+    },
+    {
+      "sample_id": "scannet/scene0535_00::9::18463",
+      "scene_id": "scene0535_00",
+      "target_id": 9,
+      "category": "chair",
+      "query": "This chair is furthest from the other three chairs.",
+      "gt_frame_count": 12,
+      "valid_frame_count": 69,
+      "gt_coverage": 0.17391304347826086,
+      "latency_s": 23.424,
+      "target_term": "Bentwood armchair",
+      "anchor_term": null,
+      "parse_status": "direct_grounded",
+      "parse_mode": "single",
+      "hypothesis_count": 1,
+      "pred_top_k": [
+        18,
+        0,
+        4
+      ],
+      "hit_at_K": {
+        "1": 0,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "recall_at_K": {
+        "1": 0.0,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.1
+      },
+      "first_hit_rank": 2,
+      "n_pred_in_gt": 1,
+      "unmeasurable": false
+    },
+    {
+      "sample_id": "scannet/scene0549_00::1::14723",
+      "scene_id": "scene0549_00",
+      "target_id": 1,
+      "category": "couch",
+      "query": "The couch closest to table with plants",
+      "gt_frame_count": 43,
+      "valid_frame_count": 83,
+      "gt_coverage": 0.5180722891566265,
+      "latency_s": 24.338,
+      "target_term": "couch",
+      "anchor_term": null,
+      "parse_status": "direct_grounded",
+      "parse_mode": "single",
+      "hypothesis_count": 1,
+      "pred_top_k": [
+        32,
+        65,
+        30
+      ],
+      "hit_at_K": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "recall_at_K": {
+        "1": 1.0,
+        "3": 1.0,
+        "5": 0.6,
+        "10": 0.3
+      },
+      "first_hit_rank": 1,
+      "n_pred_in_gt": 3,
+      "unmeasurable": false
+    },
+    {
+      "sample_id": "scannet/scene0549_00::31::29364",
+      "scene_id": "scene0549_00",
+      "target_id": 31,
+      "category": "window",
+      "query": "window with shelves in front of it",
+      "gt_frame_count": 4,
+      "valid_frame_count": 83,
+      "gt_coverage": 0.04819277108433735,
+      "latency_s": 23.665,
+      "target_term": "picture window",
+      "anchor_term": null,
+      "parse_status": "no_evidence",
+      "parse_mode": "single",
+      "hypothesis_count": 1,
+      "pred_top_k": [],
+      "hit_at_K": {
+        "1": 0,
+        "3": 0,
+        "5": 0,
+        "10": 0
+      },
+      "recall_at_K": {
+        "1": 0.0,
+        "3": 0.0,
+        "5": 0.0,
+        "10": 0.0
+      },
+      "first_hit_rank": null,
+      "n_pred_in_gt": 0,
+      "unmeasurable": false
+    },
+    {
+      "sample_id": "scannet/scene0549_00::5::24557",
+      "scene_id": "scene0549_00",
+      "target_id": 5,
+      "category": "end table",
+      "query": "The round table with a plant on it",
+      "gt_frame_count": 21,
+      "valid_frame_count": 83,
+      "gt_coverage": 0.25301204819277107,
+      "latency_s": 36.851,
+      "target_term": "Folding table",
+      "anchor_term": "plant",
+      "parse_status": "direct_grounded",
+      "parse_mode": "single",
+      "hypothesis_count": 1,
+      "pred_top_k": [
+        36,
+        35,
+        30
+      ],
+      "hit_at_K": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "recall_at_K": {
+        "1": 1.0,
+        "3": 1.0,
+        "5": 0.6,
+        "10": 0.3
+      },
+      "first_hit_rank": 1,
+      "n_pred_in_gt": 3,
+      "unmeasurable": false
+    },
+    {
+      "sample_id": "scannet/scene0553_00::10::27475",
+      "scene_id": "scene0553_00",
+      "target_id": 10,
+      "category": "toilet paper",
+      "query": "the toilet paper on the paper towel dispenser",
+      "gt_frame_count": 28,
+      "valid_frame_count": 150,
+      "gt_coverage": 0.18666666666666668,
+      "latency_s": 10.612,
+      "target_term": "toilet paper",
+      "anchor_term": null,
+      "parse_status": "no_evidence",
+      "parse_mode": "single",
+      "hypothesis_count": 1,
+      "pred_top_k": [],
+      "hit_at_K": {
+        "1": 0,
+        "3": 0,
+        "5": 0,
+        "10": 0
+      },
+      "recall_at_K": {
+        "1": 0.0,
+        "3": 0.0,
+        "5": 0.0,
+        "10": 0.0
+      },
+      "first_hit_rank": null,
+      "n_pred_in_gt": 0,
+      "unmeasurable": false
+    },
+    {
+      "sample_id": "scannet/scene0558_00::5::21392",
+      "scene_id": "scene0558_00",
+      "target_id": 5,
+      "category": "bookshelf",
+      "query": "The smaller bookshelf.",
+      "gt_frame_count": 22,
+      "valid_frame_count": 71,
+      "gt_coverage": 0.30985915492957744,
+      "latency_s": 11.391,
+      "target_term": "bookcase",
+      "anchor_term": null,
+      "parse_status": "direct_grounded",
+      "parse_mode": "single",
+      "hypothesis_count": 1,
+      "pred_top_k": [
+        19,
+        29,
+        14
+      ],
+      "hit_at_K": {
+        "1": 0,
+        "3": 0,
+        "5": 0,
+        "10": 0
+      },
+      "recall_at_K": {
+        "1": 0.0,
+        "3": 0.0,
+        "5": 0.0,
+        "10": 0.0
+      },
+      "first_hit_rank": null,
+      "n_pred_in_gt": 0,
+      "unmeasurable": false
+    },
+    {
+      "sample_id": "scannet/scene0565_00::0::3757",
+      "scene_id": "scene0565_00",
+      "target_id": 0,
+      "category": "chair",
+      "query": "pick the grey chair next to the green one.",
+      "gt_frame_count": 52,
+      "valid_frame_count": 107,
+      "gt_coverage": 0.48598130841121495,
+      "latency_s": 15.065,
+      "target_term": "chair",
+      "anchor_term": "chair",
+      "parse_status": "direct_grounded",
+      "parse_mode": "single",
+      "hypothesis_count": 1,
+      "pred_top_k": [
+        49,
+        44,
+        13
+      ],
+      "hit_at_K": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "recall_at_K": {
+        "1": 1.0,
+        "3": 1.0,
+        "5": 0.6,
+        "10": 0.3
+      },
+      "first_hit_rank": 1,
+      "n_pred_in_gt": 3,
+      "unmeasurable": false
+    },
+    {
+      "sample_id": "scannet/scene0565_00::14::19228",
+      "scene_id": "scene0565_00",
+      "target_id": 14,
+      "category": "printer",
+      "query": "Facing the printers select the printer on the right.",
+      "gt_frame_count": 35,
+      "valid_frame_count": 107,
+      "gt_coverage": 0.32710280373831774,
+      "latency_s": 23.043,
+      "target_term": "Desktop printer",
+      "anchor_term": null,
+      "parse_status": "direct_grounded",
+      "parse_mode": "single",
+      "hypothesis_count": 1,
+      "pred_top_k": [
+        23,
+        13,
+        14
+      ],
+      "hit_at_K": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "recall_at_K": {
+        "1": 1.0,
+        "3": 1.0,
+        "5": 0.6,
+        "10": 0.3
+      },
+      "first_hit_rank": 1,
+      "n_pred_in_gt": 3,
+      "unmeasurable": false
+    },
+    {
+      "sample_id": "scannet/scene0565_00::20::35581",
+      "scene_id": "scene0565_00",
+      "target_id": 20,
+      "category": "door",
+      "query": "This door is next to the white board with pictures on it.",
+      "gt_frame_count": 12,
+      "valid_frame_count": 107,
+      "gt_coverage": 0.11214953271028037,
+      "latency_s": 21.604,
+      "target_term": "door",
+      "anchor_term": "Portable whiteboard",
+      "parse_status": "proxy_grounded",
+      "parse_mode": "multi",
+      "hypothesis_count": 3,
+      "pred_top_k": [
+        5,
+        66,
+        1,
+        9
+      ],
+      "hit_at_K": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "recall_at_K": {
+        "1": 1.0,
+        "3": 0.3333333333333333,
+        "5": 0.4,
+        "10": 0.2
+      },
+      "first_hit_rank": 1,
+      "n_pred_in_gt": 2,
+      "unmeasurable": false
+    },
+    {
+      "sample_id": "scannet/scene0568_00::15::20548",
+      "scene_id": "scene0568_00",
+      "target_id": 15,
+      "category": "chair",
+      "query": "chair in the corner, closest to the black shelf.",
+      "gt_frame_count": 35,
+      "valid_frame_count": 165,
+      "gt_coverage": 0.21212121212121213,
+      "latency_s": 23.209,
+      "target_term": "chair",
+      "anchor_term": "interior wall",
+      "parse_status": "direct_grounded",
+      "parse_mode": "single",
+      "hypothesis_count": 1,
+      "pred_top_k": [
+        30,
+        72,
+        29,
+        69
+      ],
+      "hit_at_K": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "recall_at_K": {
+        "1": 1.0,
+        "3": 0.6666666666666666,
+        "5": 0.4,
+        "10": 0.2
+      },
+      "first_hit_rank": 1,
+      "n_pred_in_gt": 2,
+      "unmeasurable": false
+    },
+    {
+      "sample_id": "scannet/scene0568_00::19::17227",
+      "scene_id": "scene0568_00",
+      "target_id": 19,
+      "category": "shelf",
+      "query": "The shelf on the floor near the vehicle rug",
+      "gt_frame_count": 28,
+      "valid_frame_count": 165,
+      "gt_coverage": 0.1696969696969697,
+      "latency_s": 39.106,
+      "target_term": "floor",
+      "anchor_term": null,
+      "parse_status": "context_only",
+      "parse_mode": "multi",
+      "hypothesis_count": 3,
+      "pred_top_k": [
+        122,
+        93,
+        92
+      ],
+      "hit_at_K": {
+        "1": 0,
+        "3": 0,
+        "5": 0,
+        "10": 0
+      },
+      "recall_at_K": {
+        "1": 0.0,
+        "3": 0.0,
+        "5": 0.0,
+        "10": 0.0
+      },
+      "first_hit_rank": null,
+      "n_pred_in_gt": 0,
+      "unmeasurable": false
+    },
+    {
+      "sample_id": "scannet/scene0574_00::5::13160",
+      "scene_id": "scene0574_00",
+      "target_id": 5,
+      "category": "towel",
+      "query": "the towels are sitting on the sink, not hanging up",
+      "gt_frame_count": 32,
+      "valid_frame_count": 103,
+      "gt_coverage": 0.3106796116504854,
+      "latency_s": 19.45,
+      "target_term": "bath towel",
+      "anchor_term": "Vanity sink",
+      "parse_status": "direct_grounded",
+      "parse_mode": "single",
+      "hypothesis_count": 1,
+      "pred_top_k": [
+        50,
+        66,
+        42
+      ],
+      "hit_at_K": {
+        "1": 0,
+        "3": 0,
+        "5": 0,
+        "10": 0
+      },
+      "recall_at_K": {
+        "1": 0.0,
+        "3": 0.0,
+        "5": 0.0,
+        "10": 0.0
+      },
+      "first_hit_rank": null,
+      "n_pred_in_gt": 0,
+      "unmeasurable": false
+    },
+    {
+      "sample_id": "scannet/scene0578_00::10::5147",
+      "scene_id": "scene0578_00",
+      "target_id": 10,
+      "category": "table",
+      "query": "The desk type table up against the wall",
+      "gt_frame_count": 61,
+      "valid_frame_count": 149,
+      "gt_coverage": 0.40939597315436244,
+      "latency_s": 19.429,
+      "target_term": "Dining table",
+      "anchor_term": "wall",
+      "parse_status": "direct_grounded",
+      "parse_mode": "single",
+      "hypothesis_count": 1,
+      "pred_top_k": [
+        146,
+        116,
+        140,
+        5,
+        148
+      ],
+      "hit_at_K": {
+        "1": 0,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "recall_at_K": {
+        "1": 0.0,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.1
+      },
+      "first_hit_rank": 2,
+      "n_pred_in_gt": 1,
+      "unmeasurable": false
+    },
+    {
+      "sample_id": "scannet/scene0578_00::18::21381",
+      "scene_id": "scene0578_00",
+      "target_id": 18,
+      "category": "whiteboard",
+      "query": "The whiteboard across from the door.",
+      "gt_frame_count": 51,
+      "valid_frame_count": 149,
+      "gt_coverage": 0.3422818791946309,
+      "latency_s": 14.028,
+      "target_term": "interactive whiteboard",
+      "anchor_term": null,
+      "parse_status": "no_evidence",
+      "parse_mode": "single",
+      "hypothesis_count": 1,
+      "pred_top_k": [],
+      "hit_at_K": {
+        "1": 0,
+        "3": 0,
+        "5": 0,
+        "10": 0
+      },
+      "recall_at_K": {
+        "1": 0.0,
+        "3": 0.0,
+        "5": 0.0,
+        "10": 0.0
+      },
+      "first_hit_rank": null,
+      "n_pred_in_gt": 0,
+      "unmeasurable": false
+    },
+    {
+      "sample_id": "scannet/scene0598_00::16::36661",
+      "scene_id": "scene0598_00",
+      "target_id": 16,
+      "category": "mouse",
+      "query": "Mouse near the centre of the long white desk",
+      "gt_frame_count": 21,
+      "valid_frame_count": 100,
+      "gt_coverage": 0.21,
+      "latency_s": 18.526,
+      "target_term": "computer mouse",
+      "anchor_term": "computer desk",
+      "parse_status": "direct_grounded",
+      "parse_mode": "single",
+      "hypothesis_count": 1,
+      "pred_top_k": [
+        42,
+        56,
+        41,
+        75,
+        55,
+        67,
+        70
+      ],
+      "hit_at_K": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "recall_at_K": {
+        "1": 1.0,
+        "3": 0.6666666666666666,
+        "5": 0.6,
+        "10": 0.4
+      },
+      "first_hit_rank": 1,
+      "n_pred_in_gt": 4,
+      "unmeasurable": false
+    },
+    {
+      "sample_id": "scannet/scene0598_00::18::5365",
+      "scene_id": "scene0598_00",
+      "target_id": 18,
+      "category": "window",
+      "query": "It is the window next to the table with the monitors.",
+      "gt_frame_count": 22,
+      "valid_frame_count": 100,
+      "gt_coverage": 0.22,
+      "latency_s": 16.048,
+      "target_term": "window",
+      "anchor_term": null,
+      "parse_status": "no_evidence",
+      "parse_mode": "single",
+      "hypothesis_count": 1,
+      "pred_top_k": [],
+      "hit_at_K": {
+        "1": 0,
+        "3": 0,
+        "5": 0,
+        "10": 0
+      },
+      "recall_at_K": {
+        "1": 0.0,
+        "3": 0.0,
+        "5": 0.0,
+        "10": 0.0
+      },
+      "first_hit_rank": null,
+      "n_pred_in_gt": 0,
+      "unmeasurable": false
+    },
+    {
+      "sample_id": "scannet/scene0608_00::25::35885",
+      "scene_id": "scene0608_00",
+      "target_id": 25,
+      "category": "pillow",
+      "query": "the pillow on the seat of the sofa ...Not on the back of the sofa",
+      "gt_frame_count": 100,
+      "valid_frame_count": 339,
+      "gt_coverage": 0.2949852507374631,
+      "latency_s": 22.01,
+      "target_term": "Novelty pillow",
+      "anchor_term": null,
+      "parse_status": "no_evidence",
+      "parse_mode": "single",
+      "hypothesis_count": 1,
+      "pred_top_k": [],
+      "hit_at_K": {
+        "1": 0,
+        "3": 0,
+        "5": 0,
+        "10": 0
+      },
+      "recall_at_K": {
+        "1": 0.0,
+        "3": 0.0,
+        "5": 0.0,
+        "10": 0.0
+      },
+      "first_hit_rank": null,
+      "n_pred_in_gt": 0,
+      "unmeasurable": false
+    },
+    {
+      "sample_id": "scannet/scene0616_00::26::28221",
+      "scene_id": "scene0616_00",
+      "target_id": 26,
+      "category": "picture",
+      "query": "the tall dark painting",
+      "gt_frame_count": 21,
+      "valid_frame_count": 303,
+      "gt_coverage": 0.06930693069306931,
+      "latency_s": 9.931,
+      "target_term": "framed poster",
+      "anchor_term": null,
+      "parse_status": "direct_grounded",
+      "parse_mode": "single",
+      "hypothesis_count": 1,
+      "pred_top_k": [
+        74,
+        281,
+        280
+      ],
+      "hit_at_K": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "recall_at_K": {
+        "1": 1.0,
+        "3": 1.0,
+        "5": 0.6,
+        "10": 0.3
+      },
+      "first_hit_rank": 1,
+      "n_pred_in_gt": 3,
+      "unmeasurable": false
+    },
+    {
+      "sample_id": "scannet/scene0616_00::7::3791",
+      "scene_id": "scene0616_00",
+      "target_id": 7,
+      "category": "armchair",
+      "query": "choose the armchair furthest from the fireplace.",
+      "gt_frame_count": 51,
+      "valid_frame_count": 303,
+      "gt_coverage": 0.16831683168316833,
+      "latency_s": 13.371,
+      "target_term": "armchair",
+      "anchor_term": null,
+      "parse_status": "direct_grounded",
+      "parse_mode": "single",
+      "hypothesis_count": 1,
+      "pred_top_k": [
+        157,
+        300,
+        299
+      ],
+      "hit_at_K": {
+        "1": 0,
+        "3": 0,
+        "5": 0,
+        "10": 0
+      },
+      "recall_at_K": {
+        "1": 0.0,
+        "3": 0.0,
+        "5": 0.0,
+        "10": 0.0
+      },
+      "first_hit_rank": null,
+      "n_pred_in_gt": 0,
+      "unmeasurable": false
+    },
+    {
+      "sample_id": "scannet/scene0618_00::18::36850",
+      "scene_id": "scene0618_00",
+      "target_id": 18,
+      "category": "table",
+      "query": "Look for the widest table.",
+      "gt_frame_count": 24,
+      "valid_frame_count": 89,
+      "gt_coverage": 0.2696629213483146,
+      "latency_s": 15.449,
+      "target_term": "Bar table",
+      "anchor_term": null,
+      "parse_status": "direct_grounded",
+      "parse_mode": "single",
+      "hypothesis_count": 1,
+      "pred_top_k": [
+        26,
+        13,
+        19
+      ],
+      "hit_at_K": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "recall_at_K": {
+        "1": 1.0,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.1
+      },
+      "first_hit_rank": 1,
+      "n_pred_in_gt": 1,
+      "unmeasurable": false
+    },
+    {
+      "sample_id": "scannet/scene0618_00::24::16123",
+      "scene_id": "scene0618_00",
+      "target_id": 24,
+      "category": "table",
+      "query": "Facing the pool table, the table in the top left corner.",
+      "gt_frame_count": 17,
+      "valid_frame_count": 89,
+      "gt_coverage": 0.19101123595505617,
+      "latency_s": 46.381,
+      "target_term": "table",
+      "anchor_term": null,
+      "parse_status": "no_evidence",
+      "parse_mode": "single",
+      "hypothesis_count": 1,
+      "pred_top_k": [],
+      "hit_at_K": {
+        "1": 0,
+        "3": 0,
+        "5": 0,
+        "10": 0
+      },
+      "recall_at_K": {
+        "1": 0.0,
+        "3": 0.0,
+        "5": 0.0,
+        "10": 0.0
+      },
+      "first_hit_rank": null,
+      "n_pred_in_gt": 0,
+      "unmeasurable": false
+    },
+    {
+      "sample_id": "scannet/scene0618_00::26::28943",
+      "scene_id": "scene0618_00",
+      "target_id": 26,
+      "category": "table",
+      "query": "If facing the dark green wall closest to the furnace/heater this table will be between two black chairs.",
+      "gt_frame_count": 16,
+      "valid_frame_count": 89,
+      "gt_coverage": 0.1797752808988764,
+      "latency_s": 37.045,
+      "target_term": "table",
+      "anchor_term": "chair",
+      "parse_status": "direct_grounded",
+      "parse_mode": "single",
+      "hypothesis_count": 1,
+      "pred_top_k": [
+        68,
+        55,
+        71,
+        1,
+        74,
+        69
+      ],
+      "hit_at_K": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "recall_at_K": {
+        "1": 1.0,
+        "3": 0.6666666666666666,
+        "5": 0.6,
+        "10": 0.4
+      },
+      "first_hit_rank": 1,
+      "n_pred_in_gt": 4,
+      "unmeasurable": false
+    },
+    {
+      "sample_id": "scannet/scene0621_00::0::5230",
+      "scene_id": "scene0621_00",
+      "target_id": 0,
+      "category": "table",
+      "query": "The table in the corner next to the chairs that are pushed up against the wall.",
+      "gt_frame_count": 71,
+      "valid_frame_count": 268,
+      "gt_coverage": 0.26492537313432835,
+      "latency_s": 44.064,
+      "target_term": "Meeting table",
+      "anchor_term": "wall",
+      "parse_status": "proxy_grounded",
+      "parse_mode": "multi",
+      "hypothesis_count": 3,
+      "pred_top_k": [
+        100,
+        236,
+        256,
+        117,
+        111
+      ],
+      "hit_at_K": {
+        "1": 0,
+        "3": 0,
+        "5": 0,
+        "10": 0
+      },
+      "recall_at_K": {
+        "1": 0.0,
+        "3": 0.0,
+        "5": 0.0,
+        "10": 0.0
+      },
+      "first_hit_rank": null,
+      "n_pred_in_gt": 0,
+      "unmeasurable": false
+    },
+    {
+      "sample_id": "scannet/scene0629_00::31::23523",
+      "scene_id": "scene0629_00",
+      "target_id": 31,
+      "category": "chair",
+      "query": "the chair farthest towards the corner of the room",
+      "gt_frame_count": 55,
+      "valid_frame_count": 275,
+      "gt_coverage": 0.2,
+      "latency_s": 30.036,
+      "target_term": "chair",
+      "anchor_term": null,
+      "parse_status": "proxy_grounded",
+      "parse_mode": "multi",
+      "hypothesis_count": 3,
+      "pred_top_k": [
+        171,
+        139,
+        140
+      ],
+      "hit_at_K": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "recall_at_K": {
+        "1": 1.0,
+        "3": 1.0,
+        "5": 0.6,
+        "10": 0.3
+      },
+      "first_hit_rank": 1,
+      "n_pred_in_gt": 3,
+      "unmeasurable": false
+    },
+    {
+      "sample_id": "scannet/scene0629_00::6::19188",
+      "scene_id": "scene0629_00",
+      "target_id": 6,
+      "category": "cabinet",
+      "query": "The white cabinet closes to the closed door.",
+      "gt_frame_count": 72,
+      "valid_frame_count": 275,
+      "gt_coverage": 0.26181818181818184,
+      "latency_s": 12.797,
+      "target_term": "cabinet",
+      "anchor_term": "door",
+      "parse_status": "direct_grounded",
+      "parse_mode": "single",
+      "hypothesis_count": 1,
+      "pred_top_k": [
+        69,
+        132,
+        89,
+        67
+      ],
+      "hit_at_K": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "recall_at_K": {
+        "1": 1.0,
+        "3": 0.6666666666666666,
+        "5": 0.6,
+        "10": 0.3
+      },
+      "first_hit_rank": 1,
+      "n_pred_in_gt": 3,
+      "unmeasurable": false
+    },
+    {
+      "sample_id": "scannet/scene0643_00::22::25584",
+      "scene_id": "scene0643_00",
+      "target_id": 22,
+      "category": "book",
+      "query": "Facing the side with 2 books, the book on the right.",
+      "gt_frame_count": 19,
+      "valid_frame_count": 194,
+      "gt_coverage": 0.0979381443298969,
+      "latency_s": 44.428,
+      "target_term": "book",
+      "anchor_term": "book",
+      "parse_status": "direct_grounded",
+      "parse_mode": "single",
+      "hypothesis_count": 1,
+      "pred_top_k": [
+        97,
+        143,
+        72
+      ],
+      "hit_at_K": {
+        "1": 0,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "recall_at_K": {
+        "1": 0.0,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.1
+      },
+      "first_hit_rank": 2,
+      "n_pred_in_gt": 1,
+      "unmeasurable": false
+    },
+    {
+      "sample_id": "scannet/scene0643_00::40::40755",
+      "scene_id": "scene0643_00",
+      "target_id": 40,
+      "category": "desk",
+      "query": "desk between the window and a white set of shelves",
+      "gt_frame_count": 50,
+      "valid_frame_count": 194,
+      "gt_coverage": 0.25773195876288657,
+      "latency_s": 14.15,
+      "target_term": "computer desk",
+      "anchor_term": null,
+      "parse_status": "no_evidence",
+      "parse_mode": "single",
+      "hypothesis_count": 1,
+      "pred_top_k": [],
+      "hit_at_K": {
+        "1": 0,
+        "3": 0,
+        "5": 0,
+        "10": 0
+      },
+      "recall_at_K": {
+        "1": 0.0,
+        "3": 0.0,
+        "5": 0.0,
+        "10": 0.0
+      },
+      "first_hit_rank": null,
+      "n_pred_in_gt": 0,
+      "unmeasurable": false
+    },
+    {
+      "sample_id": "scannet/scene0643_00::5::30758",
+      "scene_id": "scene0643_00",
+      "target_id": 5,
+      "category": "chair",
+      "query": "The chair second-closest to the door.",
+      "gt_frame_count": 32,
+      "valid_frame_count": 194,
+      "gt_coverage": 0.16494845360824742,
+      "latency_s": 10.587,
+      "target_term": "chair",
+      "anchor_term": null,
+      "parse_status": "direct_grounded",
+      "parse_mode": "single",
+      "hypothesis_count": 1,
+      "pred_top_k": [
+        80,
+        72,
+        71
+      ],
+      "hit_at_K": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "recall_at_K": {
+        "1": 1.0,
+        "3": 1.0,
+        "5": 0.6,
+        "10": 0.3
+      },
+      "first_hit_rank": 1,
+      "n_pred_in_gt": 3,
+      "unmeasurable": false
+    },
+    {
+      "sample_id": "scannet/scene0643_00::6::10715",
+      "scene_id": "scene0643_00",
+      "target_id": 6,
+      "category": "chair",
+      "query": "Small chair closest to the radiator",
+      "gt_frame_count": 15,
+      "valid_frame_count": 194,
+      "gt_coverage": 0.07731958762886598,
+      "latency_s": 22.741,
+      "target_term": "chair",
+      "anchor_term": null,
+      "parse_status": "proxy_grounded",
+      "parse_mode": "multi",
+      "hypothesis_count": 3,
+      "pred_top_k": [
+        115,
+        68,
+        116
+      ],
+      "hit_at_K": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "recall_at_K": {
+        "1": 1.0,
+        "3": 1.0,
+        "5": 0.6,
+        "10": 0.3
+      },
+      "first_hit_rank": 1,
+      "n_pred_in_gt": 3,
+      "unmeasurable": false
+    },
+    {
+      "sample_id": "scannet/scene0644_00::40::39251",
+      "scene_id": "scene0644_00",
+      "target_id": 40,
+      "category": "keyboard",
+      "query": "When you come in the room, there is a desk all the way to the right side of the room. On the far side of the desk are two sets of computer monitors. It is the keyboard in front of the monitors on the right side.",
+      "gt_frame_count": 28,
+      "valid_frame_count": 201,
+      "gt_coverage": 0.13930348258706468,
+      "latency_s": 29.617,
+      "target_term": "computer keyboard",
+      "anchor_term": "Desktop monitor",
+      "parse_status": "direct_grounded",
+      "parse_mode": "single",
+      "hypothesis_count": 1,
+      "pred_top_k": [
+        187,
+        29,
+        63,
+        31,
+        188
+      ],
+      "hit_at_K": {
+        "1": 0,
+        "3": 0,
+        "5": 0,
+        "10": 0
+      },
+      "recall_at_K": {
+        "1": 0.0,
+        "3": 0.0,
+        "5": 0.0,
+        "10": 0.0
+      },
+      "first_hit_rank": null,
+      "n_pred_in_gt": 0,
+      "unmeasurable": false
+    },
+    {
+      "sample_id": "scannet/scene0645_00::34::34611",
+      "scene_id": "scene0645_00",
+      "target_id": 34,
+      "category": "lamp",
+      "query": "The taller lamp above a chair.",
+      "gt_frame_count": 12,
+      "valid_frame_count": 450,
+      "gt_coverage": 0.02666666666666667,
+      "latency_s": 14.372,
+      "target_term": "bedside lamp",
+      "anchor_term": "armchair",
+      "parse_status": "direct_grounded",
+      "parse_mode": "single",
+      "hypothesis_count": 1,
+      "pred_top_k": [
+        101,
+        83,
+        80,
+        112,
+        123,
+        116
+      ],
+      "hit_at_K": {
+        "1": 0,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "recall_at_K": {
+        "1": 0.0,
+        "3": 0.3333333333333333,
+        "5": 0.2,
+        "10": 0.1
+      },
+      "first_hit_rank": 2,
+      "n_pred_in_gt": 1,
+      "unmeasurable": false
+    },
+    {
+      "sample_id": "scannet/scene0645_00::38::39739",
+      "scene_id": "scene0645_00",
+      "target_id": 38,
+      "category": "door",
+      "query": "the door into the bathroom",
+      "gt_frame_count": 92,
+      "valid_frame_count": 450,
+      "gt_coverage": 0.20444444444444446,
+      "latency_s": 26.792,
+      "target_term": "door",
+      "anchor_term": "Bathroom doorway",
+      "parse_status": "direct_grounded",
+      "parse_mode": "single",
+      "hypothesis_count": 1,
+      "pred_top_k": [
+        316,
+        12,
+        393,
+        402
+      ],
+      "hit_at_K": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "recall_at_K": {
+        "1": 1.0,
+        "3": 0.6666666666666666,
+        "5": 0.4,
+        "10": 0.2
+      },
+      "first_hit_rank": 1,
+      "n_pred_in_gt": 2,
+      "unmeasurable": false
+    },
+    {
+      "sample_id": "scannet/scene0645_00::83::22780",
+      "scene_id": "scene0645_00",
+      "target_id": 83,
+      "category": "soap dish",
+      "query": "The highest soap dish on the wall in the shower.",
+      "gt_frame_count": 13,
+      "valid_frame_count": 450,
+      "gt_coverage": 0.028888888888888888,
+      "latency_s": 18.758,
+      "target_term": "soap dish",
+      "anchor_term": null,
+      "parse_status": "no_evidence",
+      "parse_mode": "single",
+      "hypothesis_count": 1,
+      "pred_top_k": [],
+      "hit_at_K": {
+        "1": 0,
+        "3": 0,
+        "5": 0,
+        "10": 0
+      },
+      "recall_at_K": {
+        "1": 0.0,
+        "3": 0.0,
+        "5": 0.0,
+        "10": 0.0
+      },
+      "first_hit_rank": null,
+      "n_pred_in_gt": 0,
+      "unmeasurable": false
+    },
+    {
+      "sample_id": "scannet/scene0648_00::15::24119",
+      "scene_id": "scene0648_00",
+      "target_id": 15,
+      "category": "bed",
+      "query": "the bed with the white and green bedding",
+      "gt_frame_count": 148,
+      "valid_frame_count": 418,
+      "gt_coverage": 0.35406698564593303,
+      "latency_s": 15.399,
+      "target_term": "bed",
+      "anchor_term": null,
+      "parse_status": "direct_grounded",
+      "parse_mode": "single",
+      "hypothesis_count": 1,
+      "pred_top_k": [
+        352,
+        22,
+        23
+      ],
+      "hit_at_K": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "recall_at_K": {
+        "1": 1.0,
+        "3": 1.0,
+        "5": 0.6,
+        "10": 0.3
+      },
+      "first_hit_rank": 1,
+      "n_pred_in_gt": 3,
+      "unmeasurable": false
+    },
+    {
+      "sample_id": "scannet/scene0651_00::8::26207",
+      "scene_id": "scene0651_00",
+      "target_id": 8,
+      "category": "chair",
+      "query": "the chair closest to the kitchen",
+      "gt_frame_count": 29,
+      "valid_frame_count": 104,
+      "gt_coverage": 0.27884615384615385,
+      "latency_s": 17.028,
+      "target_term": "chair",
+      "anchor_term": null,
+      "parse_status": "direct_grounded",
+      "parse_mode": "single",
+      "hypothesis_count": 1,
+      "pred_top_k": [
+        80,
+        74,
+        72
+      ],
+      "hit_at_K": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "recall_at_K": {
+        "1": 1.0,
+        "3": 1.0,
+        "5": 0.6,
+        "10": 0.3
+      },
+      "first_hit_rank": 1,
+      "n_pred_in_gt": 3,
+      "unmeasurable": false
+    },
+    {
+      "sample_id": "scannet/scene0651_00::8::37347",
+      "scene_id": "scene0651_00",
+      "target_id": 8,
+      "category": "chair",
+      "query": "This chair has it's back facing the sink.",
+      "gt_frame_count": 29,
+      "valid_frame_count": 104,
+      "gt_coverage": 0.27884615384615385,
+      "latency_s": 13.473,
+      "target_term": "chair",
+      "anchor_term": null,
+      "parse_status": "no_evidence",
+      "parse_mode": "single",
+      "hypothesis_count": 1,
+      "pred_top_k": [],
+      "hit_at_K": {
+        "1": 0,
+        "3": 0,
+        "5": 0,
+        "10": 0
+      },
+      "recall_at_K": {
+        "1": 0.0,
+        "3": 0.0,
+        "5": 0.0,
+        "10": 0.0
+      },
+      "first_hit_rank": null,
+      "n_pred_in_gt": 0,
+      "unmeasurable": false
+    },
+    {
+      "sample_id": "scannet/scene0652_00::13::34162",
+      "scene_id": "scene0652_00",
+      "target_id": 13,
+      "category": "pillow",
+      "query": "Standing at the foot of the bed, there are five pillows. Select the one in front of the others on the right side.",
+      "gt_frame_count": 43,
+      "valid_frame_count": 144,
+      "gt_coverage": 0.2986111111111111,
+      "latency_s": 43.412,
+      "target_term": "Pillows",
+      "anchor_term": null,
+      "parse_status": "no_evidence",
+      "parse_mode": "single",
+      "hypothesis_count": 1,
+      "pred_top_k": [],
+      "hit_at_K": {
+        "1": 0,
+        "3": 0,
+        "5": 0,
+        "10": 0
+      },
+      "recall_at_K": {
+        "1": 0.0,
+        "3": 0.0,
+        "5": 0.0,
+        "10": 0.0
+      },
+      "first_hit_rank": null,
+      "n_pred_in_gt": 0,
+      "unmeasurable": false
+    },
+    {
+      "sample_id": "scannet/scene0653_00::16::3852",
+      "scene_id": "scene0653_00",
+      "target_id": 16,
+      "category": "desk",
+      "query": "It's the desk that's immediately under the round clock on the wall.",
+      "gt_frame_count": 78,
+      "valid_frame_count": 388,
+      "gt_coverage": 0.20103092783505155,
+      "latency_s": 14.105,
+      "target_term": "desk",
+      "anchor_term": null,
+      "parse_status": "no_evidence",
+      "parse_mode": "single",
+      "hypothesis_count": 1,
+      "pred_top_k": [],
+      "hit_at_K": {
+        "1": 0,
+        "3": 0,
+        "5": 0,
+        "10": 0
+      },
+      "recall_at_K": {
+        "1": 0.0,
+        "3": 0.0,
+        "5": 0.0,
+        "10": 0.0
+      },
+      "first_hit_rank": null,
+      "n_pred_in_gt": 0,
+      "unmeasurable": false
+    },
+    {
+      "sample_id": "scannet/scene0663_00::3::36534",
+      "scene_id": "scene0663_00",
+      "target_id": 3,
+      "category": "desk",
+      "query": "the desk right next to the window",
+      "gt_frame_count": 121,
+      "valid_frame_count": 295,
+      "gt_coverage": 0.4101694915254237,
+      "latency_s": 22.1,
+      "target_term": "L-shaped office desk",
+      "anchor_term": null,
+      "parse_status": "no_evidence",
+      "parse_mode": "single",
+      "hypothesis_count": 1,
+      "pred_top_k": [],
+      "hit_at_K": {
+        "1": 0,
+        "3": 0,
+        "5": 0,
+        "10": 0
+      },
+      "recall_at_K": {
+        "1": 0.0,
+        "3": 0.0,
+        "5": 0.0,
+        "10": 0.0
+      },
+      "first_hit_rank": null,
+      "n_pred_in_gt": 0,
+      "unmeasurable": false
+    },
+    {
+      "sample_id": "scannet/scene0663_00::4::4543",
+      "scene_id": "scene0663_00",
+      "target_id": 4,
+      "category": "desk",
+      "query": "The desk next to the door.",
+      "gt_frame_count": 96,
+      "valid_frame_count": 295,
+      "gt_coverage": 0.3254237288135593,
+      "latency_s": 13.274,
+      "target_term": "desk",
+      "anchor_term": "door",
+      "parse_status": "direct_grounded",
+      "parse_mode": "single",
+      "hypothesis_count": 1,
+      "pred_top_k": [
+        225,
+        280,
+        95
+      ],
+      "hit_at_K": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "recall_at_K": {
+        "1": 1.0,
+        "3": 0.6666666666666666,
+        "5": 0.4,
+        "10": 0.2
+      },
+      "first_hit_rank": 1,
+      "n_pred_in_gt": 2,
+      "unmeasurable": false
+    },
+    {
+      "sample_id": "scannet/scene0665_00::2::38846",
+      "scene_id": "scene0665_00",
+      "target_id": 2,
+      "category": "desk",
+      "query": "It's the desk that's closest to the door, and by itself.",
+      "gt_frame_count": 14,
+      "valid_frame_count": 103,
+      "gt_coverage": 0.13592233009708737,
+      "latency_s": 21.389,
+      "target_term": "Desk and chair set",
+      "anchor_term": null,
+      "parse_status": "direct_grounded",
+      "parse_mode": "single",
+      "hypothesis_count": 1,
+      "pred_top_k": [
+        1,
+        9,
+        10
+      ],
+      "hit_at_K": {
+        "1": 0,
+        "3": 0,
+        "5": 0,
+        "10": 0
+      },
+      "recall_at_K": {
+        "1": 0.0,
+        "3": 0.0,
+        "5": 0.0,
+        "10": 0.0
+      },
+      "first_hit_rank": null,
+      "n_pred_in_gt": 0,
+      "unmeasurable": false
+    },
+    {
+      "sample_id": "scannet/scene0686_00::24::10791",
+      "scene_id": "scene0686_00",
+      "target_id": 24,
+      "category": "toilet",
+      "query": "toilet in the first stall on the left",
+      "gt_frame_count": 11,
+      "valid_frame_count": 153,
+      "gt_coverage": 0.0718954248366013,
+      "latency_s": 27.639,
+      "target_term": "commercial toilet",
+      "anchor_term": null,
+      "parse_status": "no_evidence",
+      "parse_mode": "single",
+      "hypothesis_count": 1,
+      "pred_top_k": [],
+      "hit_at_K": {
+        "1": 0,
+        "3": 0,
+        "5": 0,
+        "10": 0
+      },
+      "recall_at_K": {
+        "1": 0.0,
+        "3": 0.0,
+        "5": 0.0,
+        "10": 0.0
+      },
+      "first_hit_rank": null,
+      "n_pred_in_gt": 0,
+      "unmeasurable": false
+    },
+    {
+      "sample_id": "scannet/scene0690_00::15::4351",
+      "scene_id": "scene0690_00",
+      "target_id": 15,
+      "category": "armchair",
+      "query": "Walking towards the sofas, it's the left sofa furthest away from wooden cabinets",
+      "gt_frame_count": 36,
+      "valid_frame_count": 90,
+      "gt_coverage": 0.4,
+      "latency_s": 14.441,
+      "target_term": "Leather loveseat",
+      "anchor_term": null,
+      "parse_status": "direct_grounded",
+      "parse_mode": "single",
+      "hypothesis_count": 1,
+      "pred_top_k": [
+        18,
+        26,
+        11
+      ],
+      "hit_at_K": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "recall_at_K": {
+        "1": 1.0,
+        "3": 0.6666666666666666,
+        "5": 0.4,
+        "10": 0.2
+      },
+      "first_hit_rank": 1,
+      "n_pred_in_gt": 2,
+      "unmeasurable": false
+    },
+    {
+      "sample_id": "scannet/scene0697_00::19::35451",
+      "scene_id": "scene0697_00",
+      "target_id": 19,
+      "category": "lamp",
+      "query": "When facing the bed, the lamp that is on the right side of the bed.",
+      "gt_frame_count": 48,
+      "valid_frame_count": 286,
+      "gt_coverage": 0.16783216783216784,
+      "latency_s": 13.909,
+      "target_term": "lamp",
+      "anchor_term": null,
+      "parse_status": "no_evidence",
+      "parse_mode": "single",
+      "hypothesis_count": 1,
+      "pred_top_k": [],
+      "hit_at_K": {
+        "1": 0,
+        "3": 0,
+        "5": 0,
+        "10": 0
+      },
+      "recall_at_K": {
+        "1": 0.0,
+        "3": 0.0,
+        "5": 0.0,
+        "10": 0.0
+      },
+      "first_hit_rank": null,
+      "n_pred_in_gt": 0,
+      "unmeasurable": false
+    },
+    {
+      "sample_id": "scannet/scene0697_00::7::20551",
+      "scene_id": "scene0697_00",
+      "target_id": 7,
+      "category": "nightstand",
+      "query": "Nightstand beside the doll house",
+      "gt_frame_count": 57,
+      "valid_frame_count": 286,
+      "gt_coverage": 0.1993006993006993,
+      "latency_s": 12.241,
+      "target_term": "nightstand",
+      "anchor_term": "dollhouse",
+      "parse_status": "direct_grounded",
+      "parse_mode": "single",
+      "hypothesis_count": 1,
+      "pred_top_k": [
+        77,
+        264,
+        76,
+        78
+      ],
+      "hit_at_K": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "recall_at_K": {
+        "1": 1.0,
+        "3": 1.0,
+        "5": 0.8,
+        "10": 0.4
+      },
+      "first_hit_rank": 1,
+      "n_pred_in_gt": 4,
+      "unmeasurable": false
+    },
+    {
+      "sample_id": "scannet/scene0697_00::7::20613",
+      "scene_id": "scene0697_00",
+      "target_id": 7,
+      "category": "nightstand",
+      "query": "Choose the nightstand on the left of the bed, between the headboard and the dollhouse.",
+      "gt_frame_count": 57,
+      "valid_frame_count": 286,
+      "gt_coverage": 0.1993006993006993,
+      "latency_s": 21.382,
+      "target_term": "bed",
+      "anchor_term": null,
+      "parse_status": "context_only",
+      "parse_mode": "multi",
+      "hypothesis_count": 3,
+      "pred_top_k": [
+        78,
+        102,
+        76,
+        264
+      ],
+      "hit_at_K": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "recall_at_K": {
+        "1": 1.0,
+        "3": 1.0,
+        "5": 0.8,
+        "10": 0.4
+      },
+      "first_hit_rank": 1,
+      "n_pred_in_gt": 4,
+      "unmeasurable": false
+    },
+    {
+      "sample_id": "scannet/scene0704_00::0::16937",
+      "scene_id": "scene0704_00",
+      "target_id": 0,
+      "category": "cart",
+      "query": "choose the dark cart.",
+      "gt_frame_count": 71,
+      "valid_frame_count": 241,
+      "gt_coverage": 0.2946058091286307,
+      "latency_s": 14.803,
+      "target_term": "cart",
+      "anchor_term": null,
+      "parse_status": "direct_grounded",
+      "parse_mode": "single",
+      "hypothesis_count": 1,
+      "pred_top_k": [
+        18,
+        22,
+        23
+      ],
+      "hit_at_K": {
+        "1": 0,
+        "3": 0,
+        "5": 0,
+        "10": 0
+      },
+      "recall_at_K": {
+        "1": 0.0,
+        "3": 0.0,
+        "5": 0.0,
+        "10": 0.0
+      },
+      "first_hit_rank": null,
+      "n_pred_in_gt": 0,
+      "unmeasurable": false
+    },
+    {
+      "sample_id": "scannet/scene0704_00::5::8434",
+      "scene_id": "scene0704_00",
+      "target_id": 5,
+      "category": "cabinets",
+      "query": "The black top kitchen cabinet",
+      "gt_frame_count": 65,
+      "valid_frame_count": 241,
+      "gt_coverage": 0.2697095435684647,
+      "latency_s": 15.852,
+      "target_term": "base cabinets",
+      "anchor_term": null,
+      "parse_status": "direct_grounded",
+      "parse_mode": "single",
+      "hypothesis_count": 1,
+      "pred_top_k": [
+        4,
+        29,
+        8
+      ],
+      "hit_at_K": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "10": 1
+      },
+      "recall_at_K": {
+        "1": 1.0,
+        "3": 1.0,
+        "5": 0.6,
+        "10": 0.3
+      },
+      "first_hit_rank": 1,
+      "n_pred_in_gt": 3,
+      "unmeasurable": false
+    }
+  ]
+}
