@@ -1,4 +1,4 @@
-"""Consistency tests for v9 VG playbooks (catalog-first)."""
+"""Consistency tests for v9.1 VG playbooks (selectors-return-images)."""
 
 from pathlib import Path
 
@@ -23,23 +23,32 @@ _SD = (
         "list_keyframes_with_proposals",
         "inspect_stage1_metadata",
         "view_keyframe_marked",
+        "view_keyframe",
+        "select_by_hypothesis",
     ],
 )
 def test_no_dead_tool_names(path: Path, dead: str):
     assert dead not in path.read_text(), f"{dead} still mentioned in {path}"
 
 
-def test_vg_playbook_lists_v9_tools():
+def test_vg_playbook_lists_v9_1_tools():
     text = _PB.read_text()
     for tool in (
-        "view_keyframe",
+        "select_by_text",
+        "select_by_proposal",
+        "mark_frame_with_bbox",
         "list_frame_proposals",
         "list_scene_proposals",
         "inspect_proposal",
-        "select_by_proposal",
         "view_bev",
     ):
-        assert tool in text
+        assert tool in text, f"{tool} missing from vg_grounding_playbook"
+
+
+def test_vg_playbook_first_move_is_select_by_text():
+    text = _PB.read_text()
+    assert text.count("select_by_text") >= 2
+    assert "first move" in text.lower() or "First move" in text
 
 
 def test_vg_playbook_mentions_tadg_and_guards():
@@ -55,6 +64,7 @@ def test_vg_playbook_mentions_ood_proposal_minus_one():
     assert "-1" in text
 
 
-def test_vg_spatial_disambiguation_uses_view_keyframe_mode_marked():
+def test_vg_spatial_disambiguation_uses_mark_frame_with_bbox():
     text = _SD.read_text()
-    assert "view_keyframe(mode='marked')" in text or 'mode="marked"' in text
+    assert "mark_frame_with_bbox" in text
+    assert "frame_id" in text
