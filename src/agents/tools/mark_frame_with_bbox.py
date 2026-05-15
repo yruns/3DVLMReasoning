@@ -78,11 +78,31 @@ def build_mark_frame_with_bbox_tool(runtime: Any) -> BaseTool:
             )
             runtime.record("mark_frame_with_bbox", request, err)
             return err
-        # Rendering implementation comes in Task 3-4. For now, return a placeholder
-        # that still meets the response schema so downstream guards parse it.
-        placeholder = f"frame_id={frame_id} mark image PLACEHOLDER; visible_proposals=[]; categories=[]; left_to_right=[]; boxes_2d={{}}"
-        runtime.record("mark_frame_with_bbox", request, placeholder)
-        return placeholder
+        left_to_right_pairs = sorted(
+            visible,
+            key=lambda p: (
+                (p.frame_views[int(frame_id)].bbox_2d[0]
+                 + p.frame_views[int(frame_id)].bbox_2d[2]) / 2.0,
+                p.proposal_id,
+            ),
+        )
+        visible_ids = [p.proposal_id for p in left_to_right_pairs]
+        categories = [p.category for p in left_to_right_pairs]
+        left_to_right = [f"{p.proposal_id}:{p.category}" for p in left_to_right_pairs]
+        boxes_2d = {
+            p.proposal_id: [int(round(v)) for v in p.frame_views[int(frame_id)].bbox_2d]
+            for p in left_to_right_pairs
+        }
+        body = (
+            f"frame_id={frame_id} mark image PENDING_RENDER (Task 3+); "
+            f"filtered_by={{'labels': {labels_in}, 'ids': {ids_in}}}; "
+            f"visible_proposals={visible_ids}; "
+            f"categories={categories}; "
+            f"left_to_right={left_to_right}; "
+            f"boxes_2d={boxes_2d}"
+        )
+        runtime.record("mark_frame_with_bbox", request, body)
+        return body
 
     return mark_frame_with_bbox
 

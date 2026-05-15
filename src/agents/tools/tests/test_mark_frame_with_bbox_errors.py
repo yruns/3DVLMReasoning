@@ -3,8 +3,6 @@ from __future__ import annotations
 from pathlib import Path
 from types import SimpleNamespace
 
-import pytest
-
 from agents.catalog import SceneCatalog, SceneProposal, FrameView
 from agents.runtime.base import Stage2RuntimeState
 from agents.tools.mark_frame_with_bbox import build_mark_frame_with_bbox_tool
