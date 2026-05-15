@@ -1,11 +1,46 @@
 """Smoke tests for v9 migration: callback-style tools are gone."""
 
 import importlib
+from types import SimpleNamespace
 
 from agents.core.agent_config import Stage2DeepAgentConfig, Stage2TaskType
 from agents.core.task_types import Stage2EvidenceBundle
 from agents.runtime.base import Stage2RuntimeState
-from agents.runtime.deepagents_agent import DeepAgentsStage2Runtime
+from agents.runtime.deepagents_agent import DeepAgentsStage2Runtime, _collect_v9_tools
+
+
+def test_view_keyframe_not_loaded():
+    rs = SimpleNamespace(
+        bundle=SimpleNamespace(
+            extra_metadata={
+                "scene_catalog": {
+                    "scene_id": "s",
+                    "proposals": [],
+                    "valid_frame_ids": [],
+                }
+            }
+        ),
+        task_type=Stage2TaskType.VISUAL_GROUNDING,
+    )
+    names = {getattr(t, "name", "") for t in _collect_v9_tools(runtime=rs, task_type=rs.task_type)}
+    assert "view_keyframe" not in names
+
+
+def test_select_by_hypothesis_not_loaded():
+    rs = SimpleNamespace(
+        bundle=SimpleNamespace(
+            extra_metadata={
+                "scene_catalog": {
+                    "scene_id": "s",
+                    "proposals": [],
+                    "valid_frame_ids": [],
+                }
+            }
+        ),
+        task_type=Stage2TaskType.VISUAL_GROUNDING,
+    )
+    names = {getattr(t, "name", "") for t in _collect_v9_tools(runtime=rs, task_type=rs.task_type)}
+    assert "select_by_hypothesis" not in names
 
 
 def test_runtime_does_not_expose_request_more_views():

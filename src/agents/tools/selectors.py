@@ -352,7 +352,7 @@ def build_selector_tools(runtime: Any) -> list[BaseTool]:
         for entry in list(getattr(runtime, "tool_trace", []) or []):
             tool_input = getattr(entry, "tool_input", {}) or {}
             if getattr(entry, "tool_name", "") in (
-                "view_keyframe",
+                "mark_frame_with_bbox",
                 "select_by_text",
                 "select_by_proposal",
                 "select_by_region",

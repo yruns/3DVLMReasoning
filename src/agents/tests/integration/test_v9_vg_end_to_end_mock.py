@@ -2,7 +2,7 @@
 
 The full DeepAgents `graph.invoke` path requires LangChain wiring that is
 expensive to mock. Instead, this test drives the v9 tool surface directly
-the way a VLM would: load the gate skills, run a selector, view a frame,
+the way a VLM would: load the gate skills, run a selector, mark a frame,
 and check the trace + the SceneCatalog-driven user message.
 """
 
@@ -112,7 +112,7 @@ def test_vg_v9_tool_surface_end_to_end(tmp_path: Path):
     for required in (
         "select_by_proposal",
         "select_by_text",
-        "view_keyframe",
+        "mark_frame_with_bbox",
         "view_bev",
         "list_scene_proposals",
         "list_frame_proposals",

@@ -2,7 +2,7 @@
 
 Mirrors the VG integration test but for the QA pack. The chassis (and
 therefore submit_final) is opt-in for QA; the v9 catalog-first selector +
-view tools still wire up because the bundle carries a SceneCatalog.
+mark_frame_with_bbox still wire up because the bundle carries a SceneCatalog.
 """
 
 from __future__ import annotations
@@ -77,7 +77,7 @@ def _bundle(tmp_path: Path) -> Stage2EvidenceBundle:
 def test_qa_v9_tool_surface_end_to_end(tmp_path: Path):
     """Sanity check: the v9 QA tool surface is wired and a scripted call
     sequence produces a clean tool_trace including select_by_proposal +
-    view_keyframe(mode='rgb')."""
+    mark_frame_with_bbox."""
     _ensure_packs_registered()
     bundle = _bundle(tmp_path)
     task = Stage2TaskSpec(
@@ -94,7 +94,7 @@ def test_qa_v9_tool_surface_end_to_end(tmp_path: Path):
     for required in (
         "select_by_proposal",
         "select_by_text",
-        "view_keyframe",
+        "mark_frame_with_bbox",
         "view_bev",
         "list_scene_proposals",
         "inspect_proposal",

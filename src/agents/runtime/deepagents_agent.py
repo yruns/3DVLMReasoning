@@ -32,9 +32,8 @@ from .langchain_agent import ToolChoiceCompatibleAzureChatOpenAI
 def _collect_v9_tools(*, runtime: Stage2RuntimeState, task_type: Stage2TaskType | None) -> list[BaseTool]:
     """Build the v9 catalog-aware tool set for a given task pack.
 
-    Returns selectors, scene perception, the legacy view_keyframe (deleted in Task 15
-    of the v9.1 plan), and the new mark_frame_with_bbox tool. The order matches the
-    historical loading order so existing trace HTML colour-coding stays stable.
+    Returns selectors, scene perception, and mark_frame_with_bbox. The order matches
+    the historical loading order so existing trace HTML colour-coding stays stable.
 
     `task_type` is currently unused but exposed for future task-pack-specific tool
     gating; do not remove it.
@@ -43,12 +42,10 @@ def _collect_v9_tools(*, runtime: Stage2RuntimeState, task_type: Stage2TaskType 
     from agents.tools.mark_frame_with_bbox import build_mark_frame_with_bbox_tool
     from agents.tools.scene_perception import build_scene_perception_tools
     from agents.tools.selectors import build_selector_tools
-    from agents.tools.view_keyframe import build_view_keyframe_tool
 
     tools: list[BaseTool] = []
     tools.extend(build_selector_tools(runtime))
     tools.extend(build_scene_perception_tools(runtime))
-    tools.append(build_view_keyframe_tool(runtime))
     tools.append(build_mark_frame_with_bbox_tool(runtime))
     return tools
 
