@@ -56,8 +56,8 @@ def _record_view(
         geometry += f"; boxes_2d={boxes_2d}"
     rs.tool_trace.append(
         Stage2ToolObservation(
-            tool_name="view_keyframe",
-            tool_input={"frame_id": frame_id, "mode": "marked"},
+            tool_name="mark_frame_with_bbox",
+            tool_input={"frame_id": frame_id},
             response_text=(
                 f"frame_id={frame_id} marked image at frame_{frame_id}.png; "
                 f"visible_proposals={visible_ids}; categories={categories}"
@@ -524,3 +524,45 @@ def test_evidence_frame_guard_does_not_force_target_leftmost_for_anchor_left_of_
 
     assert response.startswith("submitted;")
     assert rs.final_submission == {"answer": {"proposal_id": 3, "confidence": 0.66}}
+
+
+def test_evidence_frame_guard_rejects_plain_rgb_only_evidence(tmp_path: Path) -> None:
+    """A selector that injected an RGB frame containing the submitted proposal does NOT
+    satisfy the VG evidence requirement — only `mark_frame_with_bbox` counts.
+    """
+    _register_vg_stub_pack(tmp_path)
+    rs = _runtime()
+    rs.tool_trace.append(
+        Stage2ToolObservation(
+            tool_name="select_by_text",
+            tool_input={"query": "cabinet", "k": 3, "hidden_categories": []},
+            response_text=json.dumps(
+                {
+                    "hypothesis_summary": "",
+                    "frames": [
+                        {
+                            "frame_id": 42,
+                            "visible_proposal_ids": [4],
+                            "selected_because": "select_by_text",
+                            "image_path": "/tmp/fake.png",
+                            "already_seen": False,
+                        }
+                    ],
+                }
+            ),
+        )
+    )
+    _, _, submit_final = build_chassis_tools(rs)
+
+    response = submit_final.invoke(
+        {
+            "payload": {"proposal_id": 4, "confidence": 0.55},
+            "rationale": "Frame 42 shows proposal 4 from the selector output.",
+            "evidence_refs": [],
+        }
+    )
+
+    assert response.startswith("EVIDENCE_FRAME_GUARD:")
+    assert rs.final_submission is None
+    submit_records = [t for t in rs.tool_trace if t.tool_name == "submit_final"]
+    assert submit_records[0].tool_input["evidence_frame_guard_blocked"] is True

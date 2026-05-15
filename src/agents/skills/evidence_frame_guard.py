@@ -144,10 +144,8 @@ def _parse_boxes_2d(response: str) -> dict[int, tuple[float, float, float, float
 
 
 def _is_marked_view(entry: Any) -> bool:
-    if _tool_name(entry) != "view_keyframe":
-        return False
-    mode = (_tool_input(entry) or {}).get("mode")
-    return mode in ("marked", "auto")
+    """v9.1: mark_frame_with_bbox replaces view_keyframe(mode='marked')."""
+    return _tool_name(entry) == "mark_frame_with_bbox"
 
 
 def _viewed_frame_map(runtime: Any) -> dict[int, dict[str, Any]]:
@@ -575,6 +573,22 @@ def evaluate_evidence_frame_guard(
         )
 
     if not cited_visible:
+        if cited_frame_ids:
+            _mark_evidence_frame_guard_triggered(runtime)
+            frame_list = ", ".join(str(fid) for fid in cited_frame_ids)
+            message = (
+                "EVIDENCE_FRAME_GUARD: rationale cites frame(s) "
+                f"{frame_list}, but there is no marked-frame evidence "
+                "(`mark_frame_with_bbox`) for those frames in the tool trace. "
+                "Selector-returned RGB alone is not sufficient; mark the cited "
+                "frame(s) before submitting."
+            )
+            return EvidenceFrameGuardDecision(
+                blocked=True,
+                message=message,
+                submitted_pid=submitted_pid,
+                cited_frame_ids=tuple(cited_frame_ids),
+            )
         return EvidenceFrameGuardDecision(blocked=False, submitted_pid=submitted_pid)
 
     _mark_evidence_frame_guard_triggered(runtime)
