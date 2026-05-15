@@ -218,10 +218,13 @@ def build_selector_tools(runtime: Any) -> list[BaseTool]:
             )
             runtime.record("select_by_frame_neighbor", request, err)
             return err
+        k_in = int(k)
+        capped = min(k_in, 3)
+        k_warning = "" if k_in == capped else f" (k capped at 3 from {k_in})"
         others = [f for f in valid if f != int(anchor_frame_id)]
         if mode == "temporal":
             others.sort(key=lambda f: (abs(f - int(anchor_frame_id)), f))
-            chosen = others[: int(k)]
+            chosen = others[:capped]
         else:
             anchor_pose, anchor_yaw = _camera_pose(runtime, int(anchor_frame_id))
             ranked: list[tuple[float, float, int]] = []
@@ -235,15 +238,21 @@ def build_selector_tools(runtime: Any) -> list[BaseTool]:
                     yaw_delta = abs(yaw - anchor_yaw)
                 ranked.append((distance - yaw_delta, -yaw_delta, f))
             ranked.sort(key=lambda item: (item[0], item[1]))
-            chosen = [t[2] for t in ranked[: int(k)]]
-        frames = [
-            _build_frame_payload(
+            chosen = [t[2] for t in ranked[:capped]]
+        frames: list[dict] = []
+        for fid in chosen:
+            base = _build_frame_payload(
                 runtime, catalog, int(fid),
-                selected_because=f"select_by_frame_neighbor(anchor={anchor_frame_id}, mode={mode!r})",
+                selected_because=(
+                    f"select_by_frame_neighbor(anchor={anchor_frame_id}, mode={mode!r}){k_warning}"
+                ),
                 hidden_categories=[],
             )
-            for fid in chosen
-        ]
+            image_path = _resolve_raw_rgb_path(catalog, int(fid))
+            base["image_path"] = str(image_path) if image_path else None
+            queued = queue_pending_image_if_new(runtime, base["image_path"] or "")
+            base["already_seen"] = (not queued) and (base["image_path"] in runtime.seen_image_paths)
+            frames.append(base)
         payload = {"hypothesis_summary": "", "frames": frames}
         text = json.dumps(payload, ensure_ascii=False)
         runtime.record("select_by_frame_neighbor", request, text)
