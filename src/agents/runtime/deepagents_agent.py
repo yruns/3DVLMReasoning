@@ -541,7 +541,15 @@ class DeepAgentsStage2Runtime(BaseStage2Runtime):
             HumanMessage with new images, or None if no new images
         """
         new_images: list[str] = []
+        # v9 catalog-first: never auto-inject pack-prep "seed" keyframes
+        # (Stage-1 GT-target-visible RGBs). The agent must explicitly fetch
+        # first-person frames via view_keyframe / select_* / view_bev /
+        # request_crops. Tool-produced keyframes (e.g. request_crops crops)
+        # are not in initial_keyframe_paths and are still drained below.
+        initial_seeds = runtime.initial_keyframe_paths
         for keyframe in runtime.bundle.keyframes:
+            if keyframe.image_path in initial_seeds:
+                continue
             if Path(keyframe.image_path).exists():
                 if keyframe.image_path not in runtime.seen_image_paths:
                     new_images.append(keyframe.image_path)
@@ -629,6 +637,16 @@ class DeepAgentsStage2Runtime(BaseStage2Runtime):
 
         runtime = Stage2RuntimeState(bundle=bundle.model_copy(deep=True))
         runtime.task_type = task.task_type
+        # v9 catalog-first: snapshot the initial pack-prep "seed" keyframe
+        # paths so build_evidence_update_message can refuse to auto-inject
+        # them. Tools that mutate bundle.keyframes later (e.g. request_crops
+        # appending new crops) will not be in this set and are still drained
+        # by the regular evidence-update path.
+        runtime.initial_keyframe_paths = {
+            kf.image_path
+            for kf in runtime.bundle.keyframes
+            if kf.image_path
+        }
 
         # Populate VG runtime state from bundle extra_metadata.
         if task.task_type == Stage2TaskType.VISUAL_GROUNDING:

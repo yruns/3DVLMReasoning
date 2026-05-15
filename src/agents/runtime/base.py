@@ -41,6 +41,15 @@ class Stage2RuntimeState:
         default_factory=set
     )  # Track already-injected images
 
+    # v9 catalog-first invariant: the LLM must never auto-receive
+    # pack-prep "seed" keyframes (Stage-1 GT-target-visible RGBs). The
+    # initial set is snapshotted by the runtime when it constructs this
+    # state, and `build_evidence_update_message` skips any keyframe whose
+    # image_path is in this set. Tools that append new keyframes (e.g.
+    # request_crops) bypass this filter because their crops are not in
+    # the snapshot.
+    initial_keyframe_paths: set[str] = field(default_factory=set)
+
     task_type: Stage2TaskType | None = None
 
     # Task-pack state populated for pack-backed tasks.

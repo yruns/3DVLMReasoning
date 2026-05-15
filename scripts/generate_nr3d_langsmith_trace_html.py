@@ -1,14 +1,23 @@
-"""Render NR3D VG tool traces as a LangSmith-style static HTML viewer.
+"""Render NR3D v9 catalog-first agent traces as a LangSmith-style static HTML.
 
-The viewer is built from persisted benchmark artifacts only:
+This viewer is **v9 catalog-first native**:
 
-- ``leaderboard_metrics.json`` for correctness and split labels.
-- per-sample checkpoints for Stage-2 tool traces.
-- pack samples for initial keyframe image paths.
-
-It does not call the agent or any model. The saved checkpoints do not include
-the full LangChain message stream, so the report reconstructs the visible run
-tree from the recorded tool calls and evidence image paths.
+- The "Turn 0" panel shows what the agent actually sees on its very first
+  HumanMessage — the BEV image, the SceneCatalog category table, the task,
+  and a footer reminding the reader that **no first-person keyframes are
+  injected** before the agent calls a tool. (v9 build_user_message contract.)
+- Tools are grouped by family: `setup`, `catalog`, `selector`, `view`,
+  `reason`, `terminal`. Deprecated names from earlier versions
+  (`view_keyframe_marked`, `request_more_views`, `switch_or_expand_hypothesis`,
+  `find_proposals_by_category`, `list_keyframes_with_proposals`) still get
+  labels so a historical run can still be opened, but they are visually
+  flagged as "legacy".
+- The viewer is built from persisted benchmark artifacts only:
+  - leaderboard_metrics.json for correctness / split labels
+  - per-sample checkpoints for the Stage-2 tool trace
+  - pack samples for the BEV path / scene_catalog path / camera trajectory
+- It never calls the agent or any model; thumbnails are extracted from
+  paths referenced inside tool responses.
 """
 
 from __future__ import annotations
@@ -19,11 +28,16 @@ import html
 import json
 import re
 import subprocess
-from collections import Counter
+from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Any
 
 from PIL import Image
+
+
+# ---------------------------------------------------------------------------
+# Small helpers
+# ---------------------------------------------------------------------------
 
 
 def esc(value: Any) -> str:
@@ -99,6 +113,21 @@ def load_pack_sample(data_root: Path, pack_name: str, sample_id: str) -> dict[st
     return read_json(sample_path)
 
 
+def load_scene_catalog(sample: dict[str, Any]) -> dict[str, Any] | None:
+    catalog_path = sample.get("scene_catalog_path")
+    if not catalog_path:
+        return None
+    p = Path(catalog_path)
+    if not p.exists():
+        return None
+    return read_json(p)
+
+
+# ---------------------------------------------------------------------------
+# Thumbnails + image refs
+# ---------------------------------------------------------------------------
+
+
 def make_thumb(
     src: Path,
     *,
@@ -119,77 +148,137 @@ def make_thumb(
     return str(out.relative_to(html_dir))
 
 
-def collect_image_refs(response_text: str) -> list[tuple[int | None, str]]:
+# Patterns that v9 tools embed in their response_text when they queue an image.
+_PATH_HINTS = [
+    # view_keyframe (rgb mode) — raw RGB path
+    re.compile(r"frame_id=(?P<fid>\d+) rgb image at (?P<path>[^;\s]+)"),
+    # view_keyframe (marked / auto) — produced annotated image
+    re.compile(r"frame_id=(?P<fid>\d+)\s+(?:filtered\s+)?marked image at (?P<path>[^;\s]+)"),
+    # view_bev — re-rendered BEV with highlight
+    re.compile(r"bev image at (?P<path>[^;\s]+)"),
+    # request_crops legacy
+    re.compile(r"crop saved (?:at|to) (?P<path>[^;\s]+)"),
+]
+
+
+def collect_image_refs(response_text: str, tool_input: dict[str, Any] | None = None) -> list[tuple[int | None, str]]:
+    """Extract (frame_id, path) tuples for any images this tool produced."""
     refs: list[tuple[int | None, str]] = []
+
+    # Parse JSON responses (list_scene_proposals / list_frame_proposals can
+    # embed an annotated_image when filtered).
     parsed = try_json(response_text)
     if isinstance(parsed, list):
         for item in parsed:
             if isinstance(item, dict) and item.get("annotated_image"):
                 refs.append((item.get("frame_id"), str(item["annotated_image"])))
-    elif isinstance(parsed, dict) and parsed.get("annotated_image"):
-        refs.append((parsed.get("frame_id"), str(parsed["annotated_image"])))
+    elif isinstance(parsed, dict):
+        if parsed.get("annotated_image"):
+            refs.append((parsed.get("frame_id"), str(parsed["annotated_image"])))
+        # view_bev (json) returns {bev_image_path: ...}
+        if parsed.get("bev_image_path"):
+            refs.append((None, str(parsed["bev_image_path"])))
+        if parsed.get("image_path"):
+            refs.append((parsed.get("frame_id"), str(parsed["image_path"])))
 
-    for match in re.finditer(
-        r"frame_id=(\d+)\s+(?:filtered\s+)?marked image at ([^;]+)",
-        response_text,
-    ):
-        refs.append((int(match.group(1)), match.group(2)))
+    for pat in _PATH_HINTS:
+        for m in pat.finditer(response_text):
+            d = m.groupdict()
+            fid_str = d.get("fid")
+            refs.append((int(fid_str) if fid_str else None, d["path"]))
+
     return refs
 
 
-def load_proposal_labels(data_root: Path, pack_name: str, scene_id: str) -> dict[int, str]:
-    path = data_root / scene_id / pack_name / "proposals.jsonl"
-    if not path.exists():
-        return {}
-    payload = read_json(path)
-    proposals = payload.get("proposals", payload)
-    labels: dict[int, str] = {}
-    if isinstance(proposals, list):
-        for proposal in proposals:
-            if not isinstance(proposal, dict) or proposal.get("id") is None:
-                continue
-            labels[int(proposal["id"])] = str(
-                proposal.get("label") or proposal.get("category") or ""
-            )
-    return labels
+# ---------------------------------------------------------------------------
+# Tool family / labels / summaries
+# ---------------------------------------------------------------------------
+
+_LEGACY_TOOLS = {
+    "view_keyframe_marked",
+    "request_more_views",
+    "switch_or_expand_hypothesis",
+    "find_proposals_by_category",
+    "list_keyframes_with_proposals",
+    "inspect_stage1_metadata",
+}
+
+_FAMILY = {
+    # setup / housekeeping
+    "list_skills": "setup",
+    "load_skill": "setup",
+    # catalog reads (text only, no new images)
+    "list_scene_proposals": "catalog",
+    "list_frame_proposals": "catalog",
+    "inspect_proposal": "catalog",
+    "retrieve_object_context": "catalog",
+    # selector tools (frame discovery, text only)
+    "select_by_text": "selector",
+    "select_by_hypothesis": "selector",
+    "select_by_frame_neighbor": "selector",
+    "select_by_proposal": "selector",
+    "select_by_region": "selector",
+    "select_by_coverage": "selector",
+    # image-producing view tools
+    "view_keyframe": "view",
+    "view_bev": "view",
+    "request_crops": "view",  # historically image-producing
+    # analytical
+    "compare_proposals_spatial": "reason",
+    # terminal
+    "submit_final": "final",
+}
+
+# Legacy aliases keep their pre-v9 labels but family classification.
+for _legacy_tool, _family in (
+    ("view_keyframe_marked", "view"),
+    ("request_more_views", "view"),
+    ("find_proposals_by_category", "catalog"),
+    ("list_keyframes_with_proposals", "catalog"),
+    ("inspect_stage1_metadata", "catalog"),
+    ("switch_or_expand_hypothesis", "setup"),
+):
+    _FAMILY.setdefault(_legacy_tool, _family)
+
+
+_LABELS = {
+    "list_skills": "列出可用技能",
+    "load_skill": "加载 playbook",
+    "list_scene_proposals": "查看场景候选目录",
+    "list_frame_proposals": "查看某帧候选列表",
+    "inspect_proposal": "检查候选元数据",
+    "retrieve_object_context": "读取对象上下文",
+    "select_by_text": "按文本搜帧",
+    "select_by_hypothesis": "按假设搜帧",
+    "select_by_frame_neighbor": "按相邻帧搜帧",
+    "select_by_proposal": "按候选 id 搜帧",
+    "select_by_region": "按 BEV 区域搜帧",
+    "select_by_coverage": "按覆盖度搜帧",
+    "view_keyframe": "查看关键帧",
+    "view_bev": "查看 BEV",
+    "request_crops": "请求局部裁剪",
+    "compare_proposals_spatial": "几何关系排序",
+    "submit_final": "提交最终答案",
+    # Legacy
+    "view_keyframe_marked": "查看带框关键帧 (legacy)",
+    "request_more_views": "请求更多视角 (legacy)",
+    "switch_or_expand_hypothesis": "切换/扩展 Stage1 假设 (legacy)",
+    "find_proposals_by_category": "按类别搜索候选 (legacy)",
+    "list_keyframes_with_proposals": "读取初始帧候选清单 (legacy)",
+    "inspect_stage1_metadata": "检查 Stage1 元数据 (legacy)",
+}
+
+
+def tool_family(tool: str) -> str:
+    return _FAMILY.get(tool, "tool")
 
 
 def tool_label(tool: str) -> str:
-    labels = {
-        "list_skills": "列出可用技能",
-        "load_skill": "加载推理 Playbook",
-        "list_keyframes_with_proposals": "读取初始帧候选清单",
-        "list_frame_proposals": "读取单帧候选清单",
-        "view_keyframe_marked": "查看带框关键帧",
-        "find_proposals_by_category": "按类别搜索候选",
-        "inspect_proposal": "检查候选属性",
-        "compare_proposals_spatial": "几何关系排序",
-        "request_more_views": "请求更多视角",
-        "request_crops": "请求局部裁剪",
-        "switch_or_expand_hypothesis": "切换/扩展 Stage1 假设",
-        "submit_final": "提交最终答案",
-        "inspect_stage1_metadata": "检查 Stage1 元数据",
-        "retrieve_object_context": "检索对象上下文",
-    }
-    return labels.get(tool, tool)
+    return _LABELS.get(tool, tool)
 
 
-def node_kind(tool: str) -> str:
-    if tool in {"submit_final"}:
-        return "final"
-    if tool in {"view_keyframe_marked", "request_more_views", "request_crops"}:
-        return "evidence"
-    if tool in {"list_skills", "load_skill"}:
-        return "setup"
-    if tool in {
-        "find_proposals_by_category",
-        "inspect_proposal",
-        "compare_proposals_spatial",
-        "list_frame_proposals",
-        "list_keyframes_with_proposals",
-    }:
-        return "tool"
-    return "tool"
+def is_legacy(tool: str) -> bool:
+    return tool in _LEGACY_TOOLS
 
 
 def summarize_tool(call: dict[str, Any]) -> str:
@@ -203,54 +292,118 @@ def summarize_tool(call: dict[str, Any]) -> str:
         return "可用技能：" + "、".join(names)
     if tool == "load_skill":
         return f"加载技能：{inp.get('skill_name') if isinstance(inp, dict) else inp}"
-    if tool == "list_keyframes_with_proposals" and isinstance(parsed, list):
-        frames = [
-            f"{x.get('frame_id')}({x.get('n_proposals')})"
-            for x in parsed
-            if isinstance(x, dict)
-        ]
-        return "初始帧候选数：" + " / ".join(frames)
+
+    # ---- catalog reads ----
+    if tool == "list_scene_proposals":
+        if isinstance(parsed, dict):
+            cats = parsed.get("proposals_by_category") or {}
+            n_props = parsed.get("n_proposals") or sum(len(v) for v in cats.values() if isinstance(v, list))
+            return f"目录读取：{n_props} 候选，{len(cats)} 个类别"
+        return "读取场景候选目录"
     if tool == "list_frame_proposals" and isinstance(parsed, dict):
-        ltr = parsed.get("left_to_right") or []
+        ltr = parsed.get("left_to_right") or parsed.get("visible_proposal_ids") or []
         suffix = "" if len(ltr) <= 8 else f" ... +{len(ltr) - 8}"
         return (
-            f"frame {parsed.get('frame_id')} 可见 {len(parsed.get('visible_proposal_ids') or [])} 个候选；"
-            + "，".join(map(str, ltr[:8]))
-            + suffix
+            f"frame {parsed.get('frame_id')} 可见 {len(ltr)} 个候选：" + "，".join(map(str, ltr[:8])) + suffix
         )
-    if tool == "find_proposals_by_category" and isinstance(parsed, dict):
-        return f"类别 {parsed.get('category')} -> {parsed.get('proposal_ids') or []}"
     if tool == "inspect_proposal" and isinstance(parsed, dict):
-        frames = parsed.get("frames_appeared") or []
+        frames = parsed.get("frames_appeared") or parsed.get("frames") or []
         return (
-            f"候选 #{parsed.get('proposal_id')}，类别 {parsed.get('category')}，"
-            f"出现帧数 {len(frames)}"
+            f"候选 #{parsed.get('proposal_id')}（{parsed.get('category')}），"
+            f"出现于 {len(frames)} 帧"
         )
+    if tool == "retrieve_object_context":
+        return "读取对象上下文：" + compact_text(text, max_chars=200)
+
+    # ---- selectors ----
+    if tool == "select_by_text":
+        q = inp.get("query") if isinstance(inp, dict) else None
+        k = inp.get("k") if isinstance(inp, dict) else None
+        return (
+            f"文本 query=「{q}」 top-{k or '?'}：" + _summarize_selector_response(parsed, text)
+        )
+    if tool == "select_by_proposal":
+        ids = inp.get("proposal_ids") if isinstance(inp, dict) else None
+        return (
+            f"按 proposal_ids={ids} 搜帧：" + _summarize_selector_response(parsed, text)
+        )
+    if tool == "select_by_hypothesis":
+        return f"按假设搜帧：" + _summarize_selector_response(parsed, text)
+    if tool == "select_by_frame_neighbor":
+        anchor = inp.get("frame_id") if isinstance(inp, dict) else None
+        return (
+            f"以 frame {anchor} 为锚搜邻帧：" + _summarize_selector_response(parsed, text)
+        )
+    if tool == "select_by_region":
+        return f"BEV 区域搜帧：" + _summarize_selector_response(parsed, text)
+    if tool == "select_by_coverage":
+        return f"按覆盖度搜帧：" + _summarize_selector_response(parsed, text)
+
+    # ---- view tools ----
+    if tool == "view_keyframe":
+        if isinstance(inp, dict):
+            fid = inp.get("frame_id")
+            mode = inp.get("mode") or "auto"
+            cats = inp.get("categories") or []
+            pids = inp.get("proposal_ids") or []
+            extra = []
+            if cats:
+                extra.append(f"categories={cats}")
+            if pids:
+                extra.append(f"proposal_ids={pids}")
+            extra_text = ("；" + " ".join(extra)) if extra else ""
+            return f"frame {fid} ({mode}){extra_text}"
+        return text[:200]
+    if tool == "view_bev":
+        if isinstance(inp, dict):
+            hl = inp.get("highlight") or []
+            return f"BEV 重渲染 highlight={hl}"
+        return text[:200]
+    if tool == "request_crops" and isinstance(inp, dict):
+        return (
+            f"frame_indices={inp.get('frame_indices')} object_terms={inp.get('object_terms')}：" + compact_text(text, max_chars=160)
+        )
+
+    # ---- legacy ----
+    if tool == "view_keyframe_marked":
+        refs = collect_image_refs(text, inp if isinstance(inp, dict) else None)
+        frame_id = refs[0][0] if refs else (inp.get("frame_id") if isinstance(inp, dict) else "?")
+        return f"legacy view_keyframe_marked(frame={frame_id})"
+    if tool == "request_more_views":
+        return "legacy request_more_views：" + text[:160]
+
+    # ---- analytical ----
     if tool == "compare_proposals_spatial" and isinstance(parsed, dict):
         return (
-            f"关系 {parsed.get('relation')}，anchor #{parsed.get('anchor_id')}，"
-            f"排序 {parsed.get('ranked_ids')}"
+            f"relation={parsed.get('relation')} anchor=#{parsed.get('anchor_id')} "
+            f"排序={parsed.get('ranked_ids')}"
         )
-    if tool == "view_keyframe_marked":
-        refs = collect_image_refs(text)
-        frame_id = refs[0][0] if refs else (inp.get("frame_id") if isinstance(inp, dict) else "?")
-        filters = []
-        if isinstance(inp, dict):
-            if inp.get("categories"):
-                filters.append(f"categories={inp.get('categories')}")
-            if inp.get("proposal_ids"):
-                filters.append(f"proposal_ids={inp.get('proposal_ids')}")
-        filter_text = "；过滤 " + " ".join(filters) if filters else "；未过滤"
-        return f"查看 frame {frame_id} 的标注图{filter_text}"
-    if tool == "request_more_views":
-        return "请求更多视角：" + text[:220]
-    if tool == "request_crops":
-        return "请求局部裁剪：" + text[:220]
-    if tool == "switch_or_expand_hypothesis":
-        return "重新请求 Stage1：" + text[:220]
+
+    # ---- terminal ----
     if tool == "submit_final" and isinstance(inp, dict):
-        return f"提交 {inp.get('payload')}；理由：{str(inp.get('rationale') or '')[:260]}"
-    return text[:260] if text else "无返回文本"
+        payload = inp.get("payload")
+        rationale = str(inp.get("rationale") or "")
+        return f"提交 {payload}；理由：{rationale[:240]}"
+
+    return text[:240] if text else "（无返回文本）"
+
+
+def _summarize_selector_response(parsed: Any, text: str) -> str:
+    if isinstance(parsed, dict):
+        frame_ids = parsed.get("frame_ids") or parsed.get("frames") or []
+        n_frames = parsed.get("n_frames")
+        if isinstance(frame_ids, list) and frame_ids:
+            head = ", ".join(map(str, frame_ids[:8]))
+            tail = "" if len(frame_ids) <= 8 else f" ... +{len(frame_ids) - 8}"
+            return f"返回 {n_frames or len(frame_ids)} 帧 [{head}{tail}]"
+        if n_frames is not None:
+            return f"返回 {n_frames} 帧"
+    return compact_text(text, max_chars=160)
+
+
+# ---------------------------------------------------------------------------
+# Rendering primitives
+# ---------------------------------------------------------------------------
 
 
 def render_image_cards(
@@ -277,12 +430,13 @@ def render_image_cards(
                 f'<div class="image-card missing"><strong>图片缺失</strong><code>{esc(path)}</code></div>'
             )
             continue
+        fid_label = "BEV" if frame_id is None else f"frame {frame_id}"
         cards.append(
             f"""
             <figure class="image-card">
               <img src="{esc(rel)}" alt="{esc(path)}" loading="lazy">
               <figcaption>
-                <strong>frame {esc(frame_id if frame_id is not None else "?")}</strong>
+                <strong>{esc(fid_label)}</strong>
                 <span>{esc(caption)}</span>
                 <code>{esc(path)}</code>
               </figcaption>
@@ -290,16 +444,35 @@ def render_image_cards(
             """
         )
     if not cards:
-        return '<div class="empty">没有记录到可直接复现的图片路径。</div>'
+        return '<div class="empty">这一步没有返回新图像。</div>'
     return '<div class="image-grid">' + "\n".join(cards) + "</div>"
 
 
-def compact_tool_response(tool: str, response: str) -> str:
-    if tool == "load_skill":
-        return compact_text(response, max_chars=5_000)
-    if tool in {"list_skills", "list_keyframes_with_proposals", "list_frame_proposals"}:
-        return compact_text(response, max_chars=8_000)
-    return compact_text(response, max_chars=12_000)
+def render_catalog_table(catalog: dict[str, Any] | None) -> str:
+    if not catalog:
+        return '<div class="empty">未找到 scene_catalog.json</div>'
+    by_cat: dict[str, list[int]] = defaultdict(list)
+    for prop in catalog.get("proposals", []):
+        raw_id = prop.get("id")
+        if raw_id is None:
+            continue
+        try:
+            pid = int(raw_id)
+        except (TypeError, ValueError):
+            continue
+        cat = prop.get("category") or "?"
+        by_cat[cat].append(pid)
+    if not by_cat:
+        return '<div class="empty">catalog 为空</div>'
+    rows = []
+    for cat in sorted(by_cat):
+        ids_str = ", ".join(f"#{pid}" for pid in sorted(by_cat[cat]))
+        rows.append(f"<tr><td>{esc(cat)}</td><td>{esc(ids_str)}</td></tr>")
+    return (
+        '<table class="catalog-table"><thead><tr><th>category</th><th>proposal ids</th></tr></thead><tbody>'
+        + "\n".join(rows)
+        + "</tbody></table>"
+    )
 
 
 def render_tool_card(
@@ -313,18 +486,17 @@ def render_tool_card(
     tool = str(call.get("tool_name") or "")
     inp = call.get("tool_input")
     response = str(call.get("response_text") or "")
-    image_refs = [
-        (frame_id, path, f"工具 #{step_index:02d} {tool_label(tool)}")
-        for frame_id, path in collect_image_refs(response)
+    family = tool_family(tool)
+    legacy_cls = " legacy" if is_legacy(tool) else ""
+    refs = [
+        (frame_id, path, f"#{step_index:02d} {tool_label(tool)}")
+        for frame_id, path in collect_image_refs(response, inp if isinstance(inp, dict) else None)
     ]
     image_html = render_image_cards(
-        image_refs,
-        assets_dir=assets_dir,
-        html_dir=html_dir,
-        prefix=f"{case_prefix}_tool{step_index:02d}",
-    ) if image_refs else ""
+        refs, assets_dir=assets_dir, html_dir=html_dir, prefix=f"{case_prefix}_step{step_index:02d}"
+    ) if refs else ""
     return f"""
-    <details class="call-card {esc(node_kind(tool))}" id="{esc(case_prefix)}-step-{step_index}" open>
+    <details class="call-card {esc(family)}{legacy_cls}" id="{esc(case_prefix)}-step-{step_index}" open>
       <summary>
         <span class="step-no">{step_index:02d}</span>
         <span class="tool-pill">{esc(tool)}</span>
@@ -334,12 +506,12 @@ def render_tool_card(
       <div class="call-body">
         <div class="io-grid">
           <section>
-            <h4>模型发起的工具输入（原文）</h4>
-            <pre>{pretty(inp, max_chars=8_000)}</pre>
+            <h4>模型发起的工具输入</h4>
+            <pre>{pretty(inp, max_chars=6_000)}</pre>
           </section>
           <section>
-            <h4>工具返回 / 可视证据引用（原文）</h4>
-            <pre>{pretty(compact_tool_response(tool, response), max_chars=13_000)}</pre>
+            <h4>工具返回（原文，已截断）</h4>
+            <pre>{pretty(compact_text(response, max_chars=12_000), max_chars=13_000)}</pre>
           </section>
         </div>
         {image_html}
@@ -351,9 +523,10 @@ def render_tool_card(
 def render_tree(trace: list[dict[str, Any]], *, case_prefix: str) -> str:
     rows = [
         f"""
-        <a class="tree-node root" href="#{esc(case_prefix)}-stage1">
+        <a class="tree-node turn0" href="#{esc(case_prefix)}-turn0">
           <span class="tree-dot"></span>
-          <span>Stage 1 证据包</span>
+          <span class="tree-index">T0</span>
+          <span class="tree-tool">初始 BEV + 目录</span>
         </a>
         """
     ]
@@ -361,7 +534,7 @@ def render_tree(trace: list[dict[str, Any]], *, case_prefix: str) -> str:
         tool = str(call.get("tool_name") or "")
         rows.append(
             f"""
-            <a class="tree-node {esc(node_kind(tool))}" href="#{esc(case_prefix)}-step-{idx}">
+            <a class="tree-node {esc(tool_family(tool))}" href="#{esc(case_prefix)}-step-{idx}">
               <span class="tree-dot"></span>
               <span class="tree-index">{idx:02d}</span>
               <span class="tree-tool">{esc(tool_label(tool))}</span>
@@ -375,6 +548,11 @@ def status_label(metric: dict[str, Any]) -> tuple[str, str]:
     if bool(metric.get("is_correct")):
         return "正确", "ok"
     return "错误", "wrong"
+
+
+# ---------------------------------------------------------------------------
+# Per-case + page assembly
+# ---------------------------------------------------------------------------
 
 
 def build_case(
@@ -392,40 +570,39 @@ def build_case(
     case_prefix = f"case{index:03d}_{scene_id}_{target_id}"
     checkpoint = read_json(find_checkpoint(per_sample_dir, sample_id))
     sample = load_pack_sample(data_root, pack_name, sample_id)
-    labels = load_proposal_labels(data_root, pack_name, scene_id)
+    catalog = load_scene_catalog(sample)
     trace = checkpoint.get("tool_trace") or []
     selected_id = checkpoint.get("selected_object_id")
     label_text, label_class = status_label(metric)
 
-    initial_refs = [
-        (
-            keyframe.get("frame_id"),
-            str(keyframe.get("image_path")),
-            f"初始 clean RGB keyframe #{keyframe.get('keyframe_idx')}",
-        )
-        for keyframe in sample.get("keyframes") or []
-    ]
-    stage1_images = render_image_cards(
-        initial_refs,
-        assets_dir=assets_dir,
-        html_dir=html_dir,
-        prefix=f"{case_prefix}_stage1",
+    # Tool family stats
+    family_counts: Counter[str] = Counter()
+    legacy_count = 0
+    for call in trace:
+        t = str(call.get("tool_name") or "?")
+        family_counts[tool_family(t)] += 1
+        if is_legacy(t):
+            legacy_count += 1
+    legacy_warning = (
+        f'<p class="legacy-warning"><strong>注意</strong>：本 trace 含有 {legacy_count} 次已废弃工具调用，应迁移到 v9 工具表。</p>'
+        if legacy_count
+        else ""
     )
 
-    tool_counts = Counter(str(call.get("tool_name") or "") for call in trace)
-    selected_label = labels.get(int(selected_id), "") if selected_id is not None else ""
-    target_label = labels.get(int(target_id), "")
-    split_bits = [
-        "Easy" if metric.get("is_easy") else "Hard",
-        "View-Dep" if metric.get("is_view_dep") else "View-Indep",
-    ]
-    nav = f"""
-    <button class="run-link {label_class}" data-run="{esc(sample_id)}">
-      <span class="run-title">{esc(sample_id)}</span>
-      <span class="run-query">{esc(checkpoint.get("query"))}</span>
-      <span class="run-meta">{esc(label_text)} · selected={esc(selected_id)} · gt={esc(target_id)}</span>
-    </button>
-    """
+    # BEV initial image
+    bev_path = sample.get("bev_image_path")
+    bev_thumb = ""
+    if bev_path and Path(bev_path).exists():
+        rel = make_thumb(
+            Path(bev_path),
+            assets_dir=assets_dir,
+            html_dir=html_dir,
+            prefix=f"{case_prefix}_turn0_bev",
+        )
+        if rel:
+            bev_thumb = f'<figure class="image-card"><img src="{esc(rel)}" alt="initial BEV" loading="lazy"><figcaption><strong>BEV (turn 0)</strong><span>mesh-based top-down render，proposal #id 标在 3D 中心，相机轨迹叠加</span><code>{esc(bev_path)}</code></figcaption></figure>'
+
+    # Per-step cards
     cards = "\n".join(
         render_tool_card(
             call,
@@ -436,12 +613,56 @@ def build_case(
         )
         for idx, call in enumerate(trace, start=1)
     )
+
+    split_bits = [
+        "Easy" if metric.get("is_easy") else "Hard",
+        "View-Dep" if metric.get("is_view_dep") else "View-Indep",
+    ]
+    selected_label = ""
+    target_label = ""
+    if catalog:
+        for prop in catalog.get("proposals", []):
+            raw_id = prop.get("id")
+            if raw_id is None:
+                continue
+            try:
+                pid = int(raw_id)
+            except (TypeError, ValueError):
+                continue
+            if pid == int(target_id):
+                target_label = str(prop.get("category") or "")
+            if selected_id is not None:
+                try:
+                    sel_pid = int(selected_id)
+                except (TypeError, ValueError):
+                    sel_pid = None
+                if sel_pid is not None and pid == sel_pid:
+                    selected_label = str(prop.get("category") or "")
+
+    # Sidebar nav button
+    nav = f"""
+    <button class="run-link {label_class}" data-run="{esc(sample_id)}">
+      <span class="run-title">{esc(sample_id)}</span>
+      <span class="run-query">{esc(checkpoint.get('query'))}</span>
+      <span class="run-meta">{esc(label_text)} · selected=#{esc(selected_id)} · gt=#{esc(target_id)} · {esc(' / '.join(split_bits))}</span>
+    </button>
+    """
+
+    family_mix = " ".join(
+        f"<span class=\"chip {esc(fam)}\">{esc(fam)}={c}</span>"
+        for fam, c in family_counts.most_common()
+    )
+
+    catalog_html = render_catalog_table(catalog)
+    catalog_size = len(catalog.get("proposals", [])) if catalog else 0
+    total_frames = catalog.get("total_frames") if catalog else "?"
+
     html_case = f"""
     <article class="run-panel" data-run="{esc(sample_id)}">
       <header class="run-header">
         <div>
-          <div class="eyebrow">Run {index:03d} · NR3D visual grounding</div>
-          <h2>{esc(checkpoint.get("query"))}</h2>
+          <div class="eyebrow">Run {index:03d} · NR3D visual grounding (v9 catalog-first)</div>
+          <h2>{esc(checkpoint.get('query'))}</h2>
           <p class="sample-id">{esc(sample_id)}</p>
         </div>
         <div class="verdict {label_class}">{esc(label_text)}</div>
@@ -450,35 +671,50 @@ def build_case(
       <section class="summary-grid">
         <div><span>GT</span><strong>#{esc(target_id)} {esc(target_label)}</strong></div>
         <div><span>Selected</span><strong>#{esc(selected_id)} {esc(selected_label)}</strong></div>
-        <div><span>Confidence</span><strong>{esc(checkpoint.get("confidence"))}</strong></div>
-        <div><span>IoU</span><strong>{float(checkpoint.get("iou") or 0):.4f}</strong></div>
-        <div><span>Split</span><strong>{esc(" / ".join(split_bits))}</strong></div>
+        <div><span>Confidence</span><strong>{esc(checkpoint.get('confidence'))}</strong></div>
+        <div><span>IoU</span><strong>{float(checkpoint.get('iou') or 0):.4f}</strong></div>
+        <div><span>Split</span><strong>{esc(' / '.join(split_bits))}</strong></div>
         <div><span>Tool calls</span><strong>{len(trace)}</strong></div>
       </section>
+
+      {legacy_warning}
 
       <section class="trace-layout">
         <aside>
           <h3>调用链条</h3>
           {render_tree(trace, case_prefix=case_prefix)}
           <div class="tool-mix">
-            <h4>工具分布</h4>
-            {''.join(f'<span>{esc(k)}={v}</span>' for k, v in tool_counts.items())}
+            <h4>工具家族分布</h4>
+            <div class="chips">{family_mix}</div>
           </div>
         </aside>
         <main>
-          <section class="stage1-card" id="{esc(case_prefix)}-stage1">
-            <h3>Stage 1 输入给 Agent 的初始证据</h3>
-            <p>这里是 Agent 第一轮看到的 clean RGB 图像。候选 id / category 的文字清单在 prompt 中给出，图上不直接画 bbox。</p>
-            <dl>
-              <dt>pack sample</dt><dd><code>{esc(data_root / scene_id / pack_name / "samples" / (safe_sample_prefix(sample_id) + ".json"))}</code></dd>
-              <dt>keyframe_mode</dt><dd>{esc(sample.get("keyframe_mode"))}</dd>
-              <dt>uses_gt_target</dt><dd>{esc(sample.get("keyframe_selection_uses_gt_target"))}</dd>
-            </dl>
-            {stage1_images}
+          <section class="turn0-card" id="{esc(case_prefix)}-turn0">
+            <h3>Turn 0 — Agent 看到的初始上下文（v9 catalog-first）</h3>
+            <p>v9 的 <code>build_user_message</code> 只注入 <strong>BEV 图像</strong> 和 <strong>SceneCatalog 文字目录</strong>，<em>不</em> 注入任何第一人称关键帧。Agent 必须主动调用 selector / view_keyframe 等工具才能拿到第一人称证据。</p>
+            <div class="turn0-grid">
+              <div class="turn0-bev">
+                {bev_thumb or '<div class="empty">未找到 BEV 图像路径</div>'}
+              </div>
+              <div class="turn0-meta">
+                <dl>
+                  <dt>scene id</dt><dd>{esc(scene_id)}</dd>
+                  <dt>total frames</dt><dd>{esc(total_frames)}</dd>
+                  <dt>catalog size</dt><dd>{catalog_size} 个 proposal</dd>
+                  <dt>scene_catalog_path</dt><dd><code>{esc(sample.get('scene_catalog_path'))}</code></dd>
+                  <dt>bev_image_path</dt><dd><code>{esc(bev_path)}</code></dd>
+                  <dt>query</dt><dd>{esc(checkpoint.get('query'))}</dd>
+                </dl>
+              </div>
+            </div>
+            <details class="catalog-block" open>
+              <summary>SceneCatalog (`Proposals by category` 块的展开形式)</summary>
+              {catalog_html}
+            </details>
           </section>
           <section class="call-stack">
-            <h3>Stage 2 Agent 调用栈</h3>
-            <p>checkpoint 只保存工具调用轨迹，不保存完整 LangChain message stream；下列节点按真实工具调用顺序复原。工具输入/输出保持原文，其他说明为中文。</p>
+            <h3>Agent 调用栈（每个工具一张卡片）</h3>
+            <p>卡片按真实工具调用顺序展开。<code>tool_input</code> 与 <code>response_text</code> 保留原文（已做长度截断），其它说明为中文。工具家族用左侧色条区分：<span class="legend setup">setup</span> <span class="legend catalog">catalog</span> <span class="legend selector">selector</span> <span class="legend view">view</span> <span class="legend reason">reason</span> <span class="legend final">final</span>。</p>
             {cards}
           </section>
         </main>
@@ -486,6 +722,23 @@ def build_case(
     </article>
     """
     return nav, html_case
+
+
+def select_metrics(metrics_payload: dict[str, Any], args: argparse.Namespace) -> list[dict[str, Any]]:
+    items = [
+        item
+        for item in metrics_payload.get("per_sample", [])
+        if isinstance(item, dict) and item.get("sample_id")
+    ]
+    if args.case:
+        by_id = {str(item["sample_id"]): item for item in items}
+        missing = [sample_id for sample_id in args.case if sample_id not in by_id]
+        if missing:
+            raise ValueError(f"sample ids missing from metrics: {missing}")
+        items = [by_id[sample_id] for sample_id in args.case]
+    if args.max_cases is not None:
+        items = items[: args.max_cases]
+    return items
 
 
 def build_html(
@@ -544,10 +797,20 @@ def build_html(
       --green: #0f7a4d;
       --red: #b42318;
       --amber: #b54708;
+      --purple: #6c3ab0;
+      --teal: #0d7188;
       --code: #111827;
+
+      --c-setup: #7b61ff;
+      --c-catalog: #2457a6;
+      --c-selector: #0d7188;
+      --c-view: #b54708;
+      --c-reason: #0f7a4d;
+      --c-final: #b42318;
+      --c-turn0: #4b5563;
     }}
     * {{ box-sizing: border-box; }}
-    body {{ margin: 0; background: var(--bg); color: var(--ink); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; line-height: 1.45; }}
+    body {{ margin: 0; background: var(--bg); color: var(--ink); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", sans-serif; line-height: 1.45; }}
     .app {{ display: grid; grid-template-columns: 390px minmax(0, 1fr); min-height: 100vh; }}
     .sidebar {{ position: sticky; top: 0; height: 100vh; overflow: auto; border-right: 1px solid var(--line); background: #111820; color: white; padding: 18px; }}
     .sidebar h1 {{ font-size: 20px; margin: 0 0 8px; letter-spacing: 0; }}
@@ -583,11 +846,23 @@ def build_html(
     .summary-grid div {{ background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px; }}
     .summary-grid span {{ display: block; color: var(--muted); font-size: 12px; }}
     .summary-grid strong {{ display: block; margin-top: 3px; overflow-wrap: anywhere; }}
+    .legacy-warning {{ background: #fff7ed; border: 1px solid #fbd9a4; color: #7a3d09; border-radius: 8px; padding: 10px 14px; margin: 0 0 14px; }}
     .trace-layout {{ display: grid; grid-template-columns: 320px minmax(0, 1fr); gap: 14px; align-items: start; }}
     .trace-layout > aside {{ position: sticky; top: 18px; max-height: calc(100vh - 36px); overflow: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px; }}
     .trace-layout > main {{ display: grid; gap: 14px; }}
-    .stage1-card, .call-stack {{ background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 16px; }}
-    .stage1-card p, .call-stack p {{ color: var(--muted); margin-top: 0; }}
+    .turn0-card, .call-stack {{ background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 16px; }}
+    .turn0-card p, .call-stack p {{ color: var(--muted); margin-top: 0; }}
+    .turn0-card .empty {{ color: var(--muted); }}
+    .turn0-grid {{ display: grid; grid-template-columns: minmax(280px, 1fr) minmax(220px, 1fr); gap: 14px; align-items: start; }}
+    .turn0-bev figure {{ margin: 0; }}
+    .turn0-bev .image-card {{ max-width: 100%; }}
+    .turn0-meta dl {{ margin: 0; }}
+    .catalog-block {{ margin-top: 12px; border-top: 1px solid var(--line); padding-top: 12px; }}
+    .catalog-block summary {{ cursor: pointer; font-weight: 650; padding: 4px 0; }}
+    .catalog-table {{ width: 100%; border-collapse: collapse; margin-top: 8px; }}
+    .catalog-table th, .catalog-table td {{ border-bottom: 1px solid var(--line); padding: 6px 8px; font-size: 13px; vertical-align: top; text-align: left; }}
+    .catalog-table th {{ background: #f0f4f8; color: var(--muted); font-weight: 650; }}
+    .catalog-table td:first-child {{ font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }}
     dl {{ display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 6px 12px; margin: 10px 0; }}
     dt {{ color: var(--muted); }}
     dd {{ margin: 0; overflow-wrap: anywhere; }}
@@ -595,24 +870,38 @@ def build_html(
     .trace-tree {{ position: relative; display: grid; gap: 6px; padding-left: 8px; }}
     .trace-tree:before {{ content: ""; position: absolute; top: 8px; bottom: 8px; left: 15px; width: 2px; background: var(--line); }}
     .tree-node {{ position: relative; z-index: 1; display: grid; grid-template-columns: 16px 32px 1fr; gap: 8px; align-items: center; min-height: 28px; color: var(--ink); text-decoration: none; border: 1px solid var(--line); background: var(--panel-2); border-radius: 7px; padding: 7px 8px; }}
-    .tree-node.root {{ grid-template-columns: 16px 1fr; font-weight: 700; }}
+    .tree-node.turn0 {{ background: #eef2f8; border-color: var(--line-strong); font-weight: 650; }}
     .tree-node:hover {{ border-color: var(--blue); }}
     .tree-dot {{ width: 10px; height: 10px; border-radius: 50%; background: var(--blue); border: 2px solid white; box-shadow: 0 0 0 1px var(--line-strong); }}
-    .tree-node.setup .tree-dot {{ background: #7b61ff; }}
-    .tree-node.evidence .tree-dot {{ background: var(--amber); }}
-    .tree-node.final .tree-dot {{ background: var(--green); }}
+    .tree-node.turn0 .tree-dot {{ background: var(--c-turn0); }}
+    .tree-node.setup .tree-dot {{ background: var(--c-setup); }}
+    .tree-node.catalog .tree-dot {{ background: var(--c-catalog); }}
+    .tree-node.selector .tree-dot {{ background: var(--c-selector); }}
+    .tree-node.view .tree-dot {{ background: var(--c-view); }}
+    .tree-node.reason .tree-dot {{ background: var(--c-reason); }}
+    .tree-node.final .tree-dot {{ background: var(--c-final); }}
     .tree-index {{ color: var(--muted); font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; }}
     .tree-tool {{ font-size: 13px; }}
-    .tool-mix {{ margin-top: 16px; display: flex; flex-wrap: wrap; gap: 6px; }}
-    .tool-mix h4 {{ width: 100%; margin-top: 0; }}
-    .tool-mix span {{ display: inline-block; background: #edf2f7; border: 1px solid var(--line); border-radius: 999px; padding: 3px 8px; font-size: 12px; color: var(--ink); }}
+    .tool-mix {{ margin-top: 16px; }}
+    .tool-mix h4 {{ margin-top: 0; }}
+    .chips {{ display: flex; flex-wrap: wrap; gap: 6px; }}
+    .chip {{ display: inline-block; background: #edf2f7; border: 1px solid var(--line); border-radius: 999px; padding: 3px 8px; font-size: 12px; color: var(--ink); }}
+    .chip.setup {{ background: #efeaff; border-color: #d5c7ff; color: var(--c-setup); }}
+    .chip.catalog {{ background: #e6eef9; border-color: #c4d5ed; color: var(--c-catalog); }}
+    .chip.selector {{ background: #def0f1; border-color: #b8dde0; color: var(--c-selector); }}
+    .chip.view {{ background: #fdecd2; border-color: #f3cea5; color: var(--c-view); }}
+    .chip.reason {{ background: #def1e5; border-color: #b9d7c6; color: var(--c-reason); }}
+    .chip.final {{ background: #ffe1dc; border-color: #f3b9b1; color: var(--c-final); }}
     .call-card {{ border: 1px solid var(--line); border-radius: 8px; margin: 10px 0; background: var(--panel-2); scroll-margin-top: 16px; }}
-    .call-card summary {{ cursor: pointer; list-style: none; display: grid; grid-template-columns: 42px minmax(120px, 180px) minmax(130px, 190px) minmax(0, 1fr); gap: 10px; align-items: baseline; padding: 12px; }}
+    .call-card summary {{ cursor: pointer; list-style: none; display: grid; grid-template-columns: 42px minmax(120px, 180px) minmax(130px, 220px) minmax(0, 1fr); gap: 10px; align-items: baseline; padding: 12px; }}
     .call-card summary::-webkit-details-marker {{ display: none; }}
-    .call-card.setup {{ border-left: 4px solid #7b61ff; }}
-    .call-card.tool {{ border-left: 4px solid var(--blue); }}
-    .call-card.evidence {{ border-left: 4px solid var(--amber); }}
-    .call-card.final {{ border-left: 4px solid var(--green); }}
+    .call-card.setup {{ border-left: 4px solid var(--c-setup); }}
+    .call-card.catalog {{ border-left: 4px solid var(--c-catalog); }}
+    .call-card.selector {{ border-left: 4px solid var(--c-selector); }}
+    .call-card.view {{ border-left: 4px solid var(--c-view); }}
+    .call-card.reason {{ border-left: 4px solid var(--c-reason); }}
+    .call-card.final {{ border-left: 4px solid var(--c-final); }}
+    .call-card.legacy {{ outline: 2px dashed #fbbf24; outline-offset: -2px; }}
     .step-no {{ font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color: var(--muted); font-weight: 700; }}
     .tool-pill {{ background: #e8eef7; border: 1px solid #d2dceb; color: #193b6d; border-radius: 999px; padding: 3px 8px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; }}
     .step-title {{ font-weight: 750; }}
@@ -620,12 +909,19 @@ def build_html(
     .call-body {{ border-top: 1px solid var(--line); padding: 12px; }}
     .io-grid {{ display: grid; grid-template-columns: minmax(260px, .9fr) minmax(320px, 1.3fr); gap: 12px; }}
     pre {{ margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 420px; overflow: auto; background: var(--code); color: #eef6ff; border-radius: 7px; padding: 12px; font-size: 12px; line-height: 1.45; }}
-    .image-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; margin-top: 12px; }}
+    .image-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; margin-top: 12px; }}
     .image-card {{ margin: 0; background: white; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }}
     .image-card img {{ display: block; width: 100%; height: auto; }}
     figcaption {{ padding: 9px; color: var(--muted); font-size: 12px; }}
     figcaption strong, figcaption span, figcaption code {{ display: block; }}
     .empty {{ color: var(--muted); background: #f2f4f7; border: 1px dashed var(--line-strong); border-radius: 7px; padding: 10px; }}
+    .legend {{ display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 11px; color: white; margin: 0 2px; }}
+    .legend.setup {{ background: var(--c-setup); }}
+    .legend.catalog {{ background: var(--c-catalog); }}
+    .legend.selector {{ background: var(--c-selector); }}
+    .legend.view {{ background: var(--c-view); }}
+    .legend.reason {{ background: var(--c-reason); }}
+    .legend.final {{ background: var(--c-final); }}
     @media (max-width: 1120px) {{
       .app {{ grid-template-columns: 1fr; }}
       .sidebar {{ position: relative; height: auto; }}
@@ -635,6 +931,7 @@ def build_html(
       .io-grid {{ grid-template-columns: 1fr; }}
       .call-card summary {{ grid-template-columns: 40px 1fr; }}
       .step-summary {{ grid-column: 1 / -1; }}
+      .turn0-grid {{ grid-template-columns: 1fr; }}
     }}
   </style>
 </head>
@@ -642,7 +939,7 @@ def build_html(
   <div class="app">
     <aside class="sidebar">
       <h1>{esc(title)}</h1>
-      <p>LangSmith 风格静态查看器。除工具输入/输出原文外，界面说明均为中文。</p>
+      <p>v9 catalog-first 静态查看器。<strong>初始上下文只有 BEV + Cat-B 文字目录</strong>，第一人称帧均由 agent 主动调用 selector / view_keyframe 获取。</p>
       <p>Run: <code>{esc(run_id)}</code></p>
       <p>Run commit: <code>{esc(run_commit)}</code> · Report commit: <code>{esc(git_short())}</code></p>
       <p>Artifacts: <code>{esc(run_output)}</code></p>
@@ -650,7 +947,7 @@ def build_html(
         <div class="metric"><span>样本数</span><strong>{esc(n)}</strong></div>
         <div class="metric"><span>Overall</span><strong>{overall * 100:.2f}</strong></div>
         <div class="metric"><span>Easy / Hard</span><strong>{easy * 100:.1f} / {hard * 100:.1f}</strong></div>
-        <div class="metric"><span>ViewDep / Indep</span><strong>{view_dep * 100:.1f} / {view_indep * 100:.1f}</strong></div>
+        <div class="metric"><span>VDep / VInd</span><strong>{view_dep * 100:.1f} / {view_indep * 100:.1f}</strong></div>
       </div>
       <div class="controls">
         <input id="search" type="search" placeholder="搜索 sample id / query / selected / gt">
@@ -703,55 +1000,38 @@ def build_html(
 """
 
 
-def select_metrics(metrics_payload: dict[str, Any], args: argparse.Namespace) -> list[dict[str, Any]]:
-    items = [
-        item
-        for item in metrics_payload.get("per_sample", [])
-        if isinstance(item, dict) and item.get("sample_id")
-    ]
-    if args.case:
-        by_id = {str(item["sample_id"]): item for item in items}
-        missing = [sample_id for sample_id in args.case if sample_id not in by_id]
-        if missing:
-            raise ValueError(f"sample ids missing from metrics: {missing}")
-        items = [by_id[sample_id] for sample_id in args.case]
-    if args.max_cases is not None:
-        items = items[: args.max_cases]
-    return items
-
-
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--leaderboard-metrics",
         type=Path,
-        default=Path("tmp/nr3d_eval_v9_selective_mark_random100_20260514/leaderboard_metrics.json"),
+        default=Path("tmp/nr3d_eval_v9_full_20260515_1401/leaderboard_metrics.json"),
     )
     parser.add_argument(
         "--per-sample-dir",
         type=Path,
         default=Path(
-            "tmp/nr3d_eval_v9_selective_mark_random100_20260514/per_sample/pack_nr3d_v8_clean_initial_marked_on_demand"
+            "tmp/nr3d_eval_v9_full_20260515_1401/per_sample/pack_nr3d_v9_catalog_first"
         ),
     )
     parser.add_argument("--data-root", type=Path, default=Path("data/nr3d/scannet"))
-    parser.add_argument("--pack-name", default="pack_nr3d_v8_clean_initial_marked_on_demand")
+    parser.add_argument("--pack-name", default="pack_nr3d_v9_catalog_first")
     parser.add_argument(
         "--output",
         type=Path,
-        default=Path("docs/benchmark/nr3d/v9_selective_mark_langsmith_trace_20260515.html"),
+        default=Path("docs/benchmark/nr3d/v9_catalog_first_langsmith_trace_20260515.html"),
     )
     parser.add_argument(
         "--assets-dir",
         type=Path,
-        default=Path("docs/benchmark/nr3d/assets/v9_selective_mark_langsmith_trace_20260515"),
+        default=Path("docs/benchmark/nr3d/assets/v9_catalog_first_langsmith_trace_20260515"),
     )
-    parser.add_argument("--title", default="NR3D v9 Selective Mark Agent Trace")
-    parser.add_argument("--run-id", default="v9_selective_mark_random100_20260514")
-    parser.add_argument("--run-commit", default="4a1fba1-dirty-selective-mark")
+    parser.add_argument("--title", default="NR3D v9 Catalog-First Agent Trace")
+    parser.add_argument("--run-id", default="v9_full_20260515_1401")
+    parser.add_argument("--run-commit", default="e0ab061")
     parser.add_argument(
         "--run-output",
-        default="tmp/nr3d_eval_v9_selective_mark_random100_20260514/",
+        default="tmp/nr3d_eval_v9_full_20260515_1401/",
     )
     parser.add_argument("--case", action="append", default=None)
     parser.add_argument("--max-cases", type=int, default=None)
@@ -780,9 +1060,9 @@ def main() -> None:
         run_output=args.run_output,
     )
     args.output.write_text(html_text, encoding="utf-8")
-    print(f"[nr3d-langsmith-trace] wrote {args.output}")
-    print(f"[nr3d-langsmith-trace] assets {args.assets_dir}")
-    print(f"[nr3d-langsmith-trace] cases {len(metrics)}")
+    print(f"[nr3d-trace-v9] wrote {args.output}")
+    print(f"[nr3d-trace-v9] assets {args.assets_dir}")
+    print(f"[nr3d-trace-v9] cases {len(metrics)}")
 
 
 if __name__ == "__main__":
