@@ -282,6 +282,9 @@ def build_selector_tools(runtime: Any) -> list[BaseTool]:
             )
             runtime.record("select_by_proposal", request, err)
             return err
+        k_in = int(k)
+        capped = min(k_in, 3)
+        k_warning = "" if k_in == capped else f" (k capped at 3 from {k_in})"
         sets = [set(proposal_by_id[pid].frame_views.keys()) for pid in ids]
         if not sets:
             frames_set: set[int] = set()
@@ -289,17 +292,21 @@ def build_selector_tools(runtime: Any) -> list[BaseTool]:
             frames_set = set.intersection(*sets)
         else:
             frames_set = set().union(*sets)
-        chosen = sorted(int(f) for f in frames_set)[: int(k)]
-        frames = [
-            _build_frame_payload(
+        chosen = sorted(int(f) for f in frames_set)[:capped]
+        frames: list[dict] = []
+        for fid in chosen:
+            base = _build_frame_payload(
                 runtime, catalog, int(fid),
                 selected_because=(
-                    f"select_by_proposal(proposal_ids={ids}, require_all={bool(require_all)})"
+                    f"select_by_proposal(proposal_ids={ids}, require_all={bool(require_all)}){k_warning}"
                 ),
                 hidden_categories=[],
             )
-            for fid in chosen
-        ]
+            image_path = _resolve_raw_rgb_path(catalog, int(fid))
+            base["image_path"] = str(image_path) if image_path else None
+            queued = queue_pending_image_if_new(runtime, base["image_path"] or "")
+            base["already_seen"] = (not queued) and (base["image_path"] in runtime.seen_image_paths)
+            frames.append(base)
         payload = {"hypothesis_summary": "", "frames": frames}
         text = json.dumps(payload, ensure_ascii=False)
         runtime.record("select_by_proposal", request, text)
