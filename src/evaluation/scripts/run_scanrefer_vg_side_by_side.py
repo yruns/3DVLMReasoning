@@ -343,14 +343,15 @@ def run_pack_v1_sample(
     # directly as selector tools. Only the crop callback (object-centric
     # red-bbox crops) is retained for the `request_crops` tool.
     crop_callback = None
+    keyframe_selector = None
     if enable_stage1_callback:
         scene_id = str(sample["scene_id"])
-        selector = _get_or_build_keyframe_selector(scene_id, phase8_data_root)
-        if selector is not None:
+        keyframe_selector = _get_or_build_keyframe_selector(scene_id, phase8_data_root)
+        if keyframe_selector is not None:
             from agents.stage1_callbacks import create_crop_callback
 
             crop_callback = create_crop_callback(
-                selector,
+                keyframe_selector,
                 scene_id=scene_id,
                 crop_scale=2.0,
             )
@@ -358,6 +359,7 @@ def run_pack_v1_sample(
     agent = agent_cls(
         config=config,
         crop_callback=crop_callback,
+        keyframe_selector=keyframe_selector,
     )
     return agent.run(task=task, bundle=bundle)
 

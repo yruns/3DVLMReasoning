@@ -4,12 +4,15 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from deepagents import create_deep_agent
 from langchain_core.messages import HumanMessage
 from langchain_core.tools import BaseTool, tool
 from loguru import logger
+
+if TYPE_CHECKING:
+    from query_scene.keyframe_selector import KeyframeSelector
 
 from ..models import (
     Stage2AgentResult,
@@ -64,13 +67,17 @@ class DeepAgentsStage2Runtime(BaseStage2Runtime):
         self,
         config: Stage2DeepAgentConfig | None = None,
         crop_callback=None,
+        keyframe_selector: "KeyframeSelector | None" = None,
     ) -> None:
         """Initialize the DeepAgents runtime.
 
         v9: only crop_callback is accepted; more_views / hypothesis callbacks were
         deleted with the corresponding tool wrappers.
+
+        v9.1: `keyframe_selector` is forwarded to the runtime state so the
+        `select_by_text` tool can run Stage-1 language-to-frame retrieval.
         """
-        super().__init__(config, crop_callback)
+        super().__init__(config, crop_callback, keyframe_selector=keyframe_selector)
         self._llm = None
 
     def get_llm(self):
@@ -649,6 +656,11 @@ class DeepAgentsStage2Runtime(BaseStage2Runtime):
 
         runtime = Stage2RuntimeState(bundle=bundle.model_copy(deep=True))
         runtime.task_type = task.task_type
+        # v9.1: forward the pre-built Stage-1 KeyframeSelector to the runtime
+        # state so `select_by_text` can call selector.select_keyframes_v2 at
+        # tool-invocation time. When None, the tool returns an explicit error
+        # rather than silently failing.
+        runtime.keyframe_selector = self.keyframe_selector
         # v9 catalog-first: snapshot the initial pack-prep "seed" keyframe
         # paths so build_evidence_update_message can refuse to auto-inject
         # them. Tools that mutate bundle.keyframes later (e.g. request_crops

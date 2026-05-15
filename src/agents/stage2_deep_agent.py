@@ -6,7 +6,7 @@ its implementation now lives in ``agents.runtime``.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from deepagents import create_deep_agent
 from loguru import logger
@@ -26,6 +26,9 @@ from .runtime import (
     ToolChoiceCompatibleAzureChatOpenAI,
 )
 
+if TYPE_CHECKING:
+    from query_scene.keyframe_selector import KeyframeSelector
+
 ToolCallback = Any
 
 
@@ -42,10 +45,12 @@ class Stage2DeepResearchAgent:
         self,
         config: Stage2DeepAgentConfig | None = None,
         crop_callback: ToolCallback | None = None,
+        keyframe_selector: "KeyframeSelector | None" = None,
     ) -> None:
         self._runtime = DeepAgentsStage2Runtime(
             config=config,
             crop_callback=crop_callback,
+            keyframe_selector=keyframe_selector,
         )
 
     @property

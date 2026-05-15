@@ -317,21 +317,26 @@ def run_pack_v1_sample(
         from agents.stage2_deep_agent import Stage2DeepResearchAgent as agent_cls
 
     crop_callback = None
+    keyframe_selector = None
     if enable_stage1_callback:
         scene_id = str(sample["scene_id"])
-        selector = _get_or_build_keyframe_selector(
+        keyframe_selector = _get_or_build_keyframe_selector(
             scene_id,
             data_root if phase8_data_root is None else phase8_data_root,
         )
         from agents.stage1_callbacks import create_crop_callback
 
         crop_callback = create_crop_callback(
-            selector,
+            keyframe_selector,
             scene_id=scene_id,
             crop_scale=2.0,
         )
 
-    agent = agent_cls(config=config, crop_callback=crop_callback)
+    agent = agent_cls(
+        config=config,
+        crop_callback=crop_callback,
+        keyframe_selector=keyframe_selector,
+    )
     return agent.run(task=task, bundle=bundle)
 
 

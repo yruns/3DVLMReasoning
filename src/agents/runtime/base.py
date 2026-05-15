@@ -10,9 +10,12 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from io import BytesIO
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from loguru import logger
+
+if TYPE_CHECKING:
+    from query_scene.keyframe_selector import KeyframeSelector
 
 from ..models import (
     Stage2AgentResult,
@@ -49,6 +52,12 @@ class Stage2RuntimeState:
     # request_crops) bypass this filter because their crops are not in
     # the snapshot.
     initial_keyframe_paths: set[str] = field(default_factory=set)
+
+    # v9.1: pre-built Stage-1 KeyframeSelector instance. Populated by
+    # `DeepAgentsStage2Runtime.build_agent` from the agent constructor's
+    # keyframe_selector argument. The `select_by_text` tool reads this at
+    # invocation time. None ⇒ select_by_text returns an explicit error.
+    keyframe_selector: "KeyframeSelector | None" = None
 
     task_type: Stage2TaskType | None = None
 
@@ -174,14 +183,22 @@ class BaseStage2Runtime(ABC):
         self,
         config: Stage2DeepAgentConfig | None = None,
         crop_callback: ToolCallback | None = None,
+        keyframe_selector: "KeyframeSelector | None" = None,
     ) -> None:
         """Initialize the agent runtime with configuration and (optional) crop callback.
 
         v9 removed the more_views / hypothesis Stage-1 callbacks; only the crop
         callback is preserved (still used by `request_crops`).
+
+        v9.1 introduces `keyframe_selector`: an optional pre-built
+        `KeyframeSelector` instance the agent uses when invoking the
+        `select_by_text` tool (Stage-1 language → frames). When None,
+        `select_by_text` returns a clear error message instead of silently
+        failing. Other selectors do not depend on this attribute.
         """
         self.config = config or Stage2DeepAgentConfig()
         self.crop_callback = crop_callback
+        self.keyframe_selector: KeyframeSelector | None = keyframe_selector
         self._session_id = self.config.session_id
 
     def build_extra_body(self) -> dict[str, Any]:
