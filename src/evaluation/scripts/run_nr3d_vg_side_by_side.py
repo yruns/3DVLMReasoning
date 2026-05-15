@@ -376,6 +376,21 @@ def build_pack_v1_bundle_from_sample(
             build_pack_v1_bundle as bundle_builder,
         )
 
+    scene_catalog = None
+    bev_image_path = sample.get("bev_image_path")
+    camera_trajectory: dict | None = None
+    catalog_path = sample.get("scene_catalog_path") or str(
+        scene_dir / "scene_catalog.json"
+    )
+    catalog_file = Path(catalog_path)
+    if catalog_file.exists():
+        scene_catalog = json.loads(catalog_file.read_text(encoding="utf-8"))
+    traj_path_raw = sample.get("camera_trajectory_path")
+    if traj_path_raw:
+        traj_file = Path(traj_path_raw)
+        if traj_file.exists():
+            camera_trajectory = json.loads(traj_file.read_text(encoding="utf-8"))
+
     return bundle_builder(
         proposals_jsonl=scene_dir / "proposals.jsonl",
         source=source,
@@ -383,6 +398,10 @@ def build_pack_v1_bundle_from_sample(
         frame_visibility=frame_visibility,
         keyframes=keyframes,
         scene_id=scene_id,
+        scene_catalog=scene_catalog,
+        bev_image_path=bev_image_path,
+        camera_trajectory=camera_trajectory,
+        query=sample.get("query"),
     )
 
 

@@ -12,7 +12,7 @@ the current human-facing index.
 | [protocol.md](protocol.md) | Consolidated protocol notes: metric family, fold/filter rules, candidate-pool equivalence, fairness boundary. |
 | [depth_visibility_rebuild_20260513.md](depth_visibility_rebuild_20260513.md) | Root-cause record and rebuild summary for depth-aware NR3D visibility indices. |
 | [depth_visibility_spotcheck_20260513.html](depth_visibility_spotcheck_20260513.html) | Visual spotcheck frames rendered from rebuilt depth-aware `view_to_objects`. |
-| [v9_catalog_first_20260515.md](v9_catalog_first_20260515.md) | v9 catalog-first first random100 skeleton (run TBD). |
+| [v9_catalog_first_20260515.md](v9_catalog_first_20260515.md) | v9 catalog-first random100 pilot (Overall **81.00**, Hard **77.97**). |
 | [v9_selective_mark_random100](v9_selective_mark_random100_20260514.md) | Latest clean-initial + selective marked-image random100 pilot. |
 | [v9_selective_mark_trace_2t2f_20260514.html](v9_selective_mark_trace_2t2f_20260514.html) | Static VG agent trace viewer for 2 correct and 2 failed v9 random100 cases. |
 | [v8_clean_initial_marked_on_demand_random100](v8_clean_initial_marked_on_demand_random100_20260514.md) | Clean-initial/marked-on-demand negative random100 ablation. |
@@ -71,7 +71,22 @@ Interpretation:
 - v3 is also invalidated as a benchmark claim because its GT-target-visible
   shortcut used the same projection-only visibility source.
 
-Latest depth-aware partial pilot:
+Latest depth-aware partial pilot (catalog-first):
+
+- Version: `v9_catalog_first`
+- Branch / commit: `feat/v9-catalog-first-scene-exploration` / `e0ab061`
+- Scope: same v4/v6/v7/v8/v9_selective_mark random100 fold; **BEV image + Cat-B
+  text inventory** as initial evidence (no first-person seed keyframes); 6
+  catalog-first selectors + unified `view_keyframe(mode='auto')` + `view_bev`
+- Result: Overall **81.00**, Easy 85.37, Hard **77.97**, View-Dep 73.53,
+  View-Indep 84.85
+- Raw artifacts: `tmp/nr3d_eval_v9_full_20260515_1401/`
+- Note: First catalog-first random100 result. **+7.00 overall** and **+15.26
+  Hard** vs v9_selective_mark — confirms that a global BEV
+  primer plus selector-driven evidence wins over first-person seed keyframes
+  on this fold.
+
+Previous depth-aware partial pilot:
 
 - Version: `v9_selective_mark_random100`
 - Branch / commit: `feat/nr3d-v4-agent-guards-fair-views` /
@@ -85,10 +100,10 @@ Latest depth-aware partial pilot:
   `tmp/nr3d_eval_v9_selective_mark_random100_20260514/`
 - Case-study HTML:
   [v9_selective_mark_trace_2t2f_20260514.html](v9_selective_mark_trace_2t2f_20260514.html)
-- Note: Best depth-aware random100 result on this fixed fold, but still trails
-  v7 on Hard and View-Dep.
+- Note: Selective marked-image rendering, but kept first-person seed
+  keyframes; superseded by v9_catalog_first.
 
-Previous depth-aware partial pilot:
+Earlier depth-aware partial pilot:
 
 - Version: `v8_clean_initial_marked_on_demand_random100`
 - Branch / commit: `feat/nr3d-v4-agent-guards-fair-views` / `f86c161`
@@ -130,6 +145,7 @@ Previous best depth-aware random100 pilot:
 | [v7_stage1_callbacks_noclip_random100](v7_stage1_callbacks_noclip_random100_20260513.md) | 2026-05-13 | `feat/nr3d-v4-agent-guards-fair-views` / `690cbf6` | Overall=73.00 | 100Q pilot | Depth-aware partial, callbacks wired, no NMS |
 | [v8_clean_initial_marked_on_demand_random100](v8_clean_initial_marked_on_demand_random100_20260514.md) | 2026-05-14 | `feat/nr3d-v4-agent-guards-fair-views` / `f86c161` | Overall=67.00 | 100Q pilot | Depth-aware partial, negative clean-initial ablation |
 | [v9_selective_mark_random100](v9_selective_mark_random100_20260514.md) | 2026-05-14 | `feat/nr3d-v4-agent-guards-fair-views` / `4a1fba1-dirty-selective-mark` | Overall=74.00 | 100Q pilot | Depth-aware partial, selective marked-image rendering |
+| [v9_catalog_first_20260515](v9_catalog_first_20260515.md) | 2026-05-15 | `feat/v9-catalog-first-scene-exploration` / `e0ab061` | Overall=**81.00** | 100Q pilot | Depth-aware partial, BEV-first + 6 selectors, no first-person seed |
 
 ## Protocol Summary
 

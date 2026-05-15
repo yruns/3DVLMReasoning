@@ -375,14 +375,54 @@ def _scannet_data_root() -> Path:
     return Path(root)
 
 
+def _scannet_search_roots() -> list[Path]:
+    """Return candidate roots for ScanNet meshes.
+
+    Honors $SCANNET_DATA_ROOT first, then falls back to the prepared NR3D
+    aux mesh tree (``data/nr3d/scannet_aux_meshes``) and the raw ScanNet
+    scans tree (``data/ScanNet/scans``) which both ship the canonical
+    ``<scene>/<scene>_vh_clean*.ply`` layout on this checkout.
+    """
+    roots: list[Path] = [_scannet_data_root()]
+    extra_env = os.environ.get("SCANNET_DATA_ROOT_EXTRA")
+    if extra_env:
+        for token in extra_env.split(":"):
+            token = token.strip()
+            if token:
+                roots.append(Path(token))
+    for default in (
+        "data/nr3d/scannet_aux_meshes",
+        "data/ScanNet/scans",
+    ):
+        path = Path(default)
+        if path not in roots:
+            roots.append(path)
+    return roots
+
+
 def _find_scannet_mesh(scannet_root: Path, scene_id: str) -> Path:
-    for filename in (f"{scene_id}_vh_clean.ply", f"{scene_id}_vh_clean_2.ply"):
-        candidate = scannet_root / scene_id / filename
-        if candidate.exists():
-            return candidate
+    """Locate the ScanNet mesh for ``scene_id``.
+
+    Searches ``scannet_root`` first (to honor SCANNET_DATA_ROOT), then the
+    additional fallback roots from ``_scannet_search_roots``. The function
+    keeps a stable error message so existing callers/tests still recognise
+    the canonical "expected <scene>_vh_clean.ply" suffix.
+    """
+    searched: list[Path] = []
+    candidates = [scannet_root]
+    for root in _scannet_search_roots():
+        if root not in candidates:
+            candidates.append(root)
+    for root in candidates:
+        for filename in (f"{scene_id}_vh_clean.ply", f"{scene_id}_vh_clean_2.ply"):
+            candidate = root / scene_id / filename
+            searched.append(candidate)
+            if candidate.exists():
+                return candidate
     raise FileNotFoundError(
         f"scannet mesh for {scene_id} not under {scannet_root}; "
-        f"expected {scene_id}_vh_clean.ply"
+        f"expected {scene_id}_vh_clean.ply (searched: "
+        f"{', '.join(str(p) for p in searched)})"
     )
 
 

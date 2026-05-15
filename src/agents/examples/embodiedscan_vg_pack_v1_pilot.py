@@ -41,6 +41,9 @@ def build_pack_v1_bundle(
     scene_id: str,
     axis_align_matrix: np.ndarray | None = None,
     query: str | None = None,
+    scene_catalog: dict | None = None,
+    bev_image_path: str | None = None,
+    camera_trajectory: dict | None = None,
 ) -> Stage2EvidenceBundle:
     pool = build_vg_proposal_pool(
         proposals_jsonl=proposals_jsonl,
@@ -49,6 +52,13 @@ def build_pack_v1_bundle(
         frame_visibility=frame_visibility,
         axis_align_matrix=axis_align_matrix,
     )
+    extra: dict = {"vg_proposal_pool": pool}
+    if scene_catalog is not None:
+        extra["scene_catalog"] = scene_catalog
+    if bev_image_path is not None:
+        extra["bev_image_path"] = bev_image_path
+    if camera_trajectory is not None:
+        extra["camera_trajectory"] = camera_trajectory
     return Stage2EvidenceBundle(
         scene_id=scene_id,
         # Mirror the convention used by the OpenEQA / SQA3D / etc.
@@ -60,7 +70,7 @@ def build_pack_v1_bundle(
             KeyframeEvidence(keyframe_idx=idx, image_path=path, frame_id=fid)
             for idx, path, fid in keyframes
         ],
-        extra_metadata={"vg_proposal_pool": pool},
+        extra_metadata=extra,
     )
 
 

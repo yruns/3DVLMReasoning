@@ -564,6 +564,11 @@ def write_sample_artifact(
         "gt_bbox_3d_9dof": gt_bbox,
         "scene_artifacts_dir": str(scene_artifacts.scene_dir),
         "source": "gt",
+        # v9 agents don't read these at inference time (build_user_message is
+        # catalog-first), but the side-by-side runner's bundle builder still
+        # requires non-empty keyframes for backward compatibility with the
+        # pack_v1 surface — keep emitting the legacy list.
+        "keyframes": keyframes,
         "keyframe_mode": keyframe_mode,
         "keyframe_selection_uses_gt_target": uses_gt_target,
         "keyframe_selection_used_fallback": used_fallback,
@@ -947,11 +952,20 @@ def _render_v9_bev(
 
 
 def _build_camera_trajectory(scene_dir: Path) -> dict[int, list[float]]:
-    """Read conceptgraph/traj.txt and emit {frame_id: [x, y, yaw]} for v9."""
-    traj_path = scene_dir / "conceptgraph" / "traj.txt"
-    if not traj_path.exists():
+    """Read traj.txt and emit {frame_id: [x, y, yaw]} for v9.
+
+    Prepared scenes ship traj.txt either under ``conceptgraph/`` or ``raw/``;
+    tolerate both, matching ScanNetSceneBEVBuilderBase._resolve_traj.
+    """
+    candidates = [
+        scene_dir / "conceptgraph" / "traj.txt",
+        scene_dir / "raw" / "traj.txt",
+    ]
+    traj_path = next((p for p in candidates if p.exists()), None)
+    if traj_path is None:
         raise FileNotFoundError(
-            f"traj.txt missing for scene {scene_dir.name}: {traj_path}"
+            f"traj.txt missing for scene {scene_dir.name}: tried "
+            f"{', '.join(str(p) for p in candidates)}"
         )
     raw = np.loadtxt(str(traj_path)).reshape(-1, 4, 4)
     out: dict[int, list[float]] = {}
