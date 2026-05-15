@@ -190,12 +190,26 @@ def _find_scannet_mesh(scannet_root: Path, scene_id: str) -> Path:
     )
 
 
+def _resolve_traj(scene_dir: Path) -> Path:
+    """Return the trajectory file for a scene, supporting both conceptgraph/
+    (canonical Phase-8 layout) and raw/ (legacy prepared-scene layout)."""
+    for candidate in (
+        scene_dir / "conceptgraph" / "traj.txt",
+        scene_dir / "raw" / "traj.txt",
+    ):
+        if candidate.exists():
+            return candidate
+    # Returning the canonical path triggers a clean FileNotFoundError in
+    # build_with_labels's existence check, with a path the caller recognises.
+    return scene_dir / "conceptgraph" / "traj.txt"
+
+
 class Nr3dScanNetBEVBuilder(ScanNetSceneBEVBuilderBase):
     benchmark = "nr3d"
 
     def resolve_paths(self, scene_id: str, data_root: Path) -> tuple[Path, Path, Path]:
         scene_dir = data_root / scene_id
-        traj = scene_dir / "conceptgraph" / "traj.txt"
+        traj = _resolve_traj(scene_dir)
         intr = scene_dir / "raw" / "intrinsic_color.txt"
         mesh = _find_scannet_mesh(_scannet_data_root(), scene_id)
         return mesh, traj, intr
@@ -206,8 +220,12 @@ class ScanReferScanNetBEVBuilder(ScanNetSceneBEVBuilderBase):
 
     def resolve_paths(self, scene_id: str, data_root: Path) -> tuple[Path, Path, Path]:
         scene_dir = data_root / scene_id
-        traj = scene_dir / "conceptgraph" / "traj.txt"
-        intr = scene_dir / "conceptgraph" / "intrinsic_color.txt"
+        traj = _resolve_traj(scene_dir)
+        intr_candidates = (
+            scene_dir / "conceptgraph" / "intrinsic_color.txt",
+            scene_dir / "raw" / "intrinsic_color.txt",
+        )
+        intr = next((c for c in intr_candidates if c.exists()), intr_candidates[0])
         mesh = _find_scannet_mesh(_scannet_data_root(), scene_id)
         return mesh, traj, intr
 
@@ -236,7 +254,7 @@ class OpenEqaScanNetBEVBuilder(ScanNetSceneBEVBuilderBase):
     def resolve_paths(self, scene_id: str, data_root: Path) -> tuple[Path, Path, Path]:
         clip_dir = data_root / scene_id
         cg = clip_dir / "conceptgraph"
-        traj = cg / "traj.txt"
+        traj = _resolve_traj(clip_dir)
         intr = clip_dir / "raw" / "intrinsic_color.txt"
         if not intr.exists():
             intr = cg / "intrinsic_color.txt"
@@ -250,7 +268,7 @@ class Sqa3dScanNetBEVBuilder(ScanNetSceneBEVBuilderBase):
 
     def resolve_paths(self, scene_id: str, data_root: Path) -> tuple[Path, Path, Path]:
         scene_dir = data_root / scene_id
-        traj = scene_dir / "conceptgraph" / "traj.txt"
+        traj = _resolve_traj(scene_dir)
         intr = scene_dir / "raw" / "intrinsic_color.txt"
         if not intr.exists():
             intr = scene_dir / "conceptgraph" / "intrinsic_color.txt"
