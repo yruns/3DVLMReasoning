@@ -94,7 +94,7 @@ def test_build_user_message_cat_b_inventory(tmp_path: Path):
     assert "lamp" in text and "#11" in text
 
 
-def test_build_user_message_qa_uses_rgb_note(tmp_path: Path):
+def test_build_user_message_qa_uses_mark_frame_note(tmp_path: Path):
     rt = DeepAgentsStage2Runtime(config=Stage2DeepAgentConfig())
     rs = Stage2RuntimeState(bundle=_bundle(tmp_path))
     task = Stage2TaskSpec(
@@ -104,7 +104,24 @@ def test_build_user_message_qa_uses_rgb_note(tmp_path: Path):
         max_reasoning_turns=4,
     )
     text = rt.build_user_message(task, rs).content[0]["text"]
-    assert "view_keyframe(mode='rgb')" in text or 'mode="rgb"' in text
+    # v9.1: no per-task view-mode hint; selectors return RGB by default and
+    # mark_frame_with_bbox is the shared annotated-zoom tool.
+    assert "mark_frame_with_bbox" in text
+    assert "view_keyframe" not in text
+
+
+def test_build_user_message_does_not_mention_deleted_tools(tmp_path: Path):
+    rt = DeepAgentsStage2Runtime(config=Stage2DeepAgentConfig())
+    rs = Stage2RuntimeState(bundle=_bundle(tmp_path))
+    task = Stage2TaskSpec(
+        user_query="a chair",
+        task_type=Stage2TaskType.VISUAL_GROUNDING,
+        plan_mode=Stage2PlanMode.BRIEF,
+        max_reasoning_turns=4,
+    )
+    text = rt.build_user_message(task, rs).content[0]["text"]
+    assert "view_keyframe" not in text
+    assert "select_by_hypothesis" not in text
 
 
 def test_build_user_message_zero_keyframes_viewed_line(tmp_path: Path):

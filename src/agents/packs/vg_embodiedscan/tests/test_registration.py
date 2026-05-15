@@ -31,7 +31,7 @@ def test_vg_pack_registers_on_import() -> None:
     assert pack.required_extra_metadata == ["vg_proposal_pool"]
 
 
-def test_spatial_skill_documents_v9_compare_workflow() -> None:
+def test_spatial_skill_documents_v9_1_compare_workflow() -> None:
     PACKS.clear()
     importlib.reload(agents.packs.vg_embodiedscan)
     pack = PACKS[Stage2TaskType.VISUAL_GROUNDING]
@@ -39,4 +39,4 @@ def test_spatial_skill_documents_v9_compare_workflow() -> None:
     body = spatial.body_path.read_text(encoding="utf-8")
 
     assert "compare_proposals_spatial" in body
-    assert "view_keyframe(mode='marked')" in body
+    assert "mark_frame_with_bbox" in body

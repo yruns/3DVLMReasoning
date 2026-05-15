@@ -148,11 +148,12 @@ class DeepAgentsStage2Runtime(BaseStage2Runtime):
             request_crops,
         ]
 
-        # v9 catalog-first scene-perception tools (selectors + view_bev +
-        # view_keyframe + list_scene_proposals + inspect_proposal). Wired for
-        # every task type — VG and QA share the same exploration surface.
-        # Only enabled when the bundle carries a SceneCatalog (the runtime is
-        # tolerant to legacy bundles for back-compat).
+        # v9.1 catalog-first scene-perception tools (selectors +
+        # mark_frame_with_bbox + view_bev + list_scene_proposals +
+        # inspect_proposal). Wired for every task type — VG and QA share the
+        # same exploration surface. Only enabled when the bundle carries a
+        # SceneCatalog (the runtime is tolerant to legacy bundles for
+        # back-compat).
         if (runtime.bundle.extra_metadata or {}).get("scene_catalog") is not None:
             tools.extend(_collect_v9_tools(runtime=runtime, task_type=runtime.task_type))
 
@@ -216,18 +217,11 @@ class DeepAgentsStage2Runtime(BaseStage2Runtime):
             task.task_type
         )
 
-        if task.task_type == Stage2TaskType.VISUAL_GROUNDING:
-            view_note = (
-                "- use view_bev(highlight=[ids]) to declutter\n"
-                "- view_keyframe(mode='auto') resolves to 'marked' for VG"
-            )
-        elif task.task_type == Stage2TaskType.QA:
-            view_note = (
-                "- use view_bev(highlight=[ids]) to declutter\n"
-                "- use view_keyframe(mode='rgb') for first-person scene observation"
-            )
-        else:
-            view_note = "- use view_bev(highlight=[ids]) to declutter"
+        view_note = (
+            "- use view_bev(highlight=[ids]) to declutter\n"
+            "- selectors return ≤3 first-person RGB frames per call; use "
+            "mark_frame_with_bbox to annotate the one frame worth verifying"
+        )
 
         by_cat = catalog.proposals_by_category()
         cat_lines: list[str] = []
@@ -263,7 +257,8 @@ class DeepAgentsStage2Runtime(BaseStage2Runtime):
             "Then load_skill('vg-grounding-playbook') (VG) or "
             "load_skill('qa-answering-playbook') (QA).\n\n"
             f"You have viewed 0 keyframes out of {catalog.total_frames}. "
-            "Use selectors + view_keyframe to fetch first-person frames."
+            "Use selectors to fetch ≤3 RGB frames per call; use "
+            "mark_frame_with_bbox to annotate one frame for verification."
         )
 
         content: list[dict[str, Any]] = [{"type": "text", "text": prompt}]
@@ -288,10 +283,12 @@ class DeepAgentsStage2Runtime(BaseStage2Runtime):
         but still has turns remaining. v9 nudges towards selectors + view tools.
         """
         available_tools = [
+            "select_by_text(query, k≤3, hidden_categories) — Stage-1 "
+            "language→frame, primary entry; returns ≤3 RGB frames",
             "select_by_proposal / select_by_frame_neighbor / select_by_region / "
-            "select_by_coverage — instant catalog-only selectors",
-            "select_by_text / select_by_hypothesis — Stage-1 LLM fallback selectors",
-            "view_keyframe(frame_id, mode='auto') — inject a first-person frame",
+            "select_by_coverage — catalog-driven selectors, each returns ≤3 RGB frames",
+            "mark_frame_with_bbox(frame_id, labels?, ids?) — high-contrast "
+            "annotated zoom on one selected frame",
             "view_bev(highlight=[ids]) — re-inject the BEV (optionally focused)",
             "list_scene_proposals / list_frame_proposals / inspect_proposal — "
             "text-only inventory queries",
@@ -558,7 +555,7 @@ class DeepAgentsStage2Runtime(BaseStage2Runtime):
         new_images: list[str] = []
         # v9 catalog-first: never auto-inject pack-prep "seed" keyframes
         # (Stage-1 GT-target-visible RGBs). The agent must explicitly fetch
-        # first-person frames via view_keyframe / select_* / view_bev /
+        # first-person frames via select_* / mark_frame_with_bbox / view_bev /
         # request_crops. Tool-produced keyframes (e.g. request_crops crops)
         # are not in initial_keyframe_paths and are still drained below.
         initial_seeds = runtime.initial_keyframe_paths
@@ -569,8 +566,8 @@ class DeepAgentsStage2Runtime(BaseStage2Runtime):
                 if keyframe.image_path not in runtime.seen_image_paths:
                     new_images.append(keyframe.image_path)
 
-        # Drain any pack-pushed pending images (e.g. VG pack's
-        # `view_keyframe` queues annotated keyframes here).
+        # Drain any pack-pushed pending images (e.g. selector / mark
+        # tools queue first-person frames here for the next turn).
         extra = runtime.bundle.extra_metadata or {}
         pending = extra.get("vg_pending_images", [])
         for marked_path in pending:

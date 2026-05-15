@@ -81,10 +81,12 @@ def cumulative_seen_frame_ids(runtime: object) -> set[int]:
             tool_name = getattr(obs, "tool_name", "")
             response_text = str(getattr(obs, "response_text", ""))
             tool_input = getattr(obs, "tool_input", {}) or {}
-        # v9: view_keyframe (any mode) is the canonical frame-injection tool.
-        # The pre-v9 stage-1 callback tools were removed and their trace
-        # entries are no longer produced.
-        if tool_name == "view_keyframe":
+        # v9.1: `mark_frame_with_bbox(frame_id=..., labels?|ids?)` is the
+        # single-frame annotation tool. Selectors return multiple frames
+        # whose ids only appear in response text and are accounted for via
+        # `runtime.seen_image_paths` elsewhere; here we only count frames
+        # the agent explicitly marked with an annotated zoom.
+        if tool_name == "mark_frame_with_bbox":
             if response_text.startswith("ERROR"):
                 continue
             frame_id = tool_input.get("frame_id")

@@ -408,11 +408,10 @@ def build_vg_tools(runtime: Any) -> list[BaseTool]:
         runtime.record("list_frame_proposals", request, text)
         return text
 
-    # v9: `view_keyframe_marked` was replaced by the unified
-    # `agents.tools.view_keyframe.view_keyframe(mode='marked')`. The VG pack
-    # no longer registers a dedicated marked tool — the catalog-first
-    # surface in DeepAgentsStage2Runtime.build_runtime_tools already wires
-    # the unified view_keyframe (and view_bev) for both VG and QA.
+    # v9.1: the legacy pack-local marked-keyframe tool was retired together
+    # with the unified frame-injection tool; `agents.tools.mark_frame_with_bbox`
+    # is the canonical high-contrast annotated-zoom tool, wired for both VG
+    # and QA in DeepAgentsStage2Runtime.build_runtime_tools.
 
 
     @tool

@@ -1,6 +1,6 @@
-"""Tests for v9 catalog-first build_system_prompt.
+"""Tests for v9.1 catalog-first build_system_prompt.
 
-Per spec docs/superpowers/specs/2026-05-14-v9-catalog-first-scene-exploration-design.md §F.1.
+Per spec docs/superpowers/specs/2026-05-15-v9-1-selectors-return-images-design.md §7.6.
 """
 
 from agents.core.agent_config import (
@@ -33,16 +33,29 @@ def test_system_prompt_has_v9_catalog_first_header():
     assert "Scene perception model" in prompt
 
 
-def test_system_prompt_lists_six_selectors_cheapest_first():
+def test_system_prompt_lists_v9_1_selectors():
     rt = _MinimalRuntime(config=Stage2DeepAgentConfig())
     prompt = rt.build_system_prompt(_task())
+    assert "select_by_text" in prompt
     assert "select_by_proposal" in prompt
     assert "select_by_frame_neighbor" in prompt
     assert "select_by_region" in prompt
     assert "select_by_coverage" in prompt
+    assert "mark_frame_with_bbox" in prompt
+
+
+def test_prompt_describes_selector_first_move():
+    rt = _MinimalRuntime(config=Stage2DeepAgentConfig())
+    prompt = rt.build_system_prompt(_task())
     assert "select_by_text" in prompt
-    assert "select_by_hypothesis" in prompt
-    assert "Cheapest-first" in prompt
+    assert "primary entry" in prompt.lower() or "first move" in prompt.lower()
+
+
+def test_prompt_does_not_mention_deleted_tools():
+    rt = _MinimalRuntime(config=Stage2DeepAgentConfig())
+    prompt = rt.build_system_prompt(_task())
+    assert "view_keyframe" not in prompt
+    assert "select_by_hypothesis" not in prompt
 
 
 def test_system_prompt_no_longer_mentions_callback_tools():
@@ -56,12 +69,12 @@ def test_system_prompt_no_longer_mentions_callback_tools():
     assert "list_keyframes_with_proposals" not in prompt
 
 
-def test_system_prompt_for_qa_uses_view_keyframe_rgb_default():
+def test_system_prompt_workflow_line_mentions_mark_for_verification():
     rt = _MinimalRuntime(config=Stage2DeepAgentConfig())
-    prompt = rt.build_system_prompt(_task(Stage2TaskType.QA))
-    assert "view_keyframe" in prompt
-    assert "mode='auto'" in prompt or 'mode="auto"' in prompt
-    assert "QA" in prompt or "qa" in prompt
+    prompt = rt.build_system_prompt(_task())
+    assert "Workflow" in prompt
+    assert "mark_frame_with_bbox" in prompt
+    assert "verifying" in prompt or "verification" in prompt
 
 
 def test_system_prompt_mentions_scene_exploration_playbook_first():
@@ -74,3 +87,15 @@ def test_system_prompt_drops_enable_temporal_fan_branch():
     rt = _MinimalRuntime(config=Stage2DeepAgentConfig())
     prompt = rt.build_system_prompt(_task())
     assert "temporal_fan" not in prompt
+
+
+def test_system_prompt_qa_and_vg_share_same_workflow_line():
+    rt = _MinimalRuntime(config=Stage2DeepAgentConfig())
+    qa_prompt = rt.build_system_prompt(_task(Stage2TaskType.QA))
+    vg_prompt = rt.build_system_prompt(_task(Stage2TaskType.VISUAL_GROUNDING))
+    # v9.1: no per-task "Default view mode" branches; both prompts share
+    # the same Workflow sentence.
+    assert "mark_frame_with_bbox" in qa_prompt
+    assert "mark_frame_with_bbox" in vg_prompt
+    assert "Default view mode" not in qa_prompt
+    assert "Default view mode" not in vg_prompt

@@ -144,7 +144,7 @@ def _parse_boxes_2d(response: str) -> dict[int, tuple[float, float, float, float
 
 
 def _is_marked_view(entry: Any) -> bool:
-    """v9.1: mark_frame_with_bbox replaces view_keyframe(mode='marked')."""
+    """v9.1: only `mark_frame_with_bbox` entries count as marked evidence."""
     return _tool_name(entry) == "mark_frame_with_bbox"
 
 

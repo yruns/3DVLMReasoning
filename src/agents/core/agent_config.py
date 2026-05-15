@@ -99,7 +99,7 @@ class Stage2DeepAgentConfig(BaseModel):
         "v4 added the optional `tool_override_reason` kwarg on submit_final "
         "(TADG bypass path); v5 added the no-match candidate guard; "
         "v6 added the evidence-frame consistency guard; v7 added 2D "
-        "left-to-right mark geometry to view_keyframe (marked mode); v8 added "
+        "left-to-right mark geometry to marked-frame rendering; v8 added "
         "left/right consistency checks to the evidence-frame guard; v9 "
         "added left/right/near/next_to spatial ranking; v10 rejects "
         "direct VG structured finals while a submit_final turn remains; "

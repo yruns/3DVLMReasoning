@@ -384,19 +384,11 @@ class BaseStage2Runtime(ABC):
         instruction = task.output_instruction or default_output_instruction(
             task.task_type
         )
-        if task.task_type == Stage2TaskType.QA:
-            mode_hint = (
-                "Default view mode for QA: view_keyframe(mode='auto') resolves to 'rgb'."
-            )
-        elif task.task_type == Stage2TaskType.VISUAL_GROUNDING:
-            mode_hint = (
-                "Default view mode for VG: view_keyframe(mode='auto') resolves to 'marked'."
-            )
-        else:
-            mode_hint = (
-                "Default view mode: view_keyframe(mode='auto') picks 'marked' for VG, "
-                "'rgb' otherwise."
-            )
+        workflow_hint = (
+            "Workflow: selectors inject candidate RGB frames; use "
+            "mark_frame_with_bbox on the one frame you have decided is worth "
+            "verifying."
+        )
 
         return (
             "You are the Stage-2 scene reasoning agent.\n\n"
@@ -408,37 +400,26 @@ class BaseStage2Runtime(ABC):
             "you must fetch frames.\n\n"
             "Tool families (always `load_skill('scene-exploration-playbook')` "
             "before selectors / view tools):\n"
-            "1. select_by_* (6 modalities) — find task-relevant frame_ids\n"
-            "   - select_by_proposal(proposal_ids, require_all, k) — instant catalog lookup\n"
-            "   - select_by_frame_neighbor(anchor_frame_id, mode='temporal'|'viewpoint_diverse', k) "
-            "— instant\n"
-            "   - select_by_region(region, region_type='bev_2d'|'bbox_3d', k) — instant\n"
-            "   - select_by_coverage(method='obj_iou'|'pose_depth', k, seen_frame_ids?) "
-            "— cheap geometric\n"
-            "   - select_by_text(query, k, hidden_categories) — ~Stage-1 LLM parse (2-5s)\n"
-            "   - select_by_hypothesis(hypothesis_json, k, hidden_categories) — instant (no parse)\n"
-            "2. view_keyframe(frame_id, mode='auto', categories?, proposal_ids?) — "
-            "inject a first-person frame.\n"
-            f"   {mode_hint}\n"
-            "3. view_bev(highlight=[ids]?) — re-inject the BEV; optionally focus on a "
-            "subset of #ids.\n"
-            "4. list_scene_proposals(category?, region_bev?, limit?) and "
-            "list_frame_proposals(frame_id) — scene/frame inventory text.\n"
-            "5. inspect_proposal(proposal_id) — proposal metadata + frames_appeared.\n"
-            "6. compare_proposals_spatial(candidate_ids, anchor_id, relation) — "
-            "spatial reasoning.\n"
-            "7. request_crops(request_text, object_terms) — zoom in for small "
-            "attributes / state.\n"
-            "8. submit_final(payload, rationale, evidence_refs?, tool_override_reason?) "
-            "— terminate.\n\n"
-            "Cheapest-first principle:\n"
-            "- Prefer catalog-only selectors (proposal / frame_neighbor / region / coverage) "
-            "before Stage-1 LLM (text / hypothesis).\n"
-            "- Use request_crops only after view_keyframe failed to resolve a small "
-            "attribute or count.\n\n"
+            "1. Selectors (each returns ≤3 first-person RGB frames + metadata):\n"
+            "   - select_by_text(query, k≤3, hidden_categories) — Stage-1 "
+            "language→frame, primary entry\n"
+            "   - select_by_proposal(proposal_ids, require_all, k≤3)\n"
+            "   - select_by_frame_neighbor(anchor_frame_id, "
+            "mode='temporal'|'viewpoint_diverse', k≤3)\n"
+            "   - select_by_region(region, region_type, k≤3)\n"
+            "   - select_by_coverage(method='obj_iou'|'pose_depth', k≤3, "
+            "seen_frame_ids?)\n"
+            "2. mark_frame_with_bbox(frame_id, labels?, ids?) — high-contrast "
+            "annotated zoom.\n"
+            "   Requires at least one of labels / ids.\n"
+            "3. view_bev(highlight=?) — re-inject BEV (full or filtered).\n"
+            "4. Catalog: list_scene_proposals, list_frame_proposals, "
+            "inspect_proposal.\n"
+            "5. request_crops(frame_id, bbox_2d) — pixel zoom on a seen frame.\n"
+            f"{workflow_hint}\n\n"
             "Skill gate:\n"
-            "- Every selector + view_keyframe + view_bev + list_scene_proposals + "
-            "inspect_proposal + compare_proposals_spatial\n"
+            "- Every selector + mark_frame_with_bbox + view_bev + "
+            "list_scene_proposals + inspect_proposal + compare_proposals_spatial\n"
             "  refuses to run until you `load_skill('scene-exploration-playbook')`. "
             "After that, load the\n"
             "  task-specific playbook (`vg-grounding-playbook` for VG, "

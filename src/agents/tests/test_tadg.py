@@ -116,7 +116,7 @@ def _record_category_lookup(
 def _record_view(rs: Stage2RuntimeState, frame_id: int) -> None:
     rs.tool_trace.append(
         Stage2ToolObservation(
-            tool_name="view_keyframe_marked",
+            tool_name="mark_frame_with_bbox",
             tool_input={"frame_id": frame_id},
             response_text=f"frame_id={frame_id}",
         )

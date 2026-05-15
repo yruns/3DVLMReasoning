@@ -101,10 +101,11 @@ def test_qa_v9_tool_surface_end_to_end(tmp_path: Path):
     ):
         assert required in tools, f"required v9 tool {required!r} not wired"
 
-    # User message renders with the QA-specific view-mode hint.
+    # v9.1: user message renders the shared workflow hint
+    # (selectors return RGB; mark_frame_with_bbox annotates one frame).
     message = rt.build_user_message(task, state)
     text = next(p for p in message.content if p.get("type") == "text")["text"]
-    assert "view_keyframe(mode='rgb')" in text or 'mode="rgb"' in text
+    assert "mark_frame_with_bbox" in text
     assert "bed" in text and "#0" in text
 
     # Selector + list tools are gated on the scene-exploration-playbook skill.
