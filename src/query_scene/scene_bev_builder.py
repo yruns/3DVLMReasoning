@@ -54,6 +54,8 @@ class SceneBEVConfig:
     trajectory_thickness: int = 3
     proposal_marker_radius: int = 4
     crop_margin: int = 8
+    label_font_scale: float = 0.85
+    label_font_thickness: int = 2
 
 
 class ScanNetSceneBEVBuilderBase(ABC):
@@ -380,24 +382,39 @@ class ScanNetSceneBEVBuilderBase(ABC):
                 if highlighted
                 else self.config.label_color_default
             )
-            bg = (
-                self.config.label_bg_highlight
-                if highlighted
-                else self.config.label_bg_default
-            )
             cv2.circle(img, (u, v), self.config.proposal_marker_radius, color, -1)
             label = f"#{proposal.proposal_id} {proposal.category}"
             font = cv2.FONT_HERSHEY_SIMPLEX
-            scale = 0.45
-            thickness = 1
+            scale = self.config.label_font_scale
+            thickness = self.config.label_font_thickness
             (tw, th), baseline = cv2.getTextSize(label, font, scale, thickness)
             text_org = (u + 6, v - 6)
-            bg_x1 = text_org[0] - 2
-            bg_y1 = text_org[1] - th - 2
-            bg_x2 = text_org[0] + tw + 2
-            bg_y2 = text_org[1] + baseline
-            cv2.rectangle(img, (bg_x1, bg_y1), (bg_x2, bg_y2), bg, -1)
-            cv2.putText(img, label, text_org, font, scale, color, thickness, cv2.LINE_AA)
+            bg = (
+                text_org[0] - 4,
+                text_org[1] - th - 4,
+                text_org[0] + tw + 4,
+                text_org[1] + baseline + 4,
+            )
+            cv2.rectangle(
+                img,
+                (bg[0], bg[1]),
+                (bg[2], bg[3]),
+                self.config.label_bg_highlight if highlighted else self.config.label_bg_default,
+                -1,
+            )
+            cv2.putText(
+                img, label, text_org, font, scale, (0, 0, 0), thickness + 2, cv2.LINE_AA
+            )
+            cv2.putText(
+                img,
+                label,
+                text_org,
+                font,
+                scale,
+                (255, 255, 255),
+                thickness,
+                cv2.LINE_AA,
+            )
         return img
 
 
