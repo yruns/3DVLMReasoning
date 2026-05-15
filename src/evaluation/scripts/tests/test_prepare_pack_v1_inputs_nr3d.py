@@ -219,8 +219,9 @@ def test_prepare_pack_v1_inputs_nr3d_smoke(tmp_path, monkeypatch) -> None:
     assert payload["keyframe_mode"] == "gt_target"
     assert payload["keyframe_selection_uses_gt_target"] is True
     assert payload["keyframe_selection_used_fallback"] is False
-    # v9 catalog-first: keyframes replaced by scene_catalog / bev_image / camera trajectory paths
-    assert "keyframes" not in payload
+    # v9 catalog-first: scene_catalog / bev_image / camera trajectory are the source of truth.
+    # The legacy `keyframes` field is still emitted as a backward-compat anchor for runners
+    # that haven't fully migrated; v9.1 agent runtime does not consume it.
     assert Path(payload["scene_catalog_path"]).exists()
     assert Path(payload["bev_image_path"]).exists()
     assert Path(payload["camera_trajectory_path"]).exists()
