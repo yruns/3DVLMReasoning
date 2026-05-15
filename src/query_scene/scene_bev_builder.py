@@ -20,6 +20,26 @@ from loguru import logger
 from agents.catalog import SceneProposal
 
 
+def _crop_to_non_white(
+    img: np.ndarray, *, margin: int = 8, threshold: int = 250
+) -> tuple[np.ndarray, tuple[int, int]]:
+    """Crop an image to its non-white bounding box plus a fixed pixel margin.
+
+    Returns (cropped_image, (offset_x, offset_y)). Offsets allow callers to
+    translate any pre-computed (u, v) image coordinates into the cropped frame.
+    """
+    non_white = np.any(img < threshold, axis=2)
+    if not non_white.any():
+        return img, (0, 0)
+    rows = np.where(non_white.any(axis=1))[0]
+    cols = np.where(non_white.any(axis=0))[0]
+    y_min = max(0, int(rows.min()) - margin)
+    y_max = min(img.shape[0], int(rows.max()) + 1 + margin)
+    x_min = max(0, int(cols.min()) - margin)
+    x_max = min(img.shape[1], int(cols.max()) + 1 + margin)
+    return img[y_min:y_max, x_min:x_max], (x_min, y_min)
+
+
 @dataclass(frozen=True)
 class SceneBEVConfig:
     image_size: int = 1500
@@ -33,6 +53,7 @@ class SceneBEVConfig:
     trajectory_color: tuple[int, int, int] = (32, 96, 220)
     trajectory_thickness: int = 3
     proposal_marker_radius: int = 4
+    crop_margin: int = 8
 
 
 class ScanNetSceneBEVBuilderBase(ABC):
@@ -189,6 +210,11 @@ class ScanNetSceneBEVBuilderBase(ABC):
         img, scene_bounds = self._render_mesh_with_traj(
             mesh_path, traj_path, intr_path, axis_align=axis_align,
         )
+        img, (crop_ox, crop_oy) = _crop_to_non_white(
+            img, margin=self.config.crop_margin
+        )
+        if isinstance(scene_bounds, dict):
+            scene_bounds["crop_offset"] = (crop_ox, crop_oy)
         img = self._overlay_proposal_labels(
             img, proposals, scene_bounds=scene_bounds, highlight_ids=highlight_ids
         )
@@ -298,6 +324,8 @@ class ScanNetSceneBEVBuilderBase(ABC):
             t = np.asarray(view_or_bounds["t"], dtype=np.float64)
             f = float(view_or_bounds["f"])
             c = float(view_or_bounds["c"])
+            full_hw = int(view_or_bounds["image_size"])
+            h_chk, w_chk = full_hw, full_hw
             world = np.asarray(position_3d, dtype=np.float64)
             cam = R @ world + t
             if cam[2] < 0.01:
@@ -308,12 +336,15 @@ class ScanNetSceneBEVBuilderBase(ABC):
                 not np.isfinite(u)
                 or not np.isfinite(v)
                 or u < -10
-                or u > w + 10
+                or u > w_chk + 10
                 or v < -10
-                or v > h + 10
+                or v > h_chk + 10
             ):
                 return None
-            return int(u), int(v)
+            crop_offset = view_or_bounds.get("crop_offset", (0, 0))
+            u_out = int(u) - int(crop_offset[0])
+            v_out = int(v) - int(crop_offset[1])
+            return u_out, v_out
         xmin, ymin, xmax, ymax = view_or_bounds
         span_x = max(xmax - xmin, 1e-6)
         span_y = max(ymax - ymin, 1e-6)
