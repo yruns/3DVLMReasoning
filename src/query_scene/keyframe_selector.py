@@ -1887,6 +1887,8 @@ class KeyframeSelector:
         executor = self._get_query_executor()
         return executor.execute(grounding_query)
 
+    # TODO(v9.2): No remaining consumers after select_by_hypothesis was deleted in v9.1.
+    # Verify no external benchmark scripts depend on this before removing.
     def execute_hypotheses(
         self,
         hypothesis_output: Any,
