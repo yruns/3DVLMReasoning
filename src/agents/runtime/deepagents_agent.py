@@ -29,6 +29,30 @@ from .base import (
 from .langchain_agent import ToolChoiceCompatibleAzureChatOpenAI
 
 
+def _collect_v9_tools(*, runtime: Stage2RuntimeState, task_type: Stage2TaskType | None) -> list[BaseTool]:
+    """Build the v9 catalog-aware tool set for a given task pack.
+
+    Returns selectors, scene perception, the legacy view_keyframe (deleted in Task 15
+    of the v9.1 plan), and the new mark_frame_with_bbox tool. The order matches the
+    historical loading order so existing trace HTML colour-coding stays stable.
+
+    `task_type` is currently unused but exposed for future task-pack-specific tool
+    gating; do not remove it.
+    """
+    _ = task_type  # reserved for task-pack-specific tool gating
+    from agents.tools.mark_frame_with_bbox import build_mark_frame_with_bbox_tool
+    from agents.tools.scene_perception import build_scene_perception_tools
+    from agents.tools.selectors import build_selector_tools
+    from agents.tools.view_keyframe import build_view_keyframe_tool
+
+    tools: list[BaseTool] = []
+    tools.extend(build_selector_tools(runtime))
+    tools.extend(build_scene_perception_tools(runtime))
+    tools.append(build_view_keyframe_tool(runtime))
+    tools.append(build_mark_frame_with_bbox_tool(runtime))
+    return tools
+
+
 class DeepAgentsStage2Runtime(BaseStage2Runtime):
     """DeepAgents-backed Stage-2 research agent with iterative evidence refinement.
 
@@ -133,13 +157,7 @@ class DeepAgentsStage2Runtime(BaseStage2Runtime):
         # Only enabled when the bundle carries a SceneCatalog (the runtime is
         # tolerant to legacy bundles for back-compat).
         if (runtime.bundle.extra_metadata or {}).get("scene_catalog") is not None:
-            from agents.tools.scene_perception import build_scene_perception_tools
-            from agents.tools.selectors import build_selector_tools
-            from agents.tools.view_keyframe import build_view_keyframe_tool
-
-            tools.extend(build_selector_tools(runtime))
-            tools.extend(build_scene_perception_tools(runtime))
-            tools.append(build_view_keyframe_tool(runtime))
+            tools.extend(_collect_v9_tools(runtime=runtime, task_type=runtime.task_type))
 
         # Chassis trio attaches when the active task pack opts in
         # (TaskPack.exposes_chassis=True) or when the operator forces it via
