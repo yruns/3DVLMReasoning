@@ -7,7 +7,8 @@ This viewer is **v9 catalog-first native**:
   and a footer reminding the reader that **no first-person keyframes are
   injected** before the agent calls a tool. (v9 build_user_message contract.)
 - Tools are grouped by family: `setup`, `catalog`, `selector`, `view`,
-  `reason`, `terminal`. Deprecated names from earlier versions
+  `reason`, `terminal`, `legacy` (v9.1: `view_keyframe` / `select_by_hypothesis`
+  in historical traces). Deprecated names from earlier versions
   (`view_keyframe_marked`, `request_more_views`, `switch_or_expand_hypothesis`,
   `find_proposals_by_category`, `list_keyframes_with_proposals`) still get
   labels so a historical run can still be opened, but they are visually
@@ -33,7 +34,6 @@ from pathlib import Path
 from typing import Any
 
 from PIL import Image
-
 
 # ---------------------------------------------------------------------------
 # Small helpers
@@ -154,6 +154,8 @@ _PATH_HINTS = [
     re.compile(r"frame_id=(?P<fid>\d+) rgb image at (?P<path>[^;\s]+)"),
     # view_keyframe (marked / auto) — produced annotated image
     re.compile(r"frame_id=(?P<fid>\d+)\s+(?:filtered\s+)?marked image at (?P<path>[^;\s]+)"),
+    # v9.1 mark_frame_with_bbox — same line as legacy marked, different phrase
+    re.compile(r"frame_id=(?P<fid>\d+)\s+mark image at (?P<path>[^;\s]+)"),
     # view_bev — re-rendered BEV with highlight
     re.compile(r"bev image at (?P<path>[^;\s]+)"),
     # request_crops legacy
@@ -180,6 +182,18 @@ def collect_image_refs(response_text: str, tool_input: dict[str, Any] | None = N
             refs.append((None, str(parsed["bev_image_path"])))
         if parsed.get("image_path"):
             refs.append((parsed.get("frame_id"), str(parsed["image_path"])))
+        # v9.1 selectors: frames[].image_path (skip null / already_seen)
+        frames = parsed.get("frames")
+        if isinstance(frames, list):
+            for fr in frames:
+                if not isinstance(fr, dict):
+                    continue
+                if fr.get("already_seen"):
+                    continue
+                ip = fr.get("image_path")
+                if not ip:
+                    continue
+                refs.append((fr.get("frame_id"), str(ip)))
 
     for pat in _PATH_HINTS:
         for m in pat.finditer(response_text):
@@ -212,15 +226,16 @@ _FAMILY = {
     "list_frame_proposals": "catalog",
     "inspect_proposal": "catalog",
     "retrieve_object_context": "catalog",
-    # selector tools (frame discovery, text only)
+    # selector tools (frame discovery; v9.1 returns frames[] + image_path)
     "select_by_text": "selector",
-    "select_by_hypothesis": "selector",
+    "select_by_hypothesis": "legacy",
     "select_by_frame_neighbor": "selector",
     "select_by_proposal": "selector",
     "select_by_region": "selector",
     "select_by_coverage": "selector",
     # image-producing view tools
-    "view_keyframe": "view",
+    "view_keyframe": "legacy",
+    "mark_frame_with_bbox": "view",
     "view_bev": "view",
     "request_crops": "view",  # historically image-producing
     # analytical
@@ -249,12 +264,13 @@ _LABELS = {
     "inspect_proposal": "检查候选元数据",
     "retrieve_object_context": "读取对象上下文",
     "select_by_text": "按文本搜帧",
-    "select_by_hypothesis": "按假设搜帧",
+    "select_by_hypothesis": "按假设搜帧 (legacy)",
     "select_by_frame_neighbor": "按相邻帧搜帧",
     "select_by_proposal": "按候选 id 搜帧",
     "select_by_region": "按 BEV 区域搜帧",
     "select_by_coverage": "按覆盖度搜帧",
-    "view_keyframe": "查看关键帧",
+    "view_keyframe": "查看关键帧 (legacy)",
+    "mark_frame_with_bbox": "带框标注帧 (v9.1)",
     "view_bev": "查看 BEV",
     "request_crops": "请求局部裁剪",
     "compare_proposals_spatial": "几何关系排序",
@@ -328,16 +344,16 @@ def summarize_tool(call: dict[str, Any]) -> str:
             f"按 proposal_ids={ids} 搜帧：" + _summarize_selector_response(parsed, text)
         )
     if tool == "select_by_hypothesis":
-        return f"按假设搜帧：" + _summarize_selector_response(parsed, text)
+        return "按假设搜帧：" + _summarize_selector_response(parsed, text)
     if tool == "select_by_frame_neighbor":
         anchor = inp.get("frame_id") if isinstance(inp, dict) else None
         return (
             f"以 frame {anchor} 为锚搜邻帧：" + _summarize_selector_response(parsed, text)
         )
     if tool == "select_by_region":
-        return f"BEV 区域搜帧：" + _summarize_selector_response(parsed, text)
+        return "BEV 区域搜帧：" + _summarize_selector_response(parsed, text)
     if tool == "select_by_coverage":
-        return f"按覆盖度搜帧：" + _summarize_selector_response(parsed, text)
+        return "按覆盖度搜帧：" + _summarize_selector_response(parsed, text)
 
     # ---- view tools ----
     if tool == "view_keyframe":
@@ -359,6 +375,22 @@ def summarize_tool(call: dict[str, Any]) -> str:
             hl = inp.get("highlight") or []
             return f"BEV 重渲染 highlight={hl}"
         return text[:200]
+    if tool == "mark_frame_with_bbox" and isinstance(inp, dict):
+        fid = inp.get("frame_id")
+        labels = inp.get("labels")
+        ids = inp.get("ids")
+        img_base = ""
+        m = re.search(r"mark image at (?P<path>[^;\s]+)", text)
+        if m:
+            img_base = Path(m.group("path")).name
+        parts: list[str] = [f"frame {fid}"]
+        if labels:
+            parts.append(f"labels={labels}")
+        if ids:
+            parts.append(f"ids={ids}")
+        if img_base:
+            parts.append(f"marked_file={img_base}")
+        return "带框标注 · " + " · ".join(parts)
     if tool == "request_crops" and isinstance(inp, dict):
         return (
             f"frame_indices={inp.get('frame_indices')} object_terms={inp.get('object_terms')}：" + compact_text(text, max_chars=160)
@@ -390,8 +422,30 @@ def summarize_tool(call: dict[str, Any]) -> str:
 
 def _summarize_selector_response(parsed: Any, text: str) -> str:
     if isinstance(parsed, dict):
-        frame_ids = parsed.get("frame_ids") or parsed.get("frames") or []
         n_frames = parsed.get("n_frames")
+        frames = parsed.get("frames")
+        if isinstance(frames, list) and frames:
+            if isinstance(frames[0], dict):
+                bits: list[str] = []
+                for fr in frames[:8]:
+                    if not isinstance(fr, dict):
+                        continue
+                    fid = fr.get("frame_id")
+                    ip = fr.get("image_path")
+                    seen = bool(fr.get("already_seen"))
+                    if ip and isinstance(ip, str) and not seen:
+                        bits.append(f"{fid}:{Path(ip).name}")
+                    elif fid is not None:
+                        bits.append(f"{fid}{'(seen)' if seen else ''}")
+                tail = "" if len(frames) <= 8 else f" ... +{len(frames) - 8}"
+                nf = n_frames if n_frames is not None else len(frames)
+                if bits:
+                    return f"返回 {nf} 帧 [{', '.join(bits)}{tail}]"
+                return f"返回 {nf} 帧"
+            head = ", ".join(map(str, frames[:8]))
+            tail = "" if len(frames) <= 8 else f" ... +{len(frames) - 8}"
+            return f"返回 {n_frames or len(frames)} 帧 [{head}{tail}]"
+        frame_ids = parsed.get("frame_ids") or []
         if isinstance(frame_ids, list) and frame_ids:
             head = ", ".join(map(str, frame_ids[:8]))
             tail = "" if len(frame_ids) <= 8 else f" ... +{len(frame_ids) - 8}"
@@ -487,7 +541,13 @@ def render_tool_card(
     inp = call.get("tool_input")
     response = str(call.get("response_text") or "")
     family = tool_family(tool)
-    legacy_cls = " legacy" if is_legacy(tool) else ""
+    legacy_tool_cls = " legacy-tool" if is_legacy(tool) else ""
+    view_amber_cls = " view-amber" if tool == "mark_frame_with_bbox" else ""
+    deprecated_badge = (
+        ' <span class="badge deprecated">DEPRECATED v9.1</span>'
+        if family == "legacy"
+        else ""
+    )
     refs = [
         (frame_id, path, f"#{step_index:02d} {tool_label(tool)}")
         for frame_id, path in collect_image_refs(response, inp if isinstance(inp, dict) else None)
@@ -496,11 +556,11 @@ def render_tool_card(
         refs, assets_dir=assets_dir, html_dir=html_dir, prefix=f"{case_prefix}_step{step_index:02d}"
     ) if refs else ""
     return f"""
-    <details class="call-card {esc(family)}{legacy_cls}" id="{esc(case_prefix)}-step-{step_index}" open>
+    <details class="call-card {esc(family)}{legacy_tool_cls}{view_amber_cls}" id="{esc(case_prefix)}-step-{step_index}" open>
       <summary>
         <span class="step-no">{step_index:02d}</span>
         <span class="tool-pill">{esc(tool)}</span>
-        <span class="step-title">{esc(tool_label(tool))}</span>
+        <span class="step-title">{esc(tool_label(tool))}{deprecated_badge}</span>
         <span class="step-summary">{esc(summarize_tool(call))}</span>
       </summary>
       <div class="call-body">
@@ -532,9 +592,10 @@ def render_tree(trace: list[dict[str, Any]], *, case_prefix: str) -> str:
     ]
     for idx, call in enumerate(trace, start=1):
         tool = str(call.get("tool_name") or "")
+        v_amb = " view-amber" if tool == "mark_frame_with_bbox" else ""
         rows.append(
             f"""
-            <a class="tree-node {esc(tool_family(tool))}" href="#{esc(case_prefix)}-step-{idx}">
+            <a class="tree-node {esc(tool_family(tool))}{v_amb}" href="#{esc(case_prefix)}-step-{idx}">
               <span class="tree-dot"></span>
               <span class="tree-index">{idx:02d}</span>
               <span class="tree-tool">{esc(tool_label(tool))}</span>
@@ -581,7 +642,7 @@ def build_case(
     for call in trace:
         t = str(call.get("tool_name") or "?")
         family_counts[tool_family(t)] += 1
-        if is_legacy(t):
+        if is_legacy(t) or tool_family(t) == "legacy":
             legacy_count += 1
     legacy_warning = (
         f'<p class="legacy-warning"><strong>注意</strong>：本 trace 含有 {legacy_count} 次已废弃工具调用，应迁移到 v9 工具表。</p>'
@@ -691,7 +752,7 @@ def build_case(
         <main>
           <section class="turn0-card" id="{esc(case_prefix)}-turn0">
             <h3>Turn 0 — Agent 看到的初始上下文（v9 catalog-first）</h3>
-            <p>v9 的 <code>build_user_message</code> 只注入 <strong>BEV 图像</strong> 和 <strong>SceneCatalog 文字目录</strong>，<em>不</em> 注入任何第一人称关键帧。Agent 必须主动调用 selector / view_keyframe 等工具才能拿到第一人称证据。</p>
+            <p>v9 的 <code>build_user_message</code> 只注入 <strong>BEV 图像</strong> 和 <strong>SceneCatalog 文字目录</strong>，<em>不</em> 注入任何第一人称关键帧。Agent 必须主动调用 selector / <code>mark_frame_with_bbox</code>（v9.1）或历史 trace 中的 <code>view_keyframe</code> 等工具才能拿到第一人称证据。</p>
             <div class="turn0-grid">
               <div class="turn0-bev">
                 {bev_thumb or '<div class="empty">未找到 BEV 图像路径</div>'}
@@ -714,7 +775,7 @@ def build_case(
           </section>
           <section class="call-stack">
             <h3>Agent 调用栈（每个工具一张卡片）</h3>
-            <p>卡片按真实工具调用顺序展开。<code>tool_input</code> 与 <code>response_text</code> 保留原文（已做长度截断），其它说明为中文。工具家族用左侧色条区分：<span class="legend setup">setup</span> <span class="legend catalog">catalog</span> <span class="legend selector">selector</span> <span class="legend view">view</span> <span class="legend reason">reason</span> <span class="legend final">final</span>。</p>
+            <p>卡片按真实工具调用顺序展开。<code>tool_input</code> 与 <code>response_text</code> 保留原文（已做长度截断），其它说明为中文。工具家族用左侧色条区分：<span class="legend setup">setup</span> <span class="legend catalog">catalog</span> <span class="legend selector">selector</span> <span class="legend view">view</span> <span class="legend view-amber">mark bbox</span> <span class="legend legacy">legacy</span> <span class="legend reason">reason</span> <span class="legend final">final</span>。</p>
             {cards}
           </section>
         </main>
@@ -808,6 +869,8 @@ def build_html(
       --c-reason: #0f7a4d;
       --c-final: #b42318;
       --c-turn0: #4b5563;
+      --c-legacy: #94a3b8;
+      --c-view-amber: #f59e0b;
     }}
     * {{ box-sizing: border-box; }}
     body {{ margin: 0; background: var(--bg); color: var(--ink); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", sans-serif; line-height: 1.45; }}
@@ -878,6 +941,8 @@ def build_html(
     .tree-node.catalog .tree-dot {{ background: var(--c-catalog); }}
     .tree-node.selector .tree-dot {{ background: var(--c-selector); }}
     .tree-node.view .tree-dot {{ background: var(--c-view); }}
+    .tree-node.view-amber .tree-dot {{ background: var(--c-view-amber); }}
+    .tree-node.legacy .tree-dot {{ background: var(--c-legacy); }}
     .tree-node.reason .tree-dot {{ background: var(--c-reason); }}
     .tree-node.final .tree-dot {{ background: var(--c-final); }}
     .tree-index {{ color: var(--muted); font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; }}
@@ -890,6 +955,8 @@ def build_html(
     .chip.catalog {{ background: #e6eef9; border-color: #c4d5ed; color: var(--c-catalog); }}
     .chip.selector {{ background: #def0f1; border-color: #b8dde0; color: var(--c-selector); }}
     .chip.view {{ background: #fdecd2; border-color: #f3cea5; color: var(--c-view); }}
+    .chip.view-amber {{ background: #fff7eb; border-color: #f8d9a8; color: var(--c-view-amber); }}
+    .chip.legacy {{ background: #e8edf3; border-color: #c5ccd6; color: var(--c-legacy); }}
     .chip.reason {{ background: #def1e5; border-color: #b9d7c6; color: var(--c-reason); }}
     .chip.final {{ background: #ffe1dc; border-color: #f3b9b1; color: var(--c-final); }}
     .call-card {{ border: 1px solid var(--line); border-radius: 8px; margin: 10px 0; background: var(--panel-2); scroll-margin-top: 16px; }}
@@ -899,12 +966,24 @@ def build_html(
     .call-card.catalog {{ border-left: 4px solid var(--c-catalog); }}
     .call-card.selector {{ border-left: 4px solid var(--c-selector); }}
     .call-card.view {{ border-left: 4px solid var(--c-view); }}
+    .call-card.view.view-amber {{ border-left-color: var(--c-view-amber); }}
+    .call-card.legacy {{ border-left: 4px solid var(--c-legacy); outline: 2px dashed #f59e0b; outline-offset: -2px; opacity: 0.85; }}
     .call-card.reason {{ border-left: 4px solid var(--c-reason); }}
     .call-card.final {{ border-left: 4px solid var(--c-final); }}
-    .call-card.legacy {{ outline: 2px dashed #fbbf24; outline-offset: -2px; }}
+    .call-card.legacy-tool {{ outline: 2px dashed #fbbf24; outline-offset: -2px; }}
     .step-no {{ font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color: var(--muted); font-weight: 700; }}
     .tool-pill {{ background: #e8eef7; border: 1px solid #d2dceb; color: #193b6d; border-radius: 999px; padding: 3px 8px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; }}
     .step-title {{ font-weight: 750; }}
+    .badge.deprecated {{
+      background: #f59e0b;
+      color: #1f2937;
+      padding: 2px 6px;
+      font-size: 11px;
+      border-radius: 4px;
+      margin-left: 6px;
+      font-weight: 700;
+      white-space: nowrap;
+    }}
     .step-summary {{ color: var(--muted); overflow-wrap: anywhere; }}
     .call-body {{ border-top: 1px solid var(--line); padding: 12px; }}
     .io-grid {{ display: grid; grid-template-columns: minmax(260px, .9fr) minmax(320px, 1.3fr); gap: 12px; }}
@@ -920,6 +999,8 @@ def build_html(
     .legend.catalog {{ background: var(--c-catalog); }}
     .legend.selector {{ background: var(--c-selector); }}
     .legend.view {{ background: var(--c-view); }}
+    .legend.view-amber {{ background: var(--c-view-amber); color: #1f2937; }}
+    .legend.legacy {{ background: var(--c-legacy); }}
     .legend.reason {{ background: var(--c-reason); }}
     .legend.final {{ background: var(--c-final); }}
     @media (max-width: 1120px) {{
@@ -939,7 +1020,7 @@ def build_html(
   <div class="app">
     <aside class="sidebar">
       <h1>{esc(title)}</h1>
-      <p>v9 catalog-first 静态查看器。<strong>初始上下文只有 BEV + Cat-B 文字目录</strong>，第一人称帧均由 agent 主动调用 selector / view_keyframe 获取。</p>
+      <p>v9 catalog-first 静态查看器。<strong>初始上下文只有 BEV + Cat-B 文字目录</strong>，第一人称帧均由 agent 主动调用 selector、<code>mark_frame_with_bbox</code>（v9.1）或历史 <code>view_keyframe</code> 获取。</p>
       <p>Run: <code>{esc(run_id)}</code></p>
       <p>Run commit: <code>{esc(run_commit)}</code> · Report commit: <code>{esc(git_short())}</code></p>
       <p>Artifacts: <code>{esc(run_output)}</code></p>
