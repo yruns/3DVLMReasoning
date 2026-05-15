@@ -435,6 +435,9 @@ def build_selector_tools(runtime: Any) -> list[BaseTool]:
             err = f"ERROR: method must be 'obj_iou' or 'pose_depth'; got {method!r}"
             runtime.record("select_by_coverage", request, err)
             return err
+        k_in = int(k)
+        capped = min(k_in, 3)
+        k_warning = "" if k_in == capped else f" (k capped at 3 from {k_in})"
         catalog = get_scene_catalog(runtime)
         valid = sorted(int(f) for f in catalog.valid_frame_ids)
         seen_set: set[int]
@@ -451,7 +454,7 @@ def build_selector_tools(runtime: Any) -> list[BaseTool]:
         if method == "obj_iou":
             frame_to_props = _frame_to_proposals(catalog)
             if not seen_set:
-                chosen = unseen[: int(k)]
+                chosen = unseen[:capped]
             else:
                 seen_union: set[int] = set()
                 for s in seen_set:
@@ -466,10 +469,10 @@ def build_selector_tools(runtime: Any) -> list[BaseTool]:
                     return 1.0 - (len(inter) / len(union)) if union else 0.0
 
                 unseen.sort(key=lambda f: (-jaccard_distance(f), f))
-                chosen = unseen[: int(k)]
+                chosen = unseen[:capped]
         else:  # pose_depth
             if not seen_set:
-                chosen = unseen[: int(k)]
+                chosen = unseen[:capped]
             else:
                 centroid_x = 0.0
                 centroid_y = 0.0
@@ -482,7 +485,7 @@ def build_selector_tools(runtime: Any) -> list[BaseTool]:
                     centroid_y += pose[1]
                     count += 1
                 if count == 0:
-                    chosen = unseen[: int(k)]
+                    chosen = unseen[:capped]
                 else:
                     centroid_x /= count
                     centroid_y /= count
@@ -494,15 +497,19 @@ def build_selector_tools(runtime: Any) -> list[BaseTool]:
                         return -math.hypot(pose[0] - centroid_x, pose[1] - centroid_y)
 
                     unseen.sort(key=lambda f: (dist(f), f))
-                    chosen = unseen[: int(k)]
-        frames = [
-            _build_frame_payload(
+                    chosen = unseen[:capped]
+        frames: list[dict] = []
+        for fid in chosen:
+            base = _build_frame_payload(
                 runtime, catalog, int(fid),
-                selected_because=f"select_by_coverage(method={method!r})",
+                selected_because=f"select_by_coverage(method={method!r}){k_warning}",
                 hidden_categories=[],
             )
-            for fid in chosen
-        ]
+            image_path = _resolve_raw_rgb_path(catalog, int(fid))
+            base["image_path"] = str(image_path) if image_path else None
+            queued = queue_pending_image_if_new(runtime, base["image_path"] or "")
+            base["already_seen"] = (not queued) and (base["image_path"] in runtime.seen_image_paths)
+            frames.append(base)
         payload = {"hypothesis_summary": "", "frames": frames}
         text = json.dumps(payload, ensure_ascii=False)
         runtime.record("select_by_coverage", request, text)
