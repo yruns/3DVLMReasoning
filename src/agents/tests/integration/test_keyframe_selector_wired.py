@@ -84,3 +84,28 @@ def test_missing_selector_makes_runtime_state_attribute_none(tmp_path: Path):
     )
     _graph, runtime_state = runtime_impl.build_agent(task=task, bundle=bundle)
     assert runtime_state.keyframe_selector is None
+
+
+def test_stage2_agent_wrapper_build_agent_populates_runtime_state_keyframe_selector(
+    tmp_path: Path, monkeypatch
+):
+    """Regression for the production code path.
+
+    `Stage2DeepResearchAgent.run()` calls `self.build_agent(...)` (the wrapper,
+    NOT the underlying `DeepAgentsStage2Runtime.build_agent`). The wrapper
+    constructs its own `Stage2RuntimeState`. Earlier v9.1_fix wired the
+    selector through the wrong build_agent; this test exercises the wrapper
+    exactly the way production does.
+    """
+    selector = _FakeSelector()
+    agent = Stage2DeepResearchAgent(keyframe_selector=selector)
+    # Avoid live LLM / DeepAgents graph construction
+    monkeypatch.setattr(agent, "_get_llm", lambda: object())
+    monkeypatch.setattr("agents.stage2_deep_agent.create_deep_agent", lambda **_k: object())
+    bundle = _minimal_bundle(tmp_path)
+    task = Stage2TaskSpec(
+        task_type=Stage2TaskType.QA,
+        user_query="how many chairs?",
+    )
+    _graph, runtime_state = agent.build_agent(task=task, bundle=bundle)
+    assert runtime_state.keyframe_selector is selector

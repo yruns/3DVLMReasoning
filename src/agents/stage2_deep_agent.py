@@ -146,6 +146,20 @@ class Stage2DeepResearchAgent:
 
         runtime = Stage2RuntimeState(bundle=bundle.model_copy(deep=True))
         runtime.task_type = task.task_type
+        # v9.1: forward the pre-built Stage-1 KeyframeSelector to the runtime
+        # state so `select_by_text` can call selector.select_keyframes_v2 at
+        # tool-invocation time. This wrapper bypasses
+        # DeepAgentsStage2Runtime.build_agent (which has the equivalent line),
+        # so the wiring must be repeated here. WARNING: keep these two in sync.
+        runtime.keyframe_selector = self._runtime.keyframe_selector
+        # v9.1: snapshot initial pack-prep "seed" keyframe paths so
+        # build_evidence_update_message refuses to auto-inject them, mirroring
+        # the underlying runtime's build_agent.
+        runtime.initial_keyframe_paths = {
+            kf.image_path
+            for kf in runtime.bundle.keyframes
+            if kf.image_path
+        }
 
         # Keep the wrapper contract for tests that patch this class directly,
         # while using the same pack-v1 VG setup as the runtime implementation.
