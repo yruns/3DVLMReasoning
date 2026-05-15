@@ -289,19 +289,37 @@ class DeepAgentsStage2Runtime(BaseStage2Runtime):
         Called when the agent returned insufficient_evidence / needs_more_evidence
         but still has turns remaining. v9 nudges towards selectors + view tools.
         """
-        available_tools = [
-            "select_by_text(query, k≤3, hidden_categories) — Stage-1 "
-            "language→frame, primary entry; returns ≤3 RGB frames",
-            "select_by_proposal / select_by_frame_neighbor / select_by_region / "
-            "select_by_coverage — catalog-driven selectors, each returns ≤3 RGB frames",
-            "mark_frame_with_bbox(frame_id, labels?, ids?) — high-contrast "
-            "annotated zoom on one selected frame",
-            "view_bev(highlight=[ids]) — re-inject the BEV (optionally focused)",
-            "list_scene_proposals / list_frame_proposals / inspect_proposal — "
-            "text-only inventory queries",
-            "request_crops — close-up crop on small or ambiguous regions",
-            "retrieve_object_context — scene / object context summaries",
-        ]
+        text_first = bool(
+            getattr(runtime, "enable_stage1_text_retrieval", True)
+        )
+        if text_first:
+            available_tools = [
+                "select_by_text(query, k≤3, hidden_categories) — Stage-1 "
+                "language→frame, primary entry; returns ≤3 RGB frames",
+                "select_by_proposal / select_by_frame_neighbor / select_by_region / "
+                "select_by_coverage — catalog-driven selectors, each returns ≤3 RGB frames",
+                "mark_frame_with_bbox(frame_id, labels?, ids?) — high-contrast "
+                "annotated zoom on one selected frame",
+                "view_bev(highlight=[ids]) — re-inject the BEV (optionally focused)",
+                "list_scene_proposals / list_frame_proposals / inspect_proposal — "
+                "text-only inventory queries",
+                "request_crops — close-up crop on small or ambiguous regions",
+                "retrieve_object_context — scene / object context summaries",
+            ]
+        else:
+            available_tools = [
+                "select_by_proposal(proposal_ids, require_all, k≤3) — primary "
+                "entry; fetch frames containing candidate catalog IDs",
+                "select_by_region / select_by_frame_neighbor / select_by_coverage — "
+                "catalog-driven selectors, each returns ≤3 RGB frames",
+                "mark_frame_with_bbox(frame_id, labels?, ids?) — high-contrast "
+                "annotated zoom on one selected frame",
+                "view_bev(highlight=[ids]) — re-inject the BEV (optionally focused)",
+                "list_scene_proposals / list_frame_proposals / inspect_proposal — "
+                "text-only inventory queries",
+                "request_crops — close-up crop on small or ambiguous regions",
+                "retrieve_object_context — scene / object context summaries",
+            ]
         tools_list = "\n".join(f"  - {t}" for t in available_tools)
 
         uncertainties_text = ""

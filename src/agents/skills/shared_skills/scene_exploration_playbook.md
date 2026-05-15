@@ -5,14 +5,31 @@ labels + camera trajectory, and a `SceneCatalog` text inventory. Neither
 is first-person evidence — fetch first-person frames before finalising
 any answer that depends on appearance, count, state, or relations.
 
-## First move — almost always `select_by_text(query)`
+## First move — `select_by_text` for rare-target / OOD queries, catalog for the rest
 
 `select_by_text(query, k≤3)` runs Stage-1 query parsing and returns up
-to 3 candidate first-person RGB frames in a single call. This is the
-shortest path from language to ground truth and should be your default
-entry point. The returned JSON lists each frame's `visible_proposal_ids`
-+ camera pose so you can decide which of the ≤3 frames is worth a
-closer look.
+to 3 candidate first-person RGB frames in a single call when the query
+can be cleanly parsed. The returned JSON lists each frame's
+`visible_proposal_ids` + camera pose so you can decide which of the
+≤3 frames is worth a closer look.
+
+**Audit-informed routing** (see `docs/benchmark/nr3d/v9_1_select_by_text_audit_20260516.md`):
+
+- **Use `select_by_text` first** when the target is rare (you don't see
+  the category in the BEV) or for natural QA queries like "where is the
+  kitchen counter". On hard / low-coverage targets it lifts hit@3 by
+  ~31 pp over random.
+- **Skip `select_by_text` and start with the catalog** when the query is
+  view-dependent ("facing X", "right of Y", "standing in the middle"),
+  uses negation ("does NOT have"), or names a fine-grained subtype
+  beyond the SceneCatalog categories. Stage-1 returns `no_evidence` on
+  ~32 % of such queries and you waste a turn. Instead read the BEV +
+  Cat-B inventory and jump straight to `select_by_proposal` /
+  `select_by_region`.
+- If `select_by_text` returns `frames: []` (empty), do **not** retry the
+  same query with bigger `k`; switch to `select_by_proposal` /
+  `select_by_region` on the candidate catalog IDs you can read from the
+  BEV.
 
 ## Refinement selectors (after the first batch)
 
@@ -65,9 +82,12 @@ injected are listed with `already_seen=true` and not re-injected.
 
 ## The loop
 
-1. `select_by_text(query)` (or, when you already know the IDs,
-   `select_by_proposal`).
-2. Scan the ≤3 returned frames + the BEV.
+1. Pick the right first move (see the routing block at the top): for
+   rare-target / OOD queries call `select_by_text(query)`; for
+   view-dependent / catalog-explicit queries call `select_by_proposal` /
+   `select_by_region` on the IDs you read from the BEV + inventory.
+2. Scan the ≤3 returned frames + the BEV. If `select_by_text` returned
+   `frames: []`, fall through to step 1's catalog branch.
 3. `mark_frame_with_bbox` on **the** frame that looks decisive.
 4. (Optional) `request_crops` for fine attributes; or refine with
    another selector if step 3 was inconclusive.

@@ -59,6 +59,12 @@ class Stage2RuntimeState:
     # invocation time. None ⇒ select_by_text returns an explicit error.
     keyframe_selector: "KeyframeSelector | None" = None
 
+    # v9.2: when False, the `select_by_text` tool is omitted from the tool
+    # set, the system prompt and playbooks switch to their catalog-first
+    # variants. Copied from `Stage2DeepAgentConfig.enable_stage1_text_retrieval`
+    # by `BaseStage2Runtime.configure_runtime_state`.
+    enable_stage1_text_retrieval: bool = True
+
     task_type: Stage2TaskType | None = None
 
     # Task-pack state populated for pack-backed tasks.
@@ -236,6 +242,9 @@ class BaseStage2Runtime(ABC):
         runtime.no_match_guard_max_repeats = self.config.no_match_guard_max_repeats
         runtime.no_match_guard_max_viewed = self.config.no_match_guard_max_viewed
         runtime.use_evidence_frame_guard = self.config.use_evidence_frame_guard
+        runtime.enable_stage1_text_retrieval = (
+            self.config.enable_stage1_text_retrieval
+        )
 
         if os.environ.get("TADG_DISABLE") == "1":
             runtime.use_tool_answer_disagreement_gate = False
@@ -401,11 +410,41 @@ class BaseStage2Runtime(ABC):
         instruction = task.output_instruction or default_output_instruction(
             task.task_type
         )
-        workflow_hint = (
-            "Workflow: selectors inject candidate RGB frames; use "
-            "mark_frame_with_bbox on the one frame you have decided is worth "
-            "verifying."
-        )
+        text_first = self.config.enable_stage1_text_retrieval
+        if text_first:
+            workflow_hint = (
+                "Workflow: selectors inject candidate RGB frames; use "
+                "mark_frame_with_bbox on the one frame you have decided is worth "
+                "verifying."
+            )
+            selector_lines = (
+                "1. Selectors (each returns ≤3 first-person RGB frames + metadata):\n"
+                "   - select_by_text(query, k≤3, hidden_categories) — Stage-1 "
+                "language→frame, primary entry\n"
+                "   - select_by_proposal(proposal_ids, require_all, k≤3)\n"
+                "   - select_by_frame_neighbor(anchor_frame_id, "
+                "mode='temporal'|'viewpoint_diverse', k≤3)\n"
+                "   - select_by_region(region, region_type, k≤3)\n"
+                "   - select_by_coverage(method='obj_iou'|'pose_depth', k≤3, "
+                "seen_frame_ids?)\n"
+            )
+        else:
+            workflow_hint = (
+                "Workflow: read the BEV and the SceneCatalog Cat-B inventory, "
+                "pick candidate proposal_ids, fetch frames with "
+                "select_by_proposal / select_by_region, then mark_frame_with_bbox "
+                "on the one frame you have decided is worth verifying."
+            )
+            selector_lines = (
+                "1. Selectors (each returns ≤3 first-person RGB frames + metadata):\n"
+                "   - select_by_proposal(proposal_ids, require_all, k≤3) — "
+                "primary entry; fetch frames containing candidate catalog IDs\n"
+                "   - select_by_region(region, region_type, k≤3)\n"
+                "   - select_by_frame_neighbor(anchor_frame_id, "
+                "mode='temporal'|'viewpoint_diverse', k≤3)\n"
+                "   - select_by_coverage(method='obj_iou'|'pose_depth', k≤3, "
+                "seen_frame_ids?)\n"
+            )
 
         return (
             "You are the Stage-2 scene reasoning agent.\n\n"
@@ -417,15 +456,7 @@ class BaseStage2Runtime(ABC):
             "you must fetch frames.\n\n"
             "Tool families (always `load_skill('scene-exploration-playbook')` "
             "before selectors / view tools):\n"
-            "1. Selectors (each returns ≤3 first-person RGB frames + metadata):\n"
-            "   - select_by_text(query, k≤3, hidden_categories) — Stage-1 "
-            "language→frame, primary entry\n"
-            "   - select_by_proposal(proposal_ids, require_all, k≤3)\n"
-            "   - select_by_frame_neighbor(anchor_frame_id, "
-            "mode='temporal'|'viewpoint_diverse', k≤3)\n"
-            "   - select_by_region(region, region_type, k≤3)\n"
-            "   - select_by_coverage(method='obj_iou'|'pose_depth', k≤3, "
-            "seen_frame_ids?)\n"
+            f"{selector_lines}"
             "2. mark_frame_with_bbox(frame_id, labels?, ids?) — high-contrast "
             "annotated zoom.\n"
             "   Requires at least one of labels / ids.\n"

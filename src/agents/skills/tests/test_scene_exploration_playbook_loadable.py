@@ -60,6 +60,50 @@ def test_playbook_says_first_move_is_select_by_text():
     assert body.lower().count("select_by_text") >= 2
 
 
+def test_no_text_variant_exists_and_drops_select_by_text():
+    """v9.2 catalog-first variant for the audit A/B test."""
+    no_text_path = _PLAYBOOK_PATH.with_name("scene_exploration_playbook_no_text.md")
+    assert no_text_path.exists(), no_text_path
+    body = no_text_path.read_text()
+    # Tool-invocation form `select_by_text(...)` must not appear; URL
+    # references to the audit doc filename are OK.
+    assert "select_by_text(" not in body, body
+    assert "select_by_proposal" in body
+    assert "catalog-first" in body.lower()
+
+
+def test_no_text_variant_swapped_when_runtime_flag_false():
+    """`load_skill` must prefer the `_no_text.md` sibling when the
+    runtime's enable_stage1_text_retrieval flag is False."""
+    from types import SimpleNamespace
+
+    from agents.skills.chassis_tools import build_chassis_tools
+
+    _ensure_packs_registered()
+
+    bundle = SimpleNamespace(extra_metadata={})
+    runtime = SimpleNamespace(
+        task_type=Stage2TaskType.VISUAL_GROUNDING,
+        bundle=bundle,
+        skills_loaded=set(),
+        tool_trace=[],
+        enable_stage1_text_retrieval=False,
+        # the rest of the chassis path inspects these but won't fire here
+        final_submission=None,
+        record=lambda *a, **kw: None,
+    )
+    _, load_skill, _ = build_chassis_tools(runtime)
+    body = load_skill.invoke({"skill_name": "scene-exploration-playbook"})
+    assert "select_by_text(" not in body
+    assert "select_by_proposal" in body
+    # And with the flag True, the canonical body still wins (the tool
+    # invocation form must reappear).
+    runtime.enable_stage1_text_retrieval = True
+    runtime.skills_loaded = set()
+    body_text_first = load_skill.invoke({"skill_name": "scene-exploration-playbook"})
+    assert "select_by_text(" in body_text_first
+
+
 def test_scene_exploration_playbook_registered_for_vg_and_qa():
     _ensure_packs_registered()
     for task_type in (Stage2TaskType.VISUAL_GROUNDING, Stage2TaskType.QA):

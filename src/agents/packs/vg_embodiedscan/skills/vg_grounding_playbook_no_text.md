@@ -1,27 +1,31 @@
-# VG Grounding Playbook (v9.1)
+# VG Grounding Playbook — catalog-first variant
 
-Prerequisite: `load_skill('scene-exploration-playbook')` first.
+Prerequisite: `load_skill('scene-exploration-playbook')` first (it loads
+the catalog-first variant automatically in this run).
 
-You are grounding a natural-language referring expression to **one** proposal in
-the SceneCatalog. The output must be a single `proposal_id` (or `-1` if the target
-is genuinely absent from the catalog — OOD case).
+You are grounding a natural-language referring expression to **one** proposal
+in the SceneCatalog. The output must be a single `proposal_id` (or `-1` if
+the target is genuinely absent from the catalog — OOD case).
+
+> **Why this variant exists.** The Stage-1 audit
+> (`docs/benchmark/nr3d/v9_1_select_by_text_audit_20260516.md`) showed that
+> on NR3D, Stage-1 language→frame retrieval is a high-variance tool —
+> when it returns frames the hit@3 is 81 %, but it returns nothing on
+> **32 %** of queries (mostly anchor-spatial phrasing). In this run that
+> tool has been dropped from the tool set so the agent treats every NR3D
+> utterance as a catalog-grounding task.
 
 ## Standard flow
 
 1. **Read the BEV image** and the `Proposals by category:` block in the task
    message. Identify candidate `#id`s by category (e.g. "brown chair" → all
-   `chair` proposals).
-2. **First move (audit-informed)** — pick one:
-   - If the BEV shows the candidate categories clearly and the query
-     references a relation / direction ("the chair on the right",
-     "facing the fridge", "between the beds"), go straight to
-     `select_by_proposal(proposal_ids=[candidate ids])`. On NR3D Stage-1
-     returns `no_evidence` on ~32 % of these and you save a turn.
-   - If the category is rare or the BEV does not have a confident
-     shortlist, `select_by_text(query)` is the right first move — it
-     runs Stage-1 parsing and returns ≤3 RGB frames in one call.
-   - See `docs/benchmark/nr3d/v9_1_select_by_text_audit_20260516.md` for
-     the audit data behind this routing.
+   `chair` proposals). For anchor-bearing queries ("next to the kitchen
+   counter") also identify the anchor's `#id`s.
+2. **Fetch first-person evidence** with
+   `select_by_proposal(proposal_ids=[candidate ids], require_all=False, k=3)`.
+   For queries with no obvious catalog handle (e.g. "the table in the
+   corner") call `select_by_region(region=[xmin,ymin,xmax,ymax],
+   region_type='bev_2d')` instead.
 3. **Verify the chosen candidate** with
    `mark_frame_with_bbox(frame_id, ids=[#a, #b, …])` (or
    `labels=['chair', …]`). This renders the frame with high-contrast bounding
@@ -36,12 +40,11 @@ is genuinely absent from the catalog — OOD case).
 
 ## Tools at a glance
 
-- `select_by_text(query, k=3, hidden_categories?)` — **first move**;
-  language → ≤3 RGB candidate frames.
-- `select_by_proposal(proposal_ids, require_all=False, k=3)` — fetch
-  frames containing specific catalog IDs.
+- `select_by_proposal(proposal_ids, require_all=False, k=3)` — **primary**
+  selector; fetch frames containing specific catalog IDs.
+- `select_by_region(region, region_type='bev_2d'|'bbox_3d', k=3)` — frames
+  whose camera is inside the BEV box / whose 3D frustum sees the named volume.
 - `select_by_frame_neighbor(anchor_frame_id, mode='temporal'|'viewpoint_diverse')`.
-- `select_by_region(region, region_type='bev_2d'|'bbox_3d')`.
 - `select_by_coverage(method='obj_iou'|'pose_depth')`.
 - `mark_frame_with_bbox(frame_id, labels|ids)` — high-contrast
   annotated zoom; required before `submit_final` for VG (see

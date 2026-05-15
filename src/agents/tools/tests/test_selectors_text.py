@@ -97,3 +97,30 @@ def test_select_by_text_marks_already_seen(tmp_path: Path):
     assert by_fid[2]["already_seen"] is False
     pending = rs.bundle.extra_metadata["vg_pending_images"]
     assert pending == [str(tmp_path / "frame_2.png")]
+
+
+def test_select_by_text_omitted_when_flag_disabled(tmp_path: Path):
+    """v9.2 toggle: when runtime.enable_stage1_text_retrieval is False,
+    `select_by_text` must NOT appear in the registered tool set; the
+    catalog-driven selectors remain so the agent can still ground."""
+    rs = _runtime(tmp_path, fids=[1, 2, 3])
+    rs.enable_stage1_text_retrieval = False
+    tools = build_selector_tools(rs)
+    names = {t.name for t in tools}
+    assert "select_by_text" not in names
+    assert {
+        "select_by_proposal",
+        "select_by_frame_neighbor",
+        "select_by_region",
+        "select_by_coverage",
+    }.issubset(names)
+
+
+def test_select_by_text_included_when_flag_enabled_default(tmp_path: Path):
+    """The flag defaults to True; the tool must remain in the set unless
+    explicitly disabled. This pins the default in case the field default
+    is ever flipped."""
+    rs = _runtime(tmp_path, fids=[1, 2, 3])
+    assert rs.enable_stage1_text_retrieval is True  # default
+    tools = build_selector_tools(rs)
+    assert any(t.name == "select_by_text" for t in tools)

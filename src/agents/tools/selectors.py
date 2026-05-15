@@ -74,13 +74,35 @@ def _resolve_raw_rgb_path(catalog: SceneCatalog, frame_id: int) -> Path | None:
 
 
 def build_selector_tools(runtime: Any) -> list[BaseTool]:
+    text_retrieval_enabled = bool(
+        getattr(runtime, "enable_stage1_text_retrieval", True)
+    )
+
     @tool
     def select_by_text(
         query: str,
         k: int = 3,
         hidden_categories: list[str] | None = None,
     ) -> str:
-        """Selector A. Detailed usage in 'scene-exploration-playbook'."""
+        """Selector A — Stage-1 language→frame retrieval.
+
+        Best for queries naming a rare or unique target category
+        ("where is the kitchen counter") or when the BEV does not give
+        you a confident catalog shortlist. Returns ≤3 first-person RGB
+        frames each with `visible_proposal_ids` + pose; also surfaces an
+        `image_path` and `already_seen` flag.
+
+        Known limitations from the NR3D Stage-1 audit
+        (docs/benchmark/nr3d/v9_1_select_by_text_audit_20260516.md):
+        returns `frames: []` (`parse=no_evidence`) on ~32 % of NR3D
+        queries — mostly anchor-spatial phrasing ("X next to Y", "facing
+        X", "right of Y"), explicit negation, or over-specific
+        sub-categories. If the response has `frames: []`, do NOT retry
+        the same query with a larger `k`; switch to `select_by_proposal`
+        / `select_by_region` on the candidate IDs visible in the BEV.
+
+        Detailed usage in 'scene-exploration-playbook'.
+        """
         request = {
             "query": query,
             "k": int(k),
@@ -137,7 +159,9 @@ def build_selector_tools(runtime: Any) -> list[BaseTool]:
         runtime.record("select_by_text", request, text)
         return text
 
-    tools = [select_by_text]
+    tools: list[BaseTool] = []
+    if text_retrieval_enabled:
+        tools.append(select_by_text)
 
     @tool
     def select_by_frame_neighbor(

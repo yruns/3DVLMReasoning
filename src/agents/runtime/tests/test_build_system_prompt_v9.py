@@ -99,3 +99,27 @@ def test_system_prompt_qa_and_vg_share_same_workflow_line():
     assert "mark_frame_with_bbox" in vg_prompt
     assert "Default view mode" not in qa_prompt
     assert "Default view mode" not in vg_prompt
+
+
+def test_system_prompt_drops_select_by_text_when_flag_disabled():
+    """v9.2 toggle: when the config flag is False, the prompt must not
+    advertise select_by_text and the catalog-first selectors take its
+    spot as primary entry. Other selectors remain."""
+    rt = _MinimalRuntime(
+        config=Stage2DeepAgentConfig(enable_stage1_text_retrieval=False)
+    )
+    prompt = rt.build_system_prompt(_task())
+    assert "select_by_text" not in prompt
+    assert "select_by_proposal" in prompt
+    assert "select_by_region" in prompt
+    assert "select_by_coverage" in prompt
+    # Primary-entry tag now attached to select_by_proposal.
+    assert "select_by_proposal" in prompt
+    assert "primary entry" in prompt.lower()
+
+
+def test_system_prompt_keeps_select_by_text_when_flag_default_true():
+    rt = _MinimalRuntime(config=Stage2DeepAgentConfig())  # default = True
+    prompt = rt.build_system_prompt(_task())
+    assert "select_by_text" in prompt
+    assert "primary entry" in prompt.lower()

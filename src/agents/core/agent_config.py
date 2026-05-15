@@ -185,6 +185,23 @@ class Stage2DeepAgentConfig(BaseModel):
             "not contain the submitted proposal id."
         ),
     )
+    enable_stage1_text_retrieval: bool = Field(
+        default=True,
+        description=(
+            "Expose the `select_by_text` tool (Stage-1 language→frame "
+            "retrieval) to the agent. When False, the tool is dropped from "
+            "the registered tool set, the system prompt + playbook bodies "
+            "use the catalog-first variant (no `select_by_text` mentions), "
+            "and the agent must reach pixels through "
+            "`select_by_proposal` / `select_by_region` / etc. "
+            "Used by the NR3D v9.2 A/B test that compares text-first vs "
+            "catalog-first first-move policy after the "
+            "`select_by_text` reliability audit "
+            "(docs/benchmark/nr3d/v9_1_select_by_text_audit_20260516.md) "
+            "showed a 32%% empty-pred wall and a 17pp NR3D regression when "
+            "text-first is the prior."
+        ),
+    )
     no_match_guard_max_repeats: int = Field(
         default=3,
         ge=1,

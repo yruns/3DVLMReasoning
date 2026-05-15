@@ -1125,6 +1125,18 @@ def parse_args() -> argparse.Namespace:
             "the submitted proposal id."
         ),
     )
+    parser.add_argument(
+        "--disable-stage1-text-retrieval",
+        action="store_true",
+        default=False,
+        help=(
+            "Drop the `select_by_text` tool and switch system prompt + "
+            "playbooks to their catalog-first variants. Used by the v9.2 "
+            "A/B test that compares text-first vs catalog-first first-move "
+            "policy after the NR3D Stage-1 reliability audit. See "
+            "docs/benchmark/nr3d/v9_1_select_by_text_audit_20260516.md."
+        ),
+    )
     return parser.parse_args()
 
 
@@ -1136,6 +1148,7 @@ def main() -> None:
         use_tool_answer_disagreement_gate=args.use_tool_answer_disagreement_gate,
         use_no_match_candidate_guard=args.use_no_match_candidate_guard,
         use_evidence_frame_guard=args.use_evidence_frame_guard,
+        enable_stage1_text_retrieval=not args.disable_stage1_text_retrieval,
     )
     compare_backends(
         sample_ids=sample_ids,

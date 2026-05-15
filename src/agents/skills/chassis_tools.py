@@ -58,7 +58,21 @@ def build_chassis_tools(runtime: Any) -> tuple[BaseTool, BaseTool, BaseTool]:
             return err
 
         spec = catalog[skill_name]
-        body = spec.body_path.read_text(encoding="utf-8")
+        # v9.2: when Stage-1 text retrieval is disabled, prefer the
+        # `_no_text.md` sibling so the playbook copy matches the actual
+        # tool surface the agent sees. Falls back to the canonical body
+        # if no sibling exists. The full pair lives next to each other
+        # in the skill directory; the audit at
+        # docs/benchmark/nr3d/v9_1_select_by_text_audit_20260516.md
+        # explains the rationale for the no-text variant.
+        body_path = spec.body_path
+        if not getattr(runtime, "enable_stage1_text_retrieval", True):
+            no_text_candidate = body_path.with_name(
+                f"{body_path.stem}_no_text{body_path.suffix}"
+            )
+            if no_text_candidate.exists():
+                body_path = no_text_candidate
+        body = body_path.read_text(encoding="utf-8")
         runtime.skills_loaded.add(skill_name)
         runtime.record("load_skill", {"skill_name": skill_name}, body)
         return body
