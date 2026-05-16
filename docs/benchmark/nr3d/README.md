@@ -15,6 +15,7 @@ the current human-facing index.
 | [v9_2_full_select_by_text_ab_20260516.md](v9_2_full_select_by_text_ab_20260516.md) | **Full 8584-utterance A/B** of the `enable_stage1_text_retrieval` toggle. Filtered (n=7805): text-first **65.20 %** vs catalog-first **64.65 %** (Δ **+0.55 pp** overall). Per-tier: text-first wins on **Hard +1.14** and **V-Indep +1.56**; catalog-first wins on **V-Dep −1.31**; Easy is tied. **0** Python errors across 17 168 sample runs; 46 graceful no-match `-1` failures. Random100's 5 pp gap shrinks to 0.55 pp at full scale — the audit hypothesis is now *partially* validated (it holds on view-dep, not on hard / view-indep). **Decision: keep `select_by_text` on by default; v9.3 should route per query type.** |
 | [v9_2_full_text_first_trace_20260516.html](v9_2_full_text_first_trace_20260516.html) | VG agent trace viewer (2T+4F) for the **text-first** full run. Cases picked to show variant-specific wins/losses: 2 correct (where text-first was uniquely right), 2 losses where no-text was correct, 2 losses both shared. Covers attribute / superlative / spatial-anchor / view-dep query types. |
 | [v9_2_full_no_text_trace_20260516.html](v9_2_full_no_text_trace_20260516.html) | VG agent trace viewer (2T+4F) for the **catalog-first** full run. Mirrors the text-first selection: 2 correct (where catalog-first uniquely won), 2 losses where text-first was correct, 2 losses both shared. Direct side-by-side reading of the same cases (`scannet/scene0249_00::32::36779` appears in both as opposite outcomes). |
+| [v9_1_fix_FULL_REPRO_20260516.md](v9_1_fix_FULL_REPRO_20260516.md) | 🥇 **v9.1_fix run on FULL 8584 test fold** at the original commit `d5f40ba`. **classification_acc_filtered = 82.95 %** — the highest depth-aware NR3D test result in the project (beats the invalidated v3 80.79 %). +17.75 pp over v9.2 text-first / +18.30 pp over v9.2 no-text on the same 7805-Q fold. Hard +22.80, V-Dep +21.40 — confirms the catalog-only fallback policy dominates "Stage-1 first move" by a large margin, not just at random100 scale. **v9.3 should default to catalog-only and surface Stage-1 only conditionally.** |
 | [v9_1_fix_reproduction_20260516.md](v9_1_fix_reproduction_20260516.md) | **v9.1_fix random100 reproduction** at the original commit `d5f40ba` (worktree). 86 → **84** within ±2 pp single-seed noise band. Confirms the 86 baseline is **not** a measurement artifact, and the v9.1_fix → v9.2 16-18 pp regression is real (8-9× the noise band). Adds the `Pre-run checklist (MANDATORY)` rule to `CLAUDE.md` so every iteration commits + records both head + run-time SHAs. |
 | [v9_2_select_by_text_ab_20260516.md](v9_2_select_by_text_ab_20260516.md) | **random100 A/B** (n=100, ~13 min): text-first **68.0 %** vs catalog-first **63.0 %** (Δ +5 pp). Direction same as full set, magnitude inflated by small-fold noise. Useful as a quick smoke before launching the 15h full-set run. |
 | [v9_1_select_by_text_audit_20260516.md](v9_1_select_by_text_audit_20260516.md) | Diagnostic — `select_by_text` reliability vs GT frame visibility on the same random100 fold. Headline: **hit@3 = 55 %** (47 % at K=1, plateaus at K=10), driven by a **32 % empty-prediction wall** (parser/executor returns `no_evidence`). When non-empty, hit@3 = **81 %** and `mean_first_hit_rank` ≈ 1.16 — Stage-1 is either great or hopeless. Strongest on hard / rare-target queries (+31 pp vs random), hurts on easy ones. Quantitatively reconciles the v9.1_fix → v9.1_real regression and gives the v9.1 → v9.2 playbook trade. |
@@ -39,11 +40,35 @@ the current human-facing index.
 
 ## Current Result Status
 
-The latest recorded full-test row is now **invalidated pending rerun**. The
-v5/v5.1 packs were built from NR3D `visibility_index.pkl` files whose metadata
-records `use_depth=False`, so `view_to_objects` / `object_to_views` encoded
-projection/frustum candidates rather than depth-occlusion visibility. Those
-indices are not valid as agent-visible evidence.
+**Headline (depth-aware, full 8584 / 7805 filtered)**:
+**v9.1_fix FULL REPRO 82.95 %** — see
+[v9_1_fix_FULL_REPRO_20260516.md](v9_1_fix_FULL_REPRO_20260516.md).
+Run-time code commit `d5f40ba` (worktree, intentional drift to reproduce
+the broken-Stage-1 wrapper bypass), head commit at launch `e750d8b`,
+classification accuracy with NR3D canonical filter, single-side
+workers=40, ~8h32m wall, 0 Python errors.
+
+| Metric | **v9.1_fix FULL REPRO** | v3 (invalidated) | v5.1 (invalidated) | v9.2 text-first | v9.2 no-text |
+|---|---:|---:|---:|---:|---:|
+| Overall   | **82.95** | 80.79 | 68.48 | 65.20 | 64.65 |
+| Easy      | 88.36 | 86.06 | 78.43 | 76.01 | 76.09 |
+| Hard      | **77.88** | 75.87 | 59.18 | 55.08 | 53.94 |
+| V-Dep     | **78.23** | 72.46 | 57.38 | 56.83 | 58.14 |
+| V-Indep   | 85.51 | 85.34 | 74.53 | 69.76 | 68.20 |
+
+The catalog-only fallback policy (broken Stage-1) wins by 17-23 pp vs
+v9.2's "Stage-1 first-move" prior, confirming the random100 finding at
+full scale. v3's 80.79 % is invalidated due to projection-only
+visibility; v9.1_fix uses the canonical depth-aware visibility, so the
+2.16 pp lead over v3 is the first **valid** depth-aware result above the
+v3 number.
+
+The v5/v5.1 records (older "fair-view" full runs) are still
+**invalidated pending rerun**. Their packs were built from NR3D
+`visibility_index.pkl` files whose metadata records `use_depth=False`, so
+`view_to_objects` / `object_to_views` encoded projection/frustum
+candidates rather than depth-occlusion visibility. Those indices are not
+valid as agent-visible evidence.
 
 Latest recorded, invalidated fair-view full-test row:
 
@@ -167,6 +192,7 @@ Previous best depth-aware random100 pilot:
 | [v9_catalog_first_20260515](v9_catalog_first_20260515.md) | 2026-05-15 | `feat/v9-catalog-first-scene-exploration` / leak-fix | Overall=**86.00** (clean) / 81.00 (leaky) | 100Q pilot | Depth-aware partial, BEV-first + 6 selectors, no first-person seed; Stage-1 seed-keyframe drain leak documented + fixed |
 | [v9_2_select_by_text_ab_20260516](v9_2_select_by_text_ab_20260516.md) | 2026-05-16 | `feat/v9-1-selectors-return-images` / `c2c52d0` | text-first **68.00** / catalog-first **63.00** | 100Q A/B | Depth-aware partial; `enable_stage1_text_retrieval` toggle; same code/prompts/pack — only the toggle differs. Audit's catalog-first hypothesis falsified at random100 (−5 pp). |
 | [v9_2_full_select_by_text_ab_20260516](v9_2_full_select_by_text_ab_20260516.md) | 2026-05-16 | `feat/v9-1-selectors-return-images` / `c2c52d0` | text-first **65.20** / catalog-first **64.65** | **8584Q / 7805Q filtered A/B** | First full-set v9.x evaluation. 15h28m parallel on Mac, workers=20 each, 0 Python errors. Gap shrinks from random100's 5pp to 0.55pp at full scale; per-tier text-first wins Hard / V-Indep, catalog-first wins V-Dep. Default decision: keep `select_by_text` on. |
+| [v9_1_fix_FULL_REPRO_20260516](v9_1_fix_FULL_REPRO_20260516.md) | 2026-05-16 | `feat/v9-1-selectors-return-images` / head `e750d8b`, runtime `d5f40ba` (worktree) | **82.95 / 88.36 / 77.88 / 78.23 / 85.51** | 8584Q / 7805Q filtered | **🥇 New depth-aware NR3D high.** v9.1_fix wrapper-bypass bug reproduces broken Stage-1 catalog fallback on full set. +17.75 / +22.80 / +21.40 pp on Overall / Hard / V-Dep vs v9.2 text-first. workers=40 single side, ~8h32m wall, 0 Python errors. |
 
 ## Protocol Summary
 
