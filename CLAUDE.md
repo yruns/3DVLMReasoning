@@ -274,9 +274,36 @@ Write a new `<vN>_<tag>_<YYYYMMDD>.md` whenever:
 
 Update the per-benchmark `README.md` and `leaderboard.md` at the same time so the index never lags behind the evidence.
 
+### Pre-run checklist (MANDATORY)
+
+Before launching ANY benchmark run — including reruns, ablations, A/B variants, or reproductions of older results — you MUST:
+
+1. **Commit pending changes.** `git status` must report no modified tracked files at the moment the eval starts. Commit:
+   - Code changes (toggles, prompts, playbook variants)
+   - SQLite DB updates from prior runs
+   - Doc / metric edits from the previous iteration
+
+2. **Capture both commit SHAs**:
+   - **Head commit** — where the branch is at launch (`git rev-parse HEAD`).
+   - **Run-time code commit** — where the code being executed lives. Equal to head commit unless you're running from a `git worktree` at an older commit (e.g. to reproduce a historical run); in that case capture `git -C <worktree> rev-parse HEAD` separately.
+
+3. **Record both SHAs in the version doc**, in this format:
+
+   ```
+   Branch:                 feat/v9-1-selectors-return-images
+   Head commit at launch:  c2c52d0
+   Run-time code commit:   d5f40ba   (worktree at /var/folders/.../v91fix-worktree)
+   ```
+
+   When head == run-time, list once and note "no worktree drift".
+
+4. **Tag reproductions explicitly.** Prefix `run-id` with `REPRO_<YYYYMMDD>_<source-run-id>` so SQLite history shows the lineage. Example: `v9_1_fix_random100_REPRO_20260516`.
+
+This makes every result reproducible from a commit + sample-ids fold + leaderboard-metrics JSON — and lets future agents bisect regressions across iterations without guessing what code was actually live at each run.
+
 ### Required content per version doc
 
-- **Branch + tip commit** at run time.
+- **Branch + tip commit** at run time. Plus run-time code commit if different (worktree case).
 - **Exact CLI invocation** or path to the launcher script (e.g. `scripts/run_v15_eval_matrix.sh`).
 - **Raw artifact directory** under `tmp/...` so numbers can be re-derived from JSON.
 - **Judge model name** for LLM-as-judge benchmarks (e.g. `gemini-2.5-pro`).
