@@ -74,6 +74,14 @@ def _render_highlighted_bev(catalog, highlight_ids: list[int], output_path: Path
     return output_path
 
 
+# Renderer-version tag baked into the highlight cache filename so that any
+# change to the label rendering (font, colours, anchoring, etc.) invalidates
+# stale on-disk overlays automatically. Bump this whenever
+# ``_overlay_proposal_labels`` or its inputs change in a user-visible way.
+# v9.3 (2026-05-17): top-left default, focused-labels, sharper text.
+_HIGHLIGHT_BEV_RENDERER_VERSION: str = "v93"
+
+
 def _resolve_highlight_ids(
     catalog,
     highlight: list[int] | None,
@@ -164,7 +172,13 @@ def build_scene_perception_tools(runtime: Any) -> list[BaseTool]:
         cache_dir = Path(catalog.bev_image_path).parent / "highlights"
         cache_dir.mkdir(parents=True, exist_ok=True)
         ids_token = "_".join(str(i) for i in resolved_ids)
-        out_path = cache_dir / f"bev_h_{ids_token}.png"
+        # Renderer version baked into the cache key — any future change to
+        # ``_overlay_proposal_labels`` (font / colours / anchoring) should
+        # bump _HIGHLIGHT_BEV_RENDERER_VERSION so stale overlays from older
+        # renderers are not silently reused.
+        out_path = cache_dir / (
+            f"bev_h_{ids_token}_{_HIGHLIGHT_BEV_RENDERER_VERSION}.png"
+        )
         if not out_path.exists():
             _render_highlighted_bev(catalog, resolved_ids, out_path)
         queue_pending_image(runtime, str(out_path))

@@ -56,6 +56,7 @@ def test_view_bev_highlight_renders_subset(tmp_path: Path, monkeypatch: pytest.M
 
     def _fake_render(catalog, highlight_ids, output_path):
         captured["highlight_ids"] = list(highlight_ids or [])
+        captured["output_path"] = str(output_path)
         from PIL import Image
 
         Image.new("RGB", (40, 40), (255, 0, 0)).save(output_path)
@@ -71,6 +72,39 @@ def test_view_bev_highlight_renders_subset(tmp_path: Path, monkeypatch: pytest.M
     pending = rs.bundle.extra_metadata["vg_pending_images"]
     assert pending and pending[-1].endswith(".png")
     assert "highlight=[1]" in resp
+
+
+def test_view_bev_highlight_cache_filename_includes_renderer_version(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+):
+    """v9.3 cache-busting: the cached highlight PNG filename embeds the
+    renderer version tag so any future change to ``_overlay_proposal_labels``
+    invalidates stale on-disk overlays automatically. Regression for the
+    bug where May-16 OLD-style overlays were silently reused after the
+    v9.3 renderer upgrade.
+    """
+    from agents.tools.scene_perception import _HIGHLIGHT_BEV_RENDERER_VERSION
+
+    rs = _runtime(tmp_path)
+    captured: dict = {}
+
+    def _fake_render(catalog, highlight_ids, output_path):
+        captured["output_path"] = str(output_path)
+        from PIL import Image
+
+        Image.new("RGB", (40, 40), (0, 0, 255)).save(output_path)
+        return output_path
+
+    monkeypatch.setattr(
+        "agents.tools.scene_perception._render_highlighted_bev",
+        _fake_render,
+    )
+    tool = next(t for t in build_scene_perception_tools(rs) if t.name == "view_bev")
+    tool.invoke({"highlight": [1, 7]})
+    filename = Path(captured["output_path"]).name
+    assert filename.endswith(f"_{_HIGHLIGHT_BEV_RENDERER_VERSION}.png")
+    # Sanity: the id-token still appears before the version tag.
+    assert "1_7" in filename
 
 
 def test_view_bev_categories_resolves_proposals(
