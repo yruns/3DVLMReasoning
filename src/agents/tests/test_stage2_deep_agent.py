@@ -37,7 +37,9 @@ class TestStage2DeepAgent(unittest.TestCase):
         self.assertEqual(bind_tools_mock.call_args.kwargs["tool_choice"], "auto")
 
     def test_runtime_constructs_with_v9_signature(self) -> None:
-        runtime = DeepAgentsStage2Runtime(config=Stage2DeepAgentConfig())
+        runtime = DeepAgentsStage2Runtime(
+            config=Stage2DeepAgentConfig(enable_stage1_text_retrieval=False)
+        )
         self.assertTrue(hasattr(runtime, "crop_callback"))
         self.assertFalse(hasattr(runtime, "more_views_callback"))
         self.assertFalse(hasattr(runtime, "hypothesis_callback"))
@@ -48,7 +50,9 @@ class TestStage2DeepAgent(unittest.TestCase):
         PACKS.clear()
         import agents.packs.qa_default.registration  # noqa: F401
 
-        runtime = DeepAgentsStage2Runtime(config=Stage2DeepAgentConfig())
+        runtime = DeepAgentsStage2Runtime(
+            config=Stage2DeepAgentConfig(enable_stage1_text_retrieval=False)
+        )
         bundle = Stage2EvidenceBundle()
         state = Stage2RuntimeState(bundle=bundle)
         state.task_type = Stage2TaskType.QA
@@ -74,7 +78,9 @@ class TestStage2DeepAgent(unittest.TestCase):
         PACKS.clear()
         bundle = Stage2EvidenceBundle()
         task = Stage2TaskSpec(task_type=Stage2TaskType.QA, user_query="?")
-        agent = Stage2DeepResearchAgent(config=Stage2DeepAgentConfig())
+        agent = Stage2DeepResearchAgent(
+            config=Stage2DeepAgentConfig(enable_stage1_text_retrieval=False)
+        )
 
         with (
             patch.object(agent, "_get_llm", return_value=object()),

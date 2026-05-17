@@ -179,8 +179,13 @@ def test_stage2_agent_image_perception():
         max_reasoning_turns=1,
     )
 
-    # Run agent
-    agent = Stage2DeepResearchAgent()
+    # Run agent. This perception-only smoke does not build a KeyframeSelector,
+    # so disable Stage-1 text retrieval to satisfy the construction-time guard.
+    from agents.models import Stage2DeepAgentConfig
+
+    agent = Stage2DeepResearchAgent(
+        config=Stage2DeepAgentConfig(enable_stage1_text_retrieval=False)
+    )
     print("Running Stage2DeepResearchAgent...")
 
     try:

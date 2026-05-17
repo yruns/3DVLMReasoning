@@ -104,8 +104,19 @@ def test_vg_v9_tool_surface_end_to_end(tmp_path: Path):
         max_reasoning_turns=8,
     )
 
-    rt = DeepAgentsStage2Runtime(config=Stage2DeepAgentConfig())
+    class _FakeSelector:
+        def select_keyframes_v2(self, **_kwargs):  # pragma: no cover - sanity stub
+            from types import SimpleNamespace
+
+            return SimpleNamespace(keyframe_indices=[], metadata={})
+
+    selector = _FakeSelector()
+    rt = DeepAgentsStage2Runtime(
+        config=Stage2DeepAgentConfig(),  # default: text retrieval enabled
+        keyframe_selector=selector,
+    )
     state = Stage2RuntimeState(bundle=bundle, task_type=task.task_type)
+    state.keyframe_selector = selector
     tools = {t.name: t for t in rt.build_runtime_tools(state)}
 
     # The catalog-first surface should expose at minimum:

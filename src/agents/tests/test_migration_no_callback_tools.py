@@ -44,7 +44,9 @@ def test_select_by_hypothesis_not_loaded():
 
 
 def test_runtime_does_not_expose_request_more_views():
-    rt = DeepAgentsStage2Runtime(config=Stage2DeepAgentConfig())
+    rt = DeepAgentsStage2Runtime(
+        config=Stage2DeepAgentConfig(enable_stage1_text_retrieval=False)
+    )
     for attr in (
         "_request_more_views_impl",
         "_create_request_more_views_tool",
@@ -64,7 +66,9 @@ def test_stage1_callbacks_drops_old_factories():
 
 
 def test_runtime_tool_list_does_not_include_dead_names():
-    rt = DeepAgentsStage2Runtime(config=Stage2DeepAgentConfig())
+    rt = DeepAgentsStage2Runtime(
+        config=Stage2DeepAgentConfig(enable_stage1_text_retrieval=False)
+    )
     bundle = Stage2EvidenceBundle(scene_id="dummy")
     runtime_state = Stage2RuntimeState(
         bundle=bundle, task_type=Stage2TaskType.QA

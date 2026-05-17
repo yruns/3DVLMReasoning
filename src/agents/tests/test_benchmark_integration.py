@@ -215,7 +215,10 @@ class TestOpenEQAIntegration(unittest.TestCase):
         )
 
         agent = Stage2DeepResearchAgent(
-            config=Stage2DeepAgentConfig(enable_uncertainty_stopping=False)
+            config=Stage2DeepAgentConfig(
+                enable_uncertainty_stopping=False,
+                enable_stage1_text_retrieval=False,
+            )
         )
         fake_graph = _FakeGraph(
             {
@@ -340,7 +343,10 @@ class TestSQA3DIntegration(unittest.TestCase):
         )
 
         agent = Stage2DeepResearchAgent(
-            config=Stage2DeepAgentConfig(enable_uncertainty_stopping=False)
+            config=Stage2DeepAgentConfig(
+                enable_uncertainty_stopping=False,
+                enable_stage1_text_retrieval=False,
+            )
         )
         fake_graph = _FakeGraph(
             {
@@ -461,7 +467,10 @@ class TestScanReferIntegration(unittest.TestCase):
         )
 
         agent = Stage2DeepResearchAgent(
-            config=Stage2DeepAgentConfig(enable_uncertainty_stopping=False)
+            config=Stage2DeepAgentConfig(
+                enable_uncertainty_stopping=False,
+                enable_stage1_text_retrieval=False,
+            )
         )
         fake_graph = _FakeGraph(
             {
@@ -528,6 +537,7 @@ class TestCrossBenchmarkPipeline(unittest.TestCase):
             config=Stage2DeepAgentConfig(
                 enable_uncertainty_stopping=True,
                 confidence_threshold=0.7,
+                enable_stage1_text_retrieval=False,
             )
         )
 
@@ -588,7 +598,10 @@ class TestCrossBenchmarkPipeline(unittest.TestCase):
             return {"response": "Crop generated", "updated_bundle": new_bundle}
 
         agent = Stage2DeepResearchAgent(
-            config=Stage2DeepAgentConfig(enable_uncertainty_stopping=False),
+            config=Stage2DeepAgentConfig(
+                enable_uncertainty_stopping=False,
+                enable_stage1_text_retrieval=False,
+            ),
             crop_callback=mock_crop_callback,
         )
 

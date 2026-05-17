@@ -185,11 +185,13 @@ def demo_full_pipeline_with_vlm(replica_root: Path):
         logger.warning("No frames available - skipping VLM inference")
         return None
 
-    # Create Stage 2 agent (no callbacks for demo)
+    # Create Stage 2 agent (no callbacks for demo, no Stage-1 selector — so
+    # disable text retrieval explicitly to keep the tool surface honest).
     agent = Stage2DeepResearchAgent(
         config=Stage2DeepAgentConfig(
             include_thoughts=False,
             max_reasoning_turns=2,
+            enable_stage1_text_retrieval=False,
         ),
     )
 

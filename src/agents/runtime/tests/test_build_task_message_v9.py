@@ -56,7 +56,9 @@ def _bundle(tmp_path: Path) -> Stage2EvidenceBundle:
 
 
 def test_build_user_message_no_first_person_seed_only_bev(tmp_path: Path):
-    rt = DeepAgentsStage2Runtime(config=Stage2DeepAgentConfig())
+    rt = DeepAgentsStage2Runtime(
+        config=Stage2DeepAgentConfig(enable_stage1_text_retrieval=False)
+    )
     bundle = _bundle(tmp_path)
     rs = Stage2RuntimeState(bundle=bundle)
     task = Stage2TaskSpec(
@@ -79,7 +81,9 @@ def test_build_user_message_no_first_person_seed_only_bev(tmp_path: Path):
 
 
 def test_build_user_message_cat_b_inventory(tmp_path: Path):
-    rt = DeepAgentsStage2Runtime(config=Stage2DeepAgentConfig())
+    rt = DeepAgentsStage2Runtime(
+        config=Stage2DeepAgentConfig(enable_stage1_text_retrieval=False)
+    )
     rs = Stage2RuntimeState(bundle=_bundle(tmp_path))
     task = Stage2TaskSpec(
         user_query="a chair",
@@ -95,7 +99,9 @@ def test_build_user_message_cat_b_inventory(tmp_path: Path):
 
 
 def test_build_user_message_qa_uses_mark_frame_note(tmp_path: Path):
-    rt = DeepAgentsStage2Runtime(config=Stage2DeepAgentConfig())
+    rt = DeepAgentsStage2Runtime(
+        config=Stage2DeepAgentConfig(enable_stage1_text_retrieval=False)
+    )
     rs = Stage2RuntimeState(bundle=_bundle(tmp_path))
     task = Stage2TaskSpec(
         user_query="how many chairs are there?",
@@ -111,7 +117,9 @@ def test_build_user_message_qa_uses_mark_frame_note(tmp_path: Path):
 
 
 def test_build_user_message_does_not_mention_deleted_tools(tmp_path: Path):
-    rt = DeepAgentsStage2Runtime(config=Stage2DeepAgentConfig())
+    rt = DeepAgentsStage2Runtime(
+        config=Stage2DeepAgentConfig(enable_stage1_text_retrieval=False)
+    )
     rs = Stage2RuntimeState(bundle=_bundle(tmp_path))
     task = Stage2TaskSpec(
         user_query="a chair",
@@ -125,7 +133,9 @@ def test_build_user_message_does_not_mention_deleted_tools(tmp_path: Path):
 
 
 def test_build_user_message_zero_keyframes_viewed_line(tmp_path: Path):
-    rt = DeepAgentsStage2Runtime(config=Stage2DeepAgentConfig())
+    rt = DeepAgentsStage2Runtime(
+        config=Stage2DeepAgentConfig(enable_stage1_text_retrieval=False)
+    )
     rs = Stage2RuntimeState(bundle=_bundle(tmp_path))
     task = Stage2TaskSpec(
         user_query="a chair",
@@ -138,7 +148,9 @@ def test_build_user_message_zero_keyframes_viewed_line(tmp_path: Path):
 
 
 def test_collect_image_paths_returns_bev_only(tmp_path: Path):
-    rt = DeepAgentsStage2Runtime(config=Stage2DeepAgentConfig())
+    rt = DeepAgentsStage2Runtime(
+        config=Stage2DeepAgentConfig(enable_stage1_text_retrieval=False)
+    )
     bundle = _bundle(tmp_path)
     paths = rt.collect_image_paths(bundle)
     assert paths == [str(tmp_path / "bev.png")]

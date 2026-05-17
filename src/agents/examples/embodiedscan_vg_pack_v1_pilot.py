@@ -102,7 +102,13 @@ def main() -> None:
         scene_id=args.scene_id,
     )
 
-    cfg = Stage2DeepAgentConfig(vg_backend="pack_v1")
+    # This pilot does not build a per-scene KeyframeSelector, so Stage-1
+    # text retrieval cannot be served — disable explicitly to keep the agent's
+    # tool surface consistent with what the runtime can fulfill.
+    cfg = Stage2DeepAgentConfig(
+        vg_backend="pack_v1",
+        enable_stage1_text_retrieval=False,
+    )
     agent = Stage2DeepResearchAgent(config=cfg)
     task = Stage2TaskSpec(
         task_type=Stage2TaskType.VISUAL_GROUNDING,

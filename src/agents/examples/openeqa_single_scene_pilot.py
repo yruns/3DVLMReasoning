@@ -348,8 +348,10 @@ def run_stage2(
             max_images=6,
             max_tokens=4000,
             session_id=session_id or "v15_eval_default",
+            enable_stage1_text_retrieval=selector is not None,
         ),
         crop_callback=callbacks.crops if callbacks else None,
+        keyframe_selector=selector,
     )
     task = Stage2TaskSpec(
         task_type=Stage2TaskType.QA,

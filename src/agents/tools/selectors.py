@@ -74,9 +74,21 @@ def _resolve_raw_rgb_path(catalog: SceneCatalog, frame_id: int) -> Path | None:
 
 
 def build_selector_tools(runtime: Any) -> list[BaseTool]:
-    text_retrieval_enabled = bool(
-        getattr(runtime, "enable_stage1_text_retrieval", True)
-    )
+    flag_enabled = bool(getattr(runtime, "enable_stage1_text_retrieval", True))
+    selector_available = getattr(runtime, "keyframe_selector", None) is not None
+    text_retrieval_enabled = flag_enabled and selector_available
+    if flag_enabled and not selector_available:
+        from loguru import logger
+
+        logger.warning(
+            "build_selector_tools: enable_stage1_text_retrieval=True but "
+            "runtime.keyframe_selector is None; dropping select_by_text from "
+            "the tool list to keep the agent's tool surface consistent with "
+            "the runtime. This should have been caught at "
+            "Stage2DeepResearchAgent construction; if it wasn't, look for a "
+            "caller that bypasses BaseStage2Runtime.__init__ (e.g., a test "
+            "fixture that directly mutates Stage2RuntimeState)."
+        )
 
     @tool
     def select_by_text(

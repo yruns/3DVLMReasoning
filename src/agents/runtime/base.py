@@ -196,15 +196,44 @@ class BaseStage2Runtime(ABC):
         v9 removed the more_views / hypothesis Stage-1 callbacks; only the crop
         callback is preserved (still used by `request_crops`).
 
-        v9.1 introduces `keyframe_selector`: an optional pre-built
+        v9.1 introduces `keyframe_selector`: a pre-built
         `KeyframeSelector` instance the agent uses when invoking the
-        `select_by_text` tool (Stage-1 language → frames). When None,
-        `select_by_text` returns a clear error message instead of silently
-        failing. Other selectors do not depend on this attribute.
+        `select_by_text` tool (Stage-1 language → frames). Other selectors do
+        not depend on this attribute.
+
+        v9.3 (current): construction MUST fail loud when the config wants
+        text retrieval but no selector is supplied. Previously this configuration
+        produced an agent whose ``select_by_text`` tool was registered (so the
+        system prompt said it was available) but returned
+        ``"ERROR: runtime.keyframe_selector is None; cannot run Stage-1 text
+        retrieval"`` at every invocation — a silent regression-trap that bit
+        v9.1_fix (see docs/benchmark/nr3d/v9_1_real_stage1_actually_works_20260516.md
+        and v9_1_fix_keyframe_selector_wiring_20260515.md). The contract is now
+        symmetric: either pass a selector, or explicitly disable text retrieval
+        via ``Stage2DeepAgentConfig(enable_stage1_text_retrieval=False)``.
+
+        Raises:
+            ValueError: when ``config.enable_stage1_text_retrieval=True`` and
+                ``keyframe_selector is None``.
         """
         self.config = config or Stage2DeepAgentConfig()
         self.crop_callback = crop_callback
         self.keyframe_selector: KeyframeSelector | None = keyframe_selector
+        if self.config.enable_stage1_text_retrieval and self.keyframe_selector is None:
+            raise ValueError(
+                "Stage2 runtime constructed with "
+                "enable_stage1_text_retrieval=True but no keyframe_selector. "
+                "Either pass a pre-built KeyframeSelector via "
+                "keyframe_selector=..., or disable Stage-1 text retrieval "
+                "explicitly via "
+                "Stage2DeepAgentConfig(enable_stage1_text_retrieval=False). "
+                "Without one of these, select_by_text would be registered "
+                "as a tool but fail at every invocation with "
+                "'runtime.keyframe_selector is None; cannot run Stage-1 text "
+                "retrieval'. See docs/benchmark/nr3d/"
+                "v9_1_real_stage1_actually_works_20260516.md for the historical "
+                "v9.1_fix regression this guard now prevents."
+            )
         self._session_id = self.config.session_id
 
     def build_extra_body(self) -> dict[str, Any]:

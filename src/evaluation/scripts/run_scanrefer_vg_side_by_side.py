@@ -340,21 +340,30 @@ def run_pack_v1_sample(
         from agents.stage2_deep_agent import Stage2DeepResearchAgent as agent_cls
 
     # v9 catalog-first: Stage-1 more-views / hypothesis flows are exposed
-    # directly as selector tools. Only the crop callback (object-centric
-    # red-bbox crops) is retained for the `request_crops` tool.
+    # directly as selector tools. `enable_stage1_callback` gates the crop
+    # callback (object-centric red-bbox crops for `request_crops`).
+    # `select_by_text`'s keyframe_selector is gated independently by
+    # `config.enable_stage1_text_retrieval`; previous versions conflated the
+    # two and silently broke select_by_text when the crop callback was off.
     crop_callback = None
     keyframe_selector = None
-    if enable_stage1_callback:
+    # getattr fallback keeps tests that pass SimpleNamespace() as config working.
+    need_keyframe_selector = (
+        bool(getattr(config, "enable_stage1_text_retrieval", True))
+        or bool(enable_stage1_callback)
+    )
+    if need_keyframe_selector:
         scene_id = str(sample["scene_id"])
         keyframe_selector = _get_or_build_keyframe_selector(scene_id, phase8_data_root)
-        if keyframe_selector is not None:
-            from agents.stage1_callbacks import create_crop_callback
+    if enable_stage1_callback and keyframe_selector is not None:
+        scene_id = str(sample["scene_id"])
+        from agents.stage1_callbacks import create_crop_callback
 
-            crop_callback = create_crop_callback(
-                keyframe_selector,
-                scene_id=scene_id,
-                crop_scale=2.0,
-            )
+        crop_callback = create_crop_callback(
+            keyframe_selector,
+            scene_id=scene_id,
+            crop_scale=2.0,
+        )
 
     agent = agent_cls(
         config=config,

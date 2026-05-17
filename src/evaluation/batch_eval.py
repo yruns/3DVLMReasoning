@@ -477,12 +477,22 @@ class BatchEvaluator:
             return self._selector_cache[scene_id]
 
     def _get_or_create_stage2_agent(self) -> Any:
-        """Get or create the Stage 2 agent (lazy initialization)."""
+        """Get or create the Stage 2 agent (lazy initialization).
+
+        The default factory builds a singleton agent without a
+        ``keyframe_selector`` because selectors are per-scene in this
+        evaluator (``_get_or_create_selector`` caches one per scene) while
+        the agent is shared across all scenes — wiring a single selector
+        to the singleton agent would be incorrect. Until per-call
+        selector routing is implemented, the default factory disables
+        Stage-1 text retrieval explicitly. Callers that need
+        ``select_by_text`` must pass a ``stage2_factory`` that builds an
+        agent with the correct selector for the active scene.
+        """
         if self._stage2_agent is None:
             if self._stage2_factory:
                 self._stage2_agent = self._stage2_factory()
             else:
-                # Default factory using Stage2DeepResearchAgent
                 from agents.models import Stage2DeepAgentConfig
                 from agents.stage2_deep_agent import (
                     Stage2DeepResearchAgent,
@@ -492,6 +502,7 @@ class BatchEvaluator:
                     model_name=self.config.stage2_model,
                     confidence_threshold=self.config.confidence_threshold,
                     enable_uncertainty_stopping=self.config.enable_uncertainty_stopping,
+                    enable_stage1_text_retrieval=False,
                 )
                 self._stage2_agent = Stage2DeepResearchAgent(config=agent_config)
         return self._stage2_agent

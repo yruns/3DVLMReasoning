@@ -449,7 +449,14 @@ def run_pack_v1_sample(
         task_type=Stage2TaskType.VISUAL_GROUNDING,
         user_query=str(sample["query"]),
     )
-    agent = Stage2DeepResearchAgent(config=config)
+    # EmbodiedScan VG does not wire a Phase-8 per-scene KeyframeSelector here,
+    # so Stage-1 text retrieval (`select_by_text`) cannot be served. Disable
+    # it explicitly so construction does not raise and the agent's tool list
+    # remains consistent with what the runtime can fulfill.
+    config_no_text = config.model_copy(
+        update={"enable_stage1_text_retrieval": False}
+    )
+    agent = Stage2DeepResearchAgent(config=config_no_text)
     return agent.run(task=task, bundle=bundle)
 
 

@@ -220,8 +220,11 @@ def run_evaluation(
     else:
         target_scenes = available_scenes
 
-    # Initialize agent
+    # Initialize agent. Space3D eval does not currently wire a Phase-8
+    # KeyframeSelector, so disable Stage-1 text retrieval to keep the tool
+    # surface honest (the new BaseStage2Runtime guard would otherwise raise).
     config = create_agent_config()
+    config = config.model_copy(update={"enable_stage1_text_retrieval": False})
     agent = Stage2DeepResearchAgent(config=config)
 
     summary = EvalSummary()

@@ -4,7 +4,19 @@ Before v9.1, Stage-1 was only reachable through `create_crop_callback`. The
 v9.1 selector tools moved Stage-1 to `select_by_text`, which reads
 `runtime.keyframe_selector`. If the production runner does not pass that
 selector to `Stage2DeepResearchAgent(...)`, the tool silently returns an error
-in every run. This test pins the wiring chain end-to-end.
+in every run.
+
+v9.3 (current): the contract is now **symmetric and fail-loud**:
+- if `config.enable_stage1_text_retrieval=True` AND `keyframe_selector=None`,
+  `Stage2DeepResearchAgent.__init__` (via `BaseStage2Runtime.__init__`) raises
+  ValueError. Callers must either pass a selector or explicitly disable text
+  retrieval via the config flag.
+- `build_selector_tools` additionally drops `select_by_text` whenever
+  `runtime.keyframe_selector is None`, regardless of the flag, as a
+  belt-and-suspenders safeguard (so even direct Stage2RuntimeState mutation in
+  tests can't produce a tool list inconsistent with the runtime).
+
+This test file pins both halves of that contract.
 """
 
 from __future__ import annotations
@@ -12,6 +24,7 @@ from __future__ import annotations
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
 from PIL import Image
 
 from agents.catalog import FrameView, SceneCatalog, SceneProposal
@@ -75,15 +88,53 @@ def test_build_agent_populates_runtime_state_keyframe_selector(tmp_path: Path):
     assert runtime_state.keyframe_selector is selector
 
 
-def test_missing_selector_makes_runtime_state_attribute_none(tmp_path: Path):
-    runtime_impl = DeepAgentsStage2Runtime(config=Stage2DeepAgentConfig())
+def test_construction_raises_when_text_retrieval_enabled_but_no_selector() -> None:
+    """v9.3 contract: text-retrieval=True without a selector must fail loud.
+
+    Previously this silently produced an agent whose `select_by_text` tool
+    was registered (system prompt advertised it) but returned an ERROR string
+    at every invocation. Caught only at tool-call time, this hid v9.1_fix's
+    18-pp NR3D regression for weeks. The construction-time guard is the root
+    fix.
+    """
+    with pytest.raises(ValueError, match="enable_stage1_text_retrieval=True"):
+        Stage2DeepResearchAgent()  # default config: text retrieval on, no selector
+
+    with pytest.raises(ValueError, match="enable_stage1_text_retrieval=True"):
+        DeepAgentsStage2Runtime(config=Stage2DeepAgentConfig())
+
+
+def test_construction_succeeds_when_text_retrieval_explicitly_disabled() -> None:
+    """The escape hatch: callers that genuinely don't need select_by_text."""
+    cfg = Stage2DeepAgentConfig(enable_stage1_text_retrieval=False)
+    agent = Stage2DeepResearchAgent(config=cfg)
+    assert agent._runtime.keyframe_selector is None
+    runtime_impl = DeepAgentsStage2Runtime(config=cfg)
+    assert runtime_impl.keyframe_selector is None
+
+
+def test_build_agent_drops_select_by_text_when_runtime_selector_is_none(
+    tmp_path: Path,
+) -> None:
+    """Belt-and-suspenders: even if Stage2RuntimeState ends up without a
+    selector (e.g., via direct test mutation that bypasses the construction
+    guard), `build_selector_tools` must drop `select_by_text` so the agent's
+    tool list stays consistent with what the runtime can actually fulfill.
+    """
+    from agents.runtime.base import Stage2RuntimeState
+    from agents.tools.selectors import build_selector_tools
+
     bundle = _minimal_bundle(tmp_path)
-    task = Stage2TaskSpec(
-        task_type=Stage2TaskType.QA,
-        user_query="how many chairs?",
+    state = Stage2RuntimeState(bundle=bundle)
+    state.task_type = Stage2TaskType.QA
+    # Mirror the "config-says-on but runtime-has-no-selector" condition:
+    state.enable_stage1_text_retrieval = True
+    assert state.keyframe_selector is None  # this is the dangerous state
+    tool_names = {t.name for t in build_selector_tools(state)}
+    assert "select_by_text" not in tool_names, (
+        "build_selector_tools must drop select_by_text whenever the runtime "
+        "has no keyframe_selector, even if the flag is True"
     )
-    _graph, runtime_state = runtime_impl.build_agent(task=task, bundle=bundle)
-    assert runtime_state.keyframe_selector is None
 
 
 def test_stage2_agent_wrapper_build_agent_populates_runtime_state_keyframe_selector(
