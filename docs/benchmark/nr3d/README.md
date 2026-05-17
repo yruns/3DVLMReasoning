@@ -216,6 +216,58 @@ See [protocol.md](protocol.md) for the consolidated evidence and caveats.
 
 ## Reproduction
 
+### Canonical pilot fold (use this for all small-batch validation)
+
+**`tmp/nr3d_artifacts/v9_3_strat600_sample_ids.json`** (600 samples,
+stratified on `(is_easy × is_view_dep)`, salt-locked to within ±0.19 pp
+of the FULL filtered 7805 on the v9.1_fix reference; bootstrap 90 % band
+±2.3 pp on Overall). Use this fold for every iteration / A/B / smoke run
+that doesn't need full-7805 statistical power.
+
+```bash
+# 1. (one-time) regenerate the fold from data/nr3d/ — byte-stable; MD5 = 12a69d8d14a81519024bbe00d6334434
+PYTHONPATH=src python scripts/build_nr3d_strat600_fold.py
+
+# 2. (one-time) prep the pack on the 600 ids (~10 min on Mac)
+PYTHONPATH=src python src/evaluation/scripts/prepare_pack_v1_inputs_nr3d.py \
+    --sample-ids tmp/nr3d_artifacts/v9_3_strat600_sample_ids.json \
+    --data-root data/nr3d/scannet \
+    --pack-name pack_nr3d_v9_catalog_first \
+    --split test \
+    --keyframe-mode query_driven --ensure-lightweight-cache
+
+# 3. run the agent on the 600 ids
+PYTHONPATH=src python src/evaluation/scripts/run_nr3d_vg_side_by_side.py \
+    --sample-ids tmp/nr3d_artifacts/v9_3_strat600_sample_ids.json \
+    --data-root data/nr3d/scannet \
+    --pack-name pack_nr3d_v9_catalog_first \
+    --output-dir tmp/nr3d_eval_<run_id>/ \
+    --workers 20
+
+# 4. aggregate the canonical 5-column leaderboard metrics on the 600 ids
+PYTHONPATH=src python src/evaluation/scripts/nr3d_leaderboard_metrics.py \
+    --side-by-side tmp/nr3d_eval_<run_id>/side_by_side.json \
+    --nr3d-data-root data/nr3d \
+    --phase8-data-root data/nr3d/scannet \
+    --sample-ids tmp/nr3d_artifacts/v9_3_strat600_sample_ids.json \
+    --output docs/benchmark/nr3d/assets/<run_id>_strat600_leaderboard.json
+```
+
+Design + bootstrap validation: see
+[v9_3_strat600_subset_design_20260517.md](v9_3_strat600_subset_design_20260517.md).
+
+**Variance budget when comparing two strat600 runs**: Overall ±2.3 pp 90 %,
+Easy / V-Indep ±2.7–2.9 pp, Hard ±3.5 pp, V-Dep ±4.5 pp (n=119). Any
+delta inside its band should be confirmed on the FULL 7805 before being
+claimed as a real change.
+
+The older `v4_agent_guards_fair_views_random100_sample_ids.json` fold is
+**deprecated for new comparisons** — preserved only for reproducing the
+historical v4–v9.2 random100 runs. Per-tier ±5–10 pp noise on random100
+was the source of the v9.1 → v9.2 misread before this fold existed.
+
+### Other reproduction recipes
+
 Download the raw NR3D annotation files:
 
 ```bash

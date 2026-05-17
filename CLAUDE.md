@@ -301,6 +301,50 @@ Before launching ANY benchmark run — including reruns, ablations, A/B variants
 
 This makes every result reproducible from a commit + sample-ids fold + leaderboard-metrics JSON — and lets future agents bisect regressions across iterations without guessing what code was actually live at each run.
 
+### Canonical pilot folds (MANDATORY)
+
+**For any quick / small-batch validation run, you MUST use the canonical
+pilot fold for that benchmark.** Do NOT spin up an ad-hoc `head -N`, a
+fresh `random.sample()`, or a smoke fold of convenience. Ad-hoc subsets
+make iteration-vs-iteration comparison impossible: variance across two
+arbitrary 100-question samples is large enough (±5–10 pp on tier metrics)
+to flip wins/losses purely by sampling noise.
+
+Canonical pilot folds are designed once, salt-locked to track the full
+benchmark within a known band, and documented under the per-benchmark
+process archive. Use them by default for:
+
+- pilot ablations (toggles, prompt variants, playbook variants)
+- pre-merge smoke runs of new code paths
+- regression scans before launching the full set
+- A/B comparisons that don't need full-set statistical power
+
+| Benchmark | Canonical pilot fold | n | Tracks full-set within | Design doc |
+|---|---|---:|---|---|
+| **NR3D** | `tmp/nr3d_artifacts/v9_3_strat600_sample_ids.json` (durable copy: `docs/benchmark/nr3d/assets/v9_3_strat600_sample_ids_20260517.json`) | **600** | **±0.19 pp** salt-locked on v9.1_fix; **±2.3 pp 90 % band** on Overall in bootstrap | [`docs/benchmark/nr3d/v9_3_strat600_subset_design_20260517.md`](docs/benchmark/nr3d/v9_3_strat600_subset_design_20260517.md) |
+
+NR3D-specific notes:
+
+- **Stratified on `(is_easy × is_view_dep)`** with proportional largest-remainder allocation, so all 5 leaderboard columns (Overall / Easy / Hard / View-Dep / View-Indep) are calibrated jointly.
+- **The old random100 fold** (`tmp/nr3d_artifacts/v4_agent_guards_fair_views_random100_sample_ids.json`) is preserved for **historical backward-compat only**. Do NOT use it for any new decision-grade A/B. Random100's per-tier ±5–10 pp noise was a major source of the v9.1 → v9.2 misread earlier — strat600 fixes that.
+- **Run it like this:**
+  ```bash
+  PYTHONPATH=src python src/evaluation/scripts/run_nr3d_vg_side_by_side.py \
+      --sample-ids tmp/nr3d_artifacts/v9_3_strat600_sample_ids.json \
+      --data-root data/nr3d/scannet \
+      --pack-name pack_nr3d_v9_catalog_first \
+      --output-dir tmp/nr3d_eval_<run_id>/ \
+      --workers 20
+  PYTHONPATH=src python src/evaluation/scripts/nr3d_leaderboard_metrics.py \
+      --side-by-side tmp/nr3d_eval_<run_id>/side_by_side.json \
+      --nr3d-data-root data/nr3d --phase8-data-root data/nr3d/scannet \
+      --sample-ids tmp/nr3d_artifacts/v9_3_strat600_sample_ids.json \
+      --output tmp/nr3d_eval_<run_id>/leaderboard_strat600.json
+  ```
+- **Variance budget when comparing two strat600 runs**: Overall ±2.3 pp 90 %, Easy/V-Indep ±2.7–2.9 pp, Hard ±3.5 pp, V-Dep ±4.5 pp (n=119). Deltas smaller than these bands should be confirmed on the FULL 7805 before being claimed as a real change.
+
+**When a benchmark does not yet have a canonical pilot fold**, the rule is to design one *before* the second pilot run, not after the fifth. The bar is: stratify on every leaderboard tier column, allocate proportionally, salt-search against the strongest current full-set baseline. See `scripts/build_nr3d_strat600_fold.py` + `scripts/search_nr3d_strat600_salt.py` for the reference implementation pattern.
+
 ### Required content per version doc
 
 - **Branch + tip commit** at run time. Plus run-time code commit if different (worktree case).
