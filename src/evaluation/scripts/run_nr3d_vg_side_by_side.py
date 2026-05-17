@@ -956,6 +956,26 @@ def parse_args() -> argparse.Namespace:
             "effect when combined with --disable-stage1-text-retrieval."
         ),
     )
+    parser.add_argument(
+        "--restore-stage1-seed-keyframe-drain",
+        action="store_true",
+        default=False,
+        help=(
+            "v9.4 cadence experiment D (from "
+            "docs/benchmark/nr3d/v9_4a_strat600_force_error_20260517.md "
+            "§Recommended next experiments). Restore the Stage-1 "
+            "seed-keyframe drain leak that was present at commit "
+            "`d5f40ba` (v9.1_fix FULL REPRO at 82.95 %) and fixed in "
+            "`8ebf701`. Causes the 5 GT-target-visible Stage-1 seed "
+            "keyframes (written by pack-prep into `bundle.keyframes`) to "
+            "be auto-injected on every evidence-update turn. **Test-time "
+            "use only** — this is an explicit information leak; the "
+            "agent silently receives target-visible RGB frames it didn't "
+            "ask for. Combined with --force-stage1-text-retrieval-to-error "
+            "this attempts to reproduce the v9.1_fix run-time behaviour "
+            "on current code."
+        ),
+    )
     return parser.parse_args()
 
 
@@ -968,6 +988,7 @@ def main() -> None:
         use_evidence_frame_guard=args.use_evidence_frame_guard,
         enable_stage1_text_retrieval=not args.disable_stage1_text_retrieval,
         force_stage1_text_retrieval_to_error=args.force_stage1_text_retrieval_to_error,
+        restore_stage1_seed_keyframe_drain=args.restore_stage1_seed_keyframe_drain,
     )
     compare_backends(
         sample_ids=sample_ids,

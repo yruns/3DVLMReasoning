@@ -74,6 +74,16 @@ class Stage2RuntimeState:
     # `enable_stage1_text_retrieval=True`.
     force_stage1_text_retrieval_to_error: bool = False
 
+    # v9.4 cadence experiment D: when True,
+    # `build_evidence_update_message` skips the `initial_keyframe_paths`
+    # filter, restoring the Stage-1 seed-keyframe drain leak that was
+    # present at commit `d5f40ba` (v9.1_fix FULL REPRO) and fixed in
+    # `8ebf701`. Causes the 5 GT-target-visible seed keyframes to be
+    # auto-injected on every evidence-update turn. Copied from
+    # `Stage2DeepAgentConfig.restore_stage1_seed_keyframe_drain` by
+    # `BaseStage2Runtime.configure_runtime_state`.
+    restore_stage1_seed_keyframe_drain: bool = False
+
     task_type: Stage2TaskType | None = None
 
     # Task-pack state populated for pack-backed tasks.
@@ -285,6 +295,9 @@ class BaseStage2Runtime(ABC):
         )
         runtime.force_stage1_text_retrieval_to_error = (
             self.config.force_stage1_text_retrieval_to_error
+        )
+        runtime.restore_stage1_seed_keyframe_drain = (
+            self.config.restore_stage1_seed_keyframe_drain
         )
 
         if os.environ.get("TADG_DISABLE") == "1":

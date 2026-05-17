@@ -583,7 +583,21 @@ class DeepAgentsStage2Runtime(BaseStage2Runtime):
         # first-person frames via select_* / mark_frame_with_bbox / view_bev /
         # request_crops. Tool-produced keyframes (e.g. request_crops crops)
         # are not in initial_keyframe_paths and are still drained below.
-        initial_seeds = runtime.initial_keyframe_paths
+        #
+        # v9.4 cadence experiment D: when
+        # `runtime.restore_stage1_seed_keyframe_drain` is True, bypass this
+        # filter entirely — every keyframe in `runtime.bundle.keyframes`
+        # (including the 5 GT-target-visible Stage-1 seeds written by
+        # pack-prep) gets auto-injected on every evidence-update turn.
+        # This reproduces the silent leak that was present at commit
+        # `d5f40ba` (v9.1_fix FULL REPRO at 82.95 %) and was fixed in
+        # `8ebf701`. See
+        # docs/benchmark/nr3d/v9_4d_strat600_force_error_seed_drain_*.md
+        # for the v9.4 ablation that uses this flag.
+        if getattr(runtime, "restore_stage1_seed_keyframe_drain", False):
+            initial_seeds: set[str] = set()
+        else:
+            initial_seeds = runtime.initial_keyframe_paths
         for keyframe in runtime.bundle.keyframes:
             if keyframe.image_path in initial_seeds:
                 continue
