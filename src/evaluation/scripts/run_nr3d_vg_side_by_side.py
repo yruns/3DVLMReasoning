@@ -938,6 +938,24 @@ def parse_args() -> argparse.Namespace:
             "docs/benchmark/nr3d/v9_1_select_by_text_audit_20260516.md."
         ),
     )
+    parser.add_argument(
+        "--force-stage1-text-retrieval-to-error",
+        action="store_true",
+        default=False,
+        help=(
+            "v9.4 cadence experiment (Experiment A from "
+            "docs/benchmark/nr3d/v9_1_fix_vs_v9_3_audit30_20260517.md). "
+            "Keep `select_by_text` registered (text-first playbook + system "
+            "prompt remain loaded) but make the tool body short-circuit to "
+            "ERROR before touching the selector. Cleanly reproduces the "
+            "v9.1_fix bug-state behaviour so the agent's documented "
+            "fallback chain (catalog walk + per-candidate "
+            "mark_frame_with_bbox + evidence-frame-guard re-mark cycle) "
+            "acts as a forcing function for the deliberation cadence the "
+            "audit isolated as the source of the +16pp NR3D gap. Has no "
+            "effect when combined with --disable-stage1-text-retrieval."
+        ),
+    )
     return parser.parse_args()
 
 
@@ -949,6 +967,7 @@ def main() -> None:
         use_no_match_candidate_guard=args.use_no_match_candidate_guard,
         use_evidence_frame_guard=args.use_evidence_frame_guard,
         enable_stage1_text_retrieval=not args.disable_stage1_text_retrieval,
+        force_stage1_text_retrieval_to_error=args.force_stage1_text_retrieval_to_error,
     )
     compare_backends(
         sample_ids=sample_ids,

@@ -124,3 +124,93 @@ def test_select_by_text_included_when_flag_enabled_default(tmp_path: Path):
     assert rs.enable_stage1_text_retrieval is True  # default
     tools = build_selector_tools(rs)
     assert any(t.name == "select_by_text" for t in tools)
+
+
+def test_select_by_text_force_to_error_short_circuits_before_selector(
+    tmp_path: Path,
+):
+    """v9.4 cadence experiment: when
+    `force_stage1_text_retrieval_to_error=True`, the tool must
+    short-circuit to an explicit ERROR string BEFORE invoking the
+    KeyframeSelector. This cleanly reproduces the v9.1_fix bug-state
+    behaviour while keeping the text-first playbook and system prompt
+    consistent. See
+    docs/benchmark/nr3d/v9_1_fix_vs_v9_3_audit30_20260517.md §Experiment A.
+
+    Contract:
+      - Tool is still REGISTERED (so the text-first playbook prose
+        about `select_by_text` matches the tool surface).
+      - Tool body returns ERROR for every call.
+      - `KeyframeSelector.select_keyframes_v2` is NOT invoked (would be
+        wasted compute and would muddy the deliberation cadence we
+        want to force).
+      - `runtime.record('select_by_text', ...)` is called exactly once
+        per invocation with the ERROR string (so per-sample
+        `tool_trace` accurately reflects the call).
+    """
+    rs = _runtime(tmp_path, fids=[1, 2, 3])
+    rs.force_stage1_text_retrieval_to_error = True
+
+    # Replace the fake selector with one that explodes if invoked. This
+    # makes "selector was not called" verifiable.
+    class _ExplodingSelector:
+        def select_keyframes_v2(self, **_kwargs):
+            raise AssertionError(
+                "select_by_text must short-circuit to ERROR before "
+                "calling KeyframeSelector when "
+                "force_stage1_text_retrieval_to_error=True"
+            )
+
+    rs.keyframe_selector = _ExplodingSelector()
+
+    tools = build_selector_tools(rs)
+    # Still registered (text-first contract preserved).
+    assert any(t.name == "select_by_text" for t in tools)
+    tool = next(t for t in tools if t.name == "select_by_text")
+
+    raw = tool.invoke({"query": "wooden chair"})
+    assert raw.startswith("ERROR:")
+    assert "force-disabled" in raw or "force_stage1_text_retrieval_to_error" in raw
+    # Fallback chain prose is included so the agent has a recovery hint.
+    assert "scene-exploration-playbook" in raw
+
+    # No frames were queued (pending images list is unchanged).
+    pending = rs.bundle.extra_metadata["vg_pending_images"]
+    assert pending == []
+
+
+def test_select_by_text_force_to_error_records_into_tool_trace(tmp_path: Path):
+    """The forced-ERROR call must still be recorded into the per-sample
+    tool_trace so audits can verify the cadence anchor. This is what
+    distinguishes "select_by_text never called" from "select_by_text
+    called once and got ERROR" in per-sample analyses.
+    """
+    rs = _runtime(tmp_path, fids=[1, 2, 3])
+    rs.force_stage1_text_retrieval_to_error = True
+
+    recorded: list[tuple[str, dict, str]] = []
+
+    def _record(name: str, request: dict, response: str) -> None:
+        recorded.append((name, request, response))
+
+    rs.record = _record  # type: ignore[method-assign]
+
+    tool = next(
+        t for t in build_selector_tools(rs) if t.name == "select_by_text"
+    )
+    tool.invoke({"query": "anywhere", "k": 2})
+
+    assert len(recorded) == 1
+    name, request, response = recorded[0]
+    assert name == "select_by_text"
+    assert request["query"] == "anywhere"
+    assert request["k"] == 2
+    assert response.startswith("ERROR:")
+
+
+def test_select_by_text_force_to_error_default_is_off(tmp_path: Path):
+    """The force flag defaults to False. Pin this so a future field-default
+    flip doesn't silently turn every NR3D run into the v9.4-A experiment.
+    """
+    rs = _runtime(tmp_path, fids=[1])
+    assert rs.force_stage1_text_retrieval_to_error is False

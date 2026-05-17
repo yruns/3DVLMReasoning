@@ -65,6 +65,15 @@ class Stage2RuntimeState:
     # by `BaseStage2Runtime.configure_runtime_state`.
     enable_stage1_text_retrieval: bool = True
 
+    # v9.4 cadence experiment (see
+    # docs/benchmark/nr3d/v9_1_fix_vs_v9_3_audit30_20260517.md). When True,
+    # `select_by_text` is still registered but short-circuits to ERROR
+    # before touching `KeyframeSelector`. Copied from
+    # `Stage2DeepAgentConfig.force_stage1_text_retrieval_to_error` by
+    # `BaseStage2Runtime.configure_runtime_state`. Only meaningful when
+    # `enable_stage1_text_retrieval=True`.
+    force_stage1_text_retrieval_to_error: bool = False
+
     task_type: Stage2TaskType | None = None
 
     # Task-pack state populated for pack-backed tasks.
@@ -273,6 +282,9 @@ class BaseStage2Runtime(ABC):
         runtime.use_evidence_frame_guard = self.config.use_evidence_frame_guard
         runtime.enable_stage1_text_retrieval = (
             self.config.enable_stage1_text_retrieval
+        )
+        runtime.force_stage1_text_retrieval_to_error = (
+            self.config.force_stage1_text_retrieval_to_error
         )
 
         if os.environ.get("TADG_DISABLE") == "1":

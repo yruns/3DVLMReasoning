@@ -124,6 +124,23 @@ def build_selector_tools(runtime: Any) -> list[BaseTool]:
         if gate is not None:
             runtime.record("select_by_text", request, gate)
             return gate
+        # v9.4 cadence experiment: when the force-to-error flag is set, short
+        # circuit before touching the selector. This intentionally reproduces
+        # the v9.1_fix bug-state behaviour (Stage-1 always ERRORs while the
+        # text-first playbook + system prompt remain loaded) so the agent's
+        # documented fallback chain acts as a forcing function for the
+        # deliberation cadence isolated in
+        # docs/benchmark/nr3d/v9_1_fix_vs_v9_3_audit30_20260517.md.
+        if getattr(runtime, "force_stage1_text_retrieval_to_error", False):
+            err = (
+                "ERROR: Stage-1 text retrieval is force-disabled "
+                "(force_stage1_text_retrieval_to_error=True). Fall back to "
+                "the catalog-first chain documented in the "
+                "scene-exploration-playbook (BEV + list_scene_proposals + "
+                "select_by_proposal + per-candidate mark_frame_with_bbox)."
+            )
+            runtime.record("select_by_text", request, err)
+            return err
         selector = getattr(runtime, "keyframe_selector", None)
         if selector is None:
             err = "ERROR: runtime.keyframe_selector is None; cannot run Stage-1 text retrieval"

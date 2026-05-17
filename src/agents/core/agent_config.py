@@ -202,6 +202,27 @@ class Stage2DeepAgentConfig(BaseModel):
             "text-first is the prior."
         ),
     )
+    force_stage1_text_retrieval_to_error: bool = Field(
+        default=False,
+        description=(
+            "v9.4 cadence experiment (Experiment A from "
+            "docs/benchmark/nr3d/v9_1_fix_vs_v9_3_audit30_20260517.md). "
+            "When True, the `select_by_text` tool is still registered "
+            "(so the text-first system prompt and playbook prose remain "
+            "consistent), but the tool body short-circuits to an explicit "
+            "ERROR string before touching `KeyframeSelector`. This cleanly "
+            "reproduces the v9.1_fix bug-state behaviour (Stage-1 always "
+            "ERRORs but the text-first playbook is still loaded) so the "
+            "agent's documented fallback chain "
+            "(`select_by_text → ERR → catalog walk → per-candidate "
+            "mark_frame_with_bbox → evidence-frame-guard re-mark + "
+            "re-submit`) becomes a forcing function for the v9.1_fix "
+            "deliberation cadence that the audit isolated as the source "
+            "of the +16pp gap on NR3D filtered fold. Only meaningful "
+            "when `enable_stage1_text_retrieval=True`. Has no effect "
+            "when text retrieval is disabled (the tool isn't registered)."
+        ),
+    )
     no_match_guard_max_repeats: int = Field(
         default=3,
         ge=1,
