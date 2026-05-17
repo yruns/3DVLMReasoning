@@ -1,5 +1,31 @@
 # NR3D v9.1_fix FULL REPRO — Stage-1 broken catalog-only run on full 8584
 
+> **⚠️ INVALIDATED (2026-05-17) — Stage-1 seed-keyframe drain leak.**
+> Subsequent investigation (`v9_4d_strat600_force_error_seed_drain_20260517.md`)
+> isolated the source of this row's +16-19 pp advantage as the Stage-1
+> seed-keyframe drain leak: at commit `d5f40ba`,
+> `DeepAgentsStage2Runtime.build_evidence_update_message` silently
+> auto-injected the 5 GT-target-visible RGB seed keyframes from
+> `bundle.keyframes` into agent context on every evidence-update turn.
+> The agent never asked for those frames; the leak gave it "the answer
+> for free". The leak was fixed in commit `8ebf701` (post-`d5f40ba`).
+>
+> Cleanly reproducing the leak on v9.3 code (via the v9.4-D experimental
+> flag `--restore-stage1-seed-keyframe-drain` plus
+> `--force-stage1-text-retrieval-to-error`) gives 83.33 % on the strat600
+> calibrated fold — within +0.33 pp of this row's calibrated baseline
+> (83.00 %), and **0 / 6** vs **6 / 6** magic-case recovery proves the
+> mechanism is the leak, not policy / cadence / playbook prose.
+>
+> **Status: this row is now in the same category as `v3_referit3d_track`
+> and `v5p1_failed_rerun_full` — a depth-aware NR3D row whose number
+> depended on GT information leaking into the model's input. The 82.95 %
+> should not be quoted against public NR3D SOTA.**
+>
+> The fair v9.3 baseline is ~65 % (Overall) which matches public UniVLG
+> 65.2 %. See `v9_4d_strat600_force_error_seed_drain_20260517.md` for the
+> full audit trail.
+
 ## Pre-run checklist (per the MANDATORY rule in CLAUDE.md)
 
 | Item | Value |
