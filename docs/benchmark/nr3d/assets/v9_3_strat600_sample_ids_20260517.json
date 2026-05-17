@@ -1,0 +1,4802 @@
+[
+  {
+    "sample_id": "scannet/scene0221_00::47::4274",
+    "scene_id": "scene0221_00",
+    "target_id": 47,
+    "category": "table",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0699_00::26::40486",
+    "scene_id": "scene0699_00",
+    "target_id": 26,
+    "category": "pillow",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0500_00::25::13471",
+    "scene_id": "scene0500_00",
+    "target_id": 25,
+    "category": "window",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0426_00::22::9868",
+    "scene_id": "scene0426_00",
+    "target_id": 22,
+    "category": "pillow",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0653_00::18::29686",
+    "scene_id": "scene0653_00",
+    "target_id": 18,
+    "category": "desk",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0462_00::6::40854",
+    "scene_id": "scene0462_00",
+    "target_id": 6,
+    "category": "door",
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0207_00::20::12189",
+    "scene_id": "scene0207_00",
+    "target_id": 20,
+    "category": "door",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0246_00::5::12312",
+    "scene_id": "scene0246_00",
+    "target_id": 5,
+    "category": "lamp",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0591_00::14::19171",
+    "scene_id": "scene0591_00",
+    "target_id": 14,
+    "category": "pillow",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0608_00::9::17679",
+    "scene_id": "scene0608_00",
+    "target_id": 9,
+    "category": "ottoman",
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0203_00::27::34105",
+    "scene_id": "scene0203_00",
+    "target_id": 27,
+    "category": "person",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0307_00::25::35532",
+    "scene_id": "scene0307_00",
+    "target_id": 25,
+    "category": "cabinet",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0084_00::39::23366",
+    "scene_id": "scene0084_00",
+    "target_id": 39,
+    "category": "rail",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0644_00::43::2885",
+    "scene_id": "scene0644_00",
+    "target_id": 43,
+    "category": "keyboard",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0222_00::20::39339",
+    "scene_id": "scene0222_00",
+    "target_id": 20,
+    "category": "pillow",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0549_00::3::7602",
+    "scene_id": "scene0549_00",
+    "target_id": 3,
+    "category": "coffee table",
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0633_00::8::29383",
+    "scene_id": "scene0633_00",
+    "target_id": 8,
+    "category": "curtain",
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0591_00::31::8687",
+    "scene_id": "scene0591_00",
+    "target_id": 31,
+    "category": "cabinet",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0663_00::16::21361",
+    "scene_id": "scene0663_00",
+    "target_id": 16,
+    "category": "trash can",
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0164_00::14::23053",
+    "scene_id": "scene0164_00",
+    "target_id": 14,
+    "category": "kitchen cabinet",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0329_00::27::40883",
+    "scene_id": "scene0329_00",
+    "target_id": 27,
+    "category": "trash can",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0651_00::4::13962",
+    "scene_id": "scene0651_00",
+    "target_id": 4,
+    "category": "kitchen cabinets",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0598_00::5::33401",
+    "scene_id": "scene0598_00",
+    "target_id": 5,
+    "category": "table",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0164_00::13::38724",
+    "scene_id": "scene0164_00",
+    "target_id": 13,
+    "category": "kitchen cabinet",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0552_00::31::279",
+    "scene_id": "scene0552_00",
+    "target_id": 31,
+    "category": "box",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0231_00::22::10636",
+    "scene_id": "scene0231_00",
+    "target_id": 22,
+    "category": "trash can",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0699_00::22::39025",
+    "scene_id": "scene0699_00",
+    "target_id": 22,
+    "category": "window",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0598_00::20::8016",
+    "scene_id": "scene0598_00",
+    "target_id": 20,
+    "category": "window",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0081_00::1::3546",
+    "scene_id": "scene0081_00",
+    "target_id": 1,
+    "category": "ottoman",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0653_00::39::3350",
+    "scene_id": "scene0653_00",
+    "target_id": 39,
+    "category": "file cabinet",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0704_00::25::15078",
+    "scene_id": "scene0704_00",
+    "target_id": 25,
+    "category": "picture",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0580_00::17::2010",
+    "scene_id": "scene0580_00",
+    "target_id": 17,
+    "category": "pillow",
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0426_00::7::20795",
+    "scene_id": "scene0426_00",
+    "target_id": 7,
+    "category": "chair",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0701_00::3::11390",
+    "scene_id": "scene0701_00",
+    "target_id": 3,
+    "category": "couch",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0046_00::50::24204",
+    "scene_id": "scene0046_00",
+    "target_id": 50,
+    "category": "backpack",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0231_00::41::29624",
+    "scene_id": "scene0231_00",
+    "target_id": 41,
+    "category": "chair",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0583_00::3::35219",
+    "scene_id": "scene0583_00",
+    "target_id": 3,
+    "category": "door",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0653_00::44::24414",
+    "scene_id": "scene0653_00",
+    "target_id": 44,
+    "category": "file cabinet",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0030_00::21::2680",
+    "scene_id": "scene0030_00",
+    "target_id": 21,
+    "category": "blackboard",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0338_00::21::35740",
+    "scene_id": "scene0338_00",
+    "target_id": 21,
+    "category": "box",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0084_00::43::31587",
+    "scene_id": "scene0084_00",
+    "target_id": 43,
+    "category": "rail",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0608_00::29::573",
+    "scene_id": "scene0608_00",
+    "target_id": 29,
+    "category": "sofa chair",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0686_00::2::11636",
+    "scene_id": "scene0686_00",
+    "target_id": 2,
+    "category": "bathroom stall",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0329_00::6::26630",
+    "scene_id": "scene0329_00",
+    "target_id": 6,
+    "category": "table",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0664_00::24::39174",
+    "scene_id": "scene0664_00",
+    "target_id": 24,
+    "category": "towel",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0574_00::25::14751",
+    "scene_id": "scene0574_00",
+    "target_id": 25,
+    "category": "towel",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0249_00::36::39983",
+    "scene_id": "scene0249_00",
+    "target_id": 36,
+    "category": "trash can",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0648_00::10::34606",
+    "scene_id": "scene0648_00",
+    "target_id": 10,
+    "category": "plant",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0231_00::55::11667",
+    "scene_id": "scene0231_00",
+    "target_id": 55,
+    "category": "window",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0607_00::16::35347",
+    "scene_id": "scene0607_00",
+    "target_id": 16,
+    "category": "sink",
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0616_00::7::34453",
+    "scene_id": "scene0616_00",
+    "target_id": 7,
+    "category": "armchair",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0063_00::4::19138",
+    "scene_id": "scene0063_00",
+    "target_id": 4,
+    "category": "chair",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0700_00::16::239",
+    "scene_id": "scene0700_00",
+    "target_id": 16,
+    "category": "monitor",
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0643_00::12::40462",
+    "scene_id": "scene0643_00",
+    "target_id": 12,
+    "category": "monitor",
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0647_00::17::34181",
+    "scene_id": "scene0647_00",
+    "target_id": 17,
+    "category": "picture",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0616_00::4::12100",
+    "scene_id": "scene0616_00",
+    "target_id": 4,
+    "category": "table",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0665_00::15::35040",
+    "scene_id": "scene0665_00",
+    "target_id": 15,
+    "category": "table",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0645_00::33::32439",
+    "scene_id": "scene0645_00",
+    "target_id": 33,
+    "category": "lamp",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0187_00::13::24038",
+    "scene_id": "scene0187_00",
+    "target_id": 13,
+    "category": "chair",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0535_00::1::33634",
+    "scene_id": "scene0535_00",
+    "target_id": 1,
+    "category": "window",
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0207_00::3::22899",
+    "scene_id": "scene0207_00",
+    "target_id": 3,
+    "category": "kitchen cabinets",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0249_00::21::5284",
+    "scene_id": "scene0249_00",
+    "target_id": 21,
+    "category": "board",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0389_00::23::20819",
+    "scene_id": "scene0389_00",
+    "target_id": 23,
+    "category": "bag",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0653_00::28::33567",
+    "scene_id": "scene0653_00",
+    "target_id": 28,
+    "category": "backpack",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0704_00::9::38537",
+    "scene_id": "scene0704_00",
+    "target_id": 9,
+    "category": "trash can",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0704_00::10::25104",
+    "scene_id": "scene0704_00",
+    "target_id": 10,
+    "category": "picture",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0426_00::23::22141",
+    "scene_id": "scene0426_00",
+    "target_id": 23,
+    "category": "pillow",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0616_00::30::9497",
+    "scene_id": "scene0616_00",
+    "target_id": 30,
+    "category": "picture",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0300_00::7::19503",
+    "scene_id": "scene0300_00",
+    "target_id": 7,
+    "category": "chair",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0426_00::37::37724",
+    "scene_id": "scene0426_00",
+    "target_id": 37,
+    "category": "monitor",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0685_00::16::37879",
+    "scene_id": "scene0685_00",
+    "target_id": 16,
+    "category": "box",
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0095_00::24::19560",
+    "scene_id": "scene0095_00",
+    "target_id": 24,
+    "category": "mouse",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0645_00::21::1649",
+    "scene_id": "scene0645_00",
+    "target_id": 21,
+    "category": "bed",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0329_00::33::13927",
+    "scene_id": "scene0329_00",
+    "target_id": 33,
+    "category": "monitor",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0131_00::11::34054",
+    "scene_id": "scene0131_00",
+    "target_id": 11,
+    "category": "computer tower",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0647_00::16::21577",
+    "scene_id": "scene0647_00",
+    "target_id": 16,
+    "category": "door",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0025_00::0::19704",
+    "scene_id": "scene0025_00",
+    "target_id": 0,
+    "category": "monitor",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0231_00::55::41048",
+    "scene_id": "scene0231_00",
+    "target_id": 55,
+    "category": "window",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0131_00::43::19830",
+    "scene_id": "scene0131_00",
+    "target_id": 43,
+    "category": "whiteboard",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0203_00::2::28746",
+    "scene_id": "scene0203_00",
+    "target_id": 2,
+    "category": "couch",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0458_00::32::20575",
+    "scene_id": "scene0458_00",
+    "target_id": 32,
+    "category": "bottle",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0663_00::16::35544",
+    "scene_id": "scene0663_00",
+    "target_id": 16,
+    "category": "trash can",
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0064_00::10::3596",
+    "scene_id": "scene0064_00",
+    "target_id": 10,
+    "category": "bookshelf",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0690_00::13::34953",
+    "scene_id": "scene0690_00",
+    "target_id": 13,
+    "category": "table",
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0251_00::18::25611",
+    "scene_id": "scene0251_00",
+    "target_id": 18,
+    "category": "window",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0353_00::7::32974",
+    "scene_id": "scene0353_00",
+    "target_id": 7,
+    "category": "shelf",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0187_00::1::6931",
+    "scene_id": "scene0187_00",
+    "target_id": 1,
+    "category": "chair",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0684_00::14::1671",
+    "scene_id": "scene0684_00",
+    "target_id": 14,
+    "category": "window",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0328_00::28::29802",
+    "scene_id": "scene0328_00",
+    "target_id": 28,
+    "category": "sign",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0203_00::3::40528",
+    "scene_id": "scene0203_00",
+    "target_id": 3,
+    "category": "couch",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0565_00::15::8015",
+    "scene_id": "scene0565_00",
+    "target_id": 15,
+    "category": "printer",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0196_00::4::14151",
+    "scene_id": "scene0196_00",
+    "target_id": 4,
+    "category": "table",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0222_00::3::20350",
+    "scene_id": "scene0222_00",
+    "target_id": 3,
+    "category": "door",
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0095_00::20::1627",
+    "scene_id": "scene0095_00",
+    "target_id": 20,
+    "category": "mouse",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0251_00::21::16649",
+    "scene_id": "scene0251_00",
+    "target_id": 21,
+    "category": "window",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0435_00::21::13508",
+    "scene_id": "scene0435_00",
+    "target_id": 21,
+    "category": "door",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0208_00::2::12370",
+    "scene_id": "scene0208_00",
+    "target_id": 2,
+    "category": "bookshelf",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0616_00::13::2066",
+    "scene_id": "scene0616_00",
+    "target_id": 13,
+    "category": "chair",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0353_00::23::17426",
+    "scene_id": "scene0353_00",
+    "target_id": 23,
+    "category": "shoes",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0565_00::7::20899",
+    "scene_id": "scene0565_00",
+    "target_id": 7,
+    "category": "box",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0643_00::23::35796",
+    "scene_id": "scene0643_00",
+    "target_id": 23,
+    "category": "shelf",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0221_00::6::5444",
+    "scene_id": "scene0221_00",
+    "target_id": 6,
+    "category": "table",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0246_00::39::37886",
+    "scene_id": "scene0246_00",
+    "target_id": 39,
+    "category": "pillow",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0389_00::2::41296",
+    "scene_id": "scene0389_00",
+    "target_id": 2,
+    "category": "chair",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0328_00::25::7509",
+    "scene_id": "scene0328_00",
+    "target_id": 25,
+    "category": "kitchen cabinets",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0207_00::37::780",
+    "scene_id": "scene0207_00",
+    "target_id": 37,
+    "category": "backpack",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0644_00::61::26237",
+    "scene_id": "scene0644_00",
+    "target_id": 61,
+    "category": "cabinet",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0606_00::32::22707",
+    "scene_id": "scene0606_00",
+    "target_id": 32,
+    "category": "storage bin",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0616_00::0::25313",
+    "scene_id": "scene0616_00",
+    "target_id": 0,
+    "category": "trash can",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0207_00::11::23768",
+    "scene_id": "scene0207_00",
+    "target_id": 11,
+    "category": "chair",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0423_00::3::12539",
+    "scene_id": "scene0423_00",
+    "target_id": 3,
+    "category": "armchair",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0025_00::18::35283",
+    "scene_id": "scene0025_00",
+    "target_id": 18,
+    "category": "trash can",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0697_00::7::28233",
+    "scene_id": "scene0697_00",
+    "target_id": 7,
+    "category": "nightstand",
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0221_00::50::30733",
+    "scene_id": "scene0221_00",
+    "target_id": 50,
+    "category": "towel",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0307_00::35::8382",
+    "scene_id": "scene0307_00",
+    "target_id": 35,
+    "category": "door",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0095_00::20::26800",
+    "scene_id": "scene0095_00",
+    "target_id": 20,
+    "category": "mouse",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0149_00::21::1743",
+    "scene_id": "scene0149_00",
+    "target_id": 21,
+    "category": "kitchen cabinets",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0461_00::2::31357",
+    "scene_id": "scene0461_00",
+    "target_id": 2,
+    "category": "armchair",
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0149_00::8::28069",
+    "scene_id": "scene0149_00",
+    "target_id": 8,
+    "category": "kitchen cabinets",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0665_00::2::38846",
+    "scene_id": "scene0665_00",
+    "target_id": 2,
+    "category": "desk",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0608_00::25::29481",
+    "scene_id": "scene0608_00",
+    "target_id": 25,
+    "category": "pillow",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0494_00::3::5674",
+    "scene_id": "scene0494_00",
+    "target_id": 3,
+    "category": "chair",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0095_00::26::14053",
+    "scene_id": "scene0095_00",
+    "target_id": 26,
+    "category": "keyboard",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0081_00::0::10619",
+    "scene_id": "scene0081_00",
+    "target_id": 0,
+    "category": "couch",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0328_00::27::35192",
+    "scene_id": "scene0328_00",
+    "target_id": 27,
+    "category": "sign",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0474_00::38::186",
+    "scene_id": "scene0474_00",
+    "target_id": 38,
+    "category": "pillow",
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0606_00::21::18870",
+    "scene_id": "scene0606_00",
+    "target_id": 21,
+    "category": "sofa chair",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0700_00::17::33114",
+    "scene_id": "scene0700_00",
+    "target_id": 17,
+    "category": "monitor",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0645_00::55::16871",
+    "scene_id": "scene0645_00",
+    "target_id": 55,
+    "category": "window",
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0412_00::0::10547",
+    "scene_id": "scene0412_00",
+    "target_id": 0,
+    "category": "recycling bin",
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0621_00::3::15408",
+    "scene_id": "scene0621_00",
+    "target_id": 3,
+    "category": "table",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0343_00::17::37621",
+    "scene_id": "scene0343_00",
+    "target_id": 17,
+    "category": "chair",
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0651_00::7::6342",
+    "scene_id": "scene0651_00",
+    "target_id": 7,
+    "category": "chair",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0435_00::32::29742",
+    "scene_id": "scene0435_00",
+    "target_id": 32,
+    "category": "trash can",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0208_00::1::5894",
+    "scene_id": "scene0208_00",
+    "target_id": 1,
+    "category": "bookshelf",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0025_00::30::15602",
+    "scene_id": "scene0025_00",
+    "target_id": 30,
+    "category": "keyboard",
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0378_00::0::23695",
+    "scene_id": "scene0378_00",
+    "target_id": 0,
+    "category": "desk",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0131_00::38::11437",
+    "scene_id": "scene0131_00",
+    "target_id": 38,
+    "category": "whiteboard",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0607_00::13::4799",
+    "scene_id": "scene0607_00",
+    "target_id": 13,
+    "category": "cup",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0693_00::15::988",
+    "scene_id": "scene0693_00",
+    "target_id": 15,
+    "category": "mirror",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0655_00::19::31620",
+    "scene_id": "scene0655_00",
+    "target_id": 19,
+    "category": "chair",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0598_00::12::11124",
+    "scene_id": "scene0598_00",
+    "target_id": 12,
+    "category": "chair",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0616_00::7::3791",
+    "scene_id": "scene0616_00",
+    "target_id": 7,
+    "category": "armchair",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0222_00::7::10110",
+    "scene_id": "scene0222_00",
+    "target_id": 7,
+    "category": "chair",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0435_00::28::3057",
+    "scene_id": "scene0435_00",
+    "target_id": 28,
+    "category": "picture",
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0063_00::5::11741",
+    "scene_id": "scene0063_00",
+    "target_id": 5,
+    "category": "chair",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0490_00::13::36559",
+    "scene_id": "scene0490_00",
+    "target_id": 13,
+    "category": "whiteboard",
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0169_00::26::10915",
+    "scene_id": "scene0169_00",
+    "target_id": 26,
+    "category": "cabinet",
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0050_00::25::2985",
+    "scene_id": "scene0050_00",
+    "target_id": 25,
+    "category": "laptop",
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0652_00::14::23421",
+    "scene_id": "scene0652_00",
+    "target_id": 14,
+    "category": "pillow",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0552_00::30::40217",
+    "scene_id": "scene0552_00",
+    "target_id": 30,
+    "category": "box",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0025_00::31::25270",
+    "scene_id": "scene0025_00",
+    "target_id": 31,
+    "category": "cup",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0686_00::2::41044",
+    "scene_id": "scene0686_00",
+    "target_id": 2,
+    "category": "bathroom stall",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0131_00::28::38181",
+    "scene_id": "scene0131_00",
+    "target_id": 28,
+    "category": "computer tower",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0565_00::22::21829",
+    "scene_id": "scene0565_00",
+    "target_id": 22,
+    "category": "cart",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0095_00::26::35226",
+    "scene_id": "scene0095_00",
+    "target_id": 26,
+    "category": "keyboard",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0474_00::36::2920",
+    "scene_id": "scene0474_00",
+    "target_id": 36,
+    "category": "window",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0616_00::5::8400",
+    "scene_id": "scene0616_00",
+    "target_id": 5,
+    "category": "table",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0249_00::34::16160",
+    "scene_id": "scene0249_00",
+    "target_id": 34,
+    "category": "window",
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0426_00::39::39524",
+    "scene_id": "scene0426_00",
+    "target_id": 39,
+    "category": "monitor",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0608_00::18::25825",
+    "scene_id": "scene0608_00",
+    "target_id": 18,
+    "category": "plant",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0389_00::12::33926",
+    "scene_id": "scene0389_00",
+    "target_id": 12,
+    "category": "door",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0678_00::31::30978",
+    "scene_id": "scene0678_00",
+    "target_id": 31,
+    "category": "door",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0427_00::5::37124",
+    "scene_id": "scene0427_00",
+    "target_id": 5,
+    "category": "chair",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0574_00::5::13504",
+    "scene_id": "scene0574_00",
+    "target_id": 5,
+    "category": "towel",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0643_00::13::30939",
+    "scene_id": "scene0643_00",
+    "target_id": 13,
+    "category": "monitor",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0246_00::44::7645",
+    "scene_id": "scene0246_00",
+    "target_id": 44,
+    "category": "picture",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0169_00::26::28815",
+    "scene_id": "scene0169_00",
+    "target_id": 26,
+    "category": "cabinet",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0203_00::23::23356",
+    "scene_id": "scene0203_00",
+    "target_id": 23,
+    "category": "bag",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0647_00::0::21075",
+    "scene_id": "scene0647_00",
+    "target_id": 0,
+    "category": "stool",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0474_00::41::15347",
+    "scene_id": "scene0474_00",
+    "target_id": 41,
+    "category": "monitor",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0645_00::29::37593",
+    "scene_id": "scene0645_00",
+    "target_id": 29,
+    "category": "trash can",
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0643_00::26::21245",
+    "scene_id": "scene0643_00",
+    "target_id": 26,
+    "category": "shelf",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0645_00::23::30697",
+    "scene_id": "scene0645_00",
+    "target_id": 23,
+    "category": "armchair",
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0704_00::10::7262",
+    "scene_id": "scene0704_00",
+    "target_id": 10,
+    "category": "picture",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0430_00::31::36151",
+    "scene_id": "scene0430_00",
+    "target_id": 31,
+    "category": "whiteboard",
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0665_00::29::19416",
+    "scene_id": "scene0665_00",
+    "target_id": 29,
+    "category": "desk",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0153_00::18::27180",
+    "scene_id": "scene0153_00",
+    "target_id": 18,
+    "category": "rail",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0629_00::30::28923",
+    "scene_id": "scene0629_00",
+    "target_id": 30,
+    "category": "chair",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0678_00::21::1134",
+    "scene_id": "scene0678_00",
+    "target_id": 21,
+    "category": "door",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0025_00::31::33311",
+    "scene_id": "scene0025_00",
+    "target_id": 31,
+    "category": "cup",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0251_00::17::15243",
+    "scene_id": "scene0251_00",
+    "target_id": 17,
+    "category": "table",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0665_00::19::10095",
+    "scene_id": "scene0665_00",
+    "target_id": 19,
+    "category": "table",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0351_00::1::28261",
+    "scene_id": "scene0351_00",
+    "target_id": 1,
+    "category": "chair",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0011_00::20::28662",
+    "scene_id": "scene0011_00",
+    "target_id": 20,
+    "category": "cabinet",
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0356_00::19::20169",
+    "scene_id": "scene0356_00",
+    "target_id": 19,
+    "category": "door",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0648_00::28::7962",
+    "scene_id": "scene0648_00",
+    "target_id": 28,
+    "category": "dresser",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0699_00::25::25592",
+    "scene_id": "scene0699_00",
+    "target_id": 25,
+    "category": "pillow",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0474_00::14::21104",
+    "scene_id": "scene0474_00",
+    "target_id": 14,
+    "category": "chair",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0423_00::4::38676",
+    "scene_id": "scene0423_00",
+    "target_id": 4,
+    "category": "armchair",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0046_00::49::8988",
+    "scene_id": "scene0046_00",
+    "target_id": 49,
+    "category": "shoes",
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0578_00::18::13314",
+    "scene_id": "scene0578_00",
+    "target_id": 18,
+    "category": "whiteboard",
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0704_00::0::40088",
+    "scene_id": "scene0704_00",
+    "target_id": 0,
+    "category": "cart",
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0474_00::10::15934",
+    "scene_id": "scene0474_00",
+    "target_id": 10,
+    "category": "monitor",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0645_00::7::1305",
+    "scene_id": "scene0645_00",
+    "target_id": 7,
+    "category": "door",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0412_00::5::15075",
+    "scene_id": "scene0412_00",
+    "target_id": 5,
+    "category": "trash can",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0095_00::29::20881",
+    "scene_id": "scene0095_00",
+    "target_id": 29,
+    "category": "keyboard",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0030_00::18::30641",
+    "scene_id": "scene0030_00",
+    "target_id": 18,
+    "category": "bookshelf",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0558_00::5::22818",
+    "scene_id": "scene0558_00",
+    "target_id": 5,
+    "category": "bookshelf",
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0221_00::13::4514",
+    "scene_id": "scene0221_00",
+    "target_id": 13,
+    "category": "door",
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0591_00::23::33573",
+    "scene_id": "scene0591_00",
+    "target_id": 23,
+    "category": "file cabinet",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0426_00::3::28564",
+    "scene_id": "scene0426_00",
+    "target_id": 3,
+    "category": "chair",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0025_00::38::11502",
+    "scene_id": "scene0025_00",
+    "target_id": 38,
+    "category": "file cabinet",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0598_00::8::20626",
+    "scene_id": "scene0598_00",
+    "target_id": 8,
+    "category": "chair",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0246_00::5::16196",
+    "scene_id": "scene0246_00",
+    "target_id": 5,
+    "category": "lamp",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0077_00::1::22194",
+    "scene_id": "scene0077_00",
+    "target_id": 1,
+    "category": "printer",
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0307_00::15::23308",
+    "scene_id": "scene0307_00",
+    "target_id": 15,
+    "category": "shelf",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0500_00::17::26783",
+    "scene_id": "scene0500_00",
+    "target_id": 17,
+    "category": "table",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0648_00::23::1573",
+    "scene_id": "scene0648_00",
+    "target_id": 23,
+    "category": "shelf",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0651_00::8::26207",
+    "scene_id": "scene0651_00",
+    "target_id": 8,
+    "category": "chair",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0084_00::7::2029",
+    "scene_id": "scene0084_00",
+    "target_id": 7,
+    "category": "toilet paper",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0652_00::14::14555",
+    "scene_id": "scene0652_00",
+    "target_id": 14,
+    "category": "pillow",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0246_00::5::15853",
+    "scene_id": "scene0246_00",
+    "target_id": 5,
+    "category": "lamp",
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0565_00::13::4582",
+    "scene_id": "scene0565_00",
+    "target_id": 13,
+    "category": "desk",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0699_00::25::26716",
+    "scene_id": "scene0699_00",
+    "target_id": 25,
+    "category": "pillow",
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0086_00::28::12199",
+    "scene_id": "scene0086_00",
+    "target_id": 28,
+    "category": "bathroom stall",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0064_00::5::25856",
+    "scene_id": "scene0064_00",
+    "target_id": 5,
+    "category": "couch",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0618_00::27::25234",
+    "scene_id": "scene0618_00",
+    "target_id": 27,
+    "category": "table",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0474_00::12::11078",
+    "scene_id": "scene0474_00",
+    "target_id": 12,
+    "category": "monitor",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0565_00::6::7388",
+    "scene_id": "scene0565_00",
+    "target_id": 6,
+    "category": "box",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0690_00::18::1576",
+    "scene_id": "scene0690_00",
+    "target_id": 18,
+    "category": "armchair",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0648_00::22::18216",
+    "scene_id": "scene0648_00",
+    "target_id": 22,
+    "category": "shelf",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0221_00::18::33317",
+    "scene_id": "scene0221_00",
+    "target_id": 18,
+    "category": "bag",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0690_00::10::22509",
+    "scene_id": "scene0690_00",
+    "target_id": 10,
+    "category": "lamp",
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0702_00::7::7274",
+    "scene_id": "scene0702_00",
+    "target_id": 7,
+    "category": "toilet paper",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0671_00::22::11395",
+    "scene_id": "scene0671_00",
+    "target_id": 22,
+    "category": "backpack",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0086_00::14::37595",
+    "scene_id": "scene0086_00",
+    "target_id": 14,
+    "category": "trash can",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0535_00::16::2859",
+    "scene_id": "scene0535_00",
+    "target_id": 16,
+    "category": "chair",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0568_00::20::8853",
+    "scene_id": "scene0568_00",
+    "target_id": 20,
+    "category": "shelf",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0222_00::3::40465",
+    "scene_id": "scene0222_00",
+    "target_id": 3,
+    "category": "door",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0704_00::25::8588",
+    "scene_id": "scene0704_00",
+    "target_id": 25,
+    "category": "picture",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0357_00::0::36453",
+    "scene_id": "scene0357_00",
+    "target_id": 0,
+    "category": "box",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0025_00::11::26510",
+    "scene_id": "scene0025_00",
+    "target_id": 11,
+    "category": "shelf",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0685_00::0::38918",
+    "scene_id": "scene0685_00",
+    "target_id": 0,
+    "category": "trash can",
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0686_00::3::26279",
+    "scene_id": "scene0686_00",
+    "target_id": 3,
+    "category": "bathroom stall door",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0458_00::5::783",
+    "scene_id": "scene0458_00",
+    "target_id": 5,
+    "category": "toilet paper",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0149_00::10::40052",
+    "scene_id": "scene0149_00",
+    "target_id": 10,
+    "category": "kitchen cabinet",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0549_00::7::7488",
+    "scene_id": "scene0549_00",
+    "target_id": 7,
+    "category": "end table",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0568_00::15::11265",
+    "scene_id": "scene0568_00",
+    "target_id": 15,
+    "category": "chair",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0645_00::77::26649",
+    "scene_id": "scene0645_00",
+    "target_id": 77,
+    "category": "trash can",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0643_00::27::30955",
+    "scene_id": "scene0643_00",
+    "target_id": 27,
+    "category": "book",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0064_00::8::25595",
+    "scene_id": "scene0064_00",
+    "target_id": 8,
+    "category": "armchair",
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0025_00::0::35915",
+    "scene_id": "scene0025_00",
+    "target_id": 0,
+    "category": "monitor",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0616_00::30::2641",
+    "scene_id": "scene0616_00",
+    "target_id": 30,
+    "category": "picture",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0665_00::31::21794",
+    "scene_id": "scene0665_00",
+    "target_id": 31,
+    "category": "desk",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0412_00::28::27494",
+    "scene_id": "scene0412_00",
+    "target_id": 28,
+    "category": "table",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0144_00::18::21415",
+    "scene_id": "scene0144_00",
+    "target_id": 18,
+    "category": "dresser",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0565_00::4::9604",
+    "scene_id": "scene0565_00",
+    "target_id": 4,
+    "category": "monitor",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0699_00::15::26656",
+    "scene_id": "scene0699_00",
+    "target_id": 15,
+    "category": "box",
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0203_00::7::32555",
+    "scene_id": "scene0203_00",
+    "target_id": 7,
+    "category": "shelf",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0552_00::27::40548",
+    "scene_id": "scene0552_00",
+    "target_id": 27,
+    "category": "kitchen cabinets",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0518_00::11::29236",
+    "scene_id": "scene0518_00",
+    "target_id": 11,
+    "category": "cabinet",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0208_00::1::20428",
+    "scene_id": "scene0208_00",
+    "target_id": 1,
+    "category": "bookshelf",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0651_00::8::18257",
+    "scene_id": "scene0651_00",
+    "target_id": 8,
+    "category": "chair",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0645_00::57::34142",
+    "scene_id": "scene0645_00",
+    "target_id": 57,
+    "category": "picture",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0598_00::12::990",
+    "scene_id": "scene0598_00",
+    "target_id": 12,
+    "category": "chair",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0671_00::16::37310",
+    "scene_id": "scene0671_00",
+    "target_id": 16,
+    "category": "backpack",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0356_00::12::10817",
+    "scene_id": "scene0356_00",
+    "target_id": 12,
+    "category": "door",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0329_00::5::23755",
+    "scene_id": "scene0329_00",
+    "target_id": 5,
+    "category": "door",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0432_00::2::29554",
+    "scene_id": "scene0432_00",
+    "target_id": 2,
+    "category": "sofa chair",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0578_00::19::39136",
+    "scene_id": "scene0578_00",
+    "target_id": 19,
+    "category": "window",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0222_00::5::5568",
+    "scene_id": "scene0222_00",
+    "target_id": 5,
+    "category": "bed",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0647_00::1::24528",
+    "scene_id": "scene0647_00",
+    "target_id": 1,
+    "category": "couch",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0314_00::4::24825",
+    "scene_id": "scene0314_00",
+    "target_id": 4,
+    "category": "office chair",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0221_00::51::24914",
+    "scene_id": "scene0221_00",
+    "target_id": 51,
+    "category": "towel",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0249_00::34::16082",
+    "scene_id": "scene0249_00",
+    "target_id": 34,
+    "category": "window",
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0081_00::5::26430",
+    "scene_id": "scene0081_00",
+    "target_id": 5,
+    "category": "table",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0427_00::4::22034",
+    "scene_id": "scene0427_00",
+    "target_id": 4,
+    "category": "chair",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0568_00::0::41395",
+    "scene_id": "scene0568_00",
+    "target_id": 0,
+    "category": "chair",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0144_00::17::37726",
+    "scene_id": "scene0144_00",
+    "target_id": 17,
+    "category": "curtain",
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0653_00::11::1381",
+    "scene_id": "scene0653_00",
+    "target_id": 11,
+    "category": "board",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0050_00::18::2190",
+    "scene_id": "scene0050_00",
+    "target_id": 18,
+    "category": "backpack",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0011_00::23::15020",
+    "scene_id": "scene0011_00",
+    "target_id": 23,
+    "category": "window",
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0251_00::16::15622",
+    "scene_id": "scene0251_00",
+    "target_id": 16,
+    "category": "table",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0591_00::21::29467",
+    "scene_id": "scene0591_00",
+    "target_id": 21,
+    "category": "monitor",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0518_00::11::1748",
+    "scene_id": "scene0518_00",
+    "target_id": 11,
+    "category": "cabinet",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0616_00::5::37674",
+    "scene_id": "scene0616_00",
+    "target_id": 5,
+    "category": "table",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0300_00::1::27215",
+    "scene_id": "scene0300_00",
+    "target_id": 1,
+    "category": "monitor",
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0644_00::38::1222",
+    "scene_id": "scene0644_00",
+    "target_id": 38,
+    "category": "keyboard",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0645_00::11::31944",
+    "scene_id": "scene0645_00",
+    "target_id": 11,
+    "category": "mirror",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0329_00::23::27809",
+    "scene_id": "scene0329_00",
+    "target_id": 23,
+    "category": "door",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0046_00::48::3236",
+    "scene_id": "scene0046_00",
+    "target_id": 48,
+    "category": "shoes",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0704_00::5::2360",
+    "scene_id": "scene0704_00",
+    "target_id": 5,
+    "category": "cabinets",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0221_00::47::11846",
+    "scene_id": "scene0221_00",
+    "target_id": 47,
+    "category": "table",
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0686_00::3::12108",
+    "scene_id": "scene0686_00",
+    "target_id": 3,
+    "category": "bathroom stall door",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0621_00::2::1053",
+    "scene_id": "scene0621_00",
+    "target_id": 2,
+    "category": "table",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0081_00::0::38576",
+    "scene_id": "scene0081_00",
+    "target_id": 0,
+    "category": "couch",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0644_00::35::19090",
+    "scene_id": "scene0644_00",
+    "target_id": 35,
+    "category": "whiteboard",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0149_00::25::10119",
+    "scene_id": "scene0149_00",
+    "target_id": 25,
+    "category": "kitchen cabinet",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0670_00::27::24249",
+    "scene_id": "scene0670_00",
+    "target_id": 27,
+    "category": "cabinet",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0701_00::0::13850",
+    "scene_id": "scene0701_00",
+    "target_id": 0,
+    "category": "couch",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0307_00::22::28551",
+    "scene_id": "scene0307_00",
+    "target_id": 22,
+    "category": "cabinet",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0565_00::40::3635",
+    "scene_id": "scene0565_00",
+    "target_id": 40,
+    "category": "cart",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0678_00::25::35646",
+    "scene_id": "scene0678_00",
+    "target_id": 25,
+    "category": "window",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0221_00::40::8565",
+    "scene_id": "scene0221_00",
+    "target_id": 40,
+    "category": "pillow",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0648_00::38::10961",
+    "scene_id": "scene0648_00",
+    "target_id": 38,
+    "category": "backpack",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0435_00::63::18300",
+    "scene_id": "scene0435_00",
+    "target_id": 63,
+    "category": "suitcase",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0645_00::21::3495",
+    "scene_id": "scene0645_00",
+    "target_id": 21,
+    "category": "bed",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0187_00::10::17549",
+    "scene_id": "scene0187_00",
+    "target_id": 10,
+    "category": "coffee table",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0648_00::15::4697",
+    "scene_id": "scene0648_00",
+    "target_id": 15,
+    "category": "bed",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0461_00::2::21243",
+    "scene_id": "scene0461_00",
+    "target_id": 2,
+    "category": "armchair",
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0458_00::28::21285",
+    "scene_id": "scene0458_00",
+    "target_id": 28,
+    "category": "bottle",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0651_00::9::29997",
+    "scene_id": "scene0651_00",
+    "target_id": 9,
+    "category": "chair",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0643_00::4::16161",
+    "scene_id": "scene0643_00",
+    "target_id": 4,
+    "category": "chair",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0084_00::10::35174",
+    "scene_id": "scene0084_00",
+    "target_id": 10,
+    "category": "trash can",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0700_00::34::40232",
+    "scene_id": "scene0700_00",
+    "target_id": 34,
+    "category": "trash can",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0187_00::6::10690",
+    "scene_id": "scene0187_00",
+    "target_id": 6,
+    "category": "table",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0338_00::15::37749",
+    "scene_id": "scene0338_00",
+    "target_id": 15,
+    "category": "cabinets",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0307_00::15::33619",
+    "scene_id": "scene0307_00",
+    "target_id": 15,
+    "category": "shelf",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0678_00::8::8087",
+    "scene_id": "scene0678_00",
+    "target_id": 8,
+    "category": "door",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0696_00::0::4062",
+    "scene_id": "scene0696_00",
+    "target_id": 0,
+    "category": "cabinet",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0251_00::14::24965",
+    "scene_id": "scene0251_00",
+    "target_id": 14,
+    "category": "door",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0645_00::46::40085",
+    "scene_id": "scene0645_00",
+    "target_id": 46,
+    "category": "ottoman",
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0653_00::52::2767",
+    "scene_id": "scene0653_00",
+    "target_id": 52,
+    "category": "box",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0249_00::32::23442",
+    "scene_id": "scene0249_00",
+    "target_id": 32,
+    "category": "board",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0025_00::10::27015",
+    "scene_id": "scene0025_00",
+    "target_id": 10,
+    "category": "desk",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0697_00::11::41021",
+    "scene_id": "scene0697_00",
+    "target_id": 11,
+    "category": "dresser",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0458_00::9::15420",
+    "scene_id": "scene0458_00",
+    "target_id": 9,
+    "category": "soap dish",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0086_00::6::3207",
+    "scene_id": "scene0086_00",
+    "target_id": 6,
+    "category": "toilet",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0678_00::8::10080",
+    "scene_id": "scene0678_00",
+    "target_id": 8,
+    "category": "door",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0647_00::12::7395",
+    "scene_id": "scene0647_00",
+    "target_id": 12,
+    "category": "stool",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0050_00::32::30122",
+    "scene_id": "scene0050_00",
+    "target_id": 32,
+    "category": "doors",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0084_00::7::21975",
+    "scene_id": "scene0084_00",
+    "target_id": 7,
+    "category": "toilet paper",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0616_00::11::1057",
+    "scene_id": "scene0616_00",
+    "target_id": 11,
+    "category": "chair",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0084_00::45::2292",
+    "scene_id": "scene0084_00",
+    "target_id": 45,
+    "category": "rail",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0307_00::33::35081",
+    "scene_id": "scene0307_00",
+    "target_id": 33,
+    "category": "door",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0697_00::6::10924",
+    "scene_id": "scene0697_00",
+    "target_id": 6,
+    "category": "nightstand",
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0329_00::31::21581",
+    "scene_id": "scene0329_00",
+    "target_id": 31,
+    "category": "monitor",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0552_00::11::14216",
+    "scene_id": "scene0552_00",
+    "target_id": 11,
+    "category": "table",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0696_00::5::16455",
+    "scene_id": "scene0696_00",
+    "target_id": 5,
+    "category": "monitor",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0086_00::10::11587",
+    "scene_id": "scene0086_00",
+    "target_id": 10,
+    "category": "bathroom stall door",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0598_00::9::25057",
+    "scene_id": "scene0598_00",
+    "target_id": 9,
+    "category": "chair",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0256_00::4::40234",
+    "scene_id": "scene0256_00",
+    "target_id": 4,
+    "category": "box",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0678_00::32::22598",
+    "scene_id": "scene0678_00",
+    "target_id": 32,
+    "category": "window",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0435_00::34::37167",
+    "scene_id": "scene0435_00",
+    "target_id": 34,
+    "category": "towel",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0077_00::13::6281",
+    "scene_id": "scene0077_00",
+    "target_id": 13,
+    "category": "trash can",
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0343_00::18::40951",
+    "scene_id": "scene0343_00",
+    "target_id": 18,
+    "category": "chair",
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0653_00::22::27808",
+    "scene_id": "scene0653_00",
+    "target_id": 22,
+    "category": "trash can",
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0193_00::13::28882",
+    "scene_id": "scene0193_00",
+    "target_id": 13,
+    "category": "door",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0343_00::16::35014",
+    "scene_id": "scene0343_00",
+    "target_id": 16,
+    "category": "table",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0671_00::20::1980",
+    "scene_id": "scene0671_00",
+    "target_id": 20,
+    "category": "cart",
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0645_00::14::33455",
+    "scene_id": "scene0645_00",
+    "target_id": 14,
+    "category": "backpack",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0011_00::28::4659",
+    "scene_id": "scene0011_00",
+    "target_id": 28,
+    "category": "cabinet",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0648_00::22::216",
+    "scene_id": "scene0648_00",
+    "target_id": 22,
+    "category": "shelf",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0246_00::5::11453",
+    "scene_id": "scene0246_00",
+    "target_id": 5,
+    "category": "lamp",
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0644_00::49::25594",
+    "scene_id": "scene0644_00",
+    "target_id": 49,
+    "category": "computer tower",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0338_00::17::24404",
+    "scene_id": "scene0338_00",
+    "target_id": 17,
+    "category": "cabinets",
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0030_00::23::28411",
+    "scene_id": "scene0030_00",
+    "target_id": 23,
+    "category": "book",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0565_00::33::27797",
+    "scene_id": "scene0565_00",
+    "target_id": 33,
+    "category": "window",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0474_00::17::24547",
+    "scene_id": "scene0474_00",
+    "target_id": 17,
+    "category": "chair",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0251_00::7::35732",
+    "scene_id": "scene0251_00",
+    "target_id": 7,
+    "category": "chair",
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0653_00::18::13315",
+    "scene_id": "scene0653_00",
+    "target_id": 18,
+    "category": "desk",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0086_00::8::15904",
+    "scene_id": "scene0086_00",
+    "target_id": 8,
+    "category": "door",
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0690_00::17::36259",
+    "scene_id": "scene0690_00",
+    "target_id": 17,
+    "category": "armchair",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0030_00::25::23351",
+    "scene_id": "scene0030_00",
+    "target_id": 25,
+    "category": "book",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0664_00::14::33213",
+    "scene_id": "scene0664_00",
+    "target_id": 14,
+    "category": "towel",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0357_00::15::11201",
+    "scene_id": "scene0357_00",
+    "target_id": 15,
+    "category": "cabinet",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0685_00::0::1533",
+    "scene_id": "scene0685_00",
+    "target_id": 0,
+    "category": "trash can",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0580_00::8::2047",
+    "scene_id": "scene0580_00",
+    "target_id": 8,
+    "category": "pillow",
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0015_00::47::10339",
+    "scene_id": "scene0015_00",
+    "target_id": 47,
+    "category": "whiteboard",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0664_00::24::39884",
+    "scene_id": "scene0664_00",
+    "target_id": 24,
+    "category": "towel",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0222_00::7::2400",
+    "scene_id": "scene0222_00",
+    "target_id": 7,
+    "category": "chair",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0665_00::16::17557",
+    "scene_id": "scene0665_00",
+    "target_id": 16,
+    "category": "table",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0647_00::16::24664",
+    "scene_id": "scene0647_00",
+    "target_id": 16,
+    "category": "door",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0019_00::19::19821",
+    "scene_id": "scene0019_00",
+    "target_id": 19,
+    "category": "door",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0064_00::5::35476",
+    "scene_id": "scene0064_00",
+    "target_id": 5,
+    "category": "couch",
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0329_00::32::4573",
+    "scene_id": "scene0329_00",
+    "target_id": 32,
+    "category": "monitor",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0169_00::14::5585",
+    "scene_id": "scene0169_00",
+    "target_id": 14,
+    "category": "window",
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0081_00::7::13992",
+    "scene_id": "scene0081_00",
+    "target_id": 7,
+    "category": "couch",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0643_00::38::11598",
+    "scene_id": "scene0643_00",
+    "target_id": 38,
+    "category": "shelf",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0629_00::2::19124",
+    "scene_id": "scene0629_00",
+    "target_id": 2,
+    "category": "door",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0025_00::36::17825",
+    "scene_id": "scene0025_00",
+    "target_id": 36,
+    "category": "shelf",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0221_00::7::5916",
+    "scene_id": "scene0221_00",
+    "target_id": 7,
+    "category": "bed",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0643_00::12::17865",
+    "scene_id": "scene0643_00",
+    "target_id": 12,
+    "category": "monitor",
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0084_00::6::33117",
+    "scene_id": "scene0084_00",
+    "target_id": 6,
+    "category": "toilet paper",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0644_00::49::33465",
+    "scene_id": "scene0644_00",
+    "target_id": 49,
+    "category": "computer tower",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0256_00::9::8641",
+    "scene_id": "scene0256_00",
+    "target_id": 9,
+    "category": "curtain",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0426_00::25::11591",
+    "scene_id": "scene0426_00",
+    "target_id": 25,
+    "category": "box",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0591_00::5::17135",
+    "scene_id": "scene0591_00",
+    "target_id": 5,
+    "category": "desk",
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0488_00::3::31093",
+    "scene_id": "scene0488_00",
+    "target_id": 3,
+    "category": "kitchen cabinets",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0643_00::0::23973",
+    "scene_id": "scene0643_00",
+    "target_id": 0,
+    "category": "desk",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0565_00::25::40735",
+    "scene_id": "scene0565_00",
+    "target_id": 25,
+    "category": "chair",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0549_00::11::3698",
+    "scene_id": "scene0549_00",
+    "target_id": 11,
+    "category": "armchair",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0356_00::23::9504",
+    "scene_id": "scene0356_00",
+    "target_id": 23,
+    "category": "door",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0046_00::50::29027",
+    "scene_id": "scene0046_00",
+    "target_id": 50,
+    "category": "backpack",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0144_00::3::36373",
+    "scene_id": "scene0144_00",
+    "target_id": 3,
+    "category": "chair",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0081_00::7::20730",
+    "scene_id": "scene0081_00",
+    "target_id": 7,
+    "category": "couch",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0663_00::36::11840",
+    "scene_id": "scene0663_00",
+    "target_id": 36,
+    "category": "file cabinet",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0700_00::34::25178",
+    "scene_id": "scene0700_00",
+    "target_id": 34,
+    "category": "trash can",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0221_00::17::39165",
+    "scene_id": "scene0221_00",
+    "target_id": 17,
+    "category": "trash can",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0353_00::14::5749",
+    "scene_id": "scene0353_00",
+    "target_id": 14,
+    "category": "book",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0164_00::24::20371",
+    "scene_id": "scene0164_00",
+    "target_id": 24,
+    "category": "box",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0670_00::30::37470",
+    "scene_id": "scene0670_00",
+    "target_id": 30,
+    "category": "kitchen cabinets",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0665_00::20::23463",
+    "scene_id": "scene0665_00",
+    "target_id": 20,
+    "category": "desk",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0598_00::17::708",
+    "scene_id": "scene0598_00",
+    "target_id": 17,
+    "category": "mouse",
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0474_00::36::26116",
+    "scene_id": "scene0474_00",
+    "target_id": 36,
+    "category": "window",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0081_00::8::292",
+    "scene_id": "scene0081_00",
+    "target_id": 8,
+    "category": "couch",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0084_00::6::7838",
+    "scene_id": "scene0084_00",
+    "target_id": 6,
+    "category": "toilet paper",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0462_00::16::9671",
+    "scene_id": "scene0462_00",
+    "target_id": 16,
+    "category": "door",
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0574_00::5::13160",
+    "scene_id": "scene0574_00",
+    "target_id": 5,
+    "category": "towel",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0246_00::4::29008",
+    "scene_id": "scene0246_00",
+    "target_id": 4,
+    "category": "lamp",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0580_00::26::22828",
+    "scene_id": "scene0580_00",
+    "target_id": 26,
+    "category": "door",
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0015_00::47::8483",
+    "scene_id": "scene0015_00",
+    "target_id": 47,
+    "category": "whiteboard",
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0100_00::18::28423",
+    "scene_id": "scene0100_00",
+    "target_id": 18,
+    "category": "cup",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0648_00::10::35636",
+    "scene_id": "scene0648_00",
+    "target_id": 10,
+    "category": "plant",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0351_00::23::21887",
+    "scene_id": "scene0351_00",
+    "target_id": 23,
+    "category": "monitor",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0549_00::7::17436",
+    "scene_id": "scene0549_00",
+    "target_id": 7,
+    "category": "end table",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0496_00::29::10819",
+    "scene_id": "scene0496_00",
+    "target_id": 29,
+    "category": "window",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0231_00::16::3011",
+    "scene_id": "scene0231_00",
+    "target_id": 16,
+    "category": "picture",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0084_00::6::30890",
+    "scene_id": "scene0084_00",
+    "target_id": 6,
+    "category": "toilet paper",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0690_00::17::19402",
+    "scene_id": "scene0690_00",
+    "target_id": 17,
+    "category": "armchair",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0063_00::0::1034",
+    "scene_id": "scene0063_00",
+    "target_id": 0,
+    "category": "microwave",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0221_00::39::34411",
+    "scene_id": "scene0221_00",
+    "target_id": 39,
+    "category": "pillow",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0378_00::41::26109",
+    "scene_id": "scene0378_00",
+    "target_id": 41,
+    "category": "office chair",
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0591_00::23::41497",
+    "scene_id": "scene0591_00",
+    "target_id": 23,
+    "category": "file cabinet",
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0187_00::7::38499",
+    "scene_id": "scene0187_00",
+    "target_id": 7,
+    "category": "table",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0565_00::31::17224",
+    "scene_id": "scene0565_00",
+    "target_id": 31,
+    "category": "window",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0025_00::15::28745",
+    "scene_id": "scene0025_00",
+    "target_id": 15,
+    "category": "cabinet",
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0249_00::24::19782",
+    "scene_id": "scene0249_00",
+    "target_id": 24,
+    "category": "table",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0647_00::11::25708",
+    "scene_id": "scene0647_00",
+    "target_id": 11,
+    "category": "table",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0164_00::10::38306",
+    "scene_id": "scene0164_00",
+    "target_id": 10,
+    "category": "kitchen cabinets",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0645_00::75::32927",
+    "scene_id": "scene0645_00",
+    "target_id": 75,
+    "category": "soap dish",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0647_00::12::41426",
+    "scene_id": "scene0647_00",
+    "target_id": 12,
+    "category": "stool",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0699_00::26::1858",
+    "scene_id": "scene0699_00",
+    "target_id": 26,
+    "category": "pillow",
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0645_00::12::21070",
+    "scene_id": "scene0645_00",
+    "target_id": 12,
+    "category": "lamp",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0648_00::24::25259",
+    "scene_id": "scene0648_00",
+    "target_id": 24,
+    "category": "shelf",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0591_00::16::21632",
+    "scene_id": "scene0591_00",
+    "target_id": 16,
+    "category": "pillow",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0081_00::1::388",
+    "scene_id": "scene0081_00",
+    "target_id": 1,
+    "category": "ottoman",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0663_00::32::20672",
+    "scene_id": "scene0663_00",
+    "target_id": 32,
+    "category": "shelf",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0595_00::6::1144",
+    "scene_id": "scene0595_00",
+    "target_id": 6,
+    "category": "bag",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0699_00::34::41410",
+    "scene_id": "scene0699_00",
+    "target_id": 34,
+    "category": "bag",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0609_00::6::9795",
+    "scene_id": "scene0609_00",
+    "target_id": 6,
+    "category": "table",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0696_00::32::18327",
+    "scene_id": "scene0696_00",
+    "target_id": 32,
+    "category": "cabinet",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0565_00::5::14886",
+    "scene_id": "scene0565_00",
+    "target_id": 5,
+    "category": "monitor",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0558_00::1::14917",
+    "scene_id": "scene0558_00",
+    "target_id": 1,
+    "category": "chair",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0328_00::27::36937",
+    "scene_id": "scene0328_00",
+    "target_id": 27,
+    "category": "sign",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0435_00::60::27767",
+    "scene_id": "scene0435_00",
+    "target_id": 60,
+    "category": "suitcase",
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0030_00::19::5859",
+    "scene_id": "scene0030_00",
+    "target_id": 19,
+    "category": "bookshelf",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0618_00::27::13022",
+    "scene_id": "scene0618_00",
+    "target_id": 27,
+    "category": "table",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0580_00::25::18460",
+    "scene_id": "scene0580_00",
+    "target_id": 25,
+    "category": "door",
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0231_00::45::38236",
+    "scene_id": "scene0231_00",
+    "target_id": 45,
+    "category": "picture",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0426_00::4::20580",
+    "scene_id": "scene0426_00",
+    "target_id": 4,
+    "category": "chair",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0086_00::1::28690",
+    "scene_id": "scene0086_00",
+    "target_id": 1,
+    "category": "bathroom stall",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0351_00::22::23771",
+    "scene_id": "scene0351_00",
+    "target_id": 22,
+    "category": "monitor",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0011_00::2::2180",
+    "scene_id": "scene0011_00",
+    "target_id": 2,
+    "category": "table",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0696_00::21::29050",
+    "scene_id": "scene0696_00",
+    "target_id": 21,
+    "category": "cabinet",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0357_00::1::16366",
+    "scene_id": "scene0357_00",
+    "target_id": 1,
+    "category": "box",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0606_00::32::9837",
+    "scene_id": "scene0606_00",
+    "target_id": 32,
+    "category": "storage bin",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0474_00::8::32290",
+    "scene_id": "scene0474_00",
+    "target_id": 8,
+    "category": "backpack",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0221_00::29::26619",
+    "scene_id": "scene0221_00",
+    "target_id": 29,
+    "category": "chair",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0671_00::8::3162",
+    "scene_id": "scene0671_00",
+    "target_id": 8,
+    "category": "pillow",
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0208_00::106::14558",
+    "scene_id": "scene0208_00",
+    "target_id": 106,
+    "category": "bookshelf",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0690_00::14::34892",
+    "scene_id": "scene0690_00",
+    "target_id": 14,
+    "category": "table",
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0300_00::13::6683",
+    "scene_id": "scene0300_00",
+    "target_id": 13,
+    "category": "picture",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0644_00::60::20455",
+    "scene_id": "scene0644_00",
+    "target_id": 60,
+    "category": "whiteboard",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0606_00::21::3157",
+    "scene_id": "scene0606_00",
+    "target_id": 21,
+    "category": "sofa chair",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0462_00::8::9600",
+    "scene_id": "scene0462_00",
+    "target_id": 8,
+    "category": "trash can",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0663_00::6::33306",
+    "scene_id": "scene0663_00",
+    "target_id": 6,
+    "category": "office chair",
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0378_00::38::30964",
+    "scene_id": "scene0378_00",
+    "target_id": 38,
+    "category": "bookshelf",
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0690_00::10::26558",
+    "scene_id": "scene0690_00",
+    "target_id": 10,
+    "category": "lamp",
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0565_00::12::15475",
+    "scene_id": "scene0565_00",
+    "target_id": 12,
+    "category": "desk",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0353_00::28::39418",
+    "scene_id": "scene0353_00",
+    "target_id": 28,
+    "category": "pillow",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0187_00::8::34273",
+    "scene_id": "scene0187_00",
+    "target_id": 8,
+    "category": "table",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0643_00::23::27348",
+    "scene_id": "scene0643_00",
+    "target_id": 23,
+    "category": "shelf",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0474_00::29::40499",
+    "scene_id": "scene0474_00",
+    "target_id": 29,
+    "category": "monitor",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0518_00::3::1731",
+    "scene_id": "scene0518_00",
+    "target_id": 3,
+    "category": "office chair",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0616_00::13::389",
+    "scene_id": "scene0616_00",
+    "target_id": 13,
+    "category": "chair",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0699_00::15::8385",
+    "scene_id": "scene0699_00",
+    "target_id": 15,
+    "category": "box",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0025_00::31::28647",
+    "scene_id": "scene0025_00",
+    "target_id": 31,
+    "category": "cup",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0307_00::24::8058",
+    "scene_id": "scene0307_00",
+    "target_id": 24,
+    "category": "shelf",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0607_00::13::37076",
+    "scene_id": "scene0607_00",
+    "target_id": 13,
+    "category": "cup",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0462_00::16::19513",
+    "scene_id": "scene0462_00",
+    "target_id": 16,
+    "category": "door",
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0699_00::28::19798",
+    "scene_id": "scene0699_00",
+    "target_id": 28,
+    "category": "window",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0221_00::46::15693",
+    "scene_id": "scene0221_00",
+    "target_id": 46,
+    "category": "pillow",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0353_00::5::27624",
+    "scene_id": "scene0353_00",
+    "target_id": 5,
+    "category": "chair",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0025_00::17::37165",
+    "scene_id": "scene0025_00",
+    "target_id": 17,
+    "category": "file cabinet",
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0389_00::3::14425",
+    "scene_id": "scene0389_00",
+    "target_id": 3,
+    "category": "chair",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0329_00::39::35152",
+    "scene_id": "scene0329_00",
+    "target_id": 39,
+    "category": "door",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0699_00::8::15725",
+    "scene_id": "scene0699_00",
+    "target_id": 8,
+    "category": "blanket",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0025_00::9::9511",
+    "scene_id": "scene0025_00",
+    "target_id": 9,
+    "category": "desk",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0334_00::7::33836",
+    "scene_id": "scene0334_00",
+    "target_id": 7,
+    "category": "bench",
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0633_00::25::17079",
+    "scene_id": "scene0633_00",
+    "target_id": 25,
+    "category": "shelf",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0378_00::44::19619",
+    "scene_id": "scene0378_00",
+    "target_id": 44,
+    "category": "desk",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0699_00::32::20705",
+    "scene_id": "scene0699_00",
+    "target_id": 32,
+    "category": "backpack",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0616_00::26::31760",
+    "scene_id": "scene0616_00",
+    "target_id": 26,
+    "category": "picture",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0338_00::18::25573",
+    "scene_id": "scene0338_00",
+    "target_id": 18,
+    "category": "box",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0591_00::30::33562",
+    "scene_id": "scene0591_00",
+    "target_id": 30,
+    "category": "cabinet",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0030_00::0::23137",
+    "scene_id": "scene0030_00",
+    "target_id": 0,
+    "category": "office chair",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0314_00::11::157",
+    "scene_id": "scene0314_00",
+    "target_id": 11,
+    "category": "keyboard",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0686_00::1::14106",
+    "scene_id": "scene0686_00",
+    "target_id": 1,
+    "category": "bathroom stall",
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0222_00::13::28131",
+    "scene_id": "scene0222_00",
+    "target_id": 13,
+    "category": "desk",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0609_00::6::31371",
+    "scene_id": "scene0609_00",
+    "target_id": 6,
+    "category": "table",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0334_00::3::10871",
+    "scene_id": "scene0334_00",
+    "target_id": 3,
+    "category": "couch",
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0693_00::0::28046",
+    "scene_id": "scene0693_00",
+    "target_id": 0,
+    "category": "mirror",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0329_00::6::18891",
+    "scene_id": "scene0329_00",
+    "target_id": 6,
+    "category": "table",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0257_00::34::4055",
+    "scene_id": "scene0257_00",
+    "target_id": 34,
+    "category": "door",
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0568_00::0::13155",
+    "scene_id": "scene0568_00",
+    "target_id": 0,
+    "category": "chair",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0591_00::30::27790",
+    "scene_id": "scene0591_00",
+    "target_id": 30,
+    "category": "cabinet",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0690_00::11::27298",
+    "scene_id": "scene0690_00",
+    "target_id": 11,
+    "category": "lamp",
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0474_00::38::8331",
+    "scene_id": "scene0474_00",
+    "target_id": 38,
+    "category": "pillow",
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0196_00::3::16361",
+    "scene_id": "scene0196_00",
+    "target_id": 3,
+    "category": "table",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0552_00::9::40633",
+    "scene_id": "scene0552_00",
+    "target_id": 9,
+    "category": "table",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0356_00::23::23827",
+    "scene_id": "scene0356_00",
+    "target_id": 23,
+    "category": "door",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0593_00::17::24795",
+    "scene_id": "scene0593_00",
+    "target_id": 17,
+    "category": "cabinet",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0558_00::1::38031",
+    "scene_id": "scene0558_00",
+    "target_id": 1,
+    "category": "chair",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0328_00::27::15909",
+    "scene_id": "scene0328_00",
+    "target_id": 27,
+    "category": "sign",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0025_00::1::6057",
+    "scene_id": "scene0025_00",
+    "target_id": 1,
+    "category": "monitor",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0300_00::2::26246",
+    "scene_id": "scene0300_00",
+    "target_id": 2,
+    "category": "monitor",
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0353_00::1::15915",
+    "scene_id": "scene0353_00",
+    "target_id": 1,
+    "category": "shoes",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0432_00::1::23182",
+    "scene_id": "scene0432_00",
+    "target_id": 1,
+    "category": "sofa chair",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0221_00::46::36120",
+    "scene_id": "scene0221_00",
+    "target_id": 46,
+    "category": "pillow",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0278_00::10::1742",
+    "scene_id": "scene0278_00",
+    "target_id": 10,
+    "category": "chair",
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0552_00::10::35833",
+    "scene_id": "scene0552_00",
+    "target_id": 10,
+    "category": "table",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0607_00::6::17093",
+    "scene_id": "scene0607_00",
+    "target_id": 6,
+    "category": "chair",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0356_00::12::38735",
+    "scene_id": "scene0356_00",
+    "target_id": 12,
+    "category": "door",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0598_00::18::26015",
+    "scene_id": "scene0598_00",
+    "target_id": 18,
+    "category": "window",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0678_00::25::22524",
+    "scene_id": "scene0678_00",
+    "target_id": 25,
+    "category": "window",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0474_00::31::31161",
+    "scene_id": "scene0474_00",
+    "target_id": 31,
+    "category": "keyboard",
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0565_00::33::9842",
+    "scene_id": "scene0565_00",
+    "target_id": 33,
+    "category": "window",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0583_00::0::26453",
+    "scene_id": "scene0583_00",
+    "target_id": 0,
+    "category": "door",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0568_00::9::33135",
+    "scene_id": "scene0568_00",
+    "target_id": 9,
+    "category": "table",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0496_00::19::34564",
+    "scene_id": "scene0496_00",
+    "target_id": 19,
+    "category": "trash can",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0095_00::23::37291",
+    "scene_id": "scene0095_00",
+    "target_id": 23,
+    "category": "keyboard",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0648_00::14::21300",
+    "scene_id": "scene0648_00",
+    "target_id": 14,
+    "category": "bed",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0690_00::23::23969",
+    "scene_id": "scene0690_00",
+    "target_id": 23,
+    "category": "chair",
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0423_00::3::23715",
+    "scene_id": "scene0423_00",
+    "target_id": 3,
+    "category": "armchair",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0591_00::6::38064",
+    "scene_id": "scene0591_00",
+    "target_id": 6,
+    "category": "file cabinet",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0435_00::17::17940",
+    "scene_id": "scene0435_00",
+    "target_id": 17,
+    "category": "shoes",
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0574_00::23::38915",
+    "scene_id": "scene0574_00",
+    "target_id": 23,
+    "category": "shoes",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0591_00::4::2307",
+    "scene_id": "scene0591_00",
+    "target_id": 4,
+    "category": "cabinet",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0208_00::17::21496",
+    "scene_id": "scene0208_00",
+    "target_id": 17,
+    "category": "table",
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0329_00::14::5358",
+    "scene_id": "scene0329_00",
+    "target_id": 14,
+    "category": "trash can",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0307_00::35::30972",
+    "scene_id": "scene0307_00",
+    "target_id": 35,
+    "category": "door",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0565_00::23::30788",
+    "scene_id": "scene0565_00",
+    "target_id": 23,
+    "category": "cart",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0697_00::17::20828",
+    "scene_id": "scene0697_00",
+    "target_id": 17,
+    "category": "pillow",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0704_00::14::20092",
+    "scene_id": "scene0704_00",
+    "target_id": 14,
+    "category": "cabinets",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0222_00::13::738",
+    "scene_id": "scene0222_00",
+    "target_id": 13,
+    "category": "desk",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0644_00::57::18166",
+    "scene_id": "scene0644_00",
+    "target_id": 57,
+    "category": "keyboard",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0633_00::18::23748",
+    "scene_id": "scene0633_00",
+    "target_id": 18,
+    "category": "shelf",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0427_00::6::2399",
+    "scene_id": "scene0427_00",
+    "target_id": 6,
+    "category": "chair",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0353_00::17::11979",
+    "scene_id": "scene0353_00",
+    "target_id": 17,
+    "category": "desk",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0653_00::8::10481",
+    "scene_id": "scene0653_00",
+    "target_id": 8,
+    "category": "board",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0663_00::9::27843",
+    "scene_id": "scene0663_00",
+    "target_id": 9,
+    "category": "keyboard",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0697_00::11::38498",
+    "scene_id": "scene0697_00",
+    "target_id": 11,
+    "category": "dresser",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0203_00::18::798",
+    "scene_id": "scene0203_00",
+    "target_id": 18,
+    "category": "blanket",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0256_00::3::34091",
+    "scene_id": "scene0256_00",
+    "target_id": 3,
+    "category": "box",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0427_00::6::10542",
+    "scene_id": "scene0427_00",
+    "target_id": 6,
+    "category": "chair",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0377_00::4::26659",
+    "scene_id": "scene0377_00",
+    "target_id": 4,
+    "category": "shelf",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0629_00::14::17248",
+    "scene_id": "scene0629_00",
+    "target_id": 14,
+    "category": "picture",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0169_00::12::11624",
+    "scene_id": "scene0169_00",
+    "target_id": 12,
+    "category": "cabinet",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0647_00::8::3986",
+    "scene_id": "scene0647_00",
+    "target_id": 8,
+    "category": "stool",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0164_00::15::39775",
+    "scene_id": "scene0164_00",
+    "target_id": 15,
+    "category": "kitchen cabinets",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0652_00::17::37144",
+    "scene_id": "scene0652_00",
+    "target_id": 17,
+    "category": "pillow",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0077_00::13::41348",
+    "scene_id": "scene0077_00",
+    "target_id": 13,
+    "category": "trash can",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0647_00::12::6629",
+    "scene_id": "scene0647_00",
+    "target_id": 12,
+    "category": "stool",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0329_00::5::27218",
+    "scene_id": "scene0329_00",
+    "target_id": 5,
+    "category": "door",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0704_00::22::34773",
+    "scene_id": "scene0704_00",
+    "target_id": 22,
+    "category": "picture",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0583_00::1::31264",
+    "scene_id": "scene0583_00",
+    "target_id": 1,
+    "category": "door",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0300_00::9::27452",
+    "scene_id": "scene0300_00",
+    "target_id": 9,
+    "category": "chair",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0643_00::3::38150",
+    "scene_id": "scene0643_00",
+    "target_id": 3,
+    "category": "chair",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0328_00::30::17900",
+    "scene_id": "scene0328_00",
+    "target_id": 30,
+    "category": "sign",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0249_00::23::30460",
+    "scene_id": "scene0249_00",
+    "target_id": 23,
+    "category": "trash can",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0203_00::14::7252",
+    "scene_id": "scene0203_00",
+    "target_id": 14,
+    "category": "pillow",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0609_00::4::36107",
+    "scene_id": "scene0609_00",
+    "target_id": 4,
+    "category": "table",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0389_00::22::26400",
+    "scene_id": "scene0389_00",
+    "target_id": 22,
+    "category": "bag",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0583_00::13::34967",
+    "scene_id": "scene0583_00",
+    "target_id": 13,
+    "category": "shelf",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0435_00::38::36117",
+    "scene_id": "scene0435_00",
+    "target_id": 38,
+    "category": "lamp",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0462_00::10::5919",
+    "scene_id": "scene0462_00",
+    "target_id": 10,
+    "category": "trash can",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0653_00::16::22998",
+    "scene_id": "scene0653_00",
+    "target_id": 16,
+    "category": "desk",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0307_00::23::6252",
+    "scene_id": "scene0307_00",
+    "target_id": 23,
+    "category": "cabinet",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0222_00::20::35738",
+    "scene_id": "scene0222_00",
+    "target_id": 20,
+    "category": "pillow",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0063_00::10::1029",
+    "scene_id": "scene0063_00",
+    "target_id": 10,
+    "category": "kitchen cabinet",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0653_00::23::12978",
+    "scene_id": "scene0653_00",
+    "target_id": 23,
+    "category": "trash can",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0222_00::19::28576",
+    "scene_id": "scene0222_00",
+    "target_id": 19,
+    "category": "pillow",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0607_00::8::24130",
+    "scene_id": "scene0607_00",
+    "target_id": 8,
+    "category": "chair",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0064_00::3::23746",
+    "scene_id": "scene0064_00",
+    "target_id": 3,
+    "category": "coffee table",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0699_00::36::21152",
+    "scene_id": "scene0699_00",
+    "target_id": 36,
+    "category": "blanket",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0696_00::0::28948",
+    "scene_id": "scene0696_00",
+    "target_id": 0,
+    "category": "cabinet",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0207_00::57::9597",
+    "scene_id": "scene0207_00",
+    "target_id": 57,
+    "category": "sink",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0435_00::38::23947",
+    "scene_id": "scene0435_00",
+    "target_id": 38,
+    "category": "lamp",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0663_00::18::29290",
+    "scene_id": "scene0663_00",
+    "target_id": 18,
+    "category": "suitcase",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0580_00::26::21321",
+    "scene_id": "scene0580_00",
+    "target_id": 26,
+    "category": "door",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0593_00::8::24807",
+    "scene_id": "scene0593_00",
+    "target_id": 8,
+    "category": "trash can",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0671_00::9::10741",
+    "scene_id": "scene0671_00",
+    "target_id": 9,
+    "category": "book",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0435_00::58::16475",
+    "scene_id": "scene0435_00",
+    "target_id": 58,
+    "category": "trash can",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0025_00::26::38922",
+    "scene_id": "scene0025_00",
+    "target_id": 26,
+    "category": "monitor",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0663_00::14::9854",
+    "scene_id": "scene0663_00",
+    "target_id": 14,
+    "category": "telephone",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0696_00::21::5341",
+    "scene_id": "scene0696_00",
+    "target_id": 21,
+    "category": "cabinet",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0647_00::10::2103",
+    "scene_id": "scene0647_00",
+    "target_id": 10,
+    "category": "table",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0699_00::18::7407",
+    "scene_id": "scene0699_00",
+    "target_id": 18,
+    "category": "door",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0652_00::26::294",
+    "scene_id": "scene0652_00",
+    "target_id": 26,
+    "category": "picture",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0496_00::29::33214",
+    "scene_id": "scene0496_00",
+    "target_id": 29,
+    "category": "window",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0565_00::7::7026",
+    "scene_id": "scene0565_00",
+    "target_id": 7,
+    "category": "box",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0246_00::40::19783",
+    "scene_id": "scene0246_00",
+    "target_id": 40,
+    "category": "pillow",
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0500_00::18::23194",
+    "scene_id": "scene0500_00",
+    "target_id": 18,
+    "category": "table",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0549_00::3::27402",
+    "scene_id": "scene0549_00",
+    "target_id": 3,
+    "category": "coffee table",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0553_00::10::5141",
+    "scene_id": "scene0553_00",
+    "target_id": 10,
+    "category": "toilet paper",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0598_00::2::4382",
+    "scene_id": "scene0598_00",
+    "target_id": 2,
+    "category": "monitor",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0647_00::16::35914",
+    "scene_id": "scene0647_00",
+    "target_id": 16,
+    "category": "door",
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0221_00::6::590",
+    "scene_id": "scene0221_00",
+    "target_id": 6,
+    "category": "table",
+    "is_easy": true,
+    "is_view_dep": false
+  }
+]

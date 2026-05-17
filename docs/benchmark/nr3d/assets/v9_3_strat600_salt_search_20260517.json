@@ -1,0 +1,47 @@
+{
+  "n_subset": 600,
+  "n_searched": 4096,
+  "salt_prefix": "nr3d_v9_3_strat600_v",
+  "weight_overall": 2.0,
+  "reference_full_filtered_7805": {
+    "n_filtered": 7805,
+    "classification_acc_filtered": 0.8294682895579757,
+    "acc_easy": 0.8836469652796184,
+    "acc_hard": 0.7787698412698413,
+    "acc_view_dep": 0.7823401162790697,
+    "acc_view_indep": 0.8551355630318622
+  },
+  "best": {
+    "salt_index": 291,
+    "salt": "nr3d_v9_3_strat600_v291",
+    "metrics": {
+      "n_filtered": 600,
+      "classification_acc_filtered": 0.83,
+      "acc_easy": 0.8827586206896552,
+      "acc_hard": 0.7806451612903226,
+      "acc_view_dep": 0.7819905213270142,
+      "acc_view_indep": 0.8560411311053985
+    },
+    "deltas": {
+      "classification_acc_filtered": 0.0005317104420242691,
+      "acc_easy": -0.0008883445899632303,
+      "acc_hard": 0.001875320020481297,
+      "acc_view_dep": -0.00034959495205555413,
+      "acc_view_indep": 0.0009055680735362559
+    },
+    "max_abs_delta": 0.001875320020481297,
+    "loss": 0.0050822485200848755,
+    "first_10_sample_ids": [
+      "scannet/scene0500_00::25::13471",
+      "scannet/scene0653_00::18::29686",
+      "scannet/scene0207_00::20::12189",
+      "scannet/scene0084_00::39::23366",
+      "scannet/scene0644_00::43::2885",
+      "scannet/scene0164_00::14::23053",
+      "scannet/scene0329_00::27::40883",
+      "scannet/scene0046_00::50::24204",
+      "scannet/scene0231_00::41::29624",
+      "scannet/scene0338_00::21::35740"
+    ]
+  }
+}

@@ -1,0 +1,148 @@
+{
+  "selection_salt": "nr3d_v9_3_strat600_v291",
+  "n_selected": 600,
+  "n_pool_filtered": 7805,
+  "cells": {
+    "easy_view_indep": {
+      "is_easy": true,
+      "is_view_dep": false,
+      "pool_n": 2570,
+      "pool_pct": 32.93,
+      "selected_n": 198,
+      "selected_pct": 33.0
+    },
+    "easy_view_dep": {
+      "is_easy": true,
+      "is_view_dep": true,
+      "pool_n": 1203,
+      "pool_pct": 15.41,
+      "selected_n": 92,
+      "selected_pct": 15.33
+    },
+    "hard_view_indep": {
+      "is_easy": false,
+      "is_view_dep": false,
+      "pool_n": 2483,
+      "pool_pct": 31.81,
+      "selected_n": 191,
+      "selected_pct": 31.83
+    },
+    "hard_view_dep": {
+      "is_easy": false,
+      "is_view_dep": true,
+      "pool_n": 1549,
+      "pool_pct": 19.85,
+      "selected_n": 119,
+      "selected_pct": 19.83
+    }
+  },
+  "scene_coverage": {
+    "selected_unique_scenes": 119,
+    "pool_unique_scenes": 130,
+    "selected_per_scene": {
+      "min": 1,
+      "max": 16,
+      "mean": 5.04
+    }
+  },
+  "category_coverage": {
+    "selected_unique_categories": 65,
+    "pool_unique_categories": 72,
+    "top_10_categories_pool": [
+      [
+        "chair",
+        863
+      ],
+      [
+        "table",
+        556
+      ],
+      [
+        "window",
+        474
+      ],
+      [
+        "door",
+        455
+      ],
+      [
+        "trash can",
+        452
+      ],
+      [
+        "monitor",
+        329
+      ],
+      [
+        "pillow",
+        322
+      ],
+      [
+        "box",
+        265
+      ],
+      [
+        "picture",
+        251
+      ],
+      [
+        "shelf",
+        244
+      ]
+    ],
+    "top_10_categories_selected": [
+      [
+        "chair",
+        55
+      ],
+      [
+        "table",
+        43
+      ],
+      [
+        "door",
+        42
+      ],
+      [
+        "trash can",
+        30
+      ],
+      [
+        "pillow",
+        29
+      ],
+      [
+        "window",
+        27
+      ],
+      [
+        "monitor",
+        27
+      ],
+      [
+        "cabinet",
+        24
+      ],
+      [
+        "shelf",
+        21
+      ],
+      [
+        "desk",
+        18
+      ]
+    ]
+  },
+  "first_10_sample_ids": [
+    "scannet/scene0221_00::47::4274",
+    "scannet/scene0699_00::26::40486",
+    "scannet/scene0500_00::25::13471",
+    "scannet/scene0426_00::22::9868",
+    "scannet/scene0653_00::18::29686",
+    "scannet/scene0462_00::6::40854",
+    "scannet/scene0207_00::20::12189",
+    "scannet/scene0246_00::5::12312",
+    "scannet/scene0591_00::14::19171",
+    "scannet/scene0608_00::9::17679"
+  ]
+}
