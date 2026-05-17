@@ -57,9 +57,20 @@ injected are listed with `already_seen=true` and not re-injected.
 
 ## BEV inspection
 
-- `view_bev()` — re-inject the original full BEV.
-- `view_bev(highlight=[#a, #b])` — re-render the same perspective BEV
-  with only those proposals labelled.
+The initial BEV in your context is a **clean overview**: mesh +
+camera trajectory + a small unlabeled dot at each proposal centroid.
+No text labels by default. Read positions from the dots and the
+catalog (`list_scene_proposals` / Cat-B inventory) together.
+
+When you need text labels, ask explicitly:
+
+- `view_bev(highlight=[#a, #b])` — re-render the same perspective
+  BEV with text labels ("#id category") **only** on those proposals.
+- `view_bev(categories=["chair", "table"])` — text-label every
+  proposal whose category matches (case-insensitive exact match).
+  Catalog-first variant favours this form over the (omitted) text
+  selector when you want to anchor on a category before scanning IDs.
+- Both args may be combined; the union is labeled.
 
 ## Anti-patterns
 

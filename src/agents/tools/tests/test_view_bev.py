@@ -35,11 +35,16 @@ def _runtime(tmp_path: Path) -> Stage2RuntimeState:
 
 
 def test_view_bev_default_returns_catalog_path(tmp_path: Path):
+    """v9.3: default ``view_bev()`` returns the catalog's pre-rendered base BEV
+    (clean overview, no labels)."""
     rs = _runtime(tmp_path)
     tool = next(t for t in build_scene_perception_tools(rs) if t.name == "view_bev")
     response = tool.invoke({})
     assert "bev image" in response.lower()
     assert (tmp_path / "bev.png").as_posix() in response.replace("\\", "/")
+    # v9.3: response advertises the no-text default; previous versions used
+    # "highlight=ALL" wording that conflated default with "label everything".
+    assert "no text labels" in response or "default view" in response
     pending = rs.bundle.extra_metadata["vg_pending_images"]
     assert pending == [str(tmp_path / "bev.png")]
     assert rs.evidence_updated is True
@@ -66,6 +71,102 @@ def test_view_bev_highlight_renders_subset(tmp_path: Path, monkeypatch: pytest.M
     pending = rs.bundle.extra_metadata["vg_pending_images"]
     assert pending and pending[-1].endswith(".png")
     assert "highlight=[1]" in resp
+
+
+def test_view_bev_categories_resolves_proposals(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    """v9.3: passing ``categories=["chair"]`` resolves to the matching
+    proposal_ids in the catalog and renders the same focused-label BEV.
+    Mirrors how `mark_frame_with_bbox` adds focused annotations to a frame.
+    """
+    rs = _runtime(tmp_path)
+    captured: dict = {}
+
+    def _fake_render(catalog, highlight_ids, output_path):
+        captured["highlight_ids"] = list(highlight_ids or [])
+        from PIL import Image
+
+        Image.new("RGB", (40, 40), (0, 255, 0)).save(output_path)
+        return output_path
+
+    monkeypatch.setattr(
+        "agents.tools.scene_perception._render_highlighted_bev",
+        _fake_render,
+    )
+    tool = next(t for t in build_scene_perception_tools(rs) if t.name == "view_bev")
+    # Two proposals exist in the catalog: chair (#0), table (#1).
+    resp = tool.invoke({"categories": ["chair"]})
+    assert captured["highlight_ids"] == [0], (
+        "categories=['chair'] should resolve to proposal_id=0 only"
+    )
+    assert "resolved_from_categories=['chair']" in resp
+
+
+def test_view_bev_categories_union_with_highlight(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    """Both ``highlight`` and ``categories`` can be supplied; the result is
+    the union of the explicit IDs and the category-resolved IDs.
+    """
+    rs = _runtime(tmp_path)
+    captured: dict = {}
+
+    def _fake_render(catalog, highlight_ids, output_path):
+        captured["highlight_ids"] = list(highlight_ids or [])
+        from PIL import Image
+
+        Image.new("RGB", (40, 40), (0, 0, 255)).save(output_path)
+        return output_path
+
+    monkeypatch.setattr(
+        "agents.tools.scene_perception._render_highlighted_bev",
+        _fake_render,
+    )
+    tool = next(t for t in build_scene_perception_tools(rs) if t.name == "view_bev")
+    resp = tool.invoke({"highlight": [1], "categories": ["chair"]})
+    # chair=#0, plus explicit #1: union sorted = [0, 1]
+    assert captured["highlight_ids"] == [0, 1]
+    assert "highlight=[0, 1]" in resp
+
+
+def test_view_bev_categories_with_unknown_category_warns(tmp_path: Path):
+    """Unknown category names are surfaced to the agent as
+    ``categories_with_no_matches`` instead of silently producing an empty
+    highlight set. With NO matches and no explicit highlight, the tool
+    returns the default BEV plus an inline note.
+    """
+    rs = _runtime(tmp_path)
+    tool = next(t for t in build_scene_perception_tools(rs) if t.name == "view_bev")
+    resp = tool.invoke({"categories": ["unicorn"]})
+    assert "no matches" in resp.lower()
+    assert "unicorn" in resp
+    pending = rs.bundle.extra_metadata["vg_pending_images"]
+    # Returns the base BEV path because nothing was actually highlighted.
+    assert pending == [str(tmp_path / "bev.png")]
+
+
+def test_view_bev_categories_case_insensitive(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    """Category match is case-insensitive on stripped strings."""
+    rs = _runtime(tmp_path)
+    captured: dict = {}
+
+    def _fake_render(catalog, highlight_ids, output_path):
+        captured["highlight_ids"] = list(highlight_ids or [])
+        from PIL import Image
+
+        Image.new("RGB", (40, 40), (255, 255, 0)).save(output_path)
+        return output_path
+
+    monkeypatch.setattr(
+        "agents.tools.scene_perception._render_highlighted_bev",
+        _fake_render,
+    )
+    tool = next(t for t in build_scene_perception_tools(rs) if t.name == "view_bev")
+    tool.invoke({"categories": ["  CHAIR  "]})
+    assert captured["highlight_ids"] == [0]
 
 
 def test_view_bev_gates_on_skill(tmp_path: Path):

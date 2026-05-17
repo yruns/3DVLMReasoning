@@ -48,7 +48,10 @@ is genuinely absent from the catalog — OOD case).
   evidence_frame_guard).
 - `list_frame_proposals(frame_id)`, `list_scene_proposals(...)`,
   `inspect_proposal(id)` — text-only catalog queries.
-- `view_bev(highlight=[ids])` — re-render BEV focused on subset.
+- `view_bev(highlight=[ids])` — re-render BEV with text labels only on those proposals.
+- `view_bev(categories=["chair", "table"])` — text-label proposals whose
+  category matches (case-insensitive exact). Default `view_bev()` is
+  a clean overview (mesh + trajectory + small dots, no labels).
 - `compare_proposals_spatial(candidate_ids, anchor_id, relation)` —
   spatial disambiguation (TADG-relevant).
 

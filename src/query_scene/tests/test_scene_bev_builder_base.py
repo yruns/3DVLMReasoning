@@ -18,6 +18,13 @@ class _DummyBuilder(ScanNetSceneBEVBuilderBase):
 
 
 def test_overlay_proposal_labels_draws_id_and_category(tmp_path: Path):
+    """When labels are requested via ``highlight_ids``, the overlay must
+    draw the "#id category" text at each highlighted proposal centroid.
+
+    v9.3: text labels are opt-in via ``highlight_ids``; the default
+    ``highlight_ids=None`` path is exercised by
+    ``test_default_no_text_labels_only_dots`` below.
+    """
     builder = _DummyBuilder(config=SceneBEVConfig(image_size=400))
     img = np.full((400, 400, 3), 255, dtype=np.uint8)
     proposals = [
@@ -35,14 +42,41 @@ def test_overlay_proposal_labels_draws_id_and_category(tmp_path: Path):
         ),
     ]
     out_img = builder._overlay_proposal_labels(
-        img, proposals, scene_bounds=(-1.0, -1.0, 1.0, 1.0), highlight_ids=None
+        img, proposals, scene_bounds=(-1.0, -1.0, 1.0, 1.0),
+        highlight_ids=[12, 31],
     )
     assert out_img.shape == (400, 400, 3)
     diff_count = int(np.any(out_img != img, axis=-1).sum())
     assert diff_count > 0
 
 
-def test_overlay_proposal_labels_highlight_subset_draws_fewer(tmp_path: Path):
+def test_default_no_text_labels_only_dots():
+    """v9.3 contract: ``highlight_ids=None`` → small dot at each proposal,
+    no text labels. The number of changed pixels stays small (a few dot
+    discs) compared to the labelled path."""
+    builder = _DummyBuilder(config=SceneBEVConfig(image_size=400))
+    img = np.full((400, 400, 3), 255, dtype=np.uint8)
+    proposals = [
+        SceneProposal(proposal_id=1, category="chair", position_3d=(0.5, 0.5, 0.0), source="mask3d"),
+        SceneProposal(proposal_id=2, category="chair", position_3d=(0.0, 0.0, 0.0), source="mask3d"),
+        SceneProposal(proposal_id=3, category="chair", position_3d=(-0.5, -0.5, 0.0), source="mask3d"),
+    ]
+    out = builder._overlay_proposal_labels(img.copy(), proposals, (-1, -1, 1, 1), None)
+    diff = int(np.any(out != img, axis=-1).sum())
+    # 3 dots of radius 4 each ≈ 3 × π × 4² ≈ 150 pixels (anti-aliased ~180).
+    # Labels would add several thousand additional pixels (text + bg rects).
+    # We bound generously to allow rendering noise.
+    assert 0 < diff < 600, (
+        f"default view should draw only small dots; got {diff} changed pixels"
+    )
+
+
+def test_overlay_proposal_labels_highlight_subset_draws_more_than_default(tmp_path: Path):
+    """v9.3 contract: with ``highlight_ids=[id]`` the overlay draws text +
+    background panel for that proposal PLUS dots for every proposal.
+    Therefore the highlighted-subset render writes more pixels than the
+    default no-labels view.
+    """
     builder = _DummyBuilder(config=SceneBEVConfig(image_size=400))
     # Off-white canvas so default white label panels register; pure white hides them.
     img = np.full((400, 400, 3), 240, dtype=np.uint8)
@@ -51,11 +85,20 @@ def test_overlay_proposal_labels_highlight_subset_draws_fewer(tmp_path: Path):
         SceneProposal(proposal_id=2, category="chair", position_3d=(0.0, 0.0, 0.0), source="mask3d"),
         SceneProposal(proposal_id=3, category="chair", position_3d=(-0.5, -0.5, 0.0), source="mask3d"),
     ]
-    full = builder._overlay_proposal_labels(img.copy(), proposals, (-1, -1, 1, 1), None)
-    partial = builder._overlay_proposal_labels(img.copy(), proposals, (-1, -1, 1, 1), [2])
-    full_diff = int(np.any(full != img, axis=-1).sum())
-    partial_diff = int(np.any(partial != img, axis=-1).sum())
-    assert 0 < partial_diff < full_diff
+    default_view = builder._overlay_proposal_labels(
+        img.copy(), proposals, (-1, -1, 1, 1), None
+    )
+    highlighted = builder._overlay_proposal_labels(
+        img.copy(), proposals, (-1, -1, 1, 1), [2]
+    )
+    default_diff = int(np.any(default_view != img, axis=-1).sum())
+    highlighted_diff = int(np.any(highlighted != img, axis=-1).sum())
+    # Both have 3 dots; highlighted additionally has 1 label panel + text +
+    # an enlarged red marker on proposal 2. So highlighted > default.
+    assert 0 < default_diff < highlighted_diff, (
+        f"highlighted view should add a label panel beyond the default dots; "
+        f"default={default_diff}, highlighted={highlighted_diff}"
+    )
 
 
 def test_config_hash_is_deterministic():

@@ -74,32 +74,108 @@ def _render_highlighted_bev(catalog, highlight_ids: list[int], output_path: Path
     return output_path
 
 
+def _resolve_highlight_ids(
+    catalog,
+    highlight: list[int] | None,
+    categories: list[str] | None,
+) -> tuple[list[int], list[str]]:
+    """Combine `highlight` (explicit proposal_ids) with `categories` (category
+    name filters) into a single, deduplicated, sorted highlight list.
+
+    Returns (resolved_ids, missing_categories). ``missing_categories`` lists
+    requested category strings that matched zero catalog entries, so the tool
+    can surface a helpful message to the agent.
+    """
+    ids: set[int] = set()
+    if highlight:
+        ids.update(int(i) for i in highlight)
+    missing: list[str] = []
+    if categories:
+        norm_to_proposals: dict[str, list[int]] = {}
+        for p in catalog.proposals:
+            norm_to_proposals.setdefault(
+                str(p.category).strip().lower(), []
+            ).append(int(p.proposal_id))
+        for raw in categories:
+            key = str(raw).strip().lower()
+            if not key:
+                continue
+            hits = norm_to_proposals.get(key, [])
+            if not hits:
+                missing.append(str(raw))
+            ids.update(hits)
+    return sorted(ids), missing
+
+
 def build_scene_perception_tools(runtime: Any) -> list[BaseTool]:
     @tool
-    def view_bev(highlight: list[int] | None = None) -> str:
-        """Inject the scene BEV image. Detailed usage in 'scene-exploration-playbook'."""
-        request = {"highlight": list(highlight) if highlight else None}
+    def view_bev(
+        highlight: list[int] | None = None,
+        categories: list[str] | None = None,
+    ) -> str:
+        """Inject the scene BEV image with optional focused labels.
+
+        v9.3 (current) behavior:
+
+        - ``view_bev()`` (no args) → clean mesh + trajectory + small unlabeled
+          dot at each proposal centroid. No text labels by default, so the BEV
+          stays readable even in scenes with 50+ proposals. Use this as your
+          orientation map.
+        - ``view_bev(highlight=[#a, #b])`` → re-renders with text labels
+          ("#id category") drawn ONLY on those proposals. Highlighted dots
+          enlarge and switch to red.
+        - ``view_bev(categories=["chair", "table"])`` → text labels on every
+          proposal whose category matches (case-insensitive exact match
+          against the catalog category strings). Use this when you don't have
+          IDs yet but know the category of interest. Mirrors how
+          `mark_frame_with_bbox` adds focused annotations to a frame.
+        - Both args may be combined; the union is labeled.
+
+        Detailed usage in 'scene-exploration-playbook'.
+        """
+        request = {
+            "highlight": list(highlight) if highlight else None,
+            "categories": list(categories) if categories else None,
+        }
         gate = _gate(runtime)
         if gate is not None:
             runtime.record("view_bev", request, gate)
             return gate
         catalog = get_scene_catalog(runtime)
-        if highlight is None or not highlight:
+        resolved_ids, missing_cats = _resolve_highlight_ids(
+            catalog, highlight, categories,
+        )
+        if not resolved_ids:
             queue_pending_image(runtime, catalog.bev_image_path)
+            suffix = ""
+            if missing_cats:
+                suffix = (
+                    f"; categories with no matches: {missing_cats!r} "
+                    "(check spelling or use list_scene_proposals to discover "
+                    "what categories exist)"
+                )
             text = (
                 f"bev image at {catalog.bev_image_path}; "
-                f"highlight=ALL ({len(catalog.proposals)} proposals)"
+                f"default view (mesh + trajectory + small dots, no text labels"
+                f"{suffix})"
             )
             runtime.record("view_bev", request, text)
             return text
         cache_dir = Path(catalog.bev_image_path).parent / "highlights"
         cache_dir.mkdir(parents=True, exist_ok=True)
-        ids = "_".join(str(int(i)) for i in highlight)
-        out_path = cache_dir / f"bev_h_{ids}.png"
+        ids_token = "_".join(str(i) for i in resolved_ids)
+        out_path = cache_dir / f"bev_h_{ids_token}.png"
         if not out_path.exists():
-            _render_highlighted_bev(catalog, list(highlight), out_path)
+            _render_highlighted_bev(catalog, resolved_ids, out_path)
         queue_pending_image(runtime, str(out_path))
-        text = f"bev image at {out_path}; highlight={list(highlight)}"
+        parts = [f"bev image at {out_path}", f"highlight={resolved_ids}"]
+        if categories:
+            parts.append(f"resolved_from_categories={list(categories)!r}")
+        if missing_cats:
+            parts.append(
+                f"categories_with_no_matches={missing_cats!r}"
+            )
+        text = "; ".join(parts)
         runtime.record("view_bev", request, text)
         return text
 

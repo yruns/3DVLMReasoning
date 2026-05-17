@@ -134,10 +134,23 @@ class SceneBEVConfig:
     trajectory_color: tuple[int, int, int] = (32, 96, 220)
     trajectory_thickness: int = 3
     proposal_marker_radius: int = 4
-    crop_margin: int = 8
-    label_font_scale: float = 0.85
-    label_font_thickness: int = 2
+    proposal_marker_radius_highlight: int = 7
+    # v9.3: tighter mesh-to-edge crop. Threshold catches near-white anti-aliased
+    # edges (250 → 245) and the trailing pixel margin around the bbox drops from
+    # 8 → 3, giving roughly 5-8 % more usable canvas area at the same image_size.
+    crop_margin: int = 3
+    crop_white_threshold: int = 245
+    # v9.3: larger / bolder default label font. The BEV is rendered at 1500 px
+    # but downsampled to ~600 px in HTML thumbnails; the old 0.85 / thickness=2
+    # combo looked sharp at native res but became unreadable at thumbnail scale.
+    label_font_scale: float = 1.0
+    label_font_thickness: int = 3
+    label_outline_extra_thickness: int = 3
     label_declutter_gap_px: int = 6
+    # v9.3: default `highlight_ids=None` now renders dots only (no text labels).
+    # Set this True to restore the legacy "label every proposal by default"
+    # behavior (only useful for backward compatibility with older traces).
+    label_all_when_highlight_is_none: bool = False
 
 
 class ScanNetSceneBEVBuilderBase(ABC):
@@ -303,7 +316,9 @@ class ScanNetSceneBEVBuilderBase(ABC):
             mesh_path, traj_path, intr_path, axis_align=axis_align,
         )
         img, (crop_ox, crop_oy) = _crop_to_non_white(
-            img, margin=self.config.crop_margin
+            img,
+            margin=self.config.crop_margin,
+            threshold=self.config.crop_white_threshold,
         )
         if isinstance(scene_bounds, dict):
             scene_bounds["crop_offset"] = (crop_ox, crop_oy)
@@ -454,32 +469,73 @@ class ScanNetSceneBEVBuilderBase(ABC):
         scene_bounds: dict | tuple[float, float, float, float],
         highlight_ids: list[int] | None,
     ) -> np.ndarray:
+        """Draw proposal markers, and (selectively) text labels.
+
+        Contract (v9.3):
+        - ``highlight_ids is None`` → draw every proposal as a small dot but
+          **no text labels**. Keeps the default BEV uncluttered so the
+          mesh + trajectory remain readable. The agent calls
+          ``view_bev(highlight=[ids])`` or ``view_bev(categories=[...])`` to
+          ask for text labels on a focused subset (mirrors how
+          ``mark_frame_with_bbox`` adds focused annotations to a frame).
+        - ``highlight_ids=[1, 7, 12]`` → only those proposals get the
+          enlarged red marker AND the "#id category" text label. Other
+          proposals still get a faint dot so the agent can see roughly
+          where everything is.
+        - Legacy ``label_all_when_highlight_is_none=True`` restores the
+          pre-v9.3 "label every proposal by default" behaviour for
+          backward compatibility with historical traces and tests.
+        """
         img = img.copy()
         highlight_set: set[int] = (
-            set(highlight_ids) if highlight_ids is not None else set()
+            set(int(i) for i in highlight_ids) if highlight_ids is not None else set()
         )
-        font = cv2.FONT_HERSHEY_SIMPLEX
+        font = cv2.FONT_HERSHEY_DUPLEX  # v9.3: bolder default than SIMPLEX
         scale = self.config.label_font_scale
         thickness = self.config.label_font_thickness
+        outline_thickness = thickness + self.config.label_outline_extra_thickness
+        legacy_label_all = (
+            highlight_ids is None
+            and bool(self.config.label_all_when_highlight_is_none)
+        )
 
+        # Draw every proposal as a faint dot first, regardless of highlight.
+        # That way the default BEV still shows where things are, even without
+        # labels. Highlighted proposals get an enlarged red dot below.
+        for proposal in proposals:
+            uv = self._project_centroid(proposal.position_3d, scene_bounds, img.shape)
+            if uv is None:
+                continue
+            u, v = uv
+            if proposal.proposal_id in highlight_set:
+                cv2.circle(
+                    img, (u, v),
+                    self.config.proposal_marker_radius_highlight,
+                    self.config.label_color_highlight,
+                    -1,
+                )
+            else:
+                cv2.circle(
+                    img, (u, v),
+                    self.config.proposal_marker_radius,
+                    self.config.label_color_default,
+                    -1,
+                )
+
+        # Collect items that should get text labels.
         items: list[tuple[SceneProposal, int, int, bool]] = []
         for proposal in proposals:
-            if highlight_ids is not None and proposal.proposal_id not in highlight_set:
+            should_label = (
+                proposal.proposal_id in highlight_set
+                or legacy_label_all
+            )
+            if not should_label:
                 continue
             uv = self._project_centroid(proposal.position_3d, scene_bounds, img.shape)
             if uv is None:
                 continue
             u, v = uv
-            highlighted = (
-                highlight_ids is not None
-                and proposal.proposal_id in highlight_set
-            )
-            color = (
-                self.config.label_color_highlight
-                if highlighted
-                else self.config.label_color_default
-            )
-            cv2.circle(img, (u, v), self.config.proposal_marker_radius, color, -1)
+            highlighted = proposal.proposal_id in highlight_set
             items.append((proposal, u, v, highlighted))
 
         if not items:
@@ -511,18 +567,15 @@ class ScanNetSceneBEVBuilderBase(ABC):
                 self.config.label_bg_highlight if highlighted else self.config.label_bg_default,
                 -1,
             )
+            # Black outline (sharp contrast against either background)
             cv2.putText(
-                img, label, text_org, font, scale, (0, 0, 0), thickness + 2, cv2.LINE_AA
+                img, label, text_org, font, scale, (0, 0, 0),
+                outline_thickness, cv2.LINE_AA,
             )
+            # White core for the text glyphs (high contrast against black outline)
             cv2.putText(
-                img,
-                label,
-                text_org,
-                font,
-                scale,
-                (255, 255, 255),
-                thickness,
-                cv2.LINE_AA,
+                img, label, text_org, font, scale, (255, 255, 255),
+                thickness, cv2.LINE_AA,
             )
         return img
 

@@ -65,9 +65,27 @@ injected are listed with `already_seen=true` and not re-injected.
 
 ## BEV inspection
 
-- `view_bev()` — re-inject the original full BEV.
-- `view_bev(highlight=[#a, #b])` — re-render the same perspective BEV
-  with only those proposals labelled.
+The initial BEV in your context is a **clean overview**: mesh +
+camera trajectory + a small unlabeled dot at each proposal centroid.
+No text labels by default — that keeps the map readable even in
+scenes with 40+ proposals. Read positions from the dots and the
+catalog (`list_scene_proposals` / Cat-B inventory) together.
+
+When you need text labels, ask explicitly:
+
+- `view_bev(highlight=[#a, #b])` — re-render the same perspective
+  BEV with text labels ("#id category") **only** on those proposals.
+  Other dots stay unlabeled. Use after a selector returns candidate
+  IDs and you want to see where they sit in the map.
+- `view_bev(categories=["chair", "table"])` — text-label every
+  proposal whose category matches (case-insensitive exact match).
+  Use when you don't have IDs yet but the query is anchored to a
+  specific category (e.g. "the leftmost chair").
+- Both args may be combined; the union is labeled.
+
+Anti-pattern: calling `view_bev` without args expecting to see
+every category labelled. The clean view is intentional —
+narrow the label set explicitly.
 
 ## Anti-patterns
 
