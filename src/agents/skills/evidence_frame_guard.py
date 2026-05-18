@@ -34,8 +34,32 @@ _CATEGORIES_RE = re.compile(r"categories=(\[[^\]]*\])")
 _LEFT_TO_RIGHT_RE = re.compile(r"left_to_right=(\[[^\]]*\])")
 _BOXES_2D_RE = re.compile(r"boxes_2d=({[^}]*})")
 _FRAME_CITATION_RE = re.compile(r"\bframe(?:[_\s-]?id)?[_\s-]*(\d+)\b", re.I)
+_FRAME_RANGE_RE = re.compile(r"\bframes?\s+(\d+)\s*[-\u2013]\s*(\d+)\b", re.I)
+_FRAMES_LIST_RE = re.compile(
+    r"\bframes?\s+((?:\d+\s*(?:,|\band\b|&)?\s*){1,20})",
+    re.I,
+)
 _LEFT_RELATION_RE = re.compile(r"\b(?:to\s+the\s+)?left\s+of\b|\bleft-hand\b", re.I)
 _RIGHT_RELATION_RE = re.compile(r"\b(?:to\s+the\s+)?right\s+of\b|\bright-hand\b", re.I)
+_LEFT_TARGET_SIDE_RE = re.compile(
+    r"\b(?:on|at|to)\s+the\s+(?:far\s+)?left\b"
+    r"|\b(?:left|leftmost)\s+(?:one|table|object|candidate|proposal)\b"
+    r"|\b(?:upper|lower|front|back|rear)\s+left\b",
+    re.I,
+)
+_RIGHT_TARGET_SIDE_RE = re.compile(
+    r"\b(?:on|at|to)\s+the\s+(?:far\s+)?right\b"
+    r"|\b(?:right|rightmost)\s+(?:one|table|object|candidate|proposal)\b"
+    r"|\b(?:upper|lower|front|back|rear)\s+right\b",
+    re.I,
+)
+_ALTERNATIVE_DIRECTION_RE = re.compile(
+    r"\b(?:left|right)(?:-hand)?\s+(?:alternative|candidate|option|proposal)\b"
+    r"|\bproposal\s+\d+\b[^.?!]{0,80}"
+    r"\b(?:is|as|being)\s+(?:the\s+)?(?:left|right)(?:-hand)?\s+"
+    r"(?:alternative|candidate|option|proposal)\b",
+    re.I,
+)
 _ANCHOR_RELATIVE_TO_TARGET_PATTERNS = {
     "left": re.compile(
         r"\b(?:with|has|having|includes?|including|and)\b[^.?!]{0,120}"
@@ -175,23 +199,52 @@ def _viewed_frame_map(runtime: Any) -> dict[int, dict[str, Any]]:
     return frames
 
 
+def _append_frame_id(frame_ids: list[int], value: Any) -> None:
+    if isinstance(value, bool):
+        return
+    try:
+        frame_id = int(value)
+    except (TypeError, ValueError):
+        return
+    if frame_id < 0:
+        return
+    if frame_id not in frame_ids:
+        frame_ids.append(frame_id)
+
+
 def _cited_frame_ids(rationale: str, evidence_refs: list[dict] | None) -> list[int]:
+    text = rationale or ""
     frame_ids: list[int] = []
-    for match in _FRAME_CITATION_RE.finditer(rationale or ""):
+    consumed_spans: list[tuple[int, int]] = []
+
+    for match in _FRAME_RANGE_RE.finditer(text):
         try:
-            frame_id = int(match.group(1))
+            start = int(match.group(1))
+            end = int(match.group(2))
         except ValueError:
             continue
-        if frame_id not in frame_ids:
-            frame_ids.append(frame_id)
+        step = 1 if start <= end else -1
+        for frame_id in range(start, end + step, step):
+            _append_frame_id(frame_ids, frame_id)
+        consumed_spans.append(match.span())
+
+    for match in _FRAMES_LIST_RE.finditer(text):
+        if any(start <= match.start() < end for start, end in consumed_spans):
+            continue
+        for raw_id in re.findall(r"\d+", match.group(1)):
+            _append_frame_id(frame_ids, raw_id)
+        consumed_spans.append(match.span())
+
+    for match in _FRAME_CITATION_RE.finditer(text):
+        if any(start <= match.start() < end for start, end in consumed_spans):
+            continue
+        _append_frame_id(frame_ids, match.group(1))
 
     for ref in evidence_refs or []:
         if not isinstance(ref, dict):
             continue
         for key in ("frame_id", "frame"):
-            value = ref.get(key)
-            if isinstance(value, int) and value not in frame_ids:
-                frame_ids.append(value)
+            _append_frame_id(frame_ids, ref.get(key))
     return frame_ids
 
 
@@ -204,15 +257,26 @@ def _desired_relative_direction(runtime: Any, rationale: str) -> str | None:
     query = str(getattr(bundle, "stage1_query", "") or "")
     if _anchor_relative_to_target_direction(query) is not None:
         return None
-    if _anchor_relative_to_target_direction(rationale or "") is not None:
+    query_direction = _direction_from_text(query)
+    if query_direction is not None:
+        return query_direction
+    rationale_text = rationale or ""
+    if _anchor_relative_to_target_direction(rationale_text) is not None:
         return None
-    if _LEFT_RELATION_RE.search(query):
+    if _ALTERNATIVE_DIRECTION_RE.search(rationale_text):
+        return None
+    return _direction_from_text(rationale_text)
+
+
+def _direction_from_text(text: str) -> str | None:
+    text = text or ""
+    if _LEFT_TARGET_SIDE_RE.search(text):
         return "left"
-    if _RIGHT_RELATION_RE.search(query):
+    if _RIGHT_TARGET_SIDE_RE.search(text):
         return "right"
-    if _LEFT_RELATION_RE.search(rationale or ""):
+    if _LEFT_RELATION_RE.search(text):
         return "left"
-    if _RIGHT_RELATION_RE.search(rationale or ""):
+    if _RIGHT_RELATION_RE.search(text):
         return "right"
     return None
 

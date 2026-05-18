@@ -608,3 +608,82 @@ def test_evidence_frame_guard_rejects_plain_rgb_only_evidence(tmp_path: Path) ->
     assert rs.final_submission is None
     submit_records = [t for t in rs.tool_trace if t.tool_name == "submit_final"]
     assert submit_records[0].tool_input["evidence_frame_guard_blocked"] is True
+
+
+def test_evidence_frame_guard_query_right_one_beats_contrastive_rationale_left(
+    tmp_path: Path,
+) -> None:
+    _register_vg_stub_pack(tmp_path)
+    rs = Stage2RuntimeState(
+        bundle=Stage2EvidenceBundle(
+            stage1_query="When facing the two tables choose the one on the right."
+        )
+    )
+    rs.task_type = Stage2TaskType.VISUAL_GROUNDING
+    rs.use_evidence_frame_guard = True
+    _record_view(
+        rs,
+        frame_id=8,
+        visible_ids=[16, 17],
+        categories=["table", "table"],
+        left_to_right=["16:table@x=200.0", "17:table@x=500.0"],
+        boxes_2d={16: [100, 200, 300, 650], 17: [400, 200, 620, 650]},
+    )
+    _, _, submit_final = build_chassis_tools(rs)
+
+    response = submit_final.invoke(
+        {
+            "payload": {"proposal_id": 17, "confidence": 0.7},
+            "rationale": (
+                "Frame 8 shows proposal 17 as the right table; proposal 16 is "
+                "the left-hand alternative."
+            ),
+            "evidence_refs": [],
+        }
+    )
+
+    assert response.startswith("submitted;")
+
+
+def test_evidence_frame_guard_parses_plural_frame_citations(tmp_path: Path) -> None:
+    _register_vg_stub_pack(tmp_path)
+    rs = _runtime()
+    rs.use_evidence_frame_guard = True
+    _record_view(rs, frame_id=0, visible_ids=[23], categories=["trash can"])
+    _record_view(rs, frame_id=1, visible_ids=[27], categories=["trash can"])
+    _, _, submit_final = build_chassis_tools(rs)
+
+    response = submit_final.invoke(
+        {
+            "payload": {"proposal_id": 27, "confidence": 0.7},
+            "rationale": "Frames 0, 1, and 2 show proposal 27 by the outlet.",
+            "evidence_refs": [],
+        }
+    )
+
+    assert response.startswith("submitted;")
+    submit_records = [t for t in rs.tool_trace if t.tool_name == "submit_final"]
+    assert submit_records[0].tool_input["evidence_frame_guard_cited_frame_ids"] == [
+        0,
+        1,
+    ]
+
+
+def test_evidence_frame_guard_parses_frame_range_without_marked_evidence(
+    tmp_path: Path,
+) -> None:
+    _register_vg_stub_pack(tmp_path)
+    rs = _runtime()
+    rs.use_evidence_frame_guard = True
+    _, _, submit_final = build_chassis_tools(rs)
+
+    response = submit_final.invoke(
+        {
+            "payload": {"proposal_id": 27, "confidence": 0.7},
+            "rationale": "Frames 0-2 show the final object.",
+            "evidence_refs": [],
+        }
+    )
+
+    assert response.startswith("EVIDENCE_FRAME_GUARD:")
+    assert "0, 1, 2" in response
