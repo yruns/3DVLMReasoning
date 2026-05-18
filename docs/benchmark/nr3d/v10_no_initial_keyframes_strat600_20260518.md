@@ -2308,3 +2308,96 @@ recoveries and four regressions versus `1d3b02d`, so this should remain a
 targeted correctness patch. The next larger opportunity from the 15-case audit
 is still candidate/support co-visibility and symmetric same-category candidate
 coverage before final.
+
+### Superlative anchor-coverage probe: c55c5df / 71510a0
+
+Three read-only subagents audited 15 failed cases from the `a6f6077`
+strat600 base. The recurring no-GT pattern was incomplete constraint coverage:
+multi-anchor superlatives used only one door/bed/whiteboard, same-category
+low-visibility candidates were skipped, and viewpoint-relative left/right was
+treated as arbitrary screen order.
+
+The narrow code patch in `c55c5df` extends TADG's existing ambiguous-anchor
+check from left/right to `closest_to` and `farthest_from`. If the agent has a
+small same-category anchor lookup and compares the target set against only one
+anchor, TADG now asks it to compare the remaining anchors before finalizing.
+The probe was launched at `71510a0`, which only adds the durable 15-case sample
+file; there was no worktree drift from the run-time code.
+
+Run metadata:
+
+| Field | Value |
+|---|---|
+| Branch | `feat/remove-initial-keyframes` |
+| Head commit at launch | `71510a0` |
+| Run-time code commit | `71510a0` (`c55c5df` is the code patch; `71510a0` adds the probe slice) |
+| Probe IDs | `docs/benchmark/nr3d/assets/v10_superlative_anchor15_sample_ids_20260519.json` |
+| Output dir | `tmp/nr3d_eval_v10_superlative_anchor15_20260519_71510a0/` |
+| Run log | `/tmp/nr3d_superlative_anchor15_71510a0.log` |
+| SQLite run id | `v10_superlative_anchor15_20260519` |
+| Workers | 15 |
+| Sample retries | 0 |
+| Guards | TADG + no-match + evidence-frame |
+
+Artifact checksums:
+
+| Artifact | MD5 |
+|---|---|
+| `side_by_side.json` | `c138b18e123487541fd2de61cf6033b8` |
+| `leaderboard_metrics.json` | `8eeefca83e4150bf9e8df5f40a12c43a` |
+
+Representative command:
+
+```bash
+tmux new-session -d -s nr3d-anchor15-71510a0 \
+  "cd /Users/bytedance/project/3DVLMReasoning && bash -lc 'set -euo pipefail; \
+   export PYTHONPATH=src PYTHONUNBUFFERED=1; \
+   .venv/bin/python -m evaluation.scripts.run_nr3d_vg_side_by_side \
+     --sample-ids docs/benchmark/nr3d/assets/v10_superlative_anchor15_sample_ids_20260519.json \
+     --data-root data/nr3d/scannet \
+     --pack-name pack_nr3d_v9_catalog_first \
+     --output-dir tmp/nr3d_eval_v10_superlative_anchor15_20260519_71510a0 \
+     --workers 15 \
+     --sample-retries 0 \
+     --use-tool-answer-disagreement-gate \
+     --use-no-match-candidate-guard \
+     --use-evidence-frame-guard \
+     2>&1 | tee /tmp/nr3d_superlative_anchor15_71510a0.log; \
+   .venv/bin/python -m evaluation.scripts.nr3d_leaderboard_metrics \
+     --side-by-side tmp/nr3d_eval_v10_superlative_anchor15_20260519_71510a0/side_by_side.json \
+     --nr3d-data-root data/nr3d \
+     --phase8-data-root data/nr3d/scannet \
+     --sample-ids docs/benchmark/nr3d/assets/v10_superlative_anchor15_sample_ids_20260519.json \
+     --output tmp/nr3d_eval_v10_superlative_anchor15_20260519_71510a0/leaderboard_metrics.json \
+     --canonical-filter true \
+     2>&1 | tee -a /tmp/nr3d_superlative_anchor15_71510a0.log'"
+
+PYTHONPATH=src .venv/bin/python scripts/ingest_nr3d_run.py \
+  --output-dir tmp/nr3d_eval_v10_superlative_anchor15_20260519_71510a0 \
+  --run-id v10_superlative_anchor15_20260519 \
+  --branch feat/remove-initial-keyframes \
+  --commit 71510a0 \
+  --backend pack_v1 \
+  --leaderboard-metrics tmp/nr3d_eval_v10_superlative_anchor15_20260519_71510a0/leaderboard_metrics.json \
+  --notes "Diagnostic 15-case probe after TADG ambiguous-anchor coverage extension to closest/farthest. Completed 15/15 with 5/15 correct; trace shows scene0222 compared both doors but accepted a farthest_from rank-mismatch override, so next target is stricter superlative override handling." \
+  --db docs/benchmark/nr3d/runs.sqlite
+```
+
+Probe metrics:
+
+| Overall | Easy | Hard | V-Dep | V-Ind | Statuses |
+|---:|---:|---:|---:|---:|---|
+| 33.33 | 20.00 | 40.00 | 22.22 | 50.00 | 14 completed, 1 failed |
+
+Correct cases: `scene0574_00::25::14751`,
+`scene0616_00::7::34453`, `scene0025_00::18::35283`,
+`scene0338_00::21::35740`, `scene0187_00::13::24038`.
+
+Trace reading: the new ambiguous-anchor unit contract is correct, but the live
+`scene0222_00::20::39339` trace had already compared both door anchors before
+finalization. The remaining live failure is stricter: latest
+`compare_proposals_spatial(anchor_id=24, relation='farthest_from')` ranked
+`#20` over `#19`, but TADG accepted an override and finaled wrong `#19`. The
+next patch should target superlative rank-mismatch override handling, while
+leaving visual-attribute overrides possible when the agent binds the correct
+relation evidence.
