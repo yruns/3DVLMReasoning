@@ -1352,3 +1352,108 @@ It is not enough for topology, anchor-subtype grounding, or large row/ordinal
 sets. The next practical tool-level targets are a small-set ordinal comparator
 (`top/bottom/second`) and a relation helper for group/anchor semantics such as
 `closest_to_group`, `opposite_side_of_group`, and facing-normalized side.
+
+### Rationale/payload consistency probe: be3c4fc
+
+This probe follows the 25-case topology / relation audit. One audited failure
+(`scannet/scene0678_00::21::1134`) had enough no-GT evidence and the final
+rationale explicitly selected `#21`, but the structured payload still submitted
+`proposal_id=31`. Commit `be3c4fc` adds a no-GT submit-time consistency guard:
+if the final rationale rules out the submitted proposal or names a different
+final proposal id, `submit_final` soft-blocks instead of accepting the stale
+payload. The guard reads only `payload.proposal_id` and the agent-written
+`rationale`; it does not inspect target ids, GT bboxes, target visibility, or
+metrics.
+
+Run metadata:
+
+| Item | Value |
+|---|---|
+| Branch | `feat/remove-initial-keyframes` |
+| Head commit at launch | `be3c4fc` |
+| Run-time code commit | `be3c4fc` - no worktree drift |
+| Probe IDs used at run time | `tmp/nr3d_artifacts/v10_rationale_payload_probe3_sample_ids_20260519.json` |
+| Durable probe IDs | `docs/benchmark/nr3d/assets/v10_rationale_payload_probe3_sample_ids_20260519.json` |
+| Durable probe IDs MD5 | `4ef53f60e189403c1d66d718534d8e60` |
+| Output dir | `tmp/nr3d_eval_v10_rationale_payload_probe3_20260519_be3c4fc/` |
+| Run log | `/tmp/nr3d_rationale_payload_probe3_be3c4fc.log` |
+| Side-by-side JSON | `tmp/nr3d_eval_v10_rationale_payload_probe3_20260519_be3c4fc/side_by_side.json` |
+| Side-by-side MD5 | `1e821cb1f03df277ac6c12b4290c818d` |
+| Leaderboard metrics | `tmp/nr3d_eval_v10_rationale_payload_probe3_20260519_be3c4fc/leaderboard_metrics.json` |
+| Leaderboard metrics MD5 | `0f54b85ed95ed079316a81e0abc90851` |
+| SQLite run id | `v10_rationale_payload_probe3_20260519` |
+| Workers | 3 |
+| Sample retries | 0 |
+| Guards | TADG + no-match + evidence-frame + rationale/payload |
+
+Commands:
+
+```bash
+tmux new-session -d -s nr3d-rpg-probe3-be3c4fc \
+  "cd /Users/bytedance/project/3DVLMReasoning && bash -lc 'set -euo pipefail; \
+   export PYTHONPATH=src PYTHONUNBUFFERED=1; \
+   .venv/bin/python -m evaluation.scripts.run_nr3d_vg_side_by_side \
+     --sample-ids tmp/nr3d_artifacts/v10_rationale_payload_probe3_sample_ids_20260519.json \
+     --data-root data/nr3d/scannet \
+     --pack-name pack_nr3d_v9_catalog_first \
+     --output-dir tmp/nr3d_eval_v10_rationale_payload_probe3_20260519_be3c4fc \
+     --workers 3 \
+     --sample-retries 0 \
+     --use-tool-answer-disagreement-gate \
+     --use-no-match-candidate-guard \
+     --use-evidence-frame-guard \
+     2>&1 | tee /tmp/nr3d_rationale_payload_probe3_be3c4fc.log; \
+   .venv/bin/python -m evaluation.scripts.nr3d_leaderboard_metrics \
+     --side-by-side tmp/nr3d_eval_v10_rationale_payload_probe3_20260519_be3c4fc/side_by_side.json \
+     --nr3d-data-root data/nr3d \
+     --phase8-data-root data/nr3d/scannet \
+     --sample-ids tmp/nr3d_artifacts/v10_rationale_payload_probe3_sample_ids_20260519.json \
+     --output tmp/nr3d_eval_v10_rationale_payload_probe3_20260519_be3c4fc/leaderboard_metrics.json \
+     --canonical-filter true \
+     2>&1 | tee -a /tmp/nr3d_rationale_payload_probe3_be3c4fc.log'"
+
+PYTHONPATH=src .venv/bin/python scripts/ingest_nr3d_run.py \
+  --output-dir tmp/nr3d_eval_v10_rationale_payload_probe3_20260519_be3c4fc \
+  --run-id v10_rationale_payload_probe3_20260519 \
+  --branch feat/remove-initial-keyframes \
+  --commit be3c4fc \
+  --backend pack_v1 \
+  --leaderboard-metrics tmp/nr3d_eval_v10_rationale_payload_probe3_20260519_be3c4fc/leaderboard_metrics.json \
+  --notes "Diagnostic 3-case probe for rationale/payload consistency guard; sample ids from prior strat600 stale-payload offline scan." \
+  --db docs/benchmark/nr3d/runs.sqlite
+```
+
+Probe stability:
+
+- 3 / 3 samples completed.
+- 0 Tracebacks / logged Exceptions in the run log.
+- Offline scan over the previous `a6f6077` strat600 `submit_final` traces found
+  3 / 600 payload/rationale contradictions after false-positive tightening.
+- In this live probe the guard did not need to fire: the model submitted
+  self-consistent payloads on all three cases. This run therefore validates
+  integration and outcome, while the unit tests and offline scan validate the
+  stale-payload block path directly.
+
+Probe metrics:
+
+| Metric | Value |
+|---|---:|
+| n | 3 |
+| classification_acc_filtered | 66.67 |
+| Easy | 50.00 |
+| Hard | 100.00 |
+| V-Dep | 0.00 |
+| V-Indep | 100.00 |
+
+Case outcomes vs `v10_no_gt_fixes_strat600_20260519`:
+
+| Sample | a6f6077 selected | be3c4fc selected | Reading |
+|---|---:|---:|---|
+| `scannet/scene0678_00::21::1134` | 31 | 21 | Recovered. The old trace would now be blocked because the rationale ruled out `#31` and selected `#21`; the live run directly submitted `#21`. |
+| `scannet/scene0222_00::20::35738` | 19 | 20 | Recovered. The old trace would now be blocked because the rationale named final `#20` while payload stayed `#19`; the live run directly submitted `#20`. |
+| `scannet/scene0663_00::6::33306` | 33 | 33 | Still wrong. The old trace would now be blocked when it argues for absent / no-match while payload stays `#33`, but the live run is self-consistent and still prefers the plain chair over office chair `#6`; this needs category-alias / anchor-relation work, not a stale-payload guard. |
+
+Reading: diagnostic only. The guard is a low-blast-radius no-GT correctness
+check for stale structured payloads. It can recover cases only when the agent
+has already reasoned to the right id in prose but failed to update the payload.
+It does not solve topology, category aliasing, or anchor-relation ambiguity.

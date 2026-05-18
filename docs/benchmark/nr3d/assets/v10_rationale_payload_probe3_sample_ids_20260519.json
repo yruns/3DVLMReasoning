@@ -1,0 +1,26 @@
+[
+  {
+    "sample_id": "scannet/scene0678_00::21::1134",
+    "scene_id": "scene0678_00",
+    "target_id": 21,
+    "category": "door",
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0663_00::6::33306",
+    "scene_id": "scene0663_00",
+    "target_id": 6,
+    "category": "office chair",
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0222_00::20::35738",
+    "scene_id": "scene0222_00",
+    "target_id": 20,
+    "category": "pillow",
+    "is_easy": true,
+    "is_view_dep": false
+  }
+]
