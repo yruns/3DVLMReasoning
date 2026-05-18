@@ -170,12 +170,23 @@ def test_target_category_guard_passes_missing_proposal_id() -> None:
 def test_target_category_guard_passes_non_int_proposal_id() -> None:
     rs = _runtime("Choose the pillow.")
 
-    decision = evaluate_target_category_guard(rs, {"proposal_id": "46"})
+    decision = evaluate_target_category_guard(rs, {"proposal_id": "not-a-pid"})
 
     assert decision.blocked is False
     assert decision.submitted_pid is None
     assert decision.expected_category is None
     assert decision.submitted_category is None
+
+
+def test_target_category_guard_blocks_numeric_string_wrong_category() -> None:
+    rs = _runtime("Choose the pillow.")
+
+    decision = evaluate_target_category_guard(rs, {"proposal_id": "8"})
+
+    assert decision.blocked is True
+    assert decision.submitted_pid == 8
+    assert decision.expected_category == "pillow"
+    assert decision.submitted_category == "bed"
 
 
 def test_target_category_guard_passes_negative_one_proposal_id() -> None:
@@ -204,6 +215,15 @@ def test_target_category_guard_passes_ambiguous_head() -> None:
     rs = _runtime("It is the one on the left.")
 
     decision = evaluate_target_category_guard(rs, {"proposal_id": 8})
+
+    assert decision.blocked is False
+    assert decision.expected_category is None
+
+
+def test_target_category_guard_passes_anchor_only_category_mention() -> None:
+    rs = _runtime("the one next to the bed")
+
+    decision = evaluate_target_category_guard(rs, {"proposal_id": 6})
 
     assert decision.blocked is False
     assert decision.expected_category is None
@@ -306,3 +326,23 @@ def test_submit_final_already_submitted_records_neutral_target_category_fields(
     finally:
         PACKS.clear()
         PACKS.update(previous_packs)
+
+
+def test_submit_final_target_category_block_records_neutral_later_guard_fields() -> None:
+    rs = _runtime("Choose the pillow.")
+    _, _, submit_final = build_chassis_tools(rs)
+
+    response = submit_final.invoke(
+        {
+            "payload": {"proposal_id": 8},
+            "rationale": "wrong category",
+            "evidence_refs": [],
+        }
+    )
+
+    submit_record = rs.tool_trace[-1]
+    assert response.startswith("TARGET_CATEGORY_GUARD")
+    assert submit_record.tool_input["target_category_guard_blocked"] is True
+    assert submit_record.tool_input["tadg_blocked"] is False
+    assert submit_record.tool_input["no_match_guard_blocked"] is False
+    assert submit_record.tool_input["evidence_frame_guard_blocked"] is False

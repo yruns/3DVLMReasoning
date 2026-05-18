@@ -13,15 +13,17 @@ from langchain_core.tools import BaseTool, tool
 from pydantic import ValidationError
 
 from agents.skills.evidence_frame_guard import (
+    EvidenceFrameGuardDecision,
     evaluate_evidence_frame_guard,
     evidence_frame_guard_record_fields,
 )
 from agents.skills.no_match_guard import (
+    NoMatchGuardDecision,
     evaluate_no_match_guard,
     no_match_guard_record_fields,
 )
 from agents.skills.registry import PACKS, skills_for
-from agents.skills.tadg import evaluate_tadg, tadg_record_fields
+from agents.skills.tadg import TADGDecision, evaluate_tadg, tadg_record_fields
 from agents.skills.target_category_guard import (
     TargetCategoryDecision,
     evaluate_target_category_guard,
@@ -150,6 +152,11 @@ def build_chassis_tools(runtime: Any) -> tuple[BaseTool, BaseTool, BaseTool]:
                     "evidence_refs": evidence_refs or [],
                     "tool_override_reason": tool_override_reason,
                     **target_category_guard_record_fields(target_category_decision),
+                    **tadg_record_fields(TADGDecision(blocked=False)),
+                    **no_match_guard_record_fields(NoMatchGuardDecision(blocked=False)),
+                    **evidence_frame_guard_record_fields(
+                        EvidenceFrameGuardDecision(blocked=False)
+                    ),
                 },
                 target_category_decision.message,
             )

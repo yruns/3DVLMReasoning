@@ -29,7 +29,8 @@ _LABEL_ALIASES: dict[str, tuple[str, ...]] = {
     "trash can": ("trash can", "trashcan"),
 }
 _LEADING_HEAD_RE = re.compile(
-    r"^\s*(?:the|a|an|this|that)\s+(?P<label>[a-z][a-z0-9]*(?:\s+[a-z][a-z0-9]*){0,2})\b",
+    r"^\s*(?:(?:it|this|that)\s+is\s+)?(?:the|a|an|this|that)?\s*"
+    r"(?P<label>[a-z][a-z0-9]*(?:\s+[a-z][a-z0-9]*){0,2})\b",
     re.I,
 )
 _WANT_HEAD_RE = re.compile(
@@ -47,6 +48,16 @@ def _payload_dict(payload: dict | Any) -> dict[str, Any]:
     if isinstance(inner, dict) and "proposal_id" in inner:
         return inner
     return payload
+
+
+def _proposal_id(value: Any) -> int | None:
+    if type(value) is int:
+        return value
+    if isinstance(value, str):
+        text = value.strip()
+        if re.fullmatch(r"-?\d+", text):
+            return int(text)
+    return None
 
 
 def _compact(value: str) -> str:
@@ -208,8 +219,7 @@ def _head_category_from_query(query: str, categories: list[str]) -> str | None:
     if unique_heads:
         return unique_heads[0] if len(unique_heads) == 1 else None
 
-    mentioned = _mentioned_categories(query, categories)
-    return mentioned[0] if len(mentioned) == 1 else None
+    return None
 
 
 def _expected_category(runtime: Any) -> str | None:
@@ -249,8 +259,8 @@ def evaluate_target_category_guard(
     if not _is_visual_grounding(runtime):
         return TargetCategoryDecision(blocked=False)
 
-    submitted_pid = _payload_dict(payload).get("proposal_id")
-    if not isinstance(submitted_pid, int) or submitted_pid == -1:
+    submitted_pid = _proposal_id(_payload_dict(payload).get("proposal_id"))
+    if submitted_pid is None or submitted_pid == -1:
         return TargetCategoryDecision(blocked=False)
 
     submitted_category = _proposal_category_map(runtime).get(submitted_pid)
