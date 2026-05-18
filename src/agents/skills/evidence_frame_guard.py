@@ -96,6 +96,16 @@ _LABEL_QUERY_ALIASES = {
     "bookshelf": ("bookshelf", "bookcase", "book case"),
     "whiteboard": ("whiteboard", "white board"),
 }
+_ROOM_SIDE_PATTERNS = {
+    "left": re.compile(r"\bleft\s+side\s+of\s+(?:the\s+)?room\b", re.I),
+    "right": re.compile(r"\bright\s+side\s+of\s+(?:the\s+)?room\b", re.I),
+}
+_PREPOSED_ANCHOR_SIDE_TEMPLATE = (
+    r"\bon\s+(?:the\s+)?[^.?!;,\n]{0,120}"
+    r"\b(?:desk|table|counter|bed|wall|cabinet|shelf|cluster)\b"
+    r"[^.?!;,\n]{0,60}\b(?:to\s+the\s+)?{direction}\b"
+    r"\s*[,;:]\s*(?:the|a|an)?\s*$"
+)
 
 
 def _payload_dict(payload: dict | Any) -> dict[str, Any]:
@@ -298,12 +308,26 @@ def _format_pairs(pairs: list[tuple[int, str]]) -> str:
     return ", ".join(f"{pid}:{label or '?'}" for pid, label in pairs[:20])
 
 
-def _desired_relative_direction(runtime: Any, rationale: str) -> str | None:
+def _desired_relative_direction(
+    runtime: Any,
+    rationale: str,
+    *,
+    submitted_label: str = "",
+) -> str | None:
     bundle = getattr(runtime, "bundle", None)
     query = str(getattr(bundle, "stage1_query", "") or "")
     if _anchor_relative_to_target_direction(query) is not None:
         return None
-    return _direction_from_text(query)
+    direction = _direction_from_text(query)
+    if direction is None:
+        return None
+    if submitted_label and _direction_is_context_scope(
+        query,
+        submitted_label=submitted_label,
+        direction=direction,
+    ):
+        return None
+    return direction
 
 
 def _direction_from_text(text: str) -> str | None:
@@ -317,6 +341,54 @@ def _direction_from_text(text: str) -> str | None:
     if _RIGHT_RELATION_RE.search(text):
         return "right"
     return None
+
+
+def _label_alias_pattern(alias: str) -> re.Pattern[str] | None:
+    alias_norm = " ".join(str(alias).lower().split())
+    if not alias_norm:
+        return None
+    parts = [re.escape(part) for part in alias_norm.split()]
+    parts[-1] += r"s?"
+    return re.compile(r"(?<![a-z0-9])" + r"\s+".join(parts) + r"(?![a-z0-9])", re.I)
+
+
+def _first_label_start(text: str, label: str) -> int | None:
+    label_norm = " ".join(str(label).lower().split())
+    aliases = _LABEL_QUERY_ALIASES.get(label_norm, (label_norm,))
+    starts: list[int] = []
+    for alias in aliases:
+        pattern = _label_alias_pattern(alias)
+        if pattern is None:
+            continue
+        match = pattern.search(text or "")
+        if match is not None:
+            starts.append(match.start())
+    return min(starts) if starts else None
+
+
+def _direction_is_context_scope(
+    query: str,
+    *,
+    submitted_label: str,
+    direction: str,
+) -> bool:
+    if _ROOM_SIDE_PATTERNS[direction].search(query or ""):
+        return True
+
+    target_start = _first_label_start(query, submitted_label)
+    if target_start is None:
+        return False
+    prefix = (query or "")[:target_start]
+    return bool(
+        re.search(
+            _PREPOSED_ANCHOR_SIDE_TEMPLATE.replace(
+                "{direction}",
+                re.escape(direction),
+            ),
+            prefix,
+            re.I,
+        )
+    )
 
 
 def _anchor_relative_to_target_direction(text: str) -> str | None:
@@ -724,7 +796,7 @@ def evaluate_evidence_frame_guard(
     )
     if spatial_compare is None:
         spatial_compare = _latest_spatial_compare_for_submission(runtime, submitted_pid)
-    direction = _desired_relative_direction(runtime, rationale)
+    direction: str | None = None
     for frame_id in cited_frame_ids:
         frame_data = frame_map.get(frame_id)
         if not frame_data:
@@ -735,6 +807,12 @@ def evaluate_evidence_frame_guard(
         if any(pid == submitted_pid for pid, _ in pairs):
             submitted_visible = True
             visible_ids = {pid for pid, _ in pairs}
+            submitted_label = dict(pairs).get(submitted_pid, "")
+            direction = _desired_relative_direction(
+                runtime,
+                rationale,
+                submitted_label=submitted_label,
+            )
             if spatial_compare is not None:
                 anchor_id = spatial_compare["anchor_id"]
                 if anchor_id in visible_ids:
@@ -757,7 +835,6 @@ def evaluate_evidence_frame_guard(
                 ]
             if not alternatives:
                 continue
-            submitted_label = dict(pairs).get(submitted_pid, "")
             alternatives = _filter_alternatives_to_target_label(
                 runtime,
                 submitted_label=submitted_label,

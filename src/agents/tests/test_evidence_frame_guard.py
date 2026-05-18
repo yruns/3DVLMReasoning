@@ -986,6 +986,112 @@ def test_evidence_frame_guard_does_not_override_closest_to_with_rationale_side(
     assert response.startswith("submitted;")
 
 
+def test_evidence_frame_guard_does_not_apply_anchor_left_phrase_before_target_head(
+    tmp_path: Path,
+) -> None:
+    _register_vg_stub_pack(tmp_path)
+    rs = Stage2RuntimeState(
+        bundle=Stage2EvidenceBundle(
+            stage1_query=(
+                "on the larger desk to the left, the monitor furthest from the door"
+            )
+        )
+    )
+    rs.task_type = Stage2TaskType.VISUAL_GROUNDING
+    rs.use_evidence_frame_guard = True
+    _record_category_candidates(rs, category="monitor", proposal_ids=[2, 26])
+    evidence_id = _record_spatial_compare(
+        rs,
+        candidate_ids=[2, 26],
+        anchor_id=7,
+        relation="farthest_from",
+        ranked_ids=[26, 2],
+    )
+    _record_view(
+        rs,
+        frame_id=0,
+        visible_ids=[2, 26, 10],
+        categories=["monitor", "monitor", "desk"],
+        left_to_right=[
+            "2:monitor@x=180.0",
+            "26:monitor@x=360.0",
+            "10:desk@x=520.0",
+        ],
+        boxes_2d={
+            2: [100, 220, 260, 540],
+            26: [290, 220, 430, 540],
+            10: [460, 320, 620, 700],
+        },
+    )
+    _, _, submit_final = build_chassis_tools(rs)
+
+    response = submit_final.invoke(
+        {
+            "payload": {"proposal_id": 26, "confidence": 0.74},
+            "rationale": (
+                "Frame 0 shows proposal 26 as the monitor on the larger left "
+                "desk cluster, and the spatial comparison ranks it furthest "
+                "from the door."
+            ),
+            "evidence_refs": [],
+            "relation_evidence": {"evidence_id": evidence_id},
+        }
+    )
+
+    assert response.startswith("submitted;")
+    assert rs.final_submission == {"answer": {"proposal_id": 26, "confidence": 0.74}}
+
+
+def test_evidence_frame_guard_does_not_treat_room_side_as_image_left(
+    tmp_path: Path,
+) -> None:
+    _register_vg_stub_pack(tmp_path)
+    rs = Stage2RuntimeState(
+        bundle=Stage2EvidenceBundle(
+            stage1_query=(
+                "The monitor you want is the one that is NOT closer to the "
+                "window, on the left side of the room. It is facing a pair "
+                "of desk chairs."
+            )
+        )
+    )
+    rs.task_type = Stage2TaskType.VISUAL_GROUNDING
+    rs.use_evidence_frame_guard = True
+    _record_category_candidates(rs, category="monitor", proposal_ids=[22, 23])
+    _record_view(
+        rs,
+        frame_id=12,
+        visible_ids=[23, 22, 10],
+        categories=["monitor", "monitor", "window"],
+        left_to_right=[
+            "23:monitor@x=240.0",
+            "22:monitor@x=430.0",
+            "10:window@x=620.0",
+        ],
+        boxes_2d={
+            23: [170, 230, 310, 520],
+            22: [360, 230, 500, 520],
+            10: [560, 60, 700, 400],
+        },
+    )
+    _, _, submit_final = build_chassis_tools(rs)
+
+    response = submit_final.invoke(
+        {
+            "payload": {"proposal_id": 22, "confidence": 0.71},
+            "rationale": (
+                "Frame 12 shows proposal 22 in the left-side room monitor "
+                "cluster facing the desk chairs; proposal 23 is the other "
+                "monitor in the marked frame."
+            ),
+            "evidence_refs": [],
+        }
+    )
+
+    assert response.startswith("submitted;")
+    assert rs.final_submission == {"answer": {"proposal_id": 22, "confidence": 0.71}}
+
+
 def test_direction_from_text_covers_plan_target_side_vocabulary() -> None:
     right_phrases = [
         "choose the right option",

@@ -356,10 +356,24 @@ def test_target_category_guard_blocks_wall_for_this_cart_query() -> None:
     assert decision.submitted_category == "wall"
 
 
-def test_target_category_guard_explicit_target_overrides_later_context() -> None:
+def test_target_category_guard_later_option_head_overrides_want_context() -> None:
     rs = _runtime(
         "Staring at both beds from their foot, you want the bed on the right. "
         "The pillow is the back right option."
+    )
+
+    decision = evaluate_target_category_guard(rs, {"proposal_id": 8})
+
+    assert decision.blocked is True
+    assert decision.expected_category == "pillow"
+    assert decision.submitted_category == "bed"
+
+
+def test_target_category_guard_later_context_description_does_not_override_want() -> None:
+    rs = _runtime_with_categories(
+        "Staring at both beds from their foot, you want the bed on the right. "
+        "The wall behind it is blue.",
+        [(8, "bed"), (10, "wall")],
     )
 
     decision = evaluate_target_category_guard(rs, {"proposal_id": 8})

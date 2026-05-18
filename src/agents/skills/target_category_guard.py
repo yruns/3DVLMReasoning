@@ -53,7 +53,7 @@ _LEADING_HEAD_RE = re.compile(
     re.I,
 )
 _WANT_HEAD_RE = re.compile(
-    r"\b(?:want|select|choose|pick|find|looking\s+for|refer(?:ring)?\s+to)\s+"
+    r"\b(?P<verb>want|select|choose|pick|find|looking\s+for|refer(?:ring)?\s+to)\s+"
     r"(?:the|a|an|this|that)?\s*"
     r"(?P<label>[a-z][a-z0-9]*(?:\s+[a-z][a-z0-9]*){0,2})\b",
     re.I,
@@ -97,6 +97,16 @@ _GENERIC_HEAD_RE = re.compile(
     r"\s+(?:is|are|was|were|looks?\s+like)\s+"
     r"(?:the|a|an|this|that)?\s*"
     r"(?P<label>[a-z][a-z0-9]*(?:\s+[a-z][a-z0-9]*){0,4})\b",
+    re.I,
+)
+_LATER_OPTION_HEAD_RE = re.compile(
+    r"^\s*(?:the|a|an|this|that)?\s*"
+    r"(?P<label>[a-z][a-z0-9]*(?:\s+[a-z][a-z0-9]*){0,2})\s+"
+    r"(?:is|are|was|were)\s+"
+    r"(?:the\s+)?"
+    r"(?:(?:back|front|left|right|upper|lower|top|bottom|middle|center|centre)"
+    r"(?:\s+(?:left|right|back|front|upper|lower|top|bottom|middle|center|centre))?"
+    r"\s+)?(?:option|choice|candidate|one)\b",
     re.I,
 )
 
@@ -274,6 +284,13 @@ def _generic_copular_category(clause: str, categories: list[str]) -> str | None:
     return None
 
 
+def _later_option_head_category(clause: str, categories: list[str]) -> str | None:
+    match = _LATER_OPTION_HEAD_RE.search(clause)
+    if match is None:
+        return None
+    return _match_label_to_category(match.group("label"), categories)
+
+
 def _leading_label_from_clause(clause: str) -> str | None:
     text = " ".join(str(clause).lower().split())
     if not text:
@@ -320,15 +337,30 @@ def _head_category_from_query(query: str, categories: list[str]) -> str | None:
 
     clauses = _split_clauses(query)
     explicit_found = False
-    explicit_candidates: list[str] = []
-    for clause in clauses:
+    explicit_matches: list[tuple[str, str, int]] = []
+    for clause_index, clause in enumerate(clauses):
         for target in _WANT_HEAD_RE.finditer(clause):
             explicit_found = True
             category = _match_label_to_category(target.group("label"), categories)
             if category is not None:
-                explicit_candidates.append(category)
+                explicit_matches.append(
+                    (category, " ".join(target.group("verb").lower().split()), clause_index)
+                )
 
     if explicit_found:
+        later_option_candidates: list[str] = []
+        for _, verb, clause_index in explicit_matches:
+            if verb != "want":
+                continue
+            for later_clause in clauses[clause_index + 1 :]:
+                category = _later_option_head_category(later_clause, categories)
+                if category is not None:
+                    later_option_candidates.append(category)
+        unique_later_options = _unique(later_option_candidates)
+        if unique_later_options:
+            return unique_later_options[0] if len(unique_later_options) == 1 else None
+
+        explicit_candidates = [category for category, _, _ in explicit_matches]
         unique_explicit = _unique(explicit_candidates)
         if unique_explicit:
             return unique_explicit[0] if len(unique_explicit) == 1 else None
