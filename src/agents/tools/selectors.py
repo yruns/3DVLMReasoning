@@ -123,10 +123,11 @@ def build_selector_tools(runtime: Any) -> list[BaseTool]:
 
         Detailed usage in 'scene-exploration-playbook'.
         """
+        hidden_in = list(hidden_categories or [])
         request = {
             "query": query,
             "k": int(k),
-            "hidden_categories": list(hidden_categories or []),
+            "hidden_categories": hidden_in,
         }
         gate = _gate(runtime)
         if gate is not None:
@@ -157,17 +158,42 @@ def build_selector_tools(runtime: Any) -> list[BaseTool]:
         k_in = int(k)
         capped = min(k_in, 3)
         k_warning = "" if k_in == capped else f" (k capped at 3 from {k_in})"
-        try:
-            result = selector.select_keyframes_v2(
+
+        def _select_with_hidden(hidden: list[str]) -> Any:
+            return selector.select_keyframes_v2(
                 query=str(query),
                 k=capped,
-                hidden_categories=list(hidden_categories or []),
+                hidden_categories=hidden,
                 use_visual_context=False,
             )
+
+        effective_hidden_categories = hidden_in
+        retry_metadata: dict[str, Any] | None = None
+        try:
+            result = _select_with_hidden(hidden_in)
         except Exception as exc:  # noqa: BLE001 — fail-loud
-            err = f"ERROR: Stage-1 parse/exec failed: {type(exc).__name__}: {exc}"
-            runtime.record("select_by_text", request, err)
-            return err
+            first_err = f"{type(exc).__name__}: {exc}"
+            if "Masked category leak detected" in str(exc) and hidden_in:
+                try:
+                    result = _select_with_hidden([])
+                except Exception as retry_exc:  # noqa: BLE001 — fail-loud
+                    retry_err = f"{type(retry_exc).__name__}: {retry_exc}"
+                    err = (
+                        "ERROR: Stage-1 parse/exec failed after masked-category "
+                        f"retry: first error: {first_err}; retry error: {retry_err}"
+                    )
+                    runtime.record("select_by_text", request, err)
+                    return err
+                effective_hidden_categories = []
+                retry_metadata = {
+                    "original_hidden_categories": hidden_in,
+                    "error": first_err,
+                    "retried_with_hidden_categories": [],
+                }
+            else:
+                err = f"ERROR: Stage-1 parse/exec failed: {first_err}"
+                runtime.record("select_by_text", request, err)
+                return err
 
         catalog = get_scene_catalog(runtime)
         frames: list[dict] = []
@@ -177,7 +203,7 @@ def build_selector_tools(runtime: Any) -> list[BaseTool]:
                 catalog,
                 int(fid),
                 selected_because=f"select_by_text(query={query!r}){k_warning}",
-                hidden_categories=list(hidden_categories or []),
+                hidden_categories=effective_hidden_categories,
             )
             image_path = _resolve_raw_rgb_path(catalog, int(fid))
             base["image_path"] = str(image_path) if image_path else None
@@ -204,6 +230,8 @@ def build_selector_tools(runtime: Any) -> list[BaseTool]:
                 f"target={root.get('category')!r} kind={first.get('kind', 'direct')}"
             )
         payload = {"hypothesis_summary": summary + k_warning, "frames": frames}
+        if retry_metadata is not None:
+            payload["masked_category_retry"] = retry_metadata
         text = json.dumps(payload, ensure_ascii=False)
         runtime.record("select_by_text", request, text)
         return text

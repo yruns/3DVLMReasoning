@@ -31,6 +31,31 @@ class _FakeTextFrameSelector:
         )
 
 
+class _LeakyThenOkTextFrameSelector:
+    def __init__(self, fids: list[int]) -> None:
+        self.calls: list[dict] = []
+        self._fids = list(fids)
+
+    def select_keyframes_v2(self, **kwargs):
+        self.calls.append(dict(kwargs))
+        hidden = list(kwargs.get("hidden_categories") or [])
+        if hidden:
+            raise ValueError("Masked category leak detected: 'wall'")
+        return SimpleNamespace(
+            keyframe_indices=list(self._fids),
+            metadata={
+                "hypothesis_output": {
+                    "hypotheses": [
+                        {
+                            "grounding_query": {"root": {"category": "picture"}},
+                            "kind": "direct",
+                        }
+                    ]
+                }
+            },
+        )
+
+
 def _runtime(tmp_path: Path, fids: list[int]) -> Stage2RuntimeState:
     bev_path = tmp_path / "bev.png"
     Image.new("RGB", (10, 10), (255, 255, 255)).save(bev_path)
@@ -223,3 +248,51 @@ def test_select_by_text_force_to_error_default_is_off(tmp_path: Path):
     """
     rs = _runtime(tmp_path, fids=[1])
     assert rs.force_stage1_text_retrieval_to_error is False
+
+
+def test_select_by_text_auto_retries_masked_category_leak_with_empty_mask(
+    tmp_path: Path,
+) -> None:
+    rs = _runtime(tmp_path, fids=[43, 49, 50])
+    selector = _LeakyThenOkTextFrameSelector([43, 49, 50])
+    rs.text_frame_selector = selector
+    tool = next(t for t in build_selector_tools(rs) if t.name == "select_by_text")
+
+    raw = tool.invoke(
+        {
+            "query": "The largest picture in the room.",
+            "hidden_categories": ["wall", "floor"],
+        }
+    )
+
+    payload = json.loads(raw)
+    assert payload["masked_category_retry"]["retried_with_hidden_categories"] == []
+    assert "Masked category leak detected" in payload["masked_category_retry"]["error"]
+    assert [call["hidden_categories"] for call in selector.calls] == [
+        ["wall", "floor"],
+        [],
+    ]
+    assert [call["query"] for call in selector.calls] == [
+        "The largest picture in the room.",
+        "The largest picture in the room.",
+    ]
+    assert [frame["frame_id"] for frame in payload["frames"]] == [43, 49, 50]
+
+
+def test_select_by_text_masked_retry_records_original_request(tmp_path: Path) -> None:
+    rs = _runtime(tmp_path, fids=[1])
+    selector = _LeakyThenOkTextFrameSelector([1])
+    rs.text_frame_selector = selector
+    recorded: list[tuple[str, dict, str]] = []
+    rs.record = lambda name, request, response: recorded.append(  # type: ignore[method-assign]
+        (name, request, response)
+    )
+
+    tool = next(t for t in build_selector_tools(rs) if t.name == "select_by_text")
+    raw = tool.invoke({"query": "picture on wall", "hidden_categories": ["wall"]})
+
+    assert len(recorded) == 1
+    assert recorded[0][0] == "select_by_text"
+    assert recorded[0][1]["hidden_categories"] == ["wall"]
+    payload = json.loads(raw)
+    assert payload["masked_category_retry"]["retried_with_hidden_categories"] == []
