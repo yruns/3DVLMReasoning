@@ -28,16 +28,24 @@ is genuinely absent from the catalog — OOD case).
    boxes around the named catalog entries; pixels confirm which proposal the
    referring expression matches.
 4. **Disambiguate spatial relations** with `compare_proposals_spatial(
-   candidate_ids=[…], anchor_id=#x, relation='left_of'|'right_of'|'closer_to'|…)`
+   candidate_ids=[…], anchor_id=#x, relation='left_of'|'right_of'|'closest_to'|…)`
    when the query involves a spatial relation.
+   Allowed canonical relation values are: `closest_to`, `near`, `next_to`,
+   `farthest_from`, `above`, `below`, `left_of`, `right_of`. Use
+   `closest_to` for "closer/nearest" phrasing and `farthest_from` for
+   "farther/furthest" phrasing. For unsupported relations like front/behind,
+   between, facing, across, or same-side, use marked frames / BEV evidence
+   instead of inventing a relation string.
 5. **Submit** with `submit_final(payload={"proposal_id": <id>}, …)`. The
    evidence-frame guard requires that at least one `mark_frame_with_bbox`
    call covered the submitted proposal id.
 
 ## Tools at a glance
 
-- `select_by_text(query, k=3, hidden_categories?)` — **first move**;
-  language → ≤3 RGB candidate frames.
+- `select_by_text(query, k=3)` — **first move**; language → ≤3 RGB
+  candidate frames. Omit `hidden_categories` for NR3D / VG unless the
+  benchmark explicitly masks the target category. Never hide support,
+  anchor, or context categories.
 - `select_by_proposal(proposal_ids, require_all=False, k=3)` — fetch
   frames containing specific catalog IDs.
 - `select_by_frame_neighbor(anchor_frame_id, mode='temporal'|'viewpoint_diverse')`.

@@ -66,6 +66,7 @@ def _record_compare(
     anchor_id: int,
     candidate_ids: list[int],
     ranked_ids: list[int],
+    payload_relation: str | None = None,
     supporting_frame_counts: list[int] | None = None,
     contradicting_frame_counts: list[int] | None = None,
 ) -> None:
@@ -76,7 +77,7 @@ def _record_compare(
     }
     payload = {
         "anchor_id": anchor_id,
-        "relation": relation,
+        "relation": payload_relation or relation,
         "ranked_ids": ranked_ids,
         "distances": [0.1 * (i + 1) for i in range(len(ranked_ids))],
     }
@@ -228,6 +229,71 @@ def test_tadg_blocks_anchor_self_pick() -> None:
     assert decision.blocked is True
     assert decision.subcase == "anchor_self"
     assert "anchor itself" in decision.message
+
+
+def test_tadg_anchor_self_block_requests_role_repair_not_forced_top1() -> None:
+    rs = _runtime(
+        bundle=_bundle_with_query(
+            "the cabinet left of the cabinet with two monitors"
+        )
+    )
+    _record_compare(
+        rs,
+        relation="left_of",
+        anchor_id=21,
+        candidate_ids=[0, 22, 32],
+        ranked_ids=[32, 0, 22],
+    )
+
+    decision = evaluate_tadg(rs, {"proposal_id": 21, "confidence": 0.72})
+
+    assert decision.blocked is True
+    assert decision.subcase == "anchor_self"
+    assert "target/anchor role" in decision.message
+    assert "rerun compare_proposals_spatial" in decision.message
+    assert "Revise to proposal 32" not in decision.message
+
+
+def test_tadg_matches_compare_relation_aliases() -> None:
+    rs = _runtime(bundle=_bundle_with_query("the chair closest to the desk"))
+    _record_compare(
+        rs,
+        relation="closer_to",
+        payload_relation="closest_to",
+        anchor_id=2,
+        candidate_ids=[0, 1],
+        ranked_ids=[1, 0],
+    )
+
+    decision = evaluate_tadg(rs, {"proposal_id": 0, "confidence": 0.72})
+
+    assert decision.blocked is True
+    assert decision.relation == "closest_to"
+    assert decision.top1_pid == 1
+
+
+@pytest.mark.parametrize(
+    ("query", "relation"),
+    [
+        ("the keyboard closer to the cabinets", "closest_to"),
+        ("the monitor furthest from the door", "farthest_from"),
+    ],
+)
+def test_tadg_matches_query_relation_aliases(query: str, relation: str) -> None:
+    rs = _runtime(bundle=_bundle_with_query(query))
+    _record_compare(
+        rs,
+        relation=relation,
+        anchor_id=2,
+        candidate_ids=[0, 1],
+        ranked_ids=[1, 0],
+    )
+
+    decision = evaluate_tadg(rs, {"proposal_id": 0, "confidence": 0.72})
+
+    assert decision.blocked is True
+    assert decision.relation == relation
+    assert decision.top1_pid == 1
 
 
 def test_tadg_silent_when_no_matching_relation() -> None:

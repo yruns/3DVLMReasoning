@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-
 from agents.core.agent_config import Stage2TaskType
 from agents.core.task_types import Stage2EvidenceBundle
 from agents.packs.vg_embodiedscan.ctx import (
@@ -180,6 +179,56 @@ def test_compare_proposals_spatial_farthest_from(tmp_path: Path) -> None:
         )
     )
     assert payload["ranked_ids"] == [0, 1]
+
+
+def test_compare_proposals_spatial_accepts_common_relation_aliases(
+    tmp_path: Path,
+) -> None:
+    rs = _runtime(tmp_path)
+    rs.skills_loaded.add("vg-grounding-playbook")
+    rs.task_ctx.proposals = [
+        Proposal(
+            id=0, bbox_3d_9dof=[0, 0, 0, 1, 1, 1, 0, 0, 0], category="chair", score=0.9
+        ),
+        Proposal(
+            id=1, bbox_3d_9dof=[5, 5, 5, 1, 1, 1, 0, 0, 0], category="chair", score=0.7
+        ),
+        Proposal(
+            id=2,
+            bbox_3d_9dof=[10, 10, 10, 1, 1, 1, 0, 0, 0],
+            category="desk",
+            score=0.8,
+        ),
+    ]
+    tool = next(t for t in build_vg_tools(rs) if t.name == "compare_proposals_spatial")
+
+    for alias in ("closer_to", "nearest_to", "nearest", "closest"):
+        payload = json.loads(
+            tool.invoke(
+                {
+                    "candidate_ids": [0, 1],
+                    "anchor_id": 2,
+                    "relation": alias,
+                }
+            )
+        )
+        assert payload["relation"] == "closest_to"
+        assert payload["requested_relation"] == alias
+        assert payload["ranked_ids"] == [1, 0]
+
+    for alias in ("farther_from", "further_from", "furthest_from", "furthest"):
+        payload = json.loads(
+            tool.invoke(
+                {
+                    "candidate_ids": [0, 1],
+                    "anchor_id": 2,
+                    "relation": alias,
+                }
+            )
+        )
+        assert payload["relation"] == "farthest_from"
+        assert payload["requested_relation"] == alias
+        assert payload["ranked_ids"] == [0, 1]
 
 
 def test_compare_proposals_spatial_above_uses_z_axis(tmp_path: Path) -> None:

@@ -5,7 +5,11 @@ from pathlib import Path
 import pytest
 
 _PB = Path(__file__).resolve().parents[1] / "vg_grounding_playbook.md"
+_PB_NO_TEXT = Path(__file__).resolve().parents[1] / "vg_grounding_playbook_no_text.md"
 _SD = Path(__file__).resolve().parents[1] / "vg_spatial_disambiguation.md"
+_SD_NO_TEXT = (
+    Path(__file__).resolve().parents[1] / "vg_spatial_disambiguation_no_text.md"
+)
 
 
 @pytest.mark.parametrize("path", [_PB, _SD])
@@ -63,3 +67,20 @@ def test_vg_spatial_disambiguation_uses_mark_frame_with_bbox():
     text = _SD.read_text()
     assert "mark_frame_with_bbox" in text
     assert "frame_id" in text
+
+
+@pytest.mark.parametrize("path", [_PB, _PB_NO_TEXT, _SD, _SD_NO_TEXT])
+def test_vg_playbooks_document_canonical_spatial_relations(path: Path):
+    text = path.read_text()
+    for relation in (
+        "closest_to",
+        "near",
+        "next_to",
+        "farthest_from",
+        "above",
+        "below",
+        "left_of",
+        "right_of",
+    ):
+        assert relation in text, f"{relation} missing from {path}"
+    assert "relation='left_of'|'right_of'|'closer_to'" not in text

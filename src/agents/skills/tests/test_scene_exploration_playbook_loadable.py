@@ -60,6 +60,14 @@ def test_playbook_says_first_move_is_select_by_text():
     assert body.lower().count("select_by_text") >= 2
 
 
+def test_playbook_warns_against_anchor_hidden_categories():
+    body = _PLAYBOOK_PATH.read_text()
+    assert "hidden_categories" in body
+    assert "Do not hide support/anchor/context categories" in body
+    assert "Masked category leak detected" in body
+    assert "hidden_categories=[]" in body
+
+
 def test_no_text_variant_exists_and_drops_select_by_text():
     """v9.2 catalog-first variant for the audit A/B test."""
     no_text_path = _PLAYBOOK_PATH.with_name("scene_exploration_playbook_no_text.md")

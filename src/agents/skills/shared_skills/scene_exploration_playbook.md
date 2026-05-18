@@ -13,6 +13,16 @@ can be cleanly parsed. The returned JSON lists each frame's
 `visible_proposal_ids` + camera pose so you can decide which of the
 ≤3 frames is worth a closer look.
 
+For NR3D / VG, call `select_by_text(query, k≤3)` without
+`hidden_categories` unless the benchmark explicitly says the **target**
+category must be hidden. Do not hide support/anchor/context categories
+such as wall, floor, door, bed, desk, or clock; Stage-1 validates the
+whole parsed expression, so masking anchors can raise `Masked category leak detected`
+and remove the very evidence needed to ground the target.
+If you hit that error, retry once with `hidden_categories=[]`, then fall
+back to catalog selectors. Keep target candidates and anchor candidates
+separate; do not mix them in one broad `require_all=False` selector call.
+
 **Audit-informed routing** (see `docs/benchmark/nr3d/v9_1_select_by_text_audit_20260516.md`):
 
 - **Use `select_by_text` first** when the target is rare (you don't see

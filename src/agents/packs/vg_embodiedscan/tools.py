@@ -11,6 +11,39 @@ from langchain_core.tools import BaseTool, tool
 
 PRIMARY_SKILL = "vg-grounding-playbook"
 CLIP_VISIBLE_OVERFLOW_K = 3
+SPATIAL_RELATIONS = (
+    "closest_to",
+    "near",
+    "next_to",
+    "farthest_from",
+    "above",
+    "below",
+    "left_of",
+    "right_of",
+)
+_SPATIAL_RELATION_ALIASES = {
+    "closer_to": "closest_to",
+    "closest": "closest_to",
+    "nearest": "closest_to",
+    "nearest_to": "closest_to",
+    "nearer_to": "closest_to",
+    "farther_from": "farthest_from",
+    "further_from": "farthest_from",
+    "furthest_from": "farthest_from",
+    "furthest": "farthest_from",
+    "farthest": "farthest_from",
+    "far_from": "farthest_from",
+    "near_to": "near",
+    "nearby": "near",
+    "beside": "next_to",
+    "adjacent": "next_to",
+    "adjacent_to": "next_to",
+}
+
+
+def _canonical_spatial_relation(relation: str) -> str:
+    norm = str(relation or "").strip().lower().replace("-", "_").replace(" ", "_")
+    return _SPATIAL_RELATION_ALIASES.get(norm, norm)
 
 
 def _gate(runtime: Any) -> str | None:
@@ -430,27 +463,24 @@ def build_vg_tools(runtime: Any) -> list[BaseTool]:
     ) -> str:
         """VG tool. Detailed usage in skill 'vg-grounding-playbook'."""
         gate = _gate(runtime)
+        requested_relation = str(relation or "")
+        normalized_requested_relation = (
+            requested_relation.strip().lower().replace("-", "_").replace(" ", "_")
+        )
+        relation = _canonical_spatial_relation(requested_relation)
         request = {
             "candidate_ids": candidate_ids,
             "anchor_id": anchor_id,
-            "relation": relation,
+            "relation": requested_relation,
         }
+        if relation != normalized_requested_relation:
+            request["canonical_relation"] = relation
         if gate is not None:
             runtime.record("compare_proposals_spatial", request, gate)
             return gate
-        allowed_relations = (
-            "closest_to",
-            "near",
-            "next_to",
-            "farthest_from",
-            "above",
-            "below",
-            "left_of",
-            "right_of",
-        )
-        if relation not in allowed_relations:
+        if relation not in SPATIAL_RELATIONS:
             err = f"ERROR: unsupported relation {relation!r}; allowed: " + " | ".join(
-                allowed_relations
+                SPATIAL_RELATIONS
             )
             runtime.record("compare_proposals_spatial", request, err)
             return err
@@ -530,6 +560,7 @@ def build_vg_tools(runtime: Any) -> list[BaseTool]:
         payload = {
             "anchor_id": anchor_id,
             "relation": relation,
+            "requested_relation": requested_relation,
             "ranked_ids": [pid for pid, _, _, _, _, _ in scored],
             "distances": [d for _, d, _, _, _, _ in scored],
             "horizontal_distances": [d for _, _, d, _, _, _ in scored],

@@ -115,6 +115,12 @@ def build_selector_tools(runtime: Any) -> list[BaseTool]:
         the same query with a larger `k`; switch to `select_by_proposal`
         / `select_by_region` on the candidate IDs visible in the BEV.
 
+        For NR3D/VG, omit `hidden_categories` by default. Do not hide
+        support/anchor/context categories such as wall, floor, door, bed,
+        or desk; Stage-1 validates the whole parsed expression, so masking
+        anchors can raise "Masked category leak detected" and remove useful
+        evidence. If that happens, retry once with `hidden_categories=[]`.
+
         Detailed usage in 'scene-exploration-playbook'.
         """
         request = {

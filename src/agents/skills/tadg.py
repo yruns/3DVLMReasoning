@@ -53,6 +53,8 @@ _TOOL_RELATION_ALIASES: dict[str, frozenset[str]] = {
         {
             "closest_to",
             "closest",
+            "closer_to",
+            "closer",
             "near",
             "nearest",
             "nearest_to",
@@ -97,6 +99,12 @@ _TOOL_RELATION_ALIASES: dict[str, frozenset[str]] = {
         {
             "farthest_from",
             "farthest",
+            "furthest_from",
+            "furthest",
+            "farther_from",
+            "farther",
+            "further_from",
+            "further",
             "far_from",
             "far",
         }
@@ -198,6 +206,31 @@ def _norm(token: str) -> str:
     return (token or "").strip().lower().replace(" ", "_")
 
 
+_COMPARE_RELATION_ALIASES = {
+    "closer_to": "closest_to",
+    "closest": "closest_to",
+    "nearest": "closest_to",
+    "nearest_to": "closest_to",
+    "nearer_to": "closest_to",
+    "farther_from": "farthest_from",
+    "further_from": "farthest_from",
+    "furthest_from": "farthest_from",
+    "furthest": "farthest_from",
+    "farthest": "farthest_from",
+    "far_from": "farthest_from",
+    "near_to": "near",
+    "nearby": "near",
+    "beside": "next_to",
+    "adjacent": "next_to",
+    "adjacent_to": "next_to",
+}
+
+
+def _canonical_compare_relation(token: str) -> str:
+    norm = _norm(str(token or "").replace("-", "_"))
+    return _COMPARE_RELATION_ALIASES.get(norm, norm)
+
+
 def _query_relation_set(runtime: Any) -> set[str]:
     """Return the set of *tool* relations the user's query asks about.
 
@@ -255,9 +288,7 @@ def _last_matching_compare(
         if name != "compare_proposals_spatial":
             continue
         tool_input = getattr(entry, "tool_input", {}) or {}
-        relation = _norm(tool_input.get("relation", ""))
-        if relation not in relevant_relations:
-            continue
+        requested_relation = _canonical_compare_relation(tool_input.get("relation", ""))
         response_text = getattr(entry, "response_text", "") or ""
         try:
             payload = json.loads(response_text)
@@ -268,6 +299,11 @@ def _last_matching_compare(
         if "ranked_ids" not in payload:
             # Earlier entries may be error strings (still recorded with
             # tool_name=compare_proposals_spatial); skip them.
+            continue
+        relation = _canonical_compare_relation(
+            payload.get("relation") or requested_relation
+        )
+        if relation not in relevant_relations:
             continue
         ranked = payload.get("ranked_ids") or []
         if not isinstance(ranked, list) or not ranked:
@@ -318,8 +354,22 @@ def _strict_override_rejection_message(
     anchor_id: int | None,
     ranked_ids: list[int],
     reason: str,
+    subcase: str = "",
 ) -> str:
     anchor_repr = f"proposal {anchor_id}" if anchor_id is not None else "(anchor=?)"
+    if subcase == "anchor_self":
+        return (
+            f"TADG_ROLE_ERROR: override rejected for relation {relation!r} "
+            f"against {anchor_repr}; submitted proposal {submitted_pid} is "
+            f"the anchor itself. This is a target/anchor role error, not a "
+            f"visual override. {reason}\n\n"
+            "rerun compare_proposals_spatial with candidate_ids containing "
+            "the target-category proposals and anchor_id set to the described "
+            "anchor proposal. If the anchor id was wrong, inspect/mark the "
+            "real anchor first. Do not revise solely to proposal "
+            f"{top1_pid}; only submit it if the corrected role comparison "
+            f"and marked evidence support it. ranked_ids={ranked_ids}."
+        )
     return (
         f"TADG_STRICT: override rejected for relation {relation!r} against "
         f"{anchor_repr}; proposal {top1_pid} is the relation-ranked target and "
@@ -377,7 +427,7 @@ def _ambiguous_anchor_gap(runtime: Any, compare: dict[str, Any]) -> str | None:
         if getattr(entry, "tool_name", None) != "compare_proposals_spatial":
             continue
         tool_input = getattr(entry, "tool_input", {}) or {}
-        if _norm(tool_input.get("relation", "")) != relation:
+        if _canonical_compare_relation(tool_input.get("relation", "")) != relation:
             continue
         if set(tool_input.get("candidate_ids") or []) != candidate_ids:
             continue
@@ -512,8 +562,21 @@ def _format_block_message(
     subcase: str,
 ) -> str:
     if subcase == "anchor_self":
-        extra = "the anchor itself — re-evaluate the spatial query"
-    elif subcase == "not_in_candidates":
+        anchor_repr = f"proposal {anchor_id}" if anchor_id is not None else "(anchor=?)"
+        return (
+            f"TADG_ROLE_ERROR: compare_proposals_spatial ranked proposal "
+            f"{top1_pid} as rank-1 for relation {relation!r} against "
+            f"{anchor_repr}; submitted proposal {submitted_pid} is the "
+            "anchor itself. This is a target/anchor role error, not a "
+            "rank override.\n\n"
+            "rerun compare_proposals_spatial with candidate_ids containing "
+            "the target-category proposals and anchor_id set to the described "
+            "anchor proposal. If the anchor id was wrong, inspect/mark the "
+            "real anchor first. Do not revise solely to proposal "
+            f"{top1_pid}; only submit it if the corrected role comparison "
+            f"and marked evidence support it. ranked_ids={ranked_ids}."
+        )
+    if subcase == "not_in_candidates":
         extra = "not in the spatial-tool's candidate set"
     else:
         extra = "ranked below position 1 in that call"
@@ -675,6 +738,7 @@ def evaluate_tadg(
                 anchor_id=anchor_id if isinstance(anchor_id, int) else None,
                 ranked_ids=ranked_ids,
                 reason=strict_reason,
+                subcase=subcase,
             )
             return TADGDecision(
                 blocked=True,
