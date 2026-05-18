@@ -210,3 +210,60 @@ Use this slice only as behavioral replay, not as a leaderboard claim. The file
 name keeps `audit40` because the audit was planned as 40 cases; the durable
 list contains 41 ids due to keeping positive recovery example
 `scene0699_00::26::40486` as a guardrail.
+
+### Hardening replay result: 8cae30d
+
+Follow-up guard/tool-flow hardening was replayed on the durable slice after
+commits through `8cae30d`:
+
+```bash
+PYTHONPATH=src .venv/bin/python -m evaluation.scripts.run_nr3d_vg_side_by_side \
+  --sample-ids docs/benchmark/nr3d/assets/v10_failed_case_audit40_sample_ids_20260518.json \
+  --data-root data/nr3d/scannet \
+  --pack-name pack_nr3d_v9_catalog_first \
+  --output-dir tmp/nr3d_eval_v10_hardening_audit40_8cae30d_w20 \
+  --workers 20 \
+  --sample-retries 2 \
+  --use-tool-answer-disagreement-gate \
+  --use-no-match-candidate-guard \
+  --use-evidence-frame-guard
+```
+
+Artifacts:
+
+- Side-by-side: `tmp/nr3d_eval_v10_hardening_audit40_8cae30d_w20/side_by_side.json`
+- Metrics: `tmp/nr3d_eval_v10_hardening_audit40_8cae30d_w20/leaderboard_audit40.json`
+- Console log: `/tmp/nr3d_v10_hardening_audit40_8cae30d_w20.log`
+
+Run stability:
+
+- 41 / 41 samples completed.
+- 0 `status=failed`.
+- 0 completed samples with missing `selected_object_id`.
+- 0 Tracebacks / logged Exceptions.
+- 0 ModelHub `retryable status=403` lines in this replay.
+
+Audit-slice metric, for sanity only:
+
+```text
+n_full=41 n_filtered=41
+classification_acc_filtered = 0.3171
+Easy   (n=13): 0.3077
+Hard   (n=28): 0.3214
+V-Dep  (n=26): 0.3077
+V-Ind  (n=15): 0.3333
+```
+
+Previously failed cases now terminate normally:
+
+| Sample | Final status | Selected | IoU | Note |
+|---|---:|---:|---:|---|
+| `scannet/scene0030_00::18::30641` | completed | 19 | 0.0000 | No longer blocked into no-match by wall-vs-shelf target parsing; still an ordinary metric miss. |
+| `scannet/scene0378_00::41::26109` | completed | 41 | 1.0000 | Nested relation case recovered after allowing same-category intermediate anchor evidence. |
+| `scannet/scene0496_00::29::10819` | completed | 12 | 0.0000 | No longer blocked into no-match by orientation phrase `wall of windows`; still an endpoint-ordering metric miss. |
+| `scannet/scene0565_00::23::30788` | completed | 22 | 0.1089 | No longer blocked into no-match by `green wall ... this cart`; still confuses the two cart candidates. |
+| `scannet/scene0629_00::14::17248` | completed | 14 | 1.0000 | `wall painting` target-category regression is fully recovered. |
+
+This replay validates run stability of the hardening changes, not an accuracy
+claim. Accuracy misses remain on this deliberately failure-heavy slice and
+should be treated as the next prompt/tool-flow improvement pool.
