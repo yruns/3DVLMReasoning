@@ -1,0 +1,17 @@
+[
+  {"sample_id": "scannet/scene0644_00::43::2885"},
+  {"sample_id": "scannet/scene0329_00::33::13927"},
+  {"sample_id": "scannet/scene0025_00::30::15602"},
+  {"sample_id": "scannet/scene0095_00::29::20881"},
+  {"sample_id": "scannet/scene0648_00::22::18216"},
+  {"sample_id": "scannet/scene0222_00::20::39339"},
+  {"sample_id": "scannet/scene0574_00::25::14751"},
+  {"sample_id": "scannet/scene0616_00::7::34453"},
+  {"sample_id": "scannet/scene0423_00::3::12539"},
+  {"sample_id": "scannet/scene0025_00::18::35283"},
+  {"sample_id": "scannet/scene0549_00::3::7602"},
+  {"sample_id": "scannet/scene0338_00::21::35740"},
+  {"sample_id": "scannet/scene0700_00::16::239"},
+  {"sample_id": "scannet/scene0187_00::13::24038"},
+  {"sample_id": "scannet/scene0494_00::3::5674"}
+]
