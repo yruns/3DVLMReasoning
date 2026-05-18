@@ -7,6 +7,9 @@ from agents.core.agent_config import Stage2TaskType
 from agents.core.task_types import Stage2EvidenceBundle
 from agents.packs.vg_embodiedscan.ctx import Proposal, VgEmbodiedScanCtx
 from agents.runtime.base import Stage2RuntimeState
+from agents.skills import FinalizerSpec, SkillSpec, TaskPack, register_pack
+from agents.skills.chassis_tools import build_chassis_tools
+from agents.skills.registry import PACKS
 from agents.skills.target_category_guard import evaluate_target_category_guard
 
 
@@ -145,3 +148,59 @@ def test_target_category_guard_reads_current_list_scene_proposals_shape() -> Non
     assert decision.blocked is True
     assert decision.expected_category == "whiteboard"
     assert decision.submitted_category == "chair"
+
+
+def test_submit_final_already_submitted_records_neutral_target_category_fields(
+    tmp_path: Path,
+) -> None:
+    previous_packs = dict(PACKS)
+    PACKS.clear()
+    try:
+        body = tmp_path / "vg_grounding_playbook.md"
+        body.write_text("# VG Grounding Playbook\n", encoding="utf-8")
+        register_pack(
+            TaskPack(
+                task_type=Stage2TaskType.VISUAL_GROUNDING,
+                tool_builder=lambda runtime: [],
+                skills=[
+                    SkillSpec(
+                        name="vg-grounding-playbook",
+                        description="VG main loop.",
+                        body_path=body,
+                        task_types={Stage2TaskType.VISUAL_GROUNDING},
+                    )
+                ],
+                finalizer=FinalizerSpec(
+                    payload_model=dict,
+                    validator=lambda payload, runtime: payload,
+                    adapter=lambda payload, runtime: {"answer": payload},
+                ),
+                required_primary_skill="vg-grounding-playbook",
+                required_extra_metadata=[],
+                ctx_factory=lambda bundle: object(),
+            )
+        )
+
+        rs = _runtime("Choose the pillow.")
+        _, _, submit_final = build_chassis_tools(rs)
+        submit_final.invoke(
+            {
+                "payload": {"proposal_id": 46},
+                "rationale": "first",
+                "evidence_refs": [],
+            }
+        )
+        submit_final.invoke(
+            {
+                "payload": {"proposal_id": 46},
+                "rationale": "second",
+                "evidence_refs": [],
+            }
+        )
+
+        submit_record = rs.tool_trace[-1]
+        assert submit_record.response_text.startswith("ALREADY_SUBMITTED")
+        assert submit_record.tool_input["target_category_guard_blocked"] is False
+    finally:
+        PACKS.clear()
+        PACKS.update(previous_packs)

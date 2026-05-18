@@ -23,6 +23,7 @@ from agents.skills.no_match_guard import (
 from agents.skills.registry import PACKS, skills_for
 from agents.skills.tadg import evaluate_tadg, tadg_record_fields
 from agents.skills.target_category_guard import (
+    TargetCategoryDecision,
     evaluate_target_category_guard,
     target_category_guard_record_fields,
 )
@@ -116,6 +117,9 @@ def build_chassis_tools(runtime: Any) -> tuple[BaseTool, BaseTool, BaseTool]:
                     "evidence_refs": evidence_refs or [],
                     "tool_override_reason": tool_override_reason,
                     "ignored_existing_final_submission": runtime.final_submission,
+                    **target_category_guard_record_fields(
+                        TargetCategoryDecision(blocked=False)
+                    ),
                 },
                 msg,
             )
