@@ -739,7 +739,7 @@ The 3 non-completed samples were:
 
 | Sample | Primary failure shape |
 |---|---|
-| `scannet/scene0490_00::13::36559` | Target-category guard still treats the anchor/viewpoint `white board` as target in a discourse query whose referent is the left chair. |
+| `scannet/scene0490_00::13::36559` | Target-category guard correctly preserves the demonstrative target `this white board` (`target_id=13`); the agent misread chair-context evidence as the referent and then submitted `-1`. |
 | `scannet/scene0629_00::2::19124` | Target-category guard treats generic `object` as target in `The object is a fully closed door.` and blocks the evidence-backed door proposal. |
 | `scannet/scene0651_00::7::6342` | Unsupported `same side as` spatial semantics; agent resolves visually and submits `-1`, but target is a chair. |
 
@@ -748,5 +748,90 @@ without changing the no-GT evidence contract. The full rerun is +10 correct vs
 `cfee0ef`, and final failed statuses drop from 10 to 3. It is still below the
 original `220f128` no-initial-keyframes score (64.33 %) and below the honest
 v9.3 text-first baseline (66.67 %). The next improvement bucket remains
-guard/tool semantics, especially generic target nouns (`object`) and unsupported
-relations such as `same side as`, `behind`, `in_front_of`, and `across from`.
+guard/tool semantics, especially generic target nouns (`object`), agent
+compliance after a correct target-category block, and unsupported relations such
+as `same side as`, `behind`, `in_front_of`, and `across from`.
+
+### Guard target-semantics probe: 2f9afe4
+
+This probe follows a 15-case subagent audit. The code change is intentionally
+small and no-GT: target-category extraction now treats generic shell heads such
+as `object is a/an X` as category `X`, while evidence-frame left/right checks
+are scoped to the original query text rather than direction words introduced
+only in the agent rationale. The probe sample-id file used only sample-id
+strings, not target/category metadata.
+
+Run metadata:
+
+| Item | Value |
+|---|---|
+| Branch | `feat/remove-initial-keyframes` |
+| Head commit at launch | `2f9afe4` |
+| Run-time code commit | `2f9afe4` - no worktree drift |
+| Probe IDs | `/tmp/nr3d_guard_tight_probe_ids_2f9afe4.json` |
+| Output dir | `tmp/nr3d_eval_v10_guard_tight_probe_20260519_2f9afe4/` |
+| Leaderboard metrics | `tmp/nr3d_eval_v10_guard_tight_probe_20260519_2f9afe4/leaderboard_metrics.json` |
+| SQLite run id | `v10_guard_tight_probe_20260519` |
+| Workers | 2 |
+| Sample retries | 2 |
+| Guards | TADG + no-match + evidence-frame |
+
+Commands:
+
+```bash
+printf '%s\n' \
+  '["scannet/scene0629_00::2::19124","scannet/scene0389_00::2::41296"]' \
+  > /tmp/nr3d_guard_tight_probe_ids_2f9afe4.json
+
+PYTHONPATH=src .venv/bin/python src/evaluation/scripts/run_nr3d_vg_side_by_side.py \
+  --sample-ids /tmp/nr3d_guard_tight_probe_ids_2f9afe4.json \
+  --data-root data/nr3d/scannet \
+  --pack-name pack_nr3d_v9_catalog_first \
+  --output-dir tmp/nr3d_eval_v10_guard_tight_probe_20260519_2f9afe4 \
+  --workers 2 \
+  --sample-retries 2 \
+  --use-tool-answer-disagreement-gate \
+  --use-no-match-candidate-guard \
+  --use-evidence-frame-guard
+
+PYTHONPATH=src .venv/bin/python src/evaluation/scripts/nr3d_leaderboard_metrics.py \
+  --side-by-side tmp/nr3d_eval_v10_guard_tight_probe_20260519_2f9afe4/side_by_side.json \
+  --nr3d-data-root data/nr3d \
+  --phase8-data-root data/nr3d/scannet \
+  --sample-ids /tmp/nr3d_guard_tight_probe_ids_2f9afe4.json \
+  --output tmp/nr3d_eval_v10_guard_tight_probe_20260519_2f9afe4/leaderboard_metrics.json \
+  --canonical-filter true
+
+PYTHONPATH=src .venv/bin/python scripts/ingest_nr3d_run.py \
+  --output-dir tmp/nr3d_eval_v10_guard_tight_probe_20260519_2f9afe4 \
+  --run-id v10_guard_tight_probe_20260519 \
+  --branch feat/remove-initial-keyframes \
+  --commit 2f9afe4 \
+  --backend pack_v1 \
+  --judge-model none \
+  --leaderboard-metrics tmp/nr3d_eval_v10_guard_tight_probe_20260519_2f9afe4/leaderboard_metrics.json \
+  --notes "Two-case probe after guard target-semantics fix; sample ids omit target metadata; checks recovered closest-to case and generic object-door case."
+```
+
+Probe metrics:
+
+| Metric | Value |
+|---|---:|
+| n | 2 |
+| classification_acc_filtered | 50.00 |
+| Easy | 50.00 |
+| Hard | 0.00 |
+| V-Dep | 0.00 |
+| V-Indep | 50.00 |
+
+Case outcomes:
+
+| Sample | a6f6077 outcome | 2f9afe4 outcome | Reading |
+|---|---|---|---|
+| `scannet/scene0629_00::2::19124` | final failed; `TARGET_CATEGORY_GUARD` expected `object` and blocked door proposal `#2` | completed with `selected_object_id=0`, IoU 0.0; guard now expected/submitted category `door` | Guard bug is fixed, but visual state discrimination between two door proposals remains wrong. |
+| `scannet/scene0389_00::2::41296` | completed wrong with `selected_object_id=3`; EFG/TADG interaction overrode `compare_proposals_spatial` rank-1 | completed with `selected_object_id=2`, IoU 1.0; compare rank `[2, 3]`, EFG/TADG did not block | Recovered. Query relation `closest_to` evidence is no longer displaced by rationale-only left/right wording. |
+
+Reading: this is a diagnostic probe, not a leaderboard row. It confirms the
+guard-semantics change recovers the closest-to regression and removes the
+generic-object category deadlock, but the closed-door sample still needs a
+visual/tool improvement for door-open/closed attributes.
