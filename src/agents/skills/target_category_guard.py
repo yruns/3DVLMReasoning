@@ -136,9 +136,19 @@ def _category_aliases(category: str) -> tuple[str, ...]:
     return _LABEL_ALIASES.get(category_norm, (category_norm,))
 
 
+def _alias_mentioned(text: str, alias: str) -> bool:
+    alias_norm = " ".join(str(alias).lower().split())
+    if not alias_norm:
+        return False
+    pattern = r"(?<![a-z0-9])" + r"\s+".join(
+        re.escape(part) for part in alias_norm.split()
+    )
+    pattern += r"(?![a-z0-9])"
+    return re.search(pattern, str(text).lower()) is not None
+
+
 def _query_mentions_category(text: str, category: str) -> bool:
-    compact_text = _compact(text)
-    return any(_compact(alias) in compact_text for alias in _category_aliases(category))
+    return any(_alias_mentioned(text, alias) for alias in _category_aliases(category))
 
 
 def _mentioned_categories(text: str, categories: list[str]) -> list[str]:
@@ -158,13 +168,11 @@ def _match_label_to_category(label: str, categories: list[str]) -> str | None:
     for category in categories:
         if _category_matches(label_norm, category):
             return category
-    compact_label = _compact(label_norm)
     matches = [
         category
         for category in categories
         if any(
-            compact_alias and compact_alias in compact_label
-            for compact_alias in (_compact(alias) for alias in _category_aliases(category))
+            _alias_mentioned(label_norm, alias) for alias in _category_aliases(category)
         )
     ]
     unique = _unique(matches)
@@ -197,7 +205,11 @@ def _head_category_from_query(query: str, categories: list[str]) -> str | None:
             if category is not None:
                 head_candidates.append(category)
     unique_heads = _unique(head_candidates)
-    return unique_heads[0] if len(unique_heads) == 1 else None
+    if unique_heads:
+        return unique_heads[0] if len(unique_heads) == 1 else None
+
+    mentioned = _mentioned_categories(query, categories)
+    return mentioned[0] if len(mentioned) == 1 else None
 
 
 def _expected_category(runtime: Any) -> str | None:

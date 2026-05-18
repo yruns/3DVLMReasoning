@@ -84,6 +84,45 @@ def test_target_category_guard_blocks_bookcase_alias_with_relation_tail() -> Non
     assert decision.submitted_category == "chair"
 
 
+def test_target_category_guard_blocks_bare_trashcan_alias_head() -> None:
+    rs = _runtime_with_categories(
+        "trashcan in a corner",
+        [(31, "trash can"), (6, "chair")],
+    )
+
+    decision = evaluate_target_category_guard(rs, {"proposal_id": 6})
+
+    assert decision.blocked is True
+    assert decision.expected_category == "trash can"
+    assert decision.submitted_category == "chair"
+
+
+def test_target_category_guard_blocks_pronoun_trashcan_alias_head() -> None:
+    rs = _runtime_with_categories(
+        "it is the trashcan in a corner",
+        [(31, "trash can"), (6, "chair")],
+    )
+
+    decision = evaluate_target_category_guard(rs, {"proposal_id": 6})
+
+    assert decision.blocked is True
+    assert decision.expected_category == "trash can"
+    assert decision.submitted_category == "chair"
+
+
+def test_target_category_guard_blocks_white_board_alias_head() -> None:
+    rs = _runtime_with_categories(
+        "the white board on the wall",
+        [(13, "whiteboard"), (6, "chair")],
+    )
+
+    decision = evaluate_target_category_guard(rs, {"proposal_id": 6})
+
+    assert decision.blocked is True
+    assert decision.expected_category == "whiteboard"
+    assert decision.submitted_category == "chair"
+
+
 def test_target_category_guard_explicit_target_overrides_later_context() -> None:
     rs = _runtime(
         "Staring at both beds from their foot, you want the bed on the right. "
