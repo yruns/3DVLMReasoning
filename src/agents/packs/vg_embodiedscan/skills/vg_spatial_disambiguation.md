@@ -30,13 +30,6 @@ For negated relations like "not closer to X", first compare the positive
 relation to identify candidates to avoid, then choose among the remaining
 target-category candidates.
 
-Negated anchor relations require a marked positive counterexample before you
-finalize the remaining candidate. For a query like "pillow on the bed NOT next
-to the windows", first mark the candidate that is next to the forbidden anchor
-with `mark_frame_with_bbox(frame_id, ids=[#pillow, #bed, #window])`; then choose
-the other pillow-on-bed candidate only after that positive case is visually
-excluded. Do not decide the NOT case from BEV proximity alone.
-
 Nested anchor relations must be resolved in dependency order. For expressions
 like "the chair behind the desk closest to the window", resolve the anchor
 candidates first: find all desk candidates, identify the window anchor, and call
