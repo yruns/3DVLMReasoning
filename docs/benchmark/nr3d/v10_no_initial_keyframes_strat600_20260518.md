@@ -2401,3 +2401,52 @@ finalization. The remaining live failure is stricter: latest
 next patch should target superlative rank-mismatch override handling, while
 leaving visual-attribute overrides possible when the agent binds the correct
 relation evidence.
+
+### Strict superlative override probe: 97d60c9
+
+Follow-up `97d60c9` tried the direct conclusion from the previous trace:
+reject plain `tool_override_reason` bypasses for `closest_to` / `farthest_from`
+rank mismatches when the anchor category is ambiguous. The agent could still
+use a different anchor, but only by binding `relation_evidence` to the
+corresponding `compare_proposals_spatial` evidence id.
+
+Run metadata:
+
+| Field | Value |
+|---|---|
+| Branch | `feat/remove-initial-keyframes` |
+| Head / run-time commit | `97d60c9` |
+| Probe IDs | `docs/benchmark/nr3d/assets/v10_superlative_anchor15_sample_ids_20260519.json` |
+| Output dir | `tmp/nr3d_eval_v10_super_override15_20260519_97d60c9/` |
+| Run log | `/tmp/nr3d_super_override15_97d60c9.log` |
+| SQLite run id | `v10_super_override15_20260519` |
+| Workers | 15 |
+| Sample retries | 0 |
+| Guards | TADG + no-match + evidence-frame |
+
+Artifact checksums:
+
+| Artifact | MD5 |
+|---|---|
+| `side_by_side.json` | `6e7dd2f74e372c85d45267c5fdde5bbc` |
+| `leaderboard_metrics.json` | `b052fd6199e7e28f36777fc39d63debf` |
+
+Probe metrics:
+
+| Variant | Commit | Overall | Easy | Hard | V-Dep | V-Ind | Statuses |
+|---|---|---:|---:|---:|---:|---:|---|
+| Anchor-coverage baseline | `71510a0` | 33.33 | 20.00 | 40.00 | 22.22 | 50.00 | 14 completed, 1 failed |
+| Strict override rejection | `97d60c9` | 20.00 | 20.00 | 20.00 | 11.11 | 33.33 | 14 completed, 1 failed |
+
+Case deltas vs `71510a0`:
+
+| Recovered | Regressed |
+|---|---|
+| `scene0222_00::20::39339` (`#19` -> target `#20`) | `scene0574_00::25::14751` (correct -> failed), `scene0616_00::7::34453` (`#7` -> `#8`), `scene0187_00::13::24038` (`#13` -> `#0`) |
+
+Reading: this is a negative diagnostic. The stricter override rule fixes the
+audited pillow/door case but harms three other already-recovered cases on the
+same slice, dropping 5 / 15 to 3 / 15. Do not keep `97d60c9` active as-is.
+Future work should either narrow the rule to the exact unsupported
+anchor-ambiguity loop or add a proper joint multi-anchor ranking tool instead
+of broadly rejecting superlative overrides.
