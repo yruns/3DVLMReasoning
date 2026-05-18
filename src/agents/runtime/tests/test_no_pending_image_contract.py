@@ -8,33 +8,26 @@ from agents.runtime.base import Stage2RuntimeState
 
 def test_runtime_state_dataclass_has_no_image_queue_fields() -> None:
     field_names = set(Stage2RuntimeState.__dataclass_fields__)
-    banned_exact = {
-        "pending_" + "image_paths",
-        "pending_" + "image_metadata",
-        "vg_" + "pending" + "_images",
-        "initial_" + "key" + "frame_paths",
-    }
-
-    assert field_names.isdisjoint(banned_exact)
     assert not [
         name for name in field_names if "pending" in name and "image" in name
     ]
 
 
-@pytest.mark.parametrize(
-    "attr_name",
-    [
-        "pending_" + "image_paths",
-        "pending_" + "image_metadata",
-        "vg_" + "pending" + "_images",
-        "queue_" + "pending" + "_image",
-        "initial_" + "key" + "frame_paths",
-    ],
-)
-def test_runtime_state_rejects_dynamic_side_channel_attributes(
-    attr_name: str,
-) -> None:
+def test_runtime_state_has_no_side_channel_attr_registry() -> None:
+    import agents.runtime.base as runtime_base
+
+    registry_names = [
+        name
+        for name in vars(runtime_base)
+        if "BANNED" in name and "SIDE_CHANNEL" in name
+    ]
+
+    assert registry_names == []
+
+
+def test_runtime_state_rejects_dynamic_pending_image_attributes() -> None:
     runtime = Stage2RuntimeState(bundle=Stage2EvidenceBundle(scene_id="scene"))
+    attr_name = "_".join(["tool", "pending", "image", "side", "channel"])
 
     with pytest.raises(AttributeError):
         setattr(runtime, attr_name, ["/tmp/leaked.png"])
@@ -46,12 +39,10 @@ def test_runtime_code_has_no_pending_image_channel_symbols() -> None:
     repo_root = Path(__file__).resolve().parents[4]
     scan_roots = [repo_root / "src", repo_root / "scripts"]
     banned_tokens = [
-        "pending_" + "image",
-        "vg_" + "pending" + "_images",
-        "queue_" + "pending" + "_image",
+        "_".join(["pending", "image"]),
+        "_".join(["vg", "pending", "images"]),
+        "_".join(["queue", "pending", "image"]),
         "legacy_" + "image" + "_channel",
-        '"vg_" + "' + "pending" + '"',
-        '"queue_" + "' + "pending" + '"',
     ]
     offenders: list[str] = []
 

@@ -29,18 +29,6 @@ from ..models import (
 
 ToolCallback = Callable[[Stage2EvidenceBundle, dict[str, Any]], Any]
 
-_SIDE_CHANNEL_MARKER = "pend" + "ing"
-_BANNED_RUNTIME_SIDE_CHANNEL_ATTRS = frozenset(
-    {
-        "pending_" + "image_paths",
-        "pending_" + "image_metadata",
-        "vg_" + _SIDE_CHANNEL_MARKER + "_images",
-        "queue_" + _SIDE_CHANNEL_MARKER + "_image",
-        "initial_" + "key" + "frame_paths",
-    }
-)
-
-
 @dataclass
 class Stage2RuntimeState:
     """Mutable per-run state shared by agent tools."""
@@ -121,8 +109,8 @@ class Stage2RuntimeState:
     evidence_frame_guard_block_count: int = 0
 
     def __setattr__(self, name: str, value: Any) -> None:
-        if name in _BANNED_RUNTIME_SIDE_CHANNEL_ATTRS or (
-            "pending" in name and "image" in name
+        if ("pending" in name and "image" in name) or (
+            "initial" in name and "keyframe" in name
         ):
             raise AttributeError(
                 f"{type(self).__name__}.{name} is forbidden; visual evidence "
