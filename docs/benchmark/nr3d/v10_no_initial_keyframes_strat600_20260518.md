@@ -835,3 +835,93 @@ Reading: this is a diagnostic probe, not a leaderboard row. It confirms the
 guard-semantics change recovers the closest-to regression and removes the
 generic-object category deadlock, but the closed-door sample still needs a
 visual/tool improvement for door-open/closed attributes.
+
+### Cabinet-anchor target probe: 6cb6844
+
+This probe follows the next 15-case subagent audit, focused on unsupported
+spatial relations, visual attributes, and target/anchor separation. The code
+change remains no-GT: `target_category_guard` aliases `kitchen cabinet(s)`,
+`cabinet(s)`, and `cupboard(s)` into the same target category, recognizes
+positional heads such as `top left of the cabinets`, and prevents a fridge
+anchor from becoming the final answer when the query target is a cabinet. A
+post-probe unit-only follow-up at `c94f5e1` also lets generic
+`object you are looking for is X` fall through to the complement extractor when
+the legacy `looking for` explicit-target regex finds no valid category.
+
+Run metadata:
+
+| Item | Value |
+|---|---|
+| Branch | `feat/remove-initial-keyframes` |
+| Head commit at launch | `6cb6844` |
+| Run-time code commit | `6cb6844` - no worktree drift |
+| Probe IDs | `/tmp/nr3d_cabinet_anchor_probe_ids_6cb6844.json` |
+| Output dir | `tmp/nr3d_eval_v10_cabinet_anchor_probe_20260519_6cb6844/` |
+| Leaderboard metrics | `tmp/nr3d_eval_v10_cabinet_anchor_probe_20260519_6cb6844/leaderboard_metrics.json` |
+| SQLite run id | `v10_cabinet_anchor_probe_20260519` |
+| Workers | 2 |
+| Sample retries | 2 |
+| Guards | TADG + no-match + evidence-frame |
+
+Commands:
+
+```bash
+printf '%s\n' \
+  '["scannet/scene0164_00::14::23053","scannet/scene0149_00::8::28069"]' \
+  > /tmp/nr3d_cabinet_anchor_probe_ids_6cb6844.json
+
+PYTHONPATH=src .venv/bin/python src/evaluation/scripts/run_nr3d_vg_side_by_side.py \
+  --sample-ids /tmp/nr3d_cabinet_anchor_probe_ids_6cb6844.json \
+  --data-root data/nr3d/scannet \
+  --pack-name pack_nr3d_v9_catalog_first \
+  --output-dir tmp/nr3d_eval_v10_cabinet_anchor_probe_20260519_6cb6844 \
+  --workers 2 \
+  --sample-retries 2 \
+  --use-tool-answer-disagreement-gate \
+  --use-no-match-candidate-guard \
+  --use-evidence-frame-guard
+
+PYTHONPATH=src .venv/bin/python src/evaluation/scripts/nr3d_leaderboard_metrics.py \
+  --side-by-side tmp/nr3d_eval_v10_cabinet_anchor_probe_20260519_6cb6844/side_by_side.json \
+  --nr3d-data-root data/nr3d \
+  --phase8-data-root data/nr3d/scannet \
+  --sample-ids /tmp/nr3d_cabinet_anchor_probe_ids_6cb6844.json \
+  --output tmp/nr3d_eval_v10_cabinet_anchor_probe_20260519_6cb6844/leaderboard_metrics.json \
+  --canonical-filter true
+
+PYTHONPATH=src .venv/bin/python scripts/ingest_nr3d_run.py \
+  --output-dir tmp/nr3d_eval_v10_cabinet_anchor_probe_20260519_6cb6844 \
+  --run-id v10_cabinet_anchor_probe_20260519 \
+  --branch feat/remove-initial-keyframes \
+  --commit 6cb6844 \
+  --backend pack_v1 \
+  --judge-model none \
+  --leaderboard-metrics tmp/nr3d_eval_v10_cabinet_anchor_probe_20260519_6cb6844/leaderboard_metrics.json \
+  --notes "Two-case probe after cabinet/anchor target-category fix; sample ids omit target metadata; checks scene0164 cabinet-vs-fridge guard path and scene0149 kitchen-cabinet relation case."
+```
+
+Probe metrics:
+
+| Metric | Value |
+|---|---:|
+| n | 2 |
+| classification_acc_filtered | 50.00 |
+| Easy | 0.00 |
+| Hard | 50.00 |
+| V-Dep | 50.00 |
+| V-Indep | 0.00 |
+
+Case outcomes:
+
+| Sample | a6f6077 outcome | 6cb6844 outcome | Reading |
+|---|---|---|---|
+| `scannet/scene0149_00::8::28069` | completed wrong with `selected_object_id=4`; the agent treated lower/side cabinet co-occurrence as enough for `directly over/contains microwave` | completed with `selected_object_id=8`, IoU 1.0 | Recovered. The alias pool and revised target-category behavior kept the agent on cabinet candidates, but the deeper fix still needs explicit `over/contains` relation verification. |
+| `scannet/scene0164_00::14::23053` | completed wrong with `selected_object_id=16` refrigerator after EFG pushed the agent from cabinet `#15` to the fridge anchor | completed with `selected_object_id=15`, IoU 0.0072; TCG expected/submitted `kitchen cabinet`, EFG did not recommend the refrigerator | Partially fixed. Target/anchor separation works, but the agent still selects the wrong cabinet within the cabinet group; group-internal `top-left` ranking remains unsolved. |
+
+Reading: this is a diagnostic probe, not a leaderboard row. It shows the
+cabinet/fridge target-category guard path is fixed enough to prevent anchor
+substitution and recover one audited kitchen-cabinet relation case. Remaining
+work from this 15-case audit is broader: relation verifiers for
+`behind/in_front_of/opposite/across_from`, composite `over/contains/on`
+relations, open/closed door crops, and positive-final candidate coverage for
+view-dependent left/right cases.
