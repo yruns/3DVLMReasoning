@@ -255,6 +255,40 @@ def test_target_category_guard_uses_looking_at_set_with_pronoun_target() -> None
     assert decision.submitted_category == "storage bin"
 
 
+def test_target_category_guard_preserves_demonstrative_target_before_context_set() -> None:
+    rs = _runtime_with_categories(
+        "If facing this white board the chairs at the table will be in this "
+        "order from left to right. The one on the left will be pushed in and "
+        "the other two chairs will be pushed out close to the white board.",
+        [(13, "whiteboard"), (16, "chair"), (4, "chair"), (7, "chair")],
+    )
+
+    decision = evaluate_target_category_guard(rs, {"proposal_id": 13})
+
+    assert decision.blocked is False
+    assert decision.expected_category == "whiteboard"
+    assert decision.submitted_category == "whiteboard"
+
+    wrong_category = evaluate_target_category_guard(rs, {"proposal_id": 16})
+
+    assert wrong_category.blocked is True
+    assert wrong_category.expected_category == "whiteboard"
+    assert wrong_category.submitted_category == "chair"
+
+
+def test_target_category_guard_skips_generic_object_for_is_a_category() -> None:
+    rs = _runtime_with_categories(
+        "The object is a fully closed door.",
+        [(5, "object"), (2, "door")],
+    )
+
+    decision = evaluate_target_category_guard(rs, {"proposal_id": 2})
+
+    assert decision.blocked is False
+    assert decision.expected_category == "door"
+    assert decision.submitted_category == "door"
+
+
 def test_target_category_guard_ignores_orientation_wall_when_target_head_absent() -> None:
     rs = _runtime_with_categories(
         "When facing the wall of windows, the furthest on the right.",

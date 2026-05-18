@@ -856,6 +856,90 @@ def test_evidence_frame_guard_query_right_option_beats_left_alternative(
     assert response.startswith("submitted;")
 
 
+def test_evidence_frame_guard_ignores_rationale_only_side_when_query_has_no_side(
+    tmp_path: Path,
+) -> None:
+    _register_vg_stub_pack(tmp_path)
+    rs = Stage2RuntimeState(
+        bundle=Stage2EvidenceBundle(stage1_query="Choose the table by itself.")
+    )
+    rs.task_type = Stage2TaskType.VISUAL_GROUNDING
+    rs.use_evidence_frame_guard = True
+    _record_category_candidates(rs, category="table", proposal_ids=[10, 25])
+    _record_view(
+        rs,
+        frame_id=45,
+        visible_ids=[10, 25],
+        categories=["table", "table"],
+        left_to_right=["10:table@x=200.0", "25:table@x=520.0"],
+        boxes_2d={10: [100, 200, 300, 650], 25: [420, 200, 620, 650]},
+    )
+    _, _, submit_final = build_chassis_tools(rs)
+
+    response = submit_final.invoke(
+        {
+            "payload": {"proposal_id": 25, "confidence": 0.7},
+            "rationale": (
+                "Frame 45 shows proposal 25 by itself. The other table cluster "
+                "is in the left wall area, so proposal 25 is isolated."
+            ),
+            "evidence_refs": [],
+        }
+    )
+
+    assert response.startswith("submitted;")
+
+
+def test_evidence_frame_guard_does_not_override_closest_to_with_rationale_side(
+    tmp_path: Path,
+) -> None:
+    _register_vg_stub_pack(tmp_path)
+    rs = Stage2RuntimeState(
+        bundle=Stage2EvidenceBundle(stage1_query="The correct chair is closer to the TV.")
+    )
+    rs.task_type = Stage2TaskType.VISUAL_GROUNDING
+    rs.use_evidence_frame_guard = True
+    evidence_id = _record_spatial_compare(
+        rs,
+        candidate_ids=[2, 3],
+        anchor_id=9,
+        relation="closest_to",
+        ranked_ids=[2, 3],
+    )
+    _record_category_candidates(rs, category="chair", proposal_ids=[2, 3])
+    _record_view(
+        rs,
+        frame_id=18,
+        visible_ids=[2, 3, 9],
+        categories=["chair", "chair", "tv"],
+        left_to_right=[
+            "2:chair@x=220.0",
+            "9:tv@x=500.0",
+            "3:chair@x=760.0",
+        ],
+        boxes_2d={
+            2: [120, 250, 320, 700],
+            9: [420, 120, 580, 360],
+            3: [650, 240, 870, 700],
+        },
+    )
+    _, _, submit_final = build_chassis_tools(rs)
+
+    response = submit_final.invoke(
+        {
+            "payload": {"proposal_id": 2, "confidence": 0.84},
+            "rationale": (
+                "Frame 18 shows proposal 2 as the closer chair to the TV. "
+                "Proposal 3 is the right-side/deeper alternative."
+            ),
+            "evidence_refs": [],
+            "relation_evidence": {"evidence_id": evidence_id},
+        }
+    )
+
+    assert response.startswith("submitted;")
+
+
 def test_direction_from_text_covers_plan_target_side_vocabulary() -> None:
     right_phrases = [
         "choose the right option",

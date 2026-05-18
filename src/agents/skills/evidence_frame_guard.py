@@ -303,15 +303,7 @@ def _desired_relative_direction(runtime: Any, rationale: str) -> str | None:
     query = str(getattr(bundle, "stage1_query", "") or "")
     if _anchor_relative_to_target_direction(query) is not None:
         return None
-    query_direction = _direction_from_text(query)
-    if query_direction is not None:
-        return query_direction
-    rationale_text = rationale or ""
-    if _anchor_relative_to_target_direction(rationale_text) is not None:
-        return None
-    if _ALTERNATIVE_DIRECTION_RE.search(rationale_text):
-        return None
-    return _direction_from_text(rationale_text)
+    return _direction_from_text(query)
 
 
 def _direction_from_text(text: str) -> str | None:

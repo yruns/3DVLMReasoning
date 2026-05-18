@@ -82,6 +82,14 @@ _RELATION_CUE_RE = re.compile(
     r")\b",
     re.I,
 )
+_GENERIC_HEAD_RE = re.compile(
+    r"\b(?:object|thing|item|one)\b"
+    r"(?:\s+(?:you\s+are\s+)?(?:looking\s+for|searching\s+for))?"
+    r"\s+(?:is|are|was|were|looks?\s+like)\s+"
+    r"(?:the|a|an|this|that)?\s*"
+    r"(?P<label>[a-z][a-z0-9]*(?:\s+[a-z][a-z0-9]*){0,4})\b",
+    re.I,
+)
 
 
 def _payload_dict(payload: dict | Any) -> dict[str, Any]:
@@ -249,6 +257,14 @@ def _match_label_to_category(label: str, categories: list[str]) -> str | None:
     return best_categories[0] if len(best_categories) == 1 else None
 
 
+def _generic_copular_category(clause: str, categories: list[str]) -> str | None:
+    for match in _GENERIC_HEAD_RE.finditer(clause):
+        category = _match_label_to_category(match.group("label"), categories)
+        if category is not None:
+            return category
+    return None
+
+
 def _leading_label_from_clause(clause: str) -> str | None:
     text = " ".join(str(clause).lower().split())
     if not text:
@@ -308,6 +324,19 @@ def _head_category_from_query(query: str, categories: list[str]) -> str | None:
     if explicit_found:
         unique_explicit = _unique(explicit_candidates)
         return unique_explicit[0] if len(unique_explicit) == 1 else None
+
+    generic_copular_candidates: list[str] = []
+    for clause in clauses:
+        category = _generic_copular_category(clause, categories)
+        if category is not None:
+            generic_copular_candidates.append(category)
+    unique_generic_copular = _unique(generic_copular_candidates)
+    if unique_generic_copular:
+        return (
+            unique_generic_copular[0]
+            if len(unique_generic_copular) == 1
+            else None
+        )
 
     head_candidates: list[str] = []
     for clause in clauses:
