@@ -217,6 +217,29 @@ def test_evidence_frame_guard_allows_submit_visible_in_cited_frame(
     assert response.startswith("submitted;")
     assert rs.final_submission == {"answer": {"proposal_id": 10, "confidence": 0.72}}
 
+    relation_evidence = {
+        "relation": "left_of",
+        "anchor_id": 7,
+        "candidate_ids": [10],
+        "ranked_ids": [10],
+    }
+    duplicate_response = submit_final.invoke(
+        {
+            "payload": {"proposal_id": 10, "confidence": 0.72},
+            "rationale": "Frame 57 still shows proposal 10.",
+            "evidence_refs": [],
+            "relation_evidence": relation_evidence,
+        }
+    )
+
+    assert duplicate_response.startswith("ALREADY_SUBMITTED:")
+    submit_records = [t for t in rs.tool_trace if t.tool_name == "submit_final"]
+    duplicate_record = submit_records[-1].tool_input
+    assert duplicate_record["relation_evidence"] == relation_evidence
+    assert duplicate_record["tadg_blocked"] is False
+    assert duplicate_record["no_match_guard_blocked"] is False
+    assert duplicate_record["evidence_frame_guard_blocked"] is False
+
 
 def test_evidence_frame_guard_blocks_spatial_rationale_when_anchor_missing_from_cited_frame(
     tmp_path: Path,
@@ -294,6 +317,39 @@ def test_evidence_frame_guard_prefers_bound_relation_evidence_over_latest_compar
 
     assert decision.blocked is False
     assert decision.submitted_pid == 8
+
+
+def test_evidence_frame_guard_ignores_malformed_bound_relation_evidence() -> None:
+    rs = _runtime()
+    _record_spatial_compare(
+        rs,
+        candidate_ids=[8],
+        anchor_id=43,
+        relation="left_of",
+        ranked_ids=[8],
+    )
+    _record_view(
+        rs,
+        frame_id=57,
+        visible_ids=[8, 7],
+        categories=["dresser", "bed"],
+    )
+
+    decision = evaluate_evidence_frame_guard(
+        rs,
+        {"proposal_id": 8, "confidence": 0.8},
+        rationale="proposal 8 is left of the bed in frame 57",
+        evidence_refs=[{"frame_id": 57}],
+        relation_evidence={
+            "relation": "left_of",
+            "anchor_id": 7,
+            "candidate_ids": [8],
+            "ranked_ids": ["8"],
+        },
+    )
+
+    assert decision.blocked is True
+    assert "anchor proposal 43" in decision.message
 
 
 def test_evidence_frame_guard_allows_near_relation_when_spatial_rank_supports_target(

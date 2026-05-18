@@ -124,6 +124,11 @@ def build_chassis_tools(runtime: Any) -> tuple[BaseTool, BaseTool, BaseTool]:
                     **target_category_guard_record_fields(
                         TargetCategoryDecision(blocked=False)
                     ),
+                    **tadg_record_fields(TADGDecision(blocked=False)),
+                    **no_match_guard_record_fields(NoMatchGuardDecision(blocked=False)),
+                    **evidence_frame_guard_record_fields(
+                        EvidenceFrameGuardDecision(blocked=False)
+                    ),
                 },
                 msg,
             )

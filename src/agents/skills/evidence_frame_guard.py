@@ -506,7 +506,11 @@ def _spatial_compare_from_relation_evidence(
     if not isinstance(relation_evidence, dict):
         return None
     candidate_ids = relation_evidence.get("candidate_ids")
-    if not isinstance(candidate_ids, list) or submitted_pid not in candidate_ids:
+    if (
+        not isinstance(candidate_ids, list)
+        or not all(isinstance(pid, int) and not isinstance(pid, bool) for pid in candidate_ids)
+        or submitted_pid not in candidate_ids
+    ):
         return None
     anchor_id = relation_evidence.get("anchor_id")
     relation = relation_evidence.get("relation")
@@ -516,6 +520,7 @@ def _spatial_compare_from_relation_evidence(
         or not isinstance(anchor_id, int)
         or not isinstance(relation, str)
         or not isinstance(ranked_ids, list)
+        or not all(isinstance(pid, int) and not isinstance(pid, bool) for pid in ranked_ids)
     ):
         return None
     return {
