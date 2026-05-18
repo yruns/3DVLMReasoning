@@ -16,7 +16,14 @@ Workflow:
    using the `evidence_id` copied from the comparison response.
 
 Use `closest_to` for "closer/nearest" phrasing and `farthest_from` for
-"farther/furthest" phrasing. For unsupported natural-language relations
+"farther/furthest" phrasing. Vertical above/below/under relations should use
+this tool before finalizing: map "under", "right under", and "beneath" to
+`relation='below'`; map "above", "over", and "on top of" to
+`relation='above'`. The comparator uses the correct vertical side plus
+horizontal alignment, so call it to rank candidates first, then verify the
+top-ranked candidate in a marked frame with the anchor visible.
+
+For unsupported natural-language relations
 such as front/behind, between, facing, across, or same-side, do not invent
 a relation string. Fetch/mark frames that show the target and anchor, then
 judge the relation visually.
