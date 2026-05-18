@@ -1560,3 +1560,107 @@ category-alias failure. The next no-GT improvement target is a playbook/tool-flo
 rule for queries shaped like "target behind/next-to [anchor] closest/farthest to
 [second anchor]": resolve the anchor superlative first, then compare targets
 against that resolved anchor.
+
+### Nested-anchor flow probe: 3b675f9
+
+This probe tests the next no-GT prompt/skill change after the subtype probe.
+Commit `3b675f9` adds a nested-anchor contract to the VG grounding and spatial
+disambiguation skills: for expressions like "the chair behind the desk closest
+to the window", resolve the anchor candidate set first with
+`compare_proposals_spatial(candidate_ids=[anchor ids], anchor_id=#window, relation='closest_to')`,
+then rank / visually verify the target candidates against the resolved anchor.
+The change is prompt/skill-only; it does not add GT inputs or inspect target
+ids during inference.
+
+Run metadata:
+
+| Item | Value |
+|---|---|
+| Branch | `feat/remove-initial-keyframes` |
+| Head commit at launch | `3b675f9` |
+| Run-time code commit | `3b675f9` - no worktree drift |
+| Probe IDs used at run time | `tmp/nr3d_artifacts/v10_rationale_payload_probe3_sample_ids_20260519.json` |
+| Durable probe IDs | `docs/benchmark/nr3d/assets/v10_rationale_payload_probe3_sample_ids_20260519.json` |
+| Durable probe IDs MD5 | `4ef53f60e189403c1d66d718534d8e60` |
+| Output dir | `tmp/nr3d_eval_v10_nested_anchor_probe3_20260519_3b675f9/` |
+| Run log | `/tmp/nr3d_nested_anchor_probe3_3b675f9.log` |
+| Side-by-side JSON | `tmp/nr3d_eval_v10_nested_anchor_probe3_20260519_3b675f9/side_by_side.json` |
+| Side-by-side MD5 | `78764bc7f1c2d427b8bc96dd04ed3502` |
+| Leaderboard metrics | `tmp/nr3d_eval_v10_nested_anchor_probe3_20260519_3b675f9/leaderboard_metrics.json` |
+| Leaderboard metrics MD5 | `8d054cf50fd3df9bacb064316039a23d` |
+| SQLite run id | `v10_nested_anchor_probe3_20260519` |
+| Workers | 3 |
+| Sample retries | 0 |
+| Guards | TADG + no-match + evidence-frame + rationale/payload |
+
+Commands:
+
+```bash
+tmux new-session -d -s nr3d-nested-probe3-3b675f9 \
+  "cd /Users/bytedance/project/3DVLMReasoning && bash -lc 'set -euo pipefail; \
+   export PYTHONPATH=src PYTHONUNBUFFERED=1; \
+   .venv/bin/python -m evaluation.scripts.run_nr3d_vg_side_by_side \
+     --sample-ids tmp/nr3d_artifacts/v10_rationale_payload_probe3_sample_ids_20260519.json \
+     --data-root data/nr3d/scannet \
+     --pack-name pack_nr3d_v9_catalog_first \
+     --output-dir tmp/nr3d_eval_v10_nested_anchor_probe3_20260519_3b675f9 \
+     --workers 3 \
+     --sample-retries 0 \
+     --use-tool-answer-disagreement-gate \
+     --use-no-match-candidate-guard \
+     --use-evidence-frame-guard \
+     2>&1 | tee /tmp/nr3d_nested_anchor_probe3_3b675f9.log; \
+   .venv/bin/python -m evaluation.scripts.nr3d_leaderboard_metrics \
+     --side-by-side tmp/nr3d_eval_v10_nested_anchor_probe3_20260519_3b675f9/side_by_side.json \
+     --nr3d-data-root data/nr3d \
+     --phase8-data-root data/nr3d/scannet \
+     --sample-ids tmp/nr3d_artifacts/v10_rationale_payload_probe3_sample_ids_20260519.json \
+     --output tmp/nr3d_eval_v10_nested_anchor_probe3_20260519_3b675f9/leaderboard_metrics.json \
+     --canonical-filter true \
+     2>&1 | tee -a /tmp/nr3d_nested_anchor_probe3_3b675f9.log'"
+
+PYTHONPATH=src .venv/bin/python scripts/ingest_nr3d_run.py \
+  --output-dir tmp/nr3d_eval_v10_nested_anchor_probe3_20260519_3b675f9 \
+  --run-id v10_nested_anchor_probe3_20260519 \
+  --branch feat/remove-initial-keyframes \
+  --commit 3b675f9 \
+  --backend pack_v1 \
+  --leaderboard-metrics tmp/nr3d_eval_v10_nested_anchor_probe3_20260519_3b675f9/leaderboard_metrics.json \
+  --notes "Diagnostic 3-case probe after nested-anchor playbook update; recovers scene0663 chair behind desk closest to window, but regresses scene0222 pillow negated-window case." \
+  --db docs/benchmark/nr3d/runs.sqlite
+```
+
+Probe stability:
+
+- 3 / 3 samples completed.
+- 0 Tracebacks / logged Exceptions in the run log.
+- Pre-run TDD verification:
+  - RED: nested-anchor playbook contract test failed on all four VG variants.
+  - GREEN: `test_playbook_v9_consistency.py` + shared playbook tests passed
+    51 / 51.
+
+Probe metrics:
+
+| Metric | Value |
+|---|---:|
+| n | 3 |
+| classification_acc_filtered | 66.67 |
+| Easy | 50.00 |
+| Hard | 100.00 |
+| V-Dep | 100.00 |
+| V-Indep | 50.00 |
+
+Case outcomes vs previous probes:
+
+| Sample | be3c4fc selected | dbd9adb selected | 3b675f9 selected | Reading |
+|---|---:|---:|---:|---|
+| `scannet/scene0678_00::21::1134` | 21 | 21 | 21 | Still recovered; no regression. |
+| `scannet/scene0663_00::6::33306` | 33 | 33 | 6 | Recovered. The trace now calls `compare_proposals_spatial(candidate_ids=[3,4], anchor_id=5, relation='closest_to')`, which ranks desk `#3` before desk `#4`, then marks desk `#3`, window `#5`, and office chair `#6` in frame 0 before finalizing `#6`. |
+| `scannet/scene0222_00::20::35738` | 20 | 20 | 19 | Regressed. The query is a negated anchor case ("pillow on the bed not next to the windows"), not a nested-anchor superlative. The agent over-relies on BEV/window proximity and selects pillow `#19`; the next guard/prompt target should treat negated anchor relations separately from nested-anchor dependency resolution. |
+
+Reading: partial positive. The nested-anchor contract fixes the intended
+failure and produces the desired no-GT tool sequence, but the 3-case slice is
+not net-positive because a negated-window case regressed. Do not promote this
+as a general improvement without either a larger failed-case probe or a
+follow-up fix that separates negated anchor relations from nested superlative
+anchors.
