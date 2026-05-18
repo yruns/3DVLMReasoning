@@ -2202,3 +2202,109 @@ list and from runtime prompt/nudge text. The diagnostic slice returns to the
 parent's 13 / 26 without allowing any false crop-evidence path. Future work
 should either implement a real object/frame crop renderer or keep this tool
 hidden for NR3D/ScanRefer pack-v1 runs.
+
+### Compound target-head guard probe: 2a5a241 -> b00ca7c
+
+After the crop-tool iteration, three read-only subagents audited 15 failed
+cases from the `1d3b02d` 26-case probe / `a6f6077` strat600 base. The clearest
+low-risk root cause was `scene0518_00::3::1731`: the query
+`Choose the all black desk chair.` visually found proposal `#3 office chair`,
+but `TARGET_CATEGORY_GUARD` parsed the target category as `desk`, repeatedly
+blocked `#3`, and the run ended as `-1`.
+
+The first patch, `2a5a241`, added generic-subtype phrase matching so
+`desk chair` could map to generic `chair`. The diagnostic run showed this was
+insufficient: explicit `choose/select/find` parsing captured only
+`all black desk`, so the live guard still expected `desk`. The follow-up
+`b00ca7c` extends the explicit target-head window, letting the full compound
+phrase `all black desk chair` reach the subtype matcher.
+
+Run metadata:
+
+| Field | Value |
+|---|---|
+| Branch | `feat/remove-initial-keyframes` |
+| Probe IDs | `docs/benchmark/nr3d/assets/v10_crop_fail_loud_probe26_sample_ids_20260519.json` |
+| Incomplete run commit | `2a5a241` |
+| Fixed run commit | `b00ca7c` |
+| Incomplete output dir | `tmp/nr3d_eval_v10_desk_chair_probe26_20260519_2a5a241/` |
+| Fixed output dir | `tmp/nr3d_eval_v10_desk_chair_probe26_20260519_b00ca7c/` |
+| Run logs | `/tmp/nr3d_desk_chair_probe26_2a5a241.log`, `/tmp/nr3d_desk_chair_probe26_b00ca7c.log` |
+| SQLite run ids | `v10_desk_chair_incomplete_probe26_20260519`, `v10_desk_chair_probe26_20260519` |
+| Workers | 8 |
+| Sample retries | 0 |
+| Guards | TADG + no-match + evidence-frame |
+
+Artifact checksums:
+
+| Artifact | MD5 |
+|---|---|
+| `2a5a241` `side_by_side.json` | `28b9a05014733012ecd2a0ac5a91818c` |
+| `2a5a241` `leaderboard_metrics.json` | `37f64b08edb7854fa17ff5d3f6b0889c` |
+| `b00ca7c` `side_by_side.json` | `f88fbccb47ba7a4f72b70e9b6466906e` |
+| `b00ca7c` `leaderboard_metrics.json` | `787a5f7ed1ce81169a1b6113cd3fe351` |
+
+Representative fixed-run command:
+
+```bash
+tmux new-session -d -s nr3d-desk-chair-probe26-b00ca7c \
+  "cd /Users/bytedance/project/3DVLMReasoning && bash -lc 'set -euo pipefail; \
+   export PYTHONPATH=src PYTHONUNBUFFERED=1; \
+   .venv/bin/python -m evaluation.scripts.run_nr3d_vg_side_by_side \
+     --sample-ids docs/benchmark/nr3d/assets/v10_crop_fail_loud_probe26_sample_ids_20260519.json \
+     --data-root data/nr3d/scannet \
+     --pack-name pack_nr3d_v9_catalog_first \
+     --output-dir tmp/nr3d_eval_v10_desk_chair_probe26_20260519_b00ca7c \
+     --workers 8 \
+     --sample-retries 0 \
+     --use-tool-answer-disagreement-gate \
+     --use-no-match-candidate-guard \
+     --use-evidence-frame-guard \
+     2>&1 | tee /tmp/nr3d_desk_chair_probe26_b00ca7c.log; \
+   .venv/bin/python -m evaluation.scripts.nr3d_leaderboard_metrics \
+     --side-by-side tmp/nr3d_eval_v10_desk_chair_probe26_20260519_b00ca7c/side_by_side.json \
+     --nr3d-data-root data/nr3d \
+     --phase8-data-root data/nr3d/scannet \
+     --sample-ids docs/benchmark/nr3d/assets/v10_crop_fail_loud_probe26_sample_ids_20260519.json \
+     --output tmp/nr3d_eval_v10_desk_chair_probe26_20260519_b00ca7c/leaderboard_metrics.json \
+     --canonical-filter true \
+     2>&1 | tee -a /tmp/nr3d_desk_chair_probe26_b00ca7c.log'"
+
+PYTHONPATH=src .venv/bin/python scripts/ingest_nr3d_run.py \
+  --output-dir tmp/nr3d_eval_v10_desk_chair_probe26_20260519_b00ca7c \
+  --run-id v10_desk_chair_probe26_20260519 \
+  --branch feat/remove-initial-keyframes \
+  --commit b00ca7c \
+  --backend pack_v1 \
+  --leaderboard-metrics tmp/nr3d_eval_v10_desk_chair_probe26_20260519_b00ca7c/leaderboard_metrics.json \
+  --notes "Diagnostic 26-case probe after compound explicit target-head parsing; recovers desk-chair guard case with no GT runtime inputs; same 13/26 slice accuracy as hidden-tool baseline." \
+  --db docs/benchmark/nr3d/runs.sqlite
+```
+
+Probe metrics:
+
+| Variant | Commit | Overall | Easy | Hard | V-Dep | V-Ind | Statuses |
+|---|---|---:|---:|---:|---:|---:|---|
+| Hidden crop tool baseline | `1d3b02d` | 50.00 | 50.00 | 50.00 | 22.22 | 64.71 | 25 completed, 1 failed sentinel |
+| Incomplete subtype phrase patch | `2a5a241` | 30.77 | 12.50 | 38.89 | 22.22 | 35.29 | 26 completed |
+| Compound explicit-head fix | `b00ca7c` | 50.00 | 50.00 | 50.00 | 55.56 | 47.06 | 26 completed |
+
+Key case:
+
+| Case | Before | `2a5a241` | `b00ca7c` |
+|---|---|---|---|
+| `scannet/scene0518_00::3::1731` | failed sentinel; repeated `#3 office chair` blocked as `expected_category=desk` | completed but wrong `#6 desk`, still `expected_category=desk` | completed `#3 office chair`, IoU 1.0; `expected_category=chair`, blocked false |
+
+Fixed-run deltas vs `1d3b02d`:
+
+| Recovered | Regressed |
+|---|---|
+| `scene0025_00::1::6057`, `scene0249_00::23::30460`, `scene0490_00::13::36559`, `scene0518_00::3::1731` | `scene0307_00::25::35532`, `scene0426_00::7::20795`, `scene0643_00::13::30939`, `scene0696_00::5::16455` |
+
+Reading: `b00ca7c` fixes a real no-GT guard bug and converts the audited
+desk-chair failure from blocked to correct, but it is a local guard fix rather
+than an aggregate improvement. Same-slice accuracy stays 13 / 26, with four
+recoveries and four regressions versus `1d3b02d`, so this should remain a
+targeted correctness patch. The next larger opportunity from the 15-case audit
+is still candidate/support co-visibility and symmetric same-category candidate
+coverage before final.
