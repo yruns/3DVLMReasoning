@@ -323,7 +323,7 @@ def run_pack_v1_sample(
     *,
     pack_name: str = "pack_scanrefer_v1",
     phase8_data_root: Path = Path("data/nr3d/scannet"),
-    enable_stage1_callback: bool = True,
+    enable_stage1_callback: bool = False,
 ) -> Any:
     bundle = build_pack_v1_bundle_from_sample(
         sample,
@@ -341,7 +341,8 @@ def run_pack_v1_sample(
 
     # v9 catalog-first: Stage-1 more-views / hypothesis flows are exposed
     # directly as selector tools. `enable_stage1_callback` gates the crop
-    # callback (object-centric red-bbox crops for `request_crops`).
+    # callback. Keep it disabled unless a concrete crop renderer is configured;
+    # otherwise the agent must not see `request_crops` as available evidence.
     # `select_by_text`'s text_frame_selector is gated independently by
     # `config.enable_stage1_text_retrieval`; previous versions conflated the
     # two and silently broke select_by_text when the crop callback was off.

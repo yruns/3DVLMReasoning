@@ -252,8 +252,10 @@ def test_extract_pack_v1_prediction_resolves_structured_proposal_payload() -> No
     assert prediction["confidence"] == 0.92
 
 
-def test_nr3d_pack_wires_crop_callback(monkeypatch, tmp_path) -> None:
-    """v9: only the crop callback survives the Stage-1 → tools migration."""
+def test_nr3d_pack_does_not_wire_unavailable_crop_callback_by_default(
+    monkeypatch, tmp_path
+) -> None:
+    """No concrete crop backend means request_crops should not be exposed."""
     import agents.stage1_callbacks as callbacks
     from evaluation.scripts import run_nr3d_vg_side_by_side as runner
 
@@ -290,10 +292,50 @@ def test_nr3d_pack_wires_crop_callback(monkeypatch, tmp_path) -> None:
     )
 
     assert result == "ok"
-    assert captured["agent_kwargs"]["crop_callback"] == "crop"
+    assert captured["agent_kwargs"]["crop_callback"] is None
     assert captured["agent_kwargs"]["text_frame_selector"] is selector
     assert "more_views_callback" not in captured["agent_kwargs"]
     assert "hypothesis_callback" not in captured["agent_kwargs"]
+
+
+def test_nr3d_pack_can_wire_crop_callback_when_explicitly_enabled(
+    monkeypatch, tmp_path
+) -> None:
+    import agents.stage1_callbacks as callbacks
+    from evaluation.scripts import run_nr3d_vg_side_by_side as runner
+
+    captured: dict = {}
+
+    class FakeAgent:
+        def __init__(self, **kwargs):
+            captured["agent_kwargs"] = kwargs
+
+        def run(self, *, task, bundle):
+            return "ok"
+
+    monkeypatch.setattr(runner, "Stage2DeepResearchAgent", FakeAgent)
+    monkeypatch.setattr(
+        runner,
+        "build_pack_v1_bundle_from_sample",
+        lambda *a, **kw: SimpleNamespace(scene_id="scene0001_00"),
+    )
+    monkeypatch.setattr(
+        runner,
+        "_get_or_build_text_frame_selector",
+        lambda *a, **kw: object(),
+        raising=False,
+    )
+    monkeypatch.setattr(callbacks, "create_crop_callback", lambda *a, **kw: "crop")
+
+    result = runner.run_pack_v1_sample(
+        {"scene_id": "scene0001_00", "query": "the chair"},
+        data_root=tmp_path,
+        config=SimpleNamespace(),
+        enable_stage1_callback=True,
+    )
+
+    assert result == "ok"
+    assert captured["agent_kwargs"]["crop_callback"] == "crop"
 
 
 def test_extract_result_tool_trace_accepts_raw_dict() -> None:

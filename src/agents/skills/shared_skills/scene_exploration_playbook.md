@@ -64,8 +64,9 @@ injected are listed with `already_seen=true` and not re-injected.
   named. Requires at least one of `labels` or `ids`. Use this when a
   selector returned a frame and you want to verify the chosen catalog
   entry against the actual pixels.
-- `request_crops(request_text, frame_indices=[...], object_terms=[...])`
-  — optional pixel zoom for fine attributes. Only treat it as visual
+- If request_crops is available:
+  `request_crops(request_text, frame_indices=[...], object_terms=[...])`
+  is optional pixel zoom for fine attributes. Only treat it as visual
   evidence when it returns crop image outputs. If it returns `ERROR` or
   `No crops generated`, do not cite it as evidence and rely on
   `mark_frame_with_bbox` / selector frames instead.
@@ -123,8 +124,8 @@ only inside that subset.
   step).
 - Calling more than two selectors before any `mark_frame_with_bbox` —
   that means you are collecting candidates without ever verifying.
-- `request_crops` before any selector — crops zoom a frame; the host
-  frame must already be in context.
+- If request_crops is available, calling it before any selector — crops
+  zoom a frame; the host frame must already be in context.
 
 ## The loop
 
@@ -135,6 +136,6 @@ only inside that subset.
 2. Scan the ≤3 returned frames + the BEV. If `select_by_text` returned
    `frames: []`, fall through to step 1's catalog branch.
 3. `mark_frame_with_bbox` on **the** frame that looks decisive.
-4. (Optional) `request_crops` for fine attributes; or refine with
-   another selector if step 3 was inconclusive.
+4. If request_crops is available, optionally call it for fine attributes;
+   otherwise refine with another selector if step 3 was inconclusive.
 5. `submit_final`.

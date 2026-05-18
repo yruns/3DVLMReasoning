@@ -82,6 +82,7 @@ def test_playbooks_describe_current_request_crops_contract():
     for path in paths:
         body = path.read_text()
         assert "request_crops(frame_id, bbox_2d)" not in body
+        assert "If request_crops is available" in body
         assert "request_crops(request_text" in body
         assert "No crops generated" in body
         assert "do not cite" in body

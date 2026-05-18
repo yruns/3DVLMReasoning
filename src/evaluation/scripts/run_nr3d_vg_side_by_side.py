@@ -299,12 +299,13 @@ def run_pack_v1_sample(
     *,
     pack_name: str = "pack_nr3d_v1",
     phase8_data_root: Path | None = None,
-    enable_stage1_callback: bool = True,
+    enable_stage1_callback: bool = False,
 ) -> Any:
     """Run a single NR3D sample through Stage 2 (v9 catalog-first).
 
-    The `enable_stage1_callback` flag gates the **crop callback** only
-    (it controls whether `request_crops` can actually extract crops).
+    The `enable_stage1_callback` flag gates the **crop callback** only.
+    Keep it disabled unless a concrete crop renderer is configured; otherwise
+    the agent must not see `request_crops` as an available visual evidence tool.
     The `select_by_text` tool's text-frame selector is gated by
     `config.enable_stage1_text_retrieval` independently — previous
     versions conflated the two and silently broke `select_by_text` when

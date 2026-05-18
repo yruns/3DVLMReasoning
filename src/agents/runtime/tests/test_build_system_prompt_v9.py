@@ -43,6 +43,13 @@ def _runtime_text_off() -> _MinimalRuntime:
     )
 
 
+def _runtime_with_crop_callback() -> _MinimalRuntime:
+    return _MinimalRuntime(
+        config=Stage2DeepAgentConfig(enable_stage1_text_retrieval=False),
+        crop_callback=lambda bundle, request: "crop ok",
+    )
+
+
 def _task(
     task_type: Stage2TaskType = Stage2TaskType.VISUAL_GROUNDING,
 ) -> Stage2TaskSpec:
@@ -105,8 +112,14 @@ def test_system_prompt_workflow_line_mentions_mark_for_verification():
     assert "verifying" in prompt or "verification" in prompt
 
 
-def test_system_prompt_describes_current_request_crops_contract():
+def test_system_prompt_omits_request_crops_without_callback():
     rt = _runtime_default_cfg()
+    prompt = rt.build_system_prompt(_task())
+    assert "request_crops" not in prompt
+
+
+def test_system_prompt_describes_current_request_crops_contract_when_available():
+    rt = _runtime_with_crop_callback()
     prompt = rt.build_system_prompt(_task())
     assert "request_crops(frame_id, bbox_2d)" not in prompt
     assert "request_crops(request_text" in prompt

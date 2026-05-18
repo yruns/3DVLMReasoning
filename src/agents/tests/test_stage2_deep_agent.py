@@ -59,10 +59,10 @@ class TestStage2DeepAgent(unittest.TestCase):
         state.task_type = Stage2TaskType.QA
 
         tool_names = {t.name for t in runtime.build_runtime_tools(state)}
-        # The post-v9 base tool surface always includes retrieve_object_context +
-        # request_crops; deleted names should never reappear.
+        # The post-v9 base tool surface always includes retrieve_object_context.
+        # request_crops is hidden unless a concrete crop backend is configured.
         self.assertIn("retrieve_object_context", tool_names)
-        self.assertIn("request_crops", tool_names)
+        self.assertNotIn("request_crops", tool_names)
         for dead in (
             "request_more_views",
             "switch_or_expand_hypothesis",
@@ -93,6 +93,18 @@ class TestStage2DeepAgent(unittest.TestCase):
 
         self.assertIn(Stage2TaskType.QA, PACKS)
         self.assertIn("retrieve_object_context", tool_names)
+        self.assertNotIn("request_crops", tool_names)
+
+    def test_request_crops_tool_requires_configured_callback(self) -> None:
+        runtime = DeepAgentsStage2Runtime(
+            config=Stage2DeepAgentConfig(enable_stage1_text_retrieval=False),
+            crop_callback=lambda bundle, request: "crop ok",
+        )
+        state = Stage2RuntimeState(bundle=Stage2EvidenceBundle())
+        state.task_type = Stage2TaskType.QA
+
+        tool_names = {t.name for t in runtime.build_runtime_tools(state)}
+
         self.assertIn("request_crops", tool_names)
 
 

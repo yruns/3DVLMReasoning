@@ -154,10 +154,9 @@ class DeepAgentsStage2Runtime(BaseStage2Runtime):
             )
             return response_obj.response_text
 
-        tools = [
-            retrieve_object_context,
-            request_crops,
-        ]
+        tools = [retrieve_object_context]
+        if self.crop_callback is not None:
+            tools.append(request_crops)
 
         # v9.1 catalog-first scene-perception tools (selectors +
         # mark_frame_with_bbox + view_bev + list_scene_proposals +
@@ -307,7 +306,6 @@ class DeepAgentsStage2Runtime(BaseStage2Runtime):
                 "view_bev(highlight=[ids]) — re-inject the BEV (optionally focused)",
                 "list_scene_proposals / list_frame_proposals / inspect_proposal — "
                 "text-only inventory queries",
-                "request_crops — close-up crop on small or ambiguous regions",
                 "retrieve_object_context — scene / object context summaries",
             ]
         else:
@@ -321,9 +319,13 @@ class DeepAgentsStage2Runtime(BaseStage2Runtime):
                 "view_bev(highlight=[ids]) — re-inject the BEV (optionally focused)",
                 "list_scene_proposals / list_frame_proposals / inspect_proposal — "
                 "text-only inventory queries",
-                "request_crops — close-up crop on small or ambiguous regions",
                 "retrieve_object_context — scene / object context summaries",
             ]
+        if self.crop_callback is not None:
+            available_tools.insert(
+                -1,
+                "request_crops — close-up crop on small or ambiguous regions",
+            )
         tools_list = "\n".join(f"  - {t}" for t in available_tools)
 
         uncertainties_text = ""

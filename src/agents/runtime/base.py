@@ -499,6 +499,15 @@ class BaseStage2Runtime(ABC):
                 "seen_frame_ids?)\n"
             )
 
+        crop_tool_line = ""
+        if self.crop_callback is not None:
+            crop_tool_line = (
+                "5. request_crops(request_text, frame_indices=[...], "
+                "object_terms=[...]) — optional pixel zoom. Treat it as evidence "
+                "only when it returns crop image outputs; if it returns ERROR or "
+                "No crops generated, do not cite it.\n"
+            )
+
         return (
             "You are the Stage-2 scene reasoning agent.\n\n"
             "Scene perception model:\n"
@@ -516,10 +525,7 @@ class BaseStage2Runtime(ABC):
             "3. view_bev(highlight=?) — re-inject BEV (full or filtered).\n"
             "4. Catalog: list_scene_proposals, list_frame_proposals, "
             "inspect_proposal.\n"
-            "5. request_crops(request_text, frame_indices=[...], "
-            "object_terms=[...]) — optional pixel zoom. Treat it as evidence "
-            "only when it returns crop image outputs; if it returns ERROR or "
-            "No crops generated, do not cite it.\n"
+            f"{crop_tool_line}"
             f"{workflow_hint}\n\n"
             "Skill gate:\n"
             "- Every selector + mark_frame_with_bbox + view_bev + "

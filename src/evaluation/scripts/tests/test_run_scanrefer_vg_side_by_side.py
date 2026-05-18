@@ -139,7 +139,7 @@ def test_compare_backends_low_memory_mode_resumes_from_checkpoints(
 
     assert result is None
     assert calls == [sample_ids[1]]
-    payload = __import__("json").loads((out / "side_by_side.json").read_text())
+    payload = json.loads((out / "side_by_side.json").read_text())
     per_sample = payload["pack_v1"]["per_sample"]
     assert [r["sample_id"] for r in per_sample] == sample_ids
     assert [r["iou"] for r in per_sample] == [0.25, 1.0]
@@ -404,8 +404,8 @@ def test_conceptgraph_object_cache_evicts_least_recent_scene(tmp_path, monkeypat
     assert (str(tmp_path), "scene_b") not in mod._CONCEPTGRAPH_OBJECT_CACHE
 
 
-def test_scanrefer_pack_wires_crop_callback(monkeypatch):
-    """v9: only the crop callback survives the Stage-1 → tools migration."""
+def test_scanrefer_pack_does_not_wire_unavailable_crop_callback_by_default(monkeypatch):
+    """No concrete crop backend means request_crops should not be exposed."""
     import agents.stage1_callbacks as callbacks
     from evaluation.scripts import run_scanrefer_vg_side_by_side as mod
 
@@ -439,10 +439,45 @@ def test_scanrefer_pack_wires_crop_callback(monkeypatch):
     )
 
     assert result == "ok"
-    assert captured["agent_kwargs"]["crop_callback"] == "crop"
+    assert captured["agent_kwargs"]["crop_callback"] is None
     assert captured["agent_kwargs"]["text_frame_selector"] is selector
     assert "more_views_callback" not in captured["agent_kwargs"]
     assert "hypothesis_callback" not in captured["agent_kwargs"]
+
+
+def test_scanrefer_pack_can_wire_crop_callback_when_explicitly_enabled(monkeypatch):
+    import agents.stage1_callbacks as callbacks
+    from evaluation.scripts import run_scanrefer_vg_side_by_side as mod
+
+    captured: dict = {}
+
+    class FakeAgent:
+        def __init__(self, **kwargs):
+            captured["agent_kwargs"] = kwargs
+
+        def run(self, *, task, bundle):
+            return "ok"
+
+    monkeypatch.setattr(mod, "Stage2DeepResearchAgent", FakeAgent)
+    monkeypatch.setattr(
+        mod, "_get_or_build_text_frame_selector", lambda *a, **kw: object()
+    )
+    monkeypatch.setattr(
+        mod,
+        "build_pack_v1_bundle_from_sample",
+        lambda *a, **kw: SimpleNamespace(),
+    )
+    monkeypatch.setattr(callbacks, "create_crop_callback", lambda *a, **kw: "crop")
+
+    result = mod.run_pack_v1_sample(
+        {"scene_id": "scene0558_00", "query": "the chair"},
+        data_root=SimpleNamespace(),
+        config=SimpleNamespace(),
+        enable_stage1_callback=True,
+    )
+
+    assert result == "ok"
+    assert captured["agent_kwargs"]["crop_callback"] == "crop"
 
 
 def test_extract_pack_v1_prediction_resolves_structured_proposal_payload():

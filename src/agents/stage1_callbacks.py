@@ -2,9 +2,9 @@
 
 v9 deleted ``create_more_views_callback`` and ``create_hypothesis_callback``;
 those flows are now exposed as first-class selector tools in
-``agents.tools.selectors``. Only ``create_crop_callback`` remains, since
-``request_crops`` is still part of the v9 tool surface for zooming into
-small / ambiguous regions.
+``agents.tools.selectors``. ``create_crop_callback`` remains only for callers
+that explicitly wire a concrete crop backend; default benchmark packs should
+not expose ``request_crops`` when this generic callback is the only backend.
 """
 
 from __future__ import annotations
