@@ -156,14 +156,26 @@ def test_compare_proposals_spatial_returns_stable_evidence_id(tmp_path: Path) ->
     rs.skills_loaded.add("vg-grounding-playbook")
     tool = next(t for t in build_vg_tools(rs) if t.name == "compare_proposals_spatial")
 
-    payload = json.loads(
+    payload0 = json.loads(
         tool.invoke({"candidate_ids": [0, 2], "anchor_id": 1, "relation": "left_of"})
     )
+    trace0 = rs.tool_trace[-1]
+    payload1 = json.loads(
+        tool.invoke({"candidate_ids": [2], "anchor_id": 1, "relation": "right_of"})
+    )
+    trace1 = rs.tool_trace[-1]
 
-    assert payload["evidence_id"].startswith("compare_proposals_spatial:")
-    assert payload["candidate_ids"] == [0, 2]
-    assert payload["anchor_id"] == 1
-    assert payload["relation"] == "left_of"
+    assert payload0["evidence_id"] == "compare_proposals_spatial:0"
+    assert trace0.tool_input["evidence_id"] == payload0["evidence_id"]
+    assert payload0["candidate_ids"] == [0, 2]
+    assert payload0["anchor_id"] == 1
+    assert payload0["relation"] == "left_of"
+
+    assert payload1["evidence_id"] == "compare_proposals_spatial:1"
+    assert trace1.tool_input["evidence_id"] == payload1["evidence_id"]
+    assert payload1["candidate_ids"] == [2]
+    assert payload1["anchor_id"] == 1
+    assert payload1["relation"] == "right_of"
 
 
 def test_compare_proposals_spatial_farthest_from(tmp_path: Path) -> None:

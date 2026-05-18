@@ -69,13 +69,24 @@ def _record_compare(
     payload_relation: str | None = None,
     supporting_frame_counts: list[int] | None = None,
     contradicting_frame_counts: list[int] | None = None,
-) -> None:
+    evidence_id: str | None = None,
+) -> str:
+    if evidence_id is None:
+        compare_index = sum(
+            1
+            for entry in rs.tool_trace
+            if entry.tool_name == "compare_proposals_spatial"
+        )
+        evidence_id = f"compare_proposals_spatial:{compare_index}"
     request = {
         "relation": relation,
         "anchor_id": anchor_id,
         "candidate_ids": candidate_ids,
+        "evidence_id": evidence_id,
     }
     payload = {
+        "evidence_id": evidence_id,
+        "candidate_ids": candidate_ids,
         "anchor_id": anchor_id,
         "relation": payload_relation or relation,
         "ranked_ids": ranked_ids,
@@ -92,6 +103,7 @@ def _record_compare(
             response_text=json.dumps(payload),
         )
     )
+    return evidence_id
 
 
 def _record_category_lookup(
@@ -240,7 +252,7 @@ def test_tadg_uses_bound_relation_evidence_over_stale_latest_compare() -> None:
         candidate_ids=[5],
         ranked_ids=[5],
     )
-    _record_compare(
+    evidence_id = _record_compare(
         rs,
         relation="closest_to",
         anchor_id=37,
@@ -251,12 +263,7 @@ def test_tadg_uses_bound_relation_evidence_over_stale_latest_compare() -> None:
     decision = evaluate_tadg(
         rs,
         {"proposal_id": 39, "confidence": 0.8},
-        relation_evidence={
-            "relation": "closest_to",
-            "anchor_id": 37,
-            "candidate_ids": [39, 5],
-            "ranked_ids": [39, 5],
-        },
+        relation_evidence={"evidence_id": evidence_id},
     )
 
     assert decision.blocked is False
@@ -264,22 +271,86 @@ def test_tadg_uses_bound_relation_evidence_over_stale_latest_compare() -> None:
 
 def test_tadg_rejects_bound_anchor_self_without_forcing_rank1() -> None:
     rs = _runtime(bundle=_bundle_with_query("trash can next to two red chairs"))
+    evidence_id = _record_compare(
+        rs,
+        relation="next_to",
+        anchor_id=36,
+        candidate_ids=[39, 40, 41],
+        ranked_ids=[39, 40, 41],
+    )
 
     decision = evaluate_tadg(
         rs,
         {"proposal_id": 36, "confidence": 0.8},
-        relation_evidence={
-            "relation": "next_to",
-            "anchor_id": 36,
-            "candidate_ids": [39, 40, 41],
-            "ranked_ids": [39, 40, 41],
-        },
+        relation_evidence={"evidence_id": evidence_id},
     )
 
     assert decision.blocked is True
     assert decision.subcase == "anchor_self"
     assert "target/anchor role" in decision.message
     assert "Revise to proposal 39" not in decision.message
+
+
+def test_tadg_ignores_conflicting_bound_relation_evidence_and_falls_back() -> None:
+    rs = _runtime(bundle=_bundle_with_query("the door nearest the small black chair"))
+    evidence_id = _record_compare(
+        rs,
+        relation="closest_to",
+        anchor_id=37,
+        candidate_ids=[39, 5],
+        ranked_ids=[39, 5],
+    )
+    _record_compare(
+        rs,
+        relation="closest_to",
+        anchor_id=37,
+        candidate_ids=[39, 5],
+        ranked_ids=[5, 39],
+    )
+
+    decision = evaluate_tadg(
+        rs,
+        {"proposal_id": 39, "confidence": 0.8},
+        relation_evidence={
+            "evidence_id": evidence_id,
+            "relation": "closest_to",
+            "anchor_id": 999,
+            "candidate_ids": [39, 5],
+            "ranked_ids": [39, 5],
+        },
+    )
+
+    assert decision.blocked is True
+    assert decision.top1_pid == 5
+    assert decision.subcase == "rank_mismatch"
+
+
+def test_tadg_ignores_bound_compare_when_ranked_ids_not_subset_of_candidates() -> None:
+    rs = _runtime(bundle=_bundle_with_query("the door nearest the small black chair"))
+    malformed_id = _record_compare(
+        rs,
+        relation="closest_to",
+        anchor_id=37,
+        candidate_ids=[39],
+        ranked_ids=[5],
+    )
+    _record_compare(
+        rs,
+        relation="closest_to",
+        anchor_id=37,
+        candidate_ids=[39, 5],
+        ranked_ids=[5, 39],
+    )
+
+    decision = evaluate_tadg(
+        rs,
+        {"proposal_id": 39, "confidence": 0.8},
+        relation_evidence={"evidence_id": malformed_id},
+    )
+
+    assert decision.blocked is True
+    assert decision.top1_pid == 5
+    assert decision.subcase == "rank_mismatch"
 
 
 def test_tadg_anchor_self_block_requests_role_repair_not_forced_top1() -> None:

@@ -499,35 +499,93 @@ def _latest_spatial_compare_for_submission(
     return None
 
 
+def _int_list(value: Any) -> list[int] | None:
+    if not isinstance(value, list):
+        return None
+    ids: list[int] = []
+    for item in value:
+        if isinstance(item, bool) or not isinstance(item, int):
+            return None
+        ids.append(item)
+    return ids
+
+
+def _recorded_compare_payload(
+    runtime: Any,
+    evidence_id: str,
+) -> dict[str, Any] | None:
+    for entry in list(getattr(runtime, "tool_trace", []) or []):
+        if _tool_name(entry) != "compare_proposals_spatial":
+            continue
+        tool_input = _tool_input(entry)
+        if tool_input.get("evidence_id") != evidence_id:
+            continue
+        try:
+            payload = json.loads(_response_text(entry))
+        except json.JSONDecodeError:
+            return None
+        if not isinstance(payload, dict) or payload.get("evidence_id") != evidence_id:
+            return None
+        return payload
+    return None
+
+
+def _bound_field_matches(
+    relation_evidence: dict[str, Any],
+    compare: dict[str, Any],
+    payload: dict[str, Any],
+    field: str,
+) -> bool:
+    if field == "evidence_id":
+        return True
+    if field not in payload:
+        return False
+    if field in {"candidate_ids", "ranked_ids"}:
+        return _int_list(relation_evidence.get(field)) == compare[field]
+    return relation_evidence.get(field) == payload.get(field)
+
+
 def _spatial_compare_from_relation_evidence(
+    runtime: Any,
     relation_evidence: dict[str, Any] | None,
     submitted_pid: int,
 ) -> dict[str, Any] | None:
     if not isinstance(relation_evidence, dict):
         return None
-    candidate_ids = relation_evidence.get("candidate_ids")
+    evidence_id = relation_evidence.get("evidence_id")
+    if not isinstance(evidence_id, str) or not evidence_id:
+        return None
+    payload = _recorded_compare_payload(runtime, evidence_id)
+    if payload is None:
+        return None
+    candidate_ids = _int_list(payload.get("candidate_ids"))
     if (
-        not isinstance(candidate_ids, list)
-        or not all(isinstance(pid, int) and not isinstance(pid, bool) for pid in candidate_ids)
+        candidate_ids is None
         or submitted_pid not in candidate_ids
     ):
         return None
-    anchor_id = relation_evidence.get("anchor_id")
-    relation = relation_evidence.get("relation")
-    ranked_ids = relation_evidence.get("ranked_ids")
+    anchor_id = payload.get("anchor_id")
+    relation = payload.get("relation")
+    ranked_ids = _int_list(payload.get("ranked_ids"))
     if (
         isinstance(anchor_id, bool)
         or not isinstance(anchor_id, int)
         or not isinstance(relation, str)
-        or not isinstance(ranked_ids, list)
-        or not all(isinstance(pid, int) and not isinstance(pid, bool) for pid in ranked_ids)
+        or ranked_ids is None
+        or not ranked_ids
+        or not set(ranked_ids).issubset(set(candidate_ids))
     ):
         return None
-    return {
+    compare = {
         "anchor_id": anchor_id,
         "relation": relation,
+        "candidate_ids": candidate_ids,
         "ranked_ids": ranked_ids,
     }
+    for field in relation_evidence:
+        if not _bound_field_matches(relation_evidence, compare, payload, field):
+            return None
+    return compare
 
 
 def _rationale_mentions_relation(rationale: str, relation: str) -> bool:
@@ -622,6 +680,7 @@ def evaluate_evidence_frame_guard(
     submitted_visible_without_anchor: list[tuple[int, list[tuple[int, str]]]] = []
     submitted_visible_with_anchor = False
     spatial_compare = _spatial_compare_from_relation_evidence(
+        runtime,
         relation_evidence,
         submitted_pid,
     )

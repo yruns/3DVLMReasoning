@@ -99,8 +99,18 @@ def _record_spatial_compare(
     anchor_id: int,
     relation: str,
     ranked_ids: list[int],
-) -> None:
+    evidence_id: str | None = None,
+) -> str:
+    if evidence_id is None:
+        compare_index = sum(
+            1
+            for entry in rs.tool_trace
+            if entry.tool_name == "compare_proposals_spatial"
+        )
+        evidence_id = f"compare_proposals_spatial:{compare_index}"
     response = {
+        "evidence_id": evidence_id,
+        "candidate_ids": candidate_ids,
         "anchor_id": anchor_id,
         "relation": relation,
         "ranked_ids": ranked_ids,
@@ -112,10 +122,12 @@ def _record_spatial_compare(
                 "candidate_ids": candidate_ids,
                 "anchor_id": anchor_id,
                 "relation": relation,
+                "evidence_id": evidence_id,
             },
             response_text=json.dumps(response),
         )
     )
+    return evidence_id
 
 
 def _register_vg_stub_pack(tmp_path: Path) -> None:
@@ -281,7 +293,7 @@ def test_evidence_frame_guard_blocks_spatial_rationale_when_anchor_missing_from_
 
 def test_evidence_frame_guard_prefers_bound_relation_evidence_over_latest_compare() -> None:
     rs = _runtime()
-    _record_spatial_compare(
+    evidence_id = _record_spatial_compare(
         rs,
         candidate_ids=[8, 11],
         anchor_id=7,
@@ -307,12 +319,7 @@ def test_evidence_frame_guard_prefers_bound_relation_evidence_over_latest_compar
         {"proposal_id": 8, "confidence": 0.8},
         rationale="proposal 8 is left of the bed in frame 57",
         evidence_refs=[{"frame_id": 57}],
-        relation_evidence={
-            "relation": "left_of",
-            "anchor_id": 7,
-            "candidate_ids": [8, 11],
-            "ranked_ids": [8, 11],
-        },
+        relation_evidence={"evidence_id": evidence_id},
     )
 
     assert decision.blocked is False
@@ -346,6 +353,34 @@ def test_evidence_frame_guard_ignores_malformed_bound_relation_evidence() -> Non
             "candidate_ids": [8],
             "ranked_ids": ["8"],
         },
+    )
+
+    assert decision.blocked is True
+    assert "anchor proposal 43" in decision.message
+
+
+def test_evidence_frame_guard_ignores_unknown_bound_evidence_id() -> None:
+    rs = _runtime()
+    _record_spatial_compare(
+        rs,
+        candidate_ids=[8],
+        anchor_id=43,
+        relation="left_of",
+        ranked_ids=[8],
+    )
+    _record_view(
+        rs,
+        frame_id=57,
+        visible_ids=[8, 7],
+        categories=["dresser", "bed"],
+    )
+
+    decision = evaluate_evidence_frame_guard(
+        rs,
+        {"proposal_id": 8, "confidence": 0.8},
+        rationale="proposal 8 is left of the bed in frame 57",
+        evidence_refs=[{"frame_id": 57}],
+        relation_evidence={"evidence_id": "compare_proposals_spatial:missing"},
     )
 
     assert decision.blocked is True

@@ -335,25 +335,78 @@ def _int_list(value: Any) -> list[int] | None:
     return ids
 
 
-def _bound_compare(relation_evidence: dict[str, Any] | None) -> dict[str, Any] | None:
+def _recorded_compare_payload(
+    runtime: Any,
+    evidence_id: str,
+) -> dict[str, Any] | None:
+    for entry in list(getattr(runtime, "tool_trace", []) or []):
+        if getattr(entry, "tool_name", None) != "compare_proposals_spatial":
+            continue
+        tool_input = getattr(entry, "tool_input", {}) or {}
+        if not isinstance(tool_input, dict) or tool_input.get("evidence_id") != evidence_id:
+            continue
+        response_text = getattr(entry, "response_text", "") or ""
+        try:
+            payload = json.loads(response_text)
+        except (json.JSONDecodeError, TypeError):
+            return None
+        if not isinstance(payload, dict) or payload.get("evidence_id") != evidence_id:
+            return None
+        return payload
+    return None
+
+
+def _field_matches_bound_evidence(
+    relation_evidence: dict[str, Any],
+    compare: dict[str, Any],
+    payload: dict[str, Any],
+    field: str,
+) -> bool:
+    if field == "evidence_id":
+        return True
+    if field not in payload:
+        return False
+    if field == "relation":
+        value = relation_evidence.get(field)
+        return isinstance(value, str) and _canonical_compare_relation(value) == compare[field]
+    if field in {"candidate_ids", "ranked_ids"}:
+        return _int_list(relation_evidence.get(field)) == compare[field]
+    return relation_evidence.get(field) == payload.get(field)
+
+
+def _bound_compare(
+    runtime: Any,
+    relation_evidence: dict[str, Any] | None,
+) -> dict[str, Any] | None:
     if not isinstance(relation_evidence, dict):
         return None
-    relation_value = relation_evidence.get("relation")
+    evidence_id = relation_evidence.get("evidence_id")
+    if not isinstance(evidence_id, str) or not evidence_id:
+        return None
+    payload = _recorded_compare_payload(runtime, evidence_id)
+    if payload is None:
+        return None
+    relation_value = payload.get("relation")
     if not isinstance(relation_value, str):
         return None
     relation = _canonical_compare_relation(relation_value)
     if relation not in _SUPPORTED_TOOL_RELATIONS:
         return None
-    anchor_id = relation_evidence.get("anchor_id")
+    anchor_id = payload.get("anchor_id")
     if isinstance(anchor_id, bool) or not isinstance(anchor_id, int):
         return None
-    candidate_ids = _int_list(relation_evidence.get("candidate_ids"))
-    ranked_ids = _int_list(relation_evidence.get("ranked_ids"))
-    if candidate_ids is None or ranked_ids is None or not ranked_ids:
+    candidate_ids = _int_list(payload.get("candidate_ids"))
+    ranked_ids = _int_list(payload.get("ranked_ids"))
+    if (
+        candidate_ids is None
+        or ranked_ids is None
+        or not ranked_ids
+        or not set(ranked_ids).issubset(set(candidate_ids))
+    ):
         return None
-    supporting = relation_evidence.get("supporting_frame_counts")
-    contradicting = relation_evidence.get("contradicting_frame_counts")
-    return {
+    supporting = payload.get("supporting_frame_counts")
+    contradicting = payload.get("contradicting_frame_counts")
+    compare = {
         "relation": relation,
         "anchor_id": anchor_id,
         "candidate_ids": candidate_ids,
@@ -363,6 +416,15 @@ def _bound_compare(relation_evidence: dict[str, Any] | None) -> dict[str, Any] |
             contradicting if isinstance(contradicting, list) else []
         ),
     }
+    for field in relation_evidence:
+        if not _field_matches_bound_evidence(
+            relation_evidence,
+            compare,
+            payload,
+            field,
+        ):
+            return None
+    return compare
 
 
 def _rank_value(values: Any, ranked_ids: list[int], proposal_id: int) -> int:
@@ -695,7 +757,7 @@ def evaluate_tadg(
         return TADGDecision(blocked=False)
     submitted_pid: int = submitted_pid_raw
 
-    compare = _bound_compare(relation_evidence)
+    compare = _bound_compare(runtime, relation_evidence)
     if compare is not None:
         relevant_relations = {compare["relation"]}
     else:

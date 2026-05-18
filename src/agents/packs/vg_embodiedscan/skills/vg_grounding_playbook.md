@@ -35,7 +35,9 @@ is genuinely absent from the catalog — OOD case).
    `closest_to` for "closer/nearest" phrasing and `farthest_from` for
    "farther/furthest" phrasing. For unsupported relations like front/behind,
    between, facing, across, or same-side, use marked frames / BEV evidence
-   instead of inventing a relation string.
+   instead of inventing a relation string. The response includes a stable
+   `evidence_id`; copy it into `submit_final(..., relation_evidence={"evidence_id": ...})`
+   when the final answer relies on that comparison.
 5. **Submit** with `submit_final(payload={"proposal_id": <id>}, …)`. The
    evidence-frame guard requires that at least one `mark_frame_with_bbox`
    call covered the submitted proposal id.
@@ -61,14 +63,18 @@ is genuinely absent from the catalog — OOD case).
   category matches (case-insensitive exact). Default `view_bev()` is
   a clean overview (mesh + trajectory + small dots, no labels).
 - `compare_proposals_spatial(candidate_ids, anchor_id, relation)` —
-  spatial disambiguation (TADG-relevant).
+  spatial disambiguation (TADG-relevant). Returns `evidence_id` plus ranked
+  candidates; use that id as `relation_evidence` in `submit_final` to bind
+  the final answer to the recorded comparison.
 
 ## Guards (read this before submit)
 
 - **TADG** (Target-Anchor Disambiguation Guard): if the query mentions an
   anchor (e.g. "next to the kitchen counter"), TADG will block submission
   unless `compare_proposals_spatial` proved the chosen proposal satisfies the
-  relation. If TADG fires, run the comparison and resubmit.
+  relation. If TADG fires, run the comparison and resubmit with
+  `relation_evidence={"evidence_id": "<compare id>"}` copied from the tool
+  response.
 - **no_match_guard**: if selectors did not surface any candidate of the
   queried category, submit `proposal_id=-1` (OOD).
 - **evidence_frame_guard**: at least one `mark_frame_with_bbox` call whose

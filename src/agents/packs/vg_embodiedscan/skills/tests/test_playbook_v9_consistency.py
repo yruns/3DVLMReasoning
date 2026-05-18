@@ -57,6 +57,15 @@ def test_vg_playbook_mentions_tadg_and_guards():
     assert "evidence_frame_guard" in text
 
 
+@pytest.mark.parametrize("path", [_PB, _PB_NO_TEXT, _SD, _SD_NO_TEXT])
+def test_vg_playbooks_document_relation_evidence_binding(path: Path):
+    text = path.read_text()
+    assert "evidence_id" in text
+    assert "relation_evidence" in text
+    assert "compare_proposals_spatial" in text
+    assert "submit_final" in text
+
+
 def test_vg_playbook_mentions_ood_proposal_minus_one():
     text = _PB.read_text()
     assert "proposal_id" in text

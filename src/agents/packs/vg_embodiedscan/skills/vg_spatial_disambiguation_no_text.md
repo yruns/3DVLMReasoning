@@ -7,11 +7,13 @@ Allowed canonical relation values are: `closest_to`, `near`, `next_to`,
 Workflow:
 1. Identify the candidate proposals (`#a`, `#b`) and the anchor (`#x`).
 2. Call `compare_proposals_spatial(candidate_ids=[#a, #b], anchor_id=#x, relation='<rel>')`.
+   The response returns a stable `evidence_id`.
 3. Verify visually with `mark_frame_with_bbox(frame_id, ids=[#a, #b, #x])`. The
    `frame_id` must come from a selector first (e.g. `select_by_proposal` or
    `select_by_region`) — `mark_frame_with_bbox` does not fetch new frames, it
    annotates one you have already seen.
-4. Submit the winning candidate via `submit_final`.
+4. Submit the winning candidate via `submit_final(..., relation_evidence={"evidence_id": ...})`
+   using the `evidence_id` copied from the comparison response.
 
 Use `closest_to` for "closer/nearest" phrasing and `farthest_from` for
 "farther/furthest" phrasing. For unsupported natural-language relations
