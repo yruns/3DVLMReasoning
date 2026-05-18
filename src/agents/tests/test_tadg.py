@@ -155,6 +155,42 @@ def test_tadg_disabled_passes() -> None:
     assert decision.message == ""
 
 
+def test_tadg_blocks_explicit_below_query_without_compare() -> None:
+    rs = _runtime(
+        bundle=_bundle_with_query("the printer right under the window")
+    )
+
+    decision = evaluate_tadg(rs, {"proposal_id": 2, "confidence": 0.7})
+
+    assert decision.blocked is True
+    assert decision.relation == "below"
+    assert decision.subcase == "missing_relation_evidence"
+    assert "TADG_MISSING_RELATION_EVIDENCE" in decision.message
+    assert "compare_proposals_spatial" in decision.message
+
+
+def test_tadg_missing_vertical_compare_ignores_plain_on_relation() -> None:
+    rs = _runtime(bundle=_bundle_with_query("the book on the top shelf"))
+
+    decision = evaluate_tadg(rs, {"proposal_id": 25, "confidence": 0.7})
+
+    assert decision.blocked is False
+
+
+def test_tadg_missing_vertical_compare_allows_override() -> None:
+    rs = _runtime(bundle=_bundle_with_query("the chair under the mounted tv"))
+
+    decision = evaluate_tadg(
+        rs,
+        {"proposal_id": 5, "confidence": 0.7},
+        tool_override_reason="only one chair candidate is present",
+    )
+
+    assert decision.blocked is False
+    assert decision.subcase == "missing_relation_evidence"
+    assert "TADG_MISSING_RELATION_OVERRIDE_ACCEPTED" in decision.message
+
+
 def test_tadg_blocks_when_submitted_not_top1() -> None:
     rs = _runtime()
     _record_compare(
