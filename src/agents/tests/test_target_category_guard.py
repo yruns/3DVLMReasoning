@@ -189,6 +189,72 @@ def test_target_category_guard_blocks_wall_for_shelf_after_context_wall_phrase()
     assert decision.submitted_category == "wall"
 
 
+def test_target_category_guard_prefers_head_before_against_wall_anchor() -> None:
+    rs = _runtime_with_categories(
+        "The box is against the wall on top of the stack.",
+        [(30, "box"), (31, "box"), (10, "wall")],
+    )
+
+    decision = evaluate_target_category_guard(rs, {"proposal_id": 30})
+
+    assert decision.blocked is False
+    assert decision.expected_category == "box"
+    assert decision.submitted_category == "box"
+
+
+def test_target_category_guard_prefers_head_before_closest_to_anchor() -> None:
+    rs = _runtime_with_categories(
+        "The chair closest to the mirror in the nook.",
+        [(30, "chair"), (31, "chair"), (15, "mirror")],
+    )
+
+    decision = evaluate_target_category_guard(rs, {"proposal_id": 30})
+
+    assert decision.blocked is False
+    assert decision.expected_category == "chair"
+    assert decision.submitted_category == "chair"
+
+
+def test_target_category_guard_ignores_relative_that_has_anchor() -> None:
+    rs = _runtime_with_categories(
+        "Select the shelf that has a plant on top of it.",
+        [(24, "shelf"), (9, "plant")],
+    )
+
+    decision = evaluate_target_category_guard(rs, {"proposal_id": 24})
+
+    assert decision.blocked is False
+    assert decision.expected_category == "bookshelf"
+    assert decision.submitted_category == "bookshelf"
+
+
+def test_target_category_guard_prefers_monitor_before_closest_bookshelf_anchor() -> None:
+    rs = _runtime_with_categories(
+        "The monitor closest to the bookshelf",
+        [(2, "monitor"), (3, "monitor"), (4, "bookshelf")],
+    )
+
+    decision = evaluate_target_category_guard(rs, {"proposal_id": 2})
+
+    assert decision.blocked is False
+    assert decision.expected_category == "monitor"
+    assert decision.submitted_category == "monitor"
+
+
+def test_target_category_guard_uses_looking_at_set_with_pronoun_target() -> None:
+    rs = _runtime_with_categories(
+        "When looking at the three storage bins, it is the highest, "
+        "on top of the other two, and closest to the clock on the wall.",
+        [(30, "storage bin"), (31, "storage bin"), (32, "storage bin"), (9, "clock")],
+    )
+
+    decision = evaluate_target_category_guard(rs, {"proposal_id": 32})
+
+    assert decision.blocked is False
+    assert decision.expected_category == "storage bin"
+    assert decision.submitted_category == "storage bin"
+
+
 def test_target_category_guard_ignores_orientation_wall_when_target_head_absent() -> None:
     rs = _runtime_with_categories(
         "When facing the wall of windows, the furthest on the right.",

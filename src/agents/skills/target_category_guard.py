@@ -51,13 +51,20 @@ _WANT_HEAD_RE = re.compile(
 )
 _DEMONSTRATIVE_HEAD_RE = re.compile(
     r"\b(?:this|that|these|those)\s+"
-    r"(?!is\b|are\b|one\b|ones\b)"
+    r"(?!"
+    r"is\b|are\b|one\b|ones\b|"
+    r"has\b|have\b|had\b|contains?\b|"
+    r"with\b|without\b|on\b|in\b|near\b|next\b|"
+    r"closest\b|closer\b|nearest\b|farthest\b|furthest\b|farther\b"
+    r")"
     r"(?P<label>[a-z][a-z0-9]*(?:\s+[a-z][a-z0-9]*){0,2})\b",
     re.I,
 )
 _CONTEXT_LEADING_RE = re.compile(
     r"^(?:"
     r"when\s+facing|facing|"
+    r"closest\s+to|closer\s+to|nearest\s+to|nearer\s+to|"
+    r"farthest\s+from|furthest\s+from|farther\s+from|"
     r"on|in|near|beside|next\s+to|adjacent\s+to|"
     r"opposite(?:\s+to)?|left\s+of|right\s+of|"
     r"to\s+the\s+(?:left|right|front|back)\s+of"
@@ -66,10 +73,12 @@ _CONTEXT_LEADING_RE = re.compile(
 )
 _RELATION_CUE_RE = re.compile(
     r"\b(?:"
+    r"closest\s+to|closer\s+to|nearest\s+to|nearer\s+to|"
+    r"farthest\s+from|furthest\s+from|farther\s+from|"
     r"to\s+the\s+(?:left|right|front|back)\s+of|"
     r"left\s+of|right\s+of|in\s+front\s+of|next\s+to|"
     r"near|beside|behind|above|below|under|over|"
-    r"on|in|with|by|from|that|which|who"
+    r"against|on|in|with|by|from|that|which|who"
     r")\b",
     re.I,
 )
@@ -181,15 +190,20 @@ def _category_aliases(category: str) -> tuple[str, ...]:
     return _LABEL_ALIASES.get(category_norm, (category_norm,))
 
 
-def _alias_mentioned(text: str, alias: str) -> bool:
+def _alias_match(text: str, alias: str) -> re.Match[str] | None:
     alias_norm = " ".join(str(alias).lower().split())
     if not alias_norm:
-        return False
-    pattern = r"(?<![a-z0-9])" + r"\s+".join(
-        re.escape(part) for part in alias_norm.split()
-    )
+        return None
+    parts = alias_norm.split()
+    pattern_parts = [re.escape(part) for part in parts[:-1]]
+    pattern_parts.append(re.escape(parts[-1]) + r"s?")
+    pattern = r"(?<![a-z0-9])" + r"\s+".join(pattern_parts)
     pattern += r"(?![a-z0-9])"
-    return re.search(pattern, str(text).lower()) is not None
+    return re.search(pattern, str(text).lower())
+
+
+def _alias_mentioned(text: str, alias: str) -> bool:
+    return _alias_match(text, alias) is not None
 
 
 def _query_mentions_category(text: str, category: str) -> bool:
@@ -214,17 +228,23 @@ def _match_label_to_category(label: str, categories: list[str]) -> str | None:
         if _category_matches(label_norm, category):
             return category
 
-    matches: list[tuple[int, str]] = []
+    matches: list[tuple[int, int, str]] = []
     for category in categories:
         for alias in _category_aliases(category):
-            if _alias_mentioned(label_norm, alias):
-                matches.append((len(_compact(alias)), category))
+            match = _alias_match(label_norm, alias)
+            if match is not None:
+                matches.append((match.start(), len(_compact(alias)), category))
 
     if not matches:
         return None
-    best_score = max(score for score, _ in matches)
+    best_start = min(start for start, _, _ in matches)
+    best_score = max(score for start, score, _ in matches if start == best_start)
     best_categories = _unique(
-        [category for score, category in matches if score == best_score]
+        [
+            category
+            for start, score, category in matches
+            if start == best_start and score == best_score
+        ]
     )
     return best_categories[0] if len(best_categories) == 1 else None
 
@@ -234,6 +254,8 @@ def _leading_label_from_clause(clause: str) -> str | None:
     if not text:
         return None
 
+    text = re.sub(r"^\s*(?:and|or|but)\s+", "", text, flags=re.I)
+    text = re.sub(r"^\s*when\s+looking\s+at\s+", "", text, flags=re.I)
     text = re.sub(
         r"^\s*(?:(?:it|this|that)\s+(?:is|s)\s+|it's\s+)",
         "",
@@ -255,6 +277,7 @@ def _leading_label_from_clause(clause: str) -> str | None:
 
 def _starts_with_context_phrase(clause: str) -> bool:
     text = " ".join(str(clause).lower().split())
+    text = re.sub(r"^\s*(?:and|or|but)\s+", "", text, flags=re.I)
     return bool(text and _CONTEXT_LEADING_RE.search(text))
 
 
