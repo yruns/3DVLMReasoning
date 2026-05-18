@@ -445,6 +445,26 @@ def test_target_category_guard_blocks_generic_chair_for_specific_office_chair_qu
     assert decision.submitted_category == "chair"
 
 
+def test_target_category_guard_treats_desk_chair_as_chair_not_desk() -> None:
+    rs = _runtime_with_categories(
+        "all black desk chair",
+        [
+            (3, "office chair"),
+            (6, "desk"),
+        ],
+    )
+
+    chair_decision = evaluate_target_category_guard(rs, {"proposal_id": 3})
+    desk_decision = evaluate_target_category_guard(rs, {"proposal_id": 6})
+
+    assert chair_decision.blocked is False
+    assert chair_decision.expected_category == "chair"
+    assert chair_decision.submitted_category == "office chair"
+    assert desk_decision.blocked is True
+    assert desk_decision.expected_category == "chair"
+    assert desk_decision.submitted_category == "desk"
+
+
 def test_target_category_guard_unwraps_nested_payload_for_matching_category() -> None:
     rs = _runtime("The pillow is the back right option.")
 

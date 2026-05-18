@@ -281,23 +281,42 @@ def _match_label_to_category(label: str, categories: list[str]) -> str | None:
         if _category_matches(label_norm, category):
             return category
 
-    matches: list[tuple[int, int, str]] = []
+    matches: list[tuple[int, int, str, bool]] = []
     for category in categories:
         for alias in _category_aliases(category):
             match = _alias_match(label_norm, alias)
             if match is not None:
-                matches.append((match.start(), len(_compact(alias)), category))
+                matches.append((match.start(), len(_compact(alias)), category, False))
+
+    for generic, subtypes in _GENERIC_CATEGORY_SUBTYPES.items():
+        for subtype in subtypes:
+            match = _alias_match(label_norm, subtype)
+            if match is not None:
+                matches.append(
+                    (
+                        match.start(),
+                        len(_compact(subtype)),
+                        _normalize_category(generic),
+                        True,
+                    )
+                )
 
     if not matches:
         return None
-    best_start = min(start for start, _, _ in matches)
-    best_score = max(score for start, score, _ in matches if start == best_start)
-    best_categories = _unique(
-        [
-            category
-            for start, score, category in matches
-            if start == best_start and score == best_score
-        ]
+    best_start = min(start for start, _, _, _ in matches)
+    best_score = max(
+        score for start, score, _, _ in matches if start == best_start
+    )
+    best_matches = [
+        (category, synthetic)
+        for start, score, category, synthetic in matches
+        if start == best_start and score == best_score
+    ]
+    explicit_best_categories = _unique(
+        [category for category, synthetic in best_matches if not synthetic]
+    )
+    best_categories = explicit_best_categories or _unique(
+        [category for category, _ in best_matches]
     )
     return best_categories[0] if len(best_categories) == 1 else None
 
