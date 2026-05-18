@@ -146,6 +146,60 @@ def test_target_category_guard_allows_matching_head_category() -> None:
     assert decision.submitted_category == "pillow"
 
 
+def test_target_category_guard_unwraps_nested_payload_for_matching_category() -> None:
+    rs = _runtime("The pillow is the back right option.")
+
+    decision = evaluate_target_category_guard(rs, {"payload": {"proposal_id": 46}})
+
+    assert decision.blocked is False
+    assert decision.expected_category == "pillow"
+    assert decision.submitted_category == "pillow"
+
+
+def test_target_category_guard_passes_missing_proposal_id() -> None:
+    rs = _runtime("Choose the pillow.")
+
+    decision = evaluate_target_category_guard(rs, {})
+
+    assert decision.blocked is False
+    assert decision.submitted_pid is None
+    assert decision.expected_category is None
+    assert decision.submitted_category is None
+
+
+def test_target_category_guard_passes_non_int_proposal_id() -> None:
+    rs = _runtime("Choose the pillow.")
+
+    decision = evaluate_target_category_guard(rs, {"proposal_id": "46"})
+
+    assert decision.blocked is False
+    assert decision.submitted_pid is None
+    assert decision.expected_category is None
+    assert decision.submitted_category is None
+
+
+def test_target_category_guard_passes_negative_one_proposal_id() -> None:
+    rs = _runtime("Choose the pillow.")
+
+    decision = evaluate_target_category_guard(rs, {"proposal_id": -1})
+
+    assert decision.blocked is False
+    assert decision.submitted_pid is None
+    assert decision.expected_category is None
+    assert decision.submitted_category is None
+
+
+def test_target_category_guard_passes_unavailable_submitted_proposal_id() -> None:
+    rs = _runtime("Choose the pillow.")
+
+    decision = evaluate_target_category_guard(rs, {"proposal_id": 999})
+
+    assert decision.blocked is False
+    assert decision.submitted_pid == 999
+    assert decision.expected_category is None
+    assert decision.submitted_category is None
+
+
 def test_target_category_guard_passes_ambiguous_head() -> None:
     rs = _runtime("It is the one on the left.")
 
@@ -240,6 +294,15 @@ def test_submit_final_already_submitted_records_neutral_target_category_fields(
         submit_record = rs.tool_trace[-1]
         assert submit_record.response_text.startswith("ALREADY_SUBMITTED")
         assert submit_record.tool_input["target_category_guard_blocked"] is False
+        assert submit_record.tool_input["target_category_guard_submitted_pid"] is None
+        assert (
+            submit_record.tool_input["target_category_guard_expected_category"] is None
+        )
+        assert (
+            submit_record.tool_input["target_category_guard_submitted_category"]
+            is None
+        )
+        assert submit_record.tool_input["target_category_guard_message"] is None
     finally:
         PACKS.clear()
         PACKS.update(previous_packs)
