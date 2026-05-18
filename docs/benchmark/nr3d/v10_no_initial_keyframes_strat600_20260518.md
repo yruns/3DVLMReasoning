@@ -1457,3 +1457,106 @@ Reading: diagnostic only. The guard is a low-blast-radius no-GT correctness
 check for stale structured payloads. It can recover cases only when the agent
 has already reasoned to the right id in prose but failed to update the payload.
 It does not solve topology, category aliasing, or anchor-relation ambiguity.
+
+### Generic subtype category probe: dbd9adb
+
+This probe follows the remaining miss in the rationale/payload consistency
+subset. The failed sample says "chair", while the correct proposal is labeled
+`office chair`. Commit `dbd9adb` makes generic target-category checks asymmetric:
+a generic query category such as `chair` may accept subtype labels such as
+`office chair`, but a specific query category such as `office chair` does not
+accept a generic `chair` answer. The VG playbooks were also updated to tell the
+agent not to reject a valid subtype when the query uses a generic category word.
+The implementation reads only query text, proposal labels, and agent rationale;
+it does not inspect target ids, GT bboxes, target visibility, or metrics.
+
+Run metadata:
+
+| Item | Value |
+|---|---|
+| Branch | `feat/remove-initial-keyframes` |
+| Head commit at launch | `dbd9adb` |
+| Run-time code commit | `dbd9adb` - no worktree drift |
+| Probe IDs used at run time | `tmp/nr3d_artifacts/v10_rationale_payload_probe3_sample_ids_20260519.json` |
+| Durable probe IDs | `docs/benchmark/nr3d/assets/v10_rationale_payload_probe3_sample_ids_20260519.json` |
+| Durable probe IDs MD5 | `4ef53f60e189403c1d66d718534d8e60` |
+| Output dir | `tmp/nr3d_eval_v10_subtype_probe3_20260519_dbd9adb/` |
+| Run log | `/tmp/nr3d_subtype_probe3_dbd9adb.log` |
+| Side-by-side JSON | `tmp/nr3d_eval_v10_subtype_probe3_20260519_dbd9adb/side_by_side.json` |
+| Side-by-side MD5 | `0733fdc85f2351e61b70167a1dbdc32b` |
+| Leaderboard metrics | `tmp/nr3d_eval_v10_subtype_probe3_20260519_dbd9adb/leaderboard_metrics.json` |
+| Leaderboard metrics MD5 | `0f54b85ed95ed079316a81e0abc90851` |
+| SQLite run id | `v10_subtype_probe3_20260519` |
+| Workers | 3 |
+| Sample retries | 0 |
+| Guards | TADG + no-match + evidence-frame + rationale/payload |
+
+Commands:
+
+```bash
+tmux new-session -d -s nr3d-subtype-probe3-dbd9adb \
+  "cd /Users/bytedance/project/3DVLMReasoning && bash -lc 'set -euo pipefail; \
+   export PYTHONPATH=src PYTHONUNBUFFERED=1; \
+   .venv/bin/python -m evaluation.scripts.run_nr3d_vg_side_by_side \
+     --sample-ids tmp/nr3d_artifacts/v10_rationale_payload_probe3_sample_ids_20260519.json \
+     --data-root data/nr3d/scannet \
+     --pack-name pack_nr3d_v9_catalog_first \
+     --output-dir tmp/nr3d_eval_v10_subtype_probe3_20260519_dbd9adb \
+     --workers 3 \
+     --sample-retries 0 \
+     --use-tool-answer-disagreement-gate \
+     --use-no-match-candidate-guard \
+     --use-evidence-frame-guard \
+     2>&1 | tee /tmp/nr3d_subtype_probe3_dbd9adb.log; \
+   .venv/bin/python -m evaluation.scripts.nr3d_leaderboard_metrics \
+     --side-by-side tmp/nr3d_eval_v10_subtype_probe3_20260519_dbd9adb/side_by_side.json \
+     --nr3d-data-root data/nr3d \
+     --phase8-data-root data/nr3d/scannet \
+     --sample-ids tmp/nr3d_artifacts/v10_rationale_payload_probe3_sample_ids_20260519.json \
+     --output tmp/nr3d_eval_v10_subtype_probe3_20260519_dbd9adb/leaderboard_metrics.json \
+     --canonical-filter true \
+     2>&1 | tee -a /tmp/nr3d_subtype_probe3_dbd9adb.log'"
+
+PYTHONPATH=src .venv/bin/python scripts/ingest_nr3d_run.py \
+  --output-dir tmp/nr3d_eval_v10_subtype_probe3_20260519_dbd9adb \
+  --run-id v10_subtype_probe3_20260519 \
+  --branch feat/remove-initial-keyframes \
+  --commit dbd9adb \
+  --backend pack_v1 \
+  --leaderboard-metrics tmp/nr3d_eval_v10_subtype_probe3_20260519_dbd9adb/leaderboard_metrics.json \
+  --notes "Diagnostic 3-case probe after generic chair subtype category guard/playbook update; negative on scene0663 because nested anchor desk closest to window remains unresolved." \
+  --db docs/benchmark/nr3d/runs.sqlite
+```
+
+Probe stability:
+
+- 3 / 3 samples completed.
+- 0 Tracebacks / logged Exceptions in the run log.
+- Pre-run verification covered the target-category guard, chassis tools, TADG,
+  evidence-frame guard, and VG playbook loadability: 148 tests passed.
+
+Probe metrics:
+
+| Metric | Value |
+|---|---:|
+| n | 3 |
+| classification_acc_filtered | 66.67 |
+| Easy | 50.00 |
+| Hard | 100.00 |
+| V-Dep | 0.00 |
+| V-Indep | 100.00 |
+
+Case outcomes vs `v10_no_gt_fixes_strat600_20260519`:
+
+| Sample | a6f6077 selected | be3c4fc selected | dbd9adb selected | Reading |
+|---|---:|---:|---:|---|
+| `scannet/scene0678_00::21::1134` | 31 | 21 | 21 | Still recovered; no regression. |
+| `scannet/scene0222_00::20::35738` | 19 | 20 | 20 | Still recovered; no regression. |
+| `scannet/scene0663_00::6::33306` | 33 | 33 | 33 | Still wrong. The subtype check no longer rejects `office chair` for a generic `chair` query, but the live trace resolves the nested anchor incorrectly: it treats desk `#4` as the desk closest to window `#5`, then selects chair `#33` behind that desk. The correct no-GT workflow is to first resolve the anchor desk candidates against the window with `compare_proposals_spatial(..., relation='closest_to')`, then rank/verify chair candidates behind the resolved desk. |
+
+Reading: diagnostic only. The subtype change removes one false rejection path,
+but the target case is now clearly a nested-anchor failure rather than a
+category-alias failure. The next no-GT improvement target is a playbook/tool-flow
+rule for queries shaped like "target behind/next-to [anchor] closest/farthest to
+[second anchor]": resolve the anchor superlative first, then compare targets
+against that resolved anchor.
