@@ -1873,3 +1873,114 @@ none of the 15 traces called `compare_proposals_spatial` with `above` or
 failed-case slice. The next improvement target is prompt/skill routing: make
 the agent explicitly use `compare_proposals_spatial` for above / below / under
 candidate ranking before visual verification.
+
+### Vertical relation routing prompt probe: 61042c3
+
+Commit `61042c3` adds broad VG playbook / spatial-disambiguation prose telling
+the agent to map "under", "right under", and "beneath" to
+`relation='below'`, and "above", "over", and "on top of" to
+`relation='above'`, then use `compare_proposals_spatial` before marked-frame
+verification. This directly targets the caveat from the `54198ef` probe: the
+tool was fixed, but the agent did not call it for vertical relations.
+
+Run metadata:
+
+| Item | Value |
+|---|---|
+| Branch | `feat/remove-initial-keyframes` |
+| Head commit at launch | `61042c3` |
+| Run-time code commit | `61042c3` - no worktree drift |
+| Probe IDs | `docs/benchmark/nr3d/assets/v10_candidate_closure_probe15_sample_ids_20260519.json` |
+| Output dir | `tmp/nr3d_eval_v10_vertical_route_probe15_20260519_61042c3/` |
+| Run log | `/tmp/nr3d_vertical_route_probe15_61042c3.log` |
+| Side-by-side JSON | `tmp/nr3d_eval_v10_vertical_route_probe15_20260519_61042c3/side_by_side.json` |
+| Side-by-side MD5 | `b3a0080d632251bf302443bf404abada` |
+| Leaderboard metrics | `tmp/nr3d_eval_v10_vertical_route_probe15_20260519_61042c3/leaderboard_metrics.json` |
+| Leaderboard metrics MD5 | `ca7ce4384396ef0a96632884ad5c2311` |
+| SQLite run id | `v10_vertical_route_probe15_20260519` |
+| Workers | 8 |
+| Sample retries | 0 |
+| Guards | TADG + no-match + evidence-frame + rationale/payload |
+
+Commands:
+
+```bash
+tmux new-session -d -s nr3d-vertical-route-probe15-61042c3 \
+  "cd /Users/bytedance/project/3DVLMReasoning && bash -lc 'set -euo pipefail; \
+   export PYTHONPATH=src PYTHONUNBUFFERED=1; \
+   .venv/bin/python -m evaluation.scripts.run_nr3d_vg_side_by_side \
+     --sample-ids docs/benchmark/nr3d/assets/v10_candidate_closure_probe15_sample_ids_20260519.json \
+     --data-root data/nr3d/scannet \
+     --pack-name pack_nr3d_v9_catalog_first \
+     --output-dir tmp/nr3d_eval_v10_vertical_route_probe15_20260519_61042c3 \
+     --workers 8 \
+     --sample-retries 0 \
+     --use-tool-answer-disagreement-gate \
+     --use-no-match-candidate-guard \
+     --use-evidence-frame-guard \
+     2>&1 | tee /tmp/nr3d_vertical_route_probe15_61042c3.log; \
+   .venv/bin/python -m evaluation.scripts.nr3d_leaderboard_metrics \
+     --side-by-side tmp/nr3d_eval_v10_vertical_route_probe15_20260519_61042c3/side_by_side.json \
+     --nr3d-data-root data/nr3d \
+     --phase8-data-root data/nr3d/scannet \
+     --sample-ids docs/benchmark/nr3d/assets/v10_candidate_closure_probe15_sample_ids_20260519.json \
+     --output tmp/nr3d_eval_v10_vertical_route_probe15_20260519_61042c3/leaderboard_metrics.json \
+     --canonical-filter true \
+     2>&1 | tee -a /tmp/nr3d_vertical_route_probe15_61042c3.log'"
+
+PYTHONPATH=src .venv/bin/python scripts/ingest_nr3d_run.py \
+  --output-dir tmp/nr3d_eval_v10_vertical_route_probe15_20260519_61042c3 \
+  --run-id v10_vertical_route_probe15_20260519 \
+  --branch feat/remove-initial-keyframes \
+  --commit 61042c3 \
+  --backend pack_v1 \
+  --leaderboard-metrics tmp/nr3d_eval_v10_vertical_route_probe15_20260519_61042c3/leaderboard_metrics.json \
+  --notes "Diagnostic 15-case probe after vertical relation playbook routing; creates one below compare_proposals_spatial call and keeps scene0077 correct, but overall drops to 5/15 vs 8/15 previous probe, so the broad prompt wording is negative." \
+  --db docs/benchmark/nr3d/runs.sqlite
+```
+
+Probe stability:
+
+- 15 / 15 samples completed.
+- 0 Tracebacks / logged Exceptions in the run log.
+- Pre-run TDD verification:
+  - RED: `test_playbooks_route_vertical_relations_to_spatial_compare`
+    failed on all four VG skill/playbook variants.
+  - GREEN: after the prompt change, the new contract test passed on all four
+    variants; full playbook tests passed 55 / 55.
+
+Probe metrics:
+
+| Metric | Value |
+|---|---:|
+| n | 15 |
+| classification_acc_filtered | 33.33 |
+| Easy | 28.57 |
+| Hard | 37.50 |
+| V-Dep | 28.57 |
+| V-Indep | 37.50 |
+
+Tool-routing evidence:
+
+- `scene0077_00::1::22194` now calls
+  `compare_proposals_spatial(candidate_ids=[1, 2], anchor_id=3, relation='below')`.
+- That tool ranks `[1, 2]` with horizontal distances `[0.376, 0.687]`, and the
+  agent submits `#1` with `relation_evidence={"evidence_id": "compare_proposals_spatial:0"}`.
+- Across the 15 traces, relation calls were: `closest_to` x3, `next_to` x1,
+  `below` x1, `above` x0.
+
+Case outcomes vs `54198ef`:
+
+| Sample | 54198ef selected | 61042c3 selected | Reading |
+|---|---:|---:|---|
+| `scannet/scene0077_00::1::22194` | 1 | 1 | Still correct, now with the desired `below` comparison and relation evidence. |
+| `scannet/scene0011_00::20::28662` | 20 | 1 | Regressed. Non-vertical cabinet right-side query; broad prompt noise likely changed the tool/visual path. |
+| `scannet/scene0011_00::23::15020` | 23 | 24 | Regressed. Non-vertical window-facing right-side query. |
+| `scannet/scene0030_00::0::23137` | 0 | 1 | Regressed. Multi-clause chalkboard/office-chair alignment query. |
+
+Reading: negative as a broad prompt change. It proves the agent can use the
+fixed vertical comparator when instructed, but the prose is too broad for the
+main VG playbooks and regresses unrelated cases on the same 15-case slice. Do
+not keep this wording active; preserve the run as evidence that the next route
+should be narrower, likely a guard/tool-level intervention for explicit
+above/below submissions rather than more general playbook prose.
