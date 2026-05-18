@@ -113,6 +113,19 @@ def test_playbooks_document_nested_anchor_resolution_before_target_ranking(
     assert "then rank the target candidates against that resolved anchor" in normalized
 
 
+@pytest.mark.parametrize("path", [_PB, _PB_NO_TEXT, _SD, _SD_NO_TEXT])
+def test_playbooks_document_negated_anchor_requires_marked_counterexample(
+    path: Path,
+):
+    text = path.read_text()
+    normalized = " ".join(text.split())
+    assert "Negated anchor relations" in normalized
+    assert "marked positive counterexample" in normalized
+    assert "pillow on the bed NOT next to the windows" in normalized
+    assert "mark_frame_with_bbox" in normalized
+    assert "Do not decide the NOT case from BEV proximity alone" in normalized
+
+
 def test_vg_playbook_mentions_ood_proposal_minus_one():
     text = _PB.read_text()
     assert "proposal_id" in text
