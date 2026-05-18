@@ -409,6 +409,42 @@ def test_target_category_guard_allows_matching_head_category() -> None:
     assert decision.submitted_category == "pillow"
 
 
+def test_target_category_guard_allows_subtype_for_generic_chair_query() -> None:
+    rs = _runtime_with_categories(
+        "the chair behind the desk closest to the window",
+        [
+            (6, "office chair"),
+            (33, "chair"),
+            (4, "desk"),
+            (5, "window"),
+        ],
+    )
+
+    decision = evaluate_target_category_guard(rs, {"proposal_id": 6})
+
+    assert decision.blocked is False
+    assert decision.expected_category == "chair"
+    assert decision.submitted_category == "office chair"
+
+
+def test_target_category_guard_blocks_generic_chair_for_specific_office_chair_query() -> None:
+    rs = _runtime_with_categories(
+        "the office chair behind the desk closest to the window",
+        [
+            (6, "office chair"),
+            (33, "chair"),
+            (4, "desk"),
+            (5, "window"),
+        ],
+    )
+
+    decision = evaluate_target_category_guard(rs, {"proposal_id": 33})
+
+    assert decision.blocked is True
+    assert decision.expected_category == "office chair"
+    assert decision.submitted_category == "chair"
+
+
 def test_target_category_guard_unwraps_nested_payload_for_matching_category() -> None:
     rs = _runtime("The pillow is the back right option.")
 

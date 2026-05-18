@@ -133,6 +133,19 @@ def test_scene_exploration_playbook_registered_for_vg_and_qa():
     assert "select_by_text" in body
 
 
+def test_vg_playbooks_treat_generic_category_as_subtype_compatible():
+    _ensure_packs_registered()
+    spec = next(
+        s
+        for s in skills_for(Stage2TaskType.VISUAL_GROUNDING)
+        if s.name == "vg-grounding-playbook"
+    )
+    for path in (spec.body_path, spec.body_path.with_name("vg_grounding_playbook_no_text.md")):
+        body = path.read_text()
+        assert "Generic category words include subtype labels" in body
+        assert "office chair" in body
+
+
 def test_scene_exploration_playbook_does_not_reference_deleted_tools():
     text = _PLAYBOOK_PATH.read_text()
     for dead in (

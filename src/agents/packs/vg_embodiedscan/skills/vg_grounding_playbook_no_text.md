@@ -19,8 +19,11 @@ the target is genuinely absent from the catalog — OOD case).
 
 1. **Read the BEV image** and the `Proposals by category:` block in the task
    message. Identify candidate `#id`s by category (e.g. "brown chair" → all
-   `chair` proposals). For anchor-bearing queries ("next to the kitchen
-   counter") also identify the anchor's `#id`s.
+   `chair` proposals). Generic category words include subtype labels: a query
+   for "chair" can refer to an `office chair`, `desk chair`, `lounge chair`,
+   or `armchair`; do not reject a subtype label when relation/visual evidence
+   matches the referring expression. For anchor-bearing queries ("next to the
+   kitchen counter") also identify the anchor's `#id`s.
 2. **Fetch first-person evidence** with
    `select_by_proposal(proposal_ids=[candidate ids], require_all=False, k=3)`.
    For queries with no obvious catalog handle (e.g. "the table in the

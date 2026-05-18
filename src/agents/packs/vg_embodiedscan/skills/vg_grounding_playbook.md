@@ -10,7 +10,10 @@ is genuinely absent from the catalog — OOD case).
 
 1. **Read the BEV image** and the `Proposals by category:` block in the task
    message. Identify candidate `#id`s by category (e.g. "brown chair" → all
-   `chair` proposals).
+   `chair` proposals). Generic category words include subtype labels: a query
+   for "chair" can refer to an `office chair`, `desk chair`, `lounge chair`,
+   or `armchair`; do not reject a subtype label when relation/visual evidence
+   matches the referring expression.
 2. **First move (audit-informed)** — pick one:
    - If the BEV shows the candidate categories clearly and the query
      references a relation / direction ("the chair on the right",

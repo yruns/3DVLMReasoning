@@ -47,6 +47,17 @@ _LABEL_ALIASES: dict[str, tuple[str, ...]] = {
     "whiteboard": ("whiteboard", "white board"),
     "trash can": ("trash can", "trashcan"),
 }
+_GENERIC_CATEGORY_SUBTYPES: dict[str, tuple[str, ...]] = {
+    "chair": (
+        "office chair",
+        "desk chair",
+        "guest chair",
+        "lounge chair",
+        "armchair",
+        "dining chair",
+        "table chair",
+    ),
+}
 _LEADING_HEAD_RE = re.compile(
     r"^\s*(?:(?:it|this|that)\s+is\s+)?(?:the|a|an|this|that)?\s*"
     r"(?P<label>[a-z][a-z0-9]*(?:\s+[a-z][a-z0-9]*){0,2})\b",
@@ -143,12 +154,23 @@ def _normalize_category(value: str) -> str:
     return text
 
 
-def _category_matches(left: str | None, right: str | None) -> bool:
+def _category_exact_matches(left: str | None, right: str | None) -> bool:
     left_norm = _normalize_category(left or "")
     right_norm = _normalize_category(right or "")
     if not left_norm or not right_norm:
         return False
     return _compact(left_norm) == _compact(right_norm)
+
+
+def _category_matches(left: str | None, right: str | None) -> bool:
+    left_norm = _normalize_category(left or "")
+    right_norm = _normalize_category(right or "")
+    if not left_norm or not right_norm:
+        return False
+    if _compact(left_norm) == _compact(right_norm):
+        return True
+    subtype_aliases = _GENERIC_CATEGORY_SUBTYPES.get(left_norm, ())
+    return _compact(right_norm) in {_compact(alias) for alias in subtype_aliases}
 
 
 def _bundle_query_text(runtime: Any) -> str:
@@ -251,6 +273,10 @@ def _split_clauses(query: str) -> list[str]:
 
 def _match_label_to_category(label: str, categories: list[str]) -> str | None:
     label_norm = _normalize_category(label)
+    for category in categories:
+        if _category_exact_matches(label_norm, category):
+            return category
+
     for category in categories:
         if _category_matches(label_norm, category):
             return category
