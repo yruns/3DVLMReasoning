@@ -1,5 +1,15 @@
 # v9.4 Experiment A — Force `select_by_text → ERR` cleanly. **Refutes the simple cadence hypothesis.**
 
+> 📎 **Part of the v9.4 GT-leak investigation** —
+> consolidated narrative in
+> [**v9_4_gt_leak_postmortem_20260518.md**](v9_4_gt_leak_postmortem_20260518.md).
+> This doc is **Step 5** (cadence-only ablation, the negative control).
+> 63.17 % is essentially "v9.3 honest baseline minus a turn of LLM
+> compute"; recovering the v9.1_fix +16 pp required also restoring the
+> seed-keyframe drain leak — see Step 6 (v9.4-D) in the post-mortem.
+> The `force_stage1_text_retrieval_to_error` flag wired up here remains
+> useful as a permanent diagnostic toggle.
+
 This is **Experiment A** from the audit doc
 [v9_1_fix_vs_v9_3_audit30_20260517.md](v9_1_fix_vs_v9_3_audit30_20260517.md):
 the cheapest hypothesis (1 LoC + 30 min) for closing the 16 pp gap between

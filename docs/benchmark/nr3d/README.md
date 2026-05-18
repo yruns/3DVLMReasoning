@@ -4,11 +4,23 @@ This directory is the permanent process archive for NR3D visual grounding
 evaluations in this repo. Keep the version docs immutable; use this README as
 the current human-facing index.
 
+> **⚠️ Read this first** —
+> [**v9_4_gt_leak_postmortem_20260518.md**](v9_4_gt_leak_postmortem_20260518.md)
+> The `v9.1_fix FULL` row at 82.95 % was invalidated on 2026-05-17 as a
+> GT-target-visible information leak (5 seed keyframes silently injected
+> per evidence-update turn at commit `d5f40ba`, fixed in `8ebf701`). The
+> honest depth-aware NR3D "best" on this codebase is now **v9.3
+> text-first at 66.67 % on the strat600 fold**, which matches public
+> UniVLG SOTA (65.2 %) within +1.47 pp. The post-mortem consolidates
+> the 6 investigation sub-docs into one narrative and gives the
+> reproduction recipe + diagnostic-flag contracts.
+
 ## Entry Points
 
 | File | Purpose |
 |---|---|
-| [leaderboard.md](leaderboard.md) | Public SOTA context plus our invalidated v5.1 audit row and historical rows. |
+| **[v9_4_gt_leak_postmortem_20260518.md](v9_4_gt_leak_postmortem_20260518.md)** | **Unified GT-leak post-mortem (read first).** Consolidates the v9.3 → v9.4-D investigation: refutes the cadence hypothesis, isolates the 16 pp v9.1_fix advantage as the Stage-1 seed-keyframe drain leak, lists the two diagnostic flags now in the codebase, and prescribes v9.4's next direction. |
+| [leaderboard.md](leaderboard.md) | Public SOTA context plus our invalidated v3 / v5.1 / v9.1_fix audit rows and historical rows. |
 | [protocol.md](protocol.md) | Consolidated protocol notes: metric family, fold/filter rules, candidate-pool equivalence, fairness boundary. |
 | [depth_visibility_rebuild_20260513.md](depth_visibility_rebuild_20260513.md) | Root-cause record and rebuild summary for depth-aware NR3D visibility indices. |
 | [depth_visibility_spotcheck_20260513.html](depth_visibility_spotcheck_20260513.html) | Visual spotcheck frames rendered from rebuilt depth-aware `view_to_objects`. |
@@ -51,31 +63,58 @@ the current human-facing index.
 
 ## Current Result Status
 
-**Headline (depth-aware, full 8584 / 7805 filtered)**:
-**v9.1_fix FULL REPRO 82.95 %** — see
-[v9_1_fix_FULL_REPRO_20260516.md](v9_1_fix_FULL_REPRO_20260516.md).
-Run-time code commit `d5f40ba` (worktree, intentional drift to reproduce
-the broken-Stage-1 wrapper bypass), head commit at launch `e750d8b`,
-classification accuracy with NR3D canonical filter, single-side
-workers=40, ~8h32m wall, 0 Python errors.
+**Headline honest depth-aware result on the canonical strat600 fold** (calibrated within
+±0.19 pp of FULL 7805 on the v9.1_fix reference, ±2.3 pp 90 %-band Overall):
 
-| Metric | **v9.1_fix FULL REPRO** | v3 (invalidated) | v5.1 (invalidated) | v9.2 text-first | v9.2 no-text |
-|---|---:|---:|---:|---:|---:|
-| Overall   | **82.95** | 80.79 | 68.48 | 65.20 | 64.65 |
-| Easy      | 88.36 | 86.06 | 78.43 | 76.01 | 76.09 |
-| Hard      | **77.88** | 75.87 | 59.18 | 55.08 | 53.94 |
-| V-Dep     | **78.23** | 72.46 | 57.38 | 56.83 | 58.14 |
-| V-Indep   | 85.51 | 85.34 | 74.53 | 69.76 | 68.20 |
+**v9.3 text-first 66.67 %** — see [v9_3_strat600_20260517.md](v9_3_strat600_20260517.md).
+HEAD `ae83fea`, workers=40, ~32 min wall, single seed.
 
-The catalog-only fallback policy (broken Stage-1) wins by 17-23 pp vs
-v9.2's "Stage-1 first-move" prior, confirming the random100 finding at
-full scale. v3's 80.79 % is invalidated due to projection-only
-visibility; v9.1_fix uses the canonical depth-aware visibility, so the
-2.16 pp lead over v3 is the first **valid** depth-aware result above the
-v3 number.
+| Metric | v9.3 text-first (cite this) | v9.3 no-text (paired A/B) | UniVLG (public SOTA) | Δ v9.3 vs UniVLG |
+|---|---:|---:|---:|---:|
+| Overall   | **66.67** | 64.17 | 65.2 | **+1.47** |
+| Easy      | 73.45 | 73.10 | 73.3 | +0.15 |
+| Hard      | 60.32 | 55.81 | 57.0 | **+3.32** |
+| V-Dep     | 54.98 | 56.87 | 55.1 | −0.12 |
+| V-Indep   | **73.01** | 68.12 | 69.9 | **+3.11** |
 
-The v5/v5.1 records (older "fair-view" full runs) are still
-**invalidated pending rerun**. Their packs were built from NR3D
+The v9.3 honest baseline is **competitive with public UniVLG SOTA** on
+Overall (+1.47 pp) and decisively ahead on Hard / V-Indep, with **zero
+information leakage**. A FULL 7805 v9.3 text-first run is the next
+sensible reproduction step; strat600 → FULL bias is bounded at ±0.19 pp
+on the v9.1_fix reference, ±2.3 pp 90 %-band on a fresh agent.
+
+**Previously claimed depth-aware best** (`v9_1_fix_FULL_REPRO_20260516` =
+82.95 %) was **invalidated on 2026-05-17** as an information leak: the 5
+GT-target-visible seed keyframes that pack-prep writes into
+`bundle.keyframes` were silently auto-injected into agent context every
+evidence-update turn at commit `d5f40ba`. The leak was plugged in
+`8ebf701`; the v9.1_fix FULL run pre-dates that fix. See
+[**v9_4_gt_leak_postmortem_20260518.md**](v9_4_gt_leak_postmortem_20260518.md)
+for the full investigation. The 82.95 % row joins v3 (80.79 %) and v5.1
+(68.48 %) in the "GT-leak-invalidated" category and must not be quoted
+against public NR3D SOTA.
+
+The diagnostic flag `--restore-stage1-seed-keyframe-drain` cleanly
+reproduces the leak's effect on v9.3 code: it lifts v9.4-A's 63.17 % to
+**v9.4-D's 83.33 %** on the same strat600 fold, recovering 6 / 6
+audit-isolated magic cases. This is the **GT-visible upper bound**, not
+a publishable number.
+
+For provenance: the older v9.x row table below is preserved as audit
+trail, but Overall / per-tier columns for `v9_1_fix_FULL_REPRO` are now
+treated the same way as v3 and v5.1.
+
+| Metric | v9.1_fix FULL (invalidated, leak) | v3 (invalidated, projection-only viz) | v5.1 (invalidated, projection-only viz) | **v9.3 text-first (fair)** | v9.2 text-first (fair) | UniVLG SOTA |
+|---|---:|---:|---:|---:|---:|---:|
+| Overall   | ~~82.95~~ | ~~80.79~~ | ~~68.48~~ | **66.67** | 65.20 | 65.2 |
+| Easy      | ~~88.36~~ | ~~86.06~~ | ~~78.43~~ | 73.45 | 76.01 | 73.3 |
+| Hard      | ~~77.88~~ | ~~75.87~~ | ~~59.18~~ | 60.32 | 55.08 | 57.0 |
+| V-Dep     | ~~78.23~~ | ~~72.46~~ | ~~57.38~~ | 54.98 | 56.83 | 55.1 |
+| V-Indep   | ~~85.51~~ | ~~85.34~~ | ~~74.53~~ | 73.01 | 69.76 | 69.9 |
+
+### v5 / v5.1 records (older "fair-view" full runs) are still invalidated pending rerun
+
+Their packs were built from NR3D
 `visibility_index.pkl` files whose metadata records `use_depth=False`, so
 `view_to_objects` / `object_to_views` encoded projection/frustum
 candidates rather than depth-occlusion visibility. Those indices are not

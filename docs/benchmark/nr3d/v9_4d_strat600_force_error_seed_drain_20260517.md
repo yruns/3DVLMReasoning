@@ -1,5 +1,15 @@
 # v9.4 Experiment D — Restore the Stage-1 seed-keyframe drain leak. **Hypothesis confirmed: leak = +16 pp**.
 
+> 📎 **Part of the v9.4 GT-leak investigation** —
+> consolidated narrative in
+> [**v9_4_gt_leak_postmortem_20260518.md**](v9_4_gt_leak_postmortem_20260518.md).
+> This doc is **Step 6** (final isolation). The 83.33 % here is the
+> **GT-visible upper bound**, NOT a fair NR3D number — both diagnostic
+> flags (`force_stage1_text_retrieval_to_error` +
+> `restore_stage1_seed_keyframe_drain`) are test-time-only. Read the
+> post-mortem for the unified narrative and the implications for
+> v9.4's next direction.
+
 This is **Experiment D** from
 [v9_4a_strat600_force_error_20260517.md §Recommended next experiments](v9_4a_strat600_force_error_20260517.md).
 v9.4-A (force-ERR only) refuted the simple cadence hypothesis. Experiment D

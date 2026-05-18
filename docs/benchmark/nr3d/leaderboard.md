@@ -12,8 +12,29 @@ papers also report Acc@0.25 / Acc@0.5 in a separate detection-mode track.
 | 3D-VisTA | classification | 64.2 | 72.1 | 56.7 | 61.5 | 65.1 | leaderboard |
 | MiKASA | classification | 64.4 | 69.7 | 59.4 | 65.4 | 64.0 | leaderboard |
 | UniVLG | classification | 65.2 | 73.3 | 57.0 | 55.1 | 69.9 | leaderboard 2026 |
+| **Ours (v9.3 text-first, depth-aware, fair)** | classification, strat600 calibrated fold (≈ FULL ±0.19 pp on v9.1_fix reference) | **66.67** | 73.45 | **60.32** | 54.98 | **73.01** | [v9_3_strat600_20260517.md](v9_3_strat600_20260517.md) — see also [v9_4_gt_leak_postmortem_20260518.md](v9_4_gt_leak_postmortem_20260518.md) |
+| Ours (v9.1_fix FULL, **invalidated**) | classification, GT-target-visible RGB seed keyframes silently injected (seed-drain leak at `d5f40ba`, fixed in `8ebf701`) | 82.95 | 88.36 | 77.88 | 78.23 | 85.51 | [v9_1_fix_FULL_REPRO_20260516.md](v9_1_fix_FULL_REPRO_20260516.md) — see [v9_4_gt_leak_postmortem_20260518.md](v9_4_gt_leak_postmortem_20260518.md) |
 | Ours (v5.1, zero-shot RGB+VLM, invalidated) | classification, projection-only visibility index | 68.48 | 78.43 | 59.18 | 57.38 | 74.53 | [v5p1_failed_rerun_full_20260513.md](v5p1_failed_rerun_full_20260513.md) |
 | Ours (v3, zero-shot RGB+VLM, invalidated) | classification, GT-target-visible but projection-only visibility index | 80.79 | 86.06 | 75.87 | 72.46 | 85.34 | [v3_referit3d_track_20260501.md](v3_referit3d_track_20260501.md) |
+
+The **v9.3 text-first 66.67 %** row is the only valid depth-aware comparison
+against UniVLG in this archive. It is our current honest "best" on NR3D, with
++1.47 pp Overall headroom and +3 pp on both Hard and V-Indep relative to the
+public 65.2 % SOTA. The strat600 fold is calibrated to within ±0.19 pp of the
+canonical FULL 7805 on the v9.1_fix reference; bootstrap 90 %-band on Overall
+is ±2.3 pp.
+
+The **v9.1_fix FULL 82.95 % row is invalidated** as a fair NR3D claim because
+the 5 GT-target-visible seed keyframes that pack-prep writes into
+`bundle.keyframes` were silently auto-injected into agent context every
+evidence-update turn at commit `d5f40ba` (the runtime commit). The leak was
+fixed in `8ebf701`. The diagnostic flag `--restore-stage1-seed-keyframe-drain`
+restores the leak on v9.3 code and reproduces this row's number to within
++0.33 pp; see
+[v9_4_gt_leak_postmortem_20260518.md](v9_4_gt_leak_postmortem_20260518.md)
+for the full audit trail. The 82.95 % row joins v3 (80.79 %) and v5.1 (68.48 %)
+in the GT-leak-invalidated category and must not be quoted against public NR3D
+SOTA.
 
 The v5.1 row is retained only as an audit trail. It must not be quoted as a
 valid fair-view or SOTA comparison because the NR3D
