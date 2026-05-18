@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -1201,6 +1202,114 @@ def test_evidence_frame_guard_parses_plural_frame_citations(tmp_path: Path) -> N
         0,
         1,
     ]
+
+
+def test_evidence_frame_guard_blocks_side_answer_with_unmarked_same_category_candidate(
+    tmp_path: Path,
+) -> None:
+    _register_vg_stub_pack(tmp_path)
+    rs = Stage2RuntimeState(
+        bundle=Stage2EvidenceBundle(
+            stage1_query="If you are facing the windows, it is the one on the right."
+        )
+    )
+    rs.task_type = Stage2TaskType.VISUAL_GROUNDING
+    rs.use_evidence_frame_guard = True
+    rs.task_ctx = SimpleNamespace(
+        proposals=[
+            SimpleNamespace(id=23, category="window"),
+            SimpleNamespace(id=24, category="window"),
+        ]
+    )
+    _record_view(
+        rs,
+        frame_id=2,
+        visible_ids=[24],
+        categories=["window"],
+    )
+    _, _, submit_final = build_chassis_tools(rs)
+
+    response = submit_final.invoke(
+        {
+            "payload": {"proposal_id": 24, "confidence": 0.7},
+            "rationale": "Frame 2 shows proposal 24 as the window on the right.",
+            "evidence_refs": [],
+        }
+    )
+
+    assert response.startswith("EVIDENCE_FRAME_GUARD:")
+    assert "unmarked same-category candidate" in response
+    assert "23:window" in response
+    assert rs.final_submission is None
+
+
+def test_evidence_frame_guard_allows_side_answer_after_candidates_are_marked(
+    tmp_path: Path,
+) -> None:
+    _register_vg_stub_pack(tmp_path)
+    rs = Stage2RuntimeState(
+        bundle=Stage2EvidenceBundle(
+            stage1_query="If you are facing the windows, it is the one on the right."
+        )
+    )
+    rs.task_type = Stage2TaskType.VISUAL_GROUNDING
+    rs.use_evidence_frame_guard = True
+    rs.task_ctx = SimpleNamespace(
+        proposals=[
+            SimpleNamespace(id=23, category="window"),
+            SimpleNamespace(id=24, category="window"),
+        ]
+    )
+    _record_view(rs, frame_id=2, visible_ids=[24], categories=["window"])
+    _record_view(rs, frame_id=3, visible_ids=[23], categories=["window"])
+    _, _, submit_final = build_chassis_tools(rs)
+
+    response = submit_final.invoke(
+        {
+            "payload": {"proposal_id": 24, "confidence": 0.7},
+            "rationale": "Frame 2 shows proposal 24 as the window on the right.",
+            "evidence_refs": [],
+        }
+    )
+
+    assert response.startswith("submitted;")
+
+
+def test_evidence_frame_guard_merges_singular_plural_candidate_categories(
+    tmp_path: Path,
+) -> None:
+    _register_vg_stub_pack(tmp_path)
+    rs = Stage2RuntimeState(
+        bundle=Stage2EvidenceBundle(
+            stage1_query="The door closest to the other doors."
+        )
+    )
+    rs.task_type = Stage2TaskType.VISUAL_GROUNDING
+    rs.use_evidence_frame_guard = True
+    rs.task_ctx = SimpleNamespace(
+        proposals=[
+            SimpleNamespace(id=8, category="doors"),
+            SimpleNamespace(id=9, category="door"),
+            SimpleNamespace(id=10, category="door"),
+            SimpleNamespace(id=32, category="doors"),
+            SimpleNamespace(id=35, category="doorframe"),
+        ]
+    )
+    _record_view(rs, frame_id=36, visible_ids=[9, 10], categories=["door", "door"])
+    _, _, submit_final = build_chassis_tools(rs)
+
+    response = submit_final.invoke(
+        {
+            "payload": {"proposal_id": 9, "confidence": 0.7},
+            "rationale": "Frame 36 shows proposal 9 as the door closest to the other doors.",
+            "evidence_refs": [],
+        }
+    )
+
+    assert response.startswith("EVIDENCE_FRAME_GUARD:")
+    assert "8:doors" in response
+    assert "32:doors" in response
+    assert "35:doorframe" not in response
 
 
 def test_cited_frame_ids_parses_oxford_comma_lists_and_dedupes_refs() -> None:

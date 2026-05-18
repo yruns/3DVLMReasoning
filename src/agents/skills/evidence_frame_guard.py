@@ -106,6 +106,19 @@ _PREPOSED_ANCHOR_SIDE_TEMPLATE = (
     r"[^.?!;,\n]{0,60}\b(?:to\s+the\s+)?{direction}\b"
     r"\s*[,;:]\s*(?:the|a|an)?\s*$"
 )
+_CANDIDATE_CLOSURE_CUE_RE = re.compile(
+    r"\b(?:"
+    r"left|right|leftmost|rightmost|facing|"
+    r"closest|nearest|farthest|furthest|"
+    r"larger|largest|smaller|smallest|"
+    r"first|second|third|top|bottom|upper|lower|middle|center|centre|row|"
+    r"opposite|under|below|above|over|between|"
+    r"next\s+to|beside|alongside|adjacent(?:\s+to)?|"
+    r"in\s+front\s+of|behind"
+    r")\b",
+    re.I,
+)
+_MAX_CANDIDATE_CLOSURE_SET = 6
 
 
 def _payload_dict(payload: dict | Any) -> dict[str, Any]:
@@ -539,6 +552,77 @@ def _candidate_ids_for_submitted_pid(
     return None
 
 
+def _category_group_key(category: str) -> str:
+    text = " ".join(str(category).lower().split())
+    if not text:
+        return ""
+    if text in {"kitchen cabinets", "cabinet set", "cabinet run"}:
+        text = "kitchen cabinet" if "cabinet" in text else text
+    tokens = text.split()
+    if tokens:
+        last = tokens[-1]
+        if last.endswith("s") and not last.endswith("ss") and len(last) > 3:
+            tokens[-1] = last[:-1]
+    return " ".join(tokens)
+
+
+def _task_ctx_proposal_categories(runtime: Any) -> dict[int, str]:
+    ctx = getattr(runtime, "task_ctx", None)
+    proposals = list(getattr(ctx, "proposals", []) or [])
+    categories: dict[int, str] = {}
+    for proposal in proposals:
+        proposal_id = getattr(proposal, "id", None)
+        category = getattr(proposal, "category", None)
+        if isinstance(proposal_id, int) and isinstance(category, str) and category:
+            categories[proposal_id] = category
+    return categories
+
+
+def _query_needs_candidate_closure(runtime: Any) -> bool:
+    bundle = getattr(runtime, "bundle", None)
+    query = str(getattr(bundle, "stage1_query", "") or "")
+    return bool(_CANDIDATE_CLOSURE_CUE_RE.search(query))
+
+
+def _marked_proposal_ids(frame_map: dict[int, dict[str, Any]]) -> set[int]:
+    marked: set[int] = set()
+    for frame_data in frame_map.values():
+        for proposal_id, _ in list(frame_data.get("pairs") or []):
+            marked.add(int(proposal_id))
+    return marked
+
+
+def _same_category_candidate_gap(
+    runtime: Any,
+    *,
+    submitted_pid: int,
+    frame_map: dict[int, dict[str, Any]],
+) -> list[tuple[int, str]]:
+    """Return small same-category candidates never visible in marked evidence."""
+    if not _query_needs_candidate_closure(runtime):
+        return []
+    categories = _task_ctx_proposal_categories(runtime)
+    submitted_category = categories.get(submitted_pid)
+    if not submitted_category:
+        return []
+    submitted_key = _category_group_key(submitted_category)
+    if not submitted_key:
+        return []
+    candidates = [
+        (proposal_id, category)
+        for proposal_id, category in sorted(categories.items())
+        if _category_group_key(category) == submitted_key
+    ]
+    if len(candidates) <= 1 or len(candidates) > _MAX_CANDIDATE_CLOSURE_SET:
+        return []
+    marked = _marked_proposal_ids(frame_map)
+    return [
+        (proposal_id, category)
+        for proposal_id, category in candidates
+        if proposal_id not in marked
+    ]
+
+
 def _latest_spatial_compare_for_submission(
     runtime: Any,
     submitted_pid: int,
@@ -921,6 +1005,30 @@ def evaluate_evidence_frame_guard(
                 ),
                 visible_proposal_ids=tuple(pid for pid, _ in visible_pairs),
                 visible_proposal_labels=tuple(label for _, label in visible_pairs),
+            )
+        missing_candidates = _same_category_candidate_gap(
+            runtime,
+            submitted_pid=submitted_pid,
+            frame_map=frame_map,
+        )
+        if missing_candidates:
+            _mark_evidence_frame_guard_triggered(runtime)
+            message = (
+                "EVIDENCE_FRAME_GUARD: finalizing this comparison is premature "
+                "because small same-category candidate set still has unmarked "
+                f"same-category candidate(s): {_format_pairs(missing_candidates)}. "
+                "For left/right, ordinal/superlative, or target-anchor relation "
+                "queries, mark every plausible same-category candidate at least "
+                "once, or explicitly eliminate each missing candidate before "
+                "calling `submit_final`."
+            )
+            return EvidenceFrameGuardDecision(
+                blocked=True,
+                message=message,
+                submitted_pid=submitted_pid,
+                cited_frame_ids=tuple(cited_with_trace),
+                visible_proposal_ids=tuple(pid for pid, _ in cited_visible),
+                visible_proposal_labels=tuple(label for _, label in cited_visible),
             )
         return EvidenceFrameGuardDecision(
             blocked=False,
