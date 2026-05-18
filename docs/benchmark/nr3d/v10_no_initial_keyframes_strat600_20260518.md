@@ -267,3 +267,97 @@ Previously failed cases now terminate normally:
 This replay validates run stability of the hardening changes, not an accuracy
 claim. Accuracy misses remain on this deliberately failure-heavy slice and
 should be treated as the next prompt/tool-flow improvement pool.
+
+### Old strat600 failure replay result: f4c03f7
+
+To estimate whether the hardening changes recover failures from the original
+600-case run, the 214 metric-miss samples from
+`tmp/nr3d_eval_no_initial_keyframes_strat600_20260518_220f128/leaderboard_metrics.json`
+were extracted to:
+
+- `docs/benchmark/nr3d/assets/v10_no_initial_strat600_failed214_sample_ids_20260518.json`
+- Fold MD5: `a537f518ef4f63d90d1d319df636218a`
+
+Launch state:
+
+| Item | Value |
+|---|---|
+| Branch | `feat/remove-initial-keyframes` |
+| Head commit at launch | `f4c03f7` |
+| Run-time code commit | `f4c03f7` - no worktree drift |
+| Workers | 20 |
+| Sample retries | 2 |
+| Guards | TADG + no-match + evidence-frame |
+
+Command:
+
+```bash
+PYTHONPATH=src .venv/bin/python -m evaluation.scripts.run_nr3d_vg_side_by_side \
+  --sample-ids docs/benchmark/nr3d/assets/v10_no_initial_strat600_failed214_sample_ids_20260518.json \
+  --data-root data/nr3d/scannet \
+  --pack-name pack_nr3d_v9_catalog_first \
+  --output-dir tmp/nr3d_eval_v10_failed214_rerun_20260518_f4c03f7_w20 \
+  --workers 20 \
+  --sample-retries 2 \
+  --use-tool-answer-disagreement-gate \
+  --use-no-match-candidate-guard \
+  --use-evidence-frame-guard
+
+PYTHONPATH=src .venv/bin/python -m evaluation.scripts.nr3d_leaderboard_metrics \
+  --side-by-side tmp/nr3d_eval_v10_failed214_rerun_20260518_f4c03f7_w20/side_by_side.json \
+  --nr3d-data-root data/nr3d \
+  --phase8-data-root data/nr3d/scannet \
+  --sample-ids docs/benchmark/nr3d/assets/v10_no_initial_strat600_failed214_sample_ids_20260518.json \
+  --output tmp/nr3d_eval_v10_failed214_rerun_20260518_f4c03f7_w20/leaderboard_failed214.json \
+  --canonical-filter true
+```
+
+Artifacts:
+
+- Side-by-side: `tmp/nr3d_eval_v10_failed214_rerun_20260518_f4c03f7_w20/side_by_side.json`
+- Metrics: `tmp/nr3d_eval_v10_failed214_rerun_20260518_f4c03f7_w20/leaderboard_failed214.json`
+- Console log: `tmp/nr3d_eval_v10_failed214_rerun_20260518_f4c03f7_w20/run.log`
+- Side-by-side MD5: `e3c64f3b7e9453d87d553149e5b6c0a0`
+- Metrics MD5: `0bc11172b2308b670c4013d6a00d5bac`
+
+Run stability:
+
+- 214 / 214 samples emitted side-by-side rows.
+- 210 / 214 completed.
+- 4 / 214 final `status=failed`.
+- 0 completed samples with missing `selected_object_id`.
+- 0 Tracebacks / logged Exceptions.
+- 97 ModelHub 429 retry lines, all at attempt 1/5; 0 attempt 2/5 or later.
+
+Recovery result:
+
+| Metric | Value |
+|---|---:|
+| Old metric misses rerun | 214 |
+| Recovered to correct target | 81 |
+| Recovery rate on old misses | 37.85 % |
+| Still incorrect or failed | 133 |
+| Completed but still wrong, same selected id as original miss | 87 |
+| Completed but still wrong, changed selected id | 42 |
+| Final `status=failed` | 4 |
+
+Slice breakdown:
+
+| Column | n | Recovery |
+|---|---:|---:|
+| Easy | 80 | 38.75 % |
+| Hard | 134 | 37.31 % |
+| View-Dep | 98 | 39.80 % |
+| View-Indep | 116 | 36.21 % |
+
+The four non-completed samples were:
+
+- `scannet/scene0338_00::18::25573`
+- `scannet/scene0629_00::30::28923`
+- `scannet/scene0647_00::8::3986`
+- `scannet/scene0144_00::17::37726`
+
+Interpretation: this is a one-sided recovery probe, not a valid replacement
+for the full strat600 score. If the original 386 correct samples did not
+regress, the arithmetic upper projection would be `(386 + 81) / 600 = 77.83 %`.
+That number is not claimable until the full 600 is rerun on the same code.
