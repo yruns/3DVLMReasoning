@@ -237,6 +237,37 @@ def _query_mentions_label(query: str, label: str) -> bool:
     return any(_compact_label_text(alias) in compact_query for alias in aliases)
 
 
+def _labels_compatible(a: str, b: str) -> bool:
+    a_norm = " ".join(str(a).lower().split())
+    b_norm = " ".join(str(b).lower().split())
+    if not a_norm or not b_norm:
+        return False
+    a_compact = _compact_label_text(a_norm)
+    b_compact = _compact_label_text(b_norm)
+    return (
+        a_compact == b_compact
+        or a_compact in b_compact
+        or b_compact in a_compact
+    )
+
+
+def _filter_alternatives_to_target_label(
+    runtime: Any,
+    *,
+    submitted_label: str,
+    alternatives: list[tuple[int, str]],
+) -> list[tuple[int, str]]:
+    bundle = getattr(runtime, "bundle", None)
+    query = str(getattr(bundle, "stage1_query", "") or "")
+    if not _query_mentions_label(query, submitted_label):
+        return alternatives
+    return [
+        (proposal_id, label)
+        for proposal_id, label in alternatives
+        if _labels_compatible(submitted_label, label)
+    ]
+
+
 def _alternatives_are_query_anchors(
     runtime: Any,
     *,
@@ -492,6 +523,13 @@ def evaluate_evidence_frame_guard(
             if not alternatives:
                 continue
             submitted_label = dict(pairs).get(submitted_pid, "")
+            alternatives = _filter_alternatives_to_target_label(
+                runtime,
+                submitted_label=submitted_label,
+                alternatives=alternatives,
+            )
+            if not alternatives:
+                continue
             if _alternatives_are_query_anchors(
                 runtime,
                 submitted_label=submitted_label,

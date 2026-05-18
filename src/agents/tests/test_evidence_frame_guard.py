@@ -475,6 +475,48 @@ def test_evidence_frame_guard_does_not_replace_target_with_anchor_on_requested_s
     assert response.startswith("submitted;")
 
 
+def test_evidence_frame_guard_does_not_replace_target_with_non_target_category(
+    tmp_path: Path,
+) -> None:
+    _register_vg_stub_pack(tmp_path)
+    rs = Stage2RuntimeState(
+        bundle=Stage2EvidenceBundle(
+            stage1_query="Find the table on the far right of the bench seat."
+        )
+    )
+    rs.task_type = Stage2TaskType.VISUAL_GROUNDING
+    rs.use_evidence_frame_guard = True
+    _record_view(
+        rs,
+        frame_id=6,
+        visible_ids=[5, 8],
+        categories=["table", "couch"],
+        left_to_right=[
+            "5:table@x=760.0",
+            "8:couch@x=940.0",
+        ],
+        boxes_2d={
+            5: [650, 420, 870, 760],
+            8: [820, 360, 1060, 780],
+        },
+    )
+    _, _, submit_final = build_chassis_tools(rs)
+
+    response = submit_final.invoke(
+        {
+            "payload": {"proposal_id": 5, "confidence": 0.7},
+            "rationale": (
+                "Frame 6 shows proposal 5 as the table on the far right of "
+                "the bench seat."
+            ),
+            "evidence_refs": [],
+        }
+    )
+
+    assert response.startswith("submitted;")
+    assert rs.final_submission == {"answer": {"proposal_id": 5, "confidence": 0.7}}
+
+
 def test_evidence_frame_guard_does_not_force_target_leftmost_for_anchor_left_of_it(
     tmp_path: Path,
 ) -> None:
