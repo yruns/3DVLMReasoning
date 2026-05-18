@@ -315,7 +315,7 @@ def create_mock_stage2_factory():
             summary=answer,
             confidence=confidence,
             uncertainties=[],
-            cited_frame_indices=list(range(min(3, len(bundle.keyframes)))),
+            cited_frame_indices=[],
             evidence_items=[],
             plan=[],
             payload=payload,

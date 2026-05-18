@@ -24,17 +24,6 @@ class Stage2TaskSpec(BaseModel):
     max_reasoning_turns: int = Field(default=6, ge=1, le=12)
 
 
-class KeyframeEvidence(BaseModel):
-    """One visual evidence item produced by Stage 1."""
-
-    keyframe_idx: int = Field(..., ge=0)
-    image_path: str
-    view_id: int | None = None
-    frame_id: int | None = None
-    score: float | None = None
-    note: str = ""
-
-
 class Stage1HypothesisSummary(BaseModel):
     """Compact summary of Stage-1 query grounding metadata."""
 
@@ -49,11 +38,15 @@ class Stage1HypothesisSummary(BaseModel):
 
 
 class Stage2EvidenceBundle(BaseModel):
-    """Evidence package passed from Stage 1 into the agent."""
+    """Scene-context package passed into the Stage-2 agent.
+
+    First-person RGB frames are intentionally absent. Runtime tools queue
+    selected frames through ``extra_metadata["vg_pending_images"]`` so the
+    agent only sees frames it actively requested.
+    """
 
     scene_id: str = ""
     stage1_query: str = ""
-    keyframes: list[KeyframeEvidence] = Field(default_factory=list)
     bev_image_path: str | None = None
     scene_summary: str = ""
     object_context: dict[str, str] = Field(default_factory=dict)
@@ -73,7 +66,6 @@ class Stage2AgentResult(BaseModel):
 
 __all__ = [
     "Stage2TaskSpec",
-    "KeyframeEvidence",
     "Stage1HypothesisSummary",
     "Stage2EvidenceBundle",
     "Stage2AgentResult",

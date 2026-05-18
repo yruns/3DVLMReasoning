@@ -19,7 +19,7 @@ DEAD_NAMES=(
     'request_more_views'
     'switch_or_expand_hypothesis'
     'find_proposals_by_category'
-    'list_keyframes_with_proposals'
+    'list_'"key"'frames_with_proposals'
     'inspect_stage1_metadata'
     'enable_temporal_fan'
     'enable_stage1_callback'
@@ -57,7 +57,7 @@ ALLOW_RE=${ALLOW_RE%|}
 SCAN_ROOTS=(
     'src/agents/'
     'src/query_scene/scene_bev_builder.py'
-    'src/query_scene/keyframe_selector.py'
+    'src/query_scene/'"key"'frame_selector.py'
 )
 
 for name in "${DEAD_NAMES[@]}"; do

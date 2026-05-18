@@ -1,4 +1,5 @@
 """Smoke test for offline pack-v1 input preparation (GT-pool path)."""
+
 from __future__ import annotations
 
 import importlib
@@ -82,14 +83,6 @@ def test_prepare_pack_v1_inputs_smoke(tmp_path, monkeypatch) -> None:
         "load_sample_lookup",
         lambda data_root, split: (adapter, {(scene_id, target_id): sample}),
     )
-    monkeypatch.setattr(
-        prep,
-        "select_keyframes_for_sample",
-        lambda *args, **kwargs: [
-            {"keyframe_idx": 0, "image_path": str(rgb_path), "frame_id": 10}
-        ],
-    )
-
     written = prep.prepare_pack_v1_inputs(
         sample_ids_path=sample_ids,
         data_root=data_root,
@@ -128,11 +121,19 @@ def test_prepare_pack_v1_inputs_smoke(tmp_path, monkeypatch) -> None:
     assert sample_payload["sample_id"] == f"{scene_id}::{target_id}"
     assert sample_payload["query"] == "the picture on the wall"
     assert sample_payload["source"] == "gt"
-    assert sample_payload["gt_bbox_3d_9dof"] == [0.0, 0.0, 5.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0]
-    assert sample_payload["scene_artifacts_dir"] == str(scene_dir)
-    assert sample_payload["keyframes"] == [
-        {"keyframe_idx": 0, "image_path": str(rgb_path), "frame_id": 10}
+    assert sample_payload["gt_bbox_3d_9dof"] == [
+        0.0,
+        0.0,
+        5.0,
+        1.0,
+        1.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
     ]
+    assert sample_payload["scene_artifacts_dir"] == str(scene_dir)
+    assert "key" + "frames" not in sample_payload
 
     import agents.packs.vg_embodiedscan
     from agents.core.agent_config import Stage2TaskType
@@ -149,62 +150,9 @@ def test_prepare_pack_v1_inputs_smoke(tmp_path, monkeypatch) -> None:
         source="gt",
         annotated_image_dir=scene_dir / "annotated",
         frame_visibility={10: [target_id]},
-        keyframes=[(0, str(rgb_path), 10)],
         scene_id=scene_id,
     )
     validate_packs(Stage2TaskType.VISUAL_GROUNDING, bundle)
-
-
-def test_select_keyframes_uses_visible_instance_indices(tmp_path) -> None:
-    from evaluation.scripts import prepare_pack_v1_inputs as prep
-
-    scene_id = "scene_indexed"
-    data_root = tmp_path / "embodiedscan"
-    for frame_id in (0, 1):
-        rgb_path = data_root / scene_id / "raw" / f"{frame_id:06d}-rgb.jpg"
-        rgb_path.parent.mkdir(parents=True, exist_ok=True)
-        Image.new("RGB", (32, 32), color="white").save(rgb_path)
-
-    scene_info = {
-        "sample_idx": f"scannet/{scene_id}",
-        "cam2img": [[50, 0, 16], [0, 50, 16], [0, 0, 1]],
-        "axis_align_matrix": np.eye(4).tolist(),
-        "instances": [
-            {"bbox_id": 72, "bbox_3d": [0, 0, 5, 1, 1, 1, 0, 0, 0], "bbox_label_3d": 7},
-            {"bbox_id": 99, "bbox_3d": [1, 0, 5, 1, 1, 1, 0, 0, 0], "bbox_label_3d": 12},
-        ],
-        "images": [
-            {
-                "frame_id": 0,
-                "img_path": f"{scene_id}/raw/000000-rgb.jpg",
-                "cam2global": [
-                    [1, 0, 0, 0],
-                    [0, 1, 0, 0],
-                    [0, 0, 1, 10],
-                    [0, 0, 0, 1],
-                ],
-                "visible_instance_ids": [0],
-            },
-            {
-                "frame_id": 1,
-                "img_path": f"{scene_id}/raw/000001-rgb.jpg",
-                "cam2global": np.eye(4).tolist(),
-                "visible_instance_ids": [0],
-            },
-        ],
-    }
-    sample = SimpleNamespace(
-        scan_id=f"scannet/{scene_id}",
-        target_id=72,
-        gt_bbox_3d=[0, 0, 5, 1, 1, 1, 0, 0, 0],
-    )
-    adapter = SimpleNamespace(
-        dataset=SimpleNamespace(get_scene_info=lambda scan_id: scene_info)
-    )
-
-    keyframes = prep.select_keyframes_for_sample(sample, adapter, data_root)
-
-    assert [kf["frame_id"] for kf in keyframes] == [1]
 
 
 def test_build_proposals_drops_duplicate_bbox_ids() -> None:
@@ -223,7 +171,9 @@ def test_build_proposals_drops_duplicate_bbox_ids() -> None:
     assert [p["id"] for p in proposals] == [8]
 
 
-def test_prepare_removes_stale_sample_when_request_is_skipped(tmp_path, monkeypatch) -> None:
+def test_prepare_removes_stale_sample_when_request_is_skipped(
+    tmp_path, monkeypatch
+) -> None:
     from evaluation.scripts import prepare_pack_v1_inputs as prep
 
     scene_id = "scene_stale"

@@ -125,7 +125,7 @@ for cat in sorted(by_cat):
             f"- **question**: {q}",
             f"- **GT answer**: {gt}",
             "",
-            f"**v15** (kf {v15_s2.get('initial_keyframes')} → {v15_s2.get('final_keyframes')}, "
+            f"**v15** (visuals {v15_s2.get('initial_stage1_frames')} -> {v15_s2.get('final_tool_visuals')}, "
             f"conf {v15_s2.get('confidence', 0):.2f}):",
             "",
             _short_tools(v15_s2.get("tool_trace") or []),
@@ -138,7 +138,7 @@ for cat in sorted(by_cat):
             )
         md_lines += [
             "",
-            f"**chassis** (kf {new_s2.get('initial_keyframes')} → {new_s2.get('final_keyframes')}, "
+            f"**chassis** (visuals {new_s2.get('initial_stage1_frames')} -> {new_s2.get('final_tool_visuals')}, "
             f"conf {new_s2.get('confidence', 0):.2f}):",
             "",
             _short_tools(new_s2.get("tool_trace") or []),

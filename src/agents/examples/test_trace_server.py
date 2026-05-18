@@ -29,19 +29,19 @@ from agents import (
     Stage1BackendCallbacks,
     Stage2DeepAgentConfig,
     Stage2DeepResearchAgent,
+    Stage2EvidenceBundle,
     Stage2PlanMode,
     Stage2TaskSpec,
     Stage2TaskType,
-    build_stage2_evidence_bundle,
 )
 from agents.trace_server import TraceDB, TraceServer, TracingAgent
-from query_scene.keyframe_selector import KeyframeSelector
+from query_scene import KeyframeSelector as TextFrameSelector
 
 
 def run_traced_queries(scene_path: Path, db: TraceDB) -> None:
     """Run a few test queries with tracing."""
-    logger.info("[Setup] Loading KeyframeSelector...")
-    selector = KeyframeSelector.from_scene_path(
+    logger.info("[Setup] Loading text frame selector...")
+    selector = TextFrameSelector.from_scene_path(
         str(scene_path),
         llm_model="gpt-5.2-2025-12-11",
         use_pool=False,
@@ -50,16 +50,14 @@ def run_traced_queries(scene_path: Path, db: TraceDB) -> None:
 
     # Create base agent
     callbacks = Stage1BackendCallbacks(
-        keyframe_selector=selector,
+        text_frame_selector=selector,
         scene_id=scene_path.name,
-        max_additional_views=3,
     )
 
     base_agent = Stage2DeepResearchAgent(
         config=Stage2DeepAgentConfig(include_thoughts=False),
-        more_views_callback=callbacks.more_views,
         crop_callback=callbacks.crops,
-        hypothesis_callback=callbacks.hypothesis,
+        text_frame_selector=selector,
     )
 
     # Wrap with tracing
@@ -67,30 +65,21 @@ def run_traced_queries(scene_path: Path, db: TraceDB) -> None:
 
     # Test cases with varying difficulty
     test_cases = [
-        # Easy: should complete quickly, maybe no tools
-        ("pillow on the sofa", "What color is the pillow?", 1),
-        # Medium: might need more context
-        ("table and chairs", "How many chairs are around the table?", 2),
-        # Hard: likely needs multiple views
+        ("pillow on the sofa", "What color is the pillow?"),
+        ("table and chairs", "How many chairs are around the table?"),
         (
             "window and furniture",
             "Describe the spatial layout around the window. What furniture is nearby?",
-            1,
         ),
     ]
 
-    for i, (stage1_query, task_query, k) in enumerate(test_cases, 1):
+    for i, (stage1_query, task_query) in enumerate(test_cases, 1):
         logger.info("=" * 60)
         logger.info(f"[Test {i}/{len(test_cases)}] {task_query[:50]}...")
         logger.info("=" * 60)
 
         try:
-            # Stage 1: retrieve keyframes
-            keyframe_result = selector.select_keyframes_v2(stage1_query, k=k)
-            logger.info(f"  Stage 1: {len(keyframe_result.keyframe_paths)} keyframes")
-
-            bundle = build_stage2_evidence_bundle(
-                keyframe_result,
+            bundle = Stage2EvidenceBundle(
                 scene_id=scene_path.name,
                 scene_summary=f"Replica scene with {len(selector.objects)} objects.",
             )

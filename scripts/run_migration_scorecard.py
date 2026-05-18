@@ -65,28 +65,46 @@ class ParsingMetrics:
 
     @property
     def parse_mode_accuracy(self) -> float:
-        return self.parse_mode_match / self.total_cases * 100 if self.total_cases > 0 else 0.0
+        return (
+            self.parse_mode_match / self.total_cases * 100
+            if self.total_cases > 0
+            else 0.0
+        )
 
     @property
     def hypothesis_kind_accuracy(self) -> float:
-        return self.hypothesis_kind_match / self.total_cases * 100 if self.total_cases > 0 else 0.0
+        return (
+            self.hypothesis_kind_match / self.total_cases * 100
+            if self.total_cases > 0
+            else 0.0
+        )
 
     @property
     def target_category_accuracy(self) -> float:
-        return self.target_category_match / self.total_cases * 100 if self.total_cases > 0 else 0.0
+        return (
+            self.target_category_match / self.total_cases * 100
+            if self.total_cases > 0
+            else 0.0
+        )
 
     @property
     def relation_accuracy(self) -> float:
-        return self.relation_match / self.total_cases * 100 if self.total_cases > 0 else 0.0
+        return (
+            self.relation_match / self.total_cases * 100
+            if self.total_cases > 0
+            else 0.0
+        )
 
     @property
     def overall_accuracy(self) -> float:
-        return self.overall_match / self.total_cases * 100 if self.total_cases > 0 else 0.0
+        return (
+            self.overall_match / self.total_cases * 100 if self.total_cases > 0 else 0.0
+        )
 
 
 @dataclass
 class KeyframeMetrics:
-    """Keyframe selection metrics."""
+    """Frame-selection metrics."""
 
     total_cases: int = 0
     recall_at_1: float = 0.0
@@ -98,7 +116,11 @@ class KeyframeMetrics:
 
     @property
     def tolerance_rate(self) -> float:
-        return self.within_tolerance / self.total_cases * 100 if self.total_cases > 0 else 0.0
+        return (
+            self.within_tolerance / self.total_cases * 100
+            if self.total_cases > 0
+            else 0.0
+        )
 
 
 @dataclass
@@ -127,7 +149,7 @@ class MigrationScorecard:
 
     # Accuracy metrics
     parsing: ParsingMetrics = field(default_factory=ParsingMetrics)
-    keyframes: KeyframeMetrics = field(default_factory=KeyframeMetrics)
+    frame_selection: KeyframeMetrics = field(default_factory=KeyframeMetrics)
 
     # Latency metrics
     latency: LatencyMetrics = field(default_factory=LatencyMetrics)
@@ -172,19 +194,23 @@ class MigrationScorecard:
             "parsing_metrics": {
                 "total_cases": self.parsing.total_cases,
                 "parse_mode_accuracy": round(self.parsing.parse_mode_accuracy, 2),
-                "hypothesis_kind_accuracy": round(self.parsing.hypothesis_kind_accuracy, 2),
-                "target_category_accuracy": round(self.parsing.target_category_accuracy, 2),
+                "hypothesis_kind_accuracy": round(
+                    self.parsing.hypothesis_kind_accuracy, 2
+                ),
+                "target_category_accuracy": round(
+                    self.parsing.target_category_accuracy, 2
+                ),
                 "relation_accuracy": round(self.parsing.relation_accuracy, 2),
                 "overall_accuracy": round(self.parsing.overall_accuracy, 2),
             },
-            "keyframe_metrics": {
-                "total_cases": self.keyframes.total_cases,
-                "recall@1": round(self.keyframes.recall_at_1, 4),
-                "recall@3": round(self.keyframes.recall_at_3, 4),
-                "recall@5": round(self.keyframes.recall_at_5, 4),
-                "recall@10": round(self.keyframes.recall_at_10, 4),
-                "mrr": round(self.keyframes.mrr, 4),
-                "tolerance_rate": round(self.keyframes.tolerance_rate, 2),
+            "frame_selection_metrics": {
+                "total_cases": self.frame_selection.total_cases,
+                "recall@1": round(self.frame_selection.recall_at_1, 4),
+                "recall@3": round(self.frame_selection.recall_at_3, 4),
+                "recall@5": round(self.frame_selection.recall_at_5, 4),
+                "recall@10": round(self.frame_selection.recall_at_10, 4),
+                "mrr": round(self.frame_selection.mrr, 4),
+                "tolerance_rate": round(self.frame_selection.tolerance_rate, 2),
             },
             "latency_metrics": {
                 "parsing": {
@@ -192,7 +218,7 @@ class MigrationScorecard:
                     "p50_ms": round(self.latency.parsing_p50_ms, 2),
                     "p95_ms": round(self.latency.parsing_p95_ms, 2),
                 },
-                "keyframe_selection": {
+                "frame_selection": {
                     "mean_ms": round(self.latency.keyframe_mean_ms, 2),
                     "p50_ms": round(self.latency.keyframe_p50_ms, 2),
                     "p95_ms": round(self.latency.keyframe_p95_ms, 2),
@@ -216,9 +242,7 @@ class MigrationValidator:
         if self.verbose:
             print(f"[VALIDATOR] {msg}")
 
-    def run_pytest(
-        self, test_path: str, markers: str | None = None
-    ) -> TestResults:
+    def run_pytest(self, test_path: str, markers: str | None = None) -> TestResults:
         """Run pytest and parse results."""
         cmd = [
             sys.executable,
@@ -250,6 +274,7 @@ class MigrationValidator:
 
             # Look for the summary line: "X passed, Y failed in Z.ZZs"
             import re
+
             # Match patterns like "61 passed in 0.46s" or "10 passed, 2 failed, 1 skipped in 1.23s"
             passed_match = re.search(r"(\d+)\s+passed", output)
             failed_match = re.search(r"(\d+)\s+failed", output)
@@ -303,7 +328,9 @@ class MigrationValidator:
                 metrics.hypothesis_kind_match += 1
             if case.get("expected_target_categories"):
                 metrics.target_category_match += 1
-            if case.get("expected_relation") is not None or not case.get("query_id", "").startswith("spatial_"):
+            if case.get("expected_relation") is not None or not case.get(
+                "query_id", ""
+            ).startswith("spatial_"):
                 metrics.relation_match += 1
 
         # Overall match is cases that pass all checks
@@ -316,9 +343,9 @@ class MigrationValidator:
 
         return metrics
 
-    def compute_keyframe_metrics(self) -> KeyframeMetrics:
-        """Compute keyframe selection metrics from ground truth."""
-        gt = self.load_ground_truth("keyframes.json")
+    def compute_frame_selection_metrics(self) -> KeyframeMetrics:
+        """Compute frame-selection metrics from ground truth."""
+        gt = self.load_ground_truth("frame_selection.json")
         if not gt:
             return KeyframeMetrics()
 
@@ -326,7 +353,7 @@ class MigrationValidator:
         metrics = KeyframeMetrics(total_cases=len(cases))
 
         # Compute recall@k and MRR from ground truth
-        # In real scenario, we'd compare predicted vs expected keyframes
+        # In real scenario, we'd compare predicted vs expected frame ids.
         recall_1_count = 0
         recall_3_count = 0
         recall_5_count = 0
@@ -368,7 +395,7 @@ class MigrationValidator:
         return metrics
 
     def compute_latency_metrics(self) -> LatencyMetrics:
-        """Measure latency for parsing and keyframe selection."""
+        """Measure latency for parsing and frame selection."""
         # In a real scenario, we'd run actual benchmarks
         # For now, return placeholder values based on expected performance
         return LatencyMetrics(
@@ -387,6 +414,7 @@ class MigrationValidator:
         # Check query_scene module
         try:
             import query_scene
+
             modules["query_scene"] = {
                 "status": "ok",
                 "version": getattr(query_scene, "__version__", "unknown"),
@@ -398,6 +426,7 @@ class MigrationValidator:
         # Check dataset module
         try:
             from dataset import list_adapters, get_adapter
+
             adapters = list_adapters()
             modules["dataset"] = {
                 "status": "ok",
@@ -410,11 +439,14 @@ class MigrationValidator:
         # Check agents module
         try:
             import agents
+
             modules["agents"] = {
                 "status": "ok",
-                "has_stage2_agent": hasattr(agents, "Stage2DeepResearchAgent")
-                if hasattr(agents, "Stage2DeepResearchAgent")
-                else "unknown",
+                "has_stage2_agent": (
+                    hasattr(agents, "Stage2DeepResearchAgent")
+                    if hasattr(agents, "Stage2DeepResearchAgent")
+                    else "unknown"
+                ),
             }
         except ImportError as e:
             modules["agents"] = {"status": "error", "error": str(e)}
@@ -422,6 +454,7 @@ class MigrationValidator:
         # Check evaluation module
         try:
             import evaluation
+
             modules["evaluation"] = {"status": "ok"}
         except ImportError as e:
             modules["evaluation"] = {"status": "error", "error": str(e)}
@@ -429,6 +462,7 @@ class MigrationValidator:
         # Check config module
         try:
             from config import load_dataset_config
+
             modules["config"] = {"status": "ok"}
         except ImportError as e:
             modules["config"] = {"status": "error", "error": str(e)}
@@ -458,7 +492,7 @@ class MigrationValidator:
         score += (scorecard.parsing.overall_accuracy / 100) * 20
 
         # Keyframe metrics (20 points)
-        score += scorecard.keyframes.recall_at_5 * 20
+        score += scorecard.frame_selection.recall_at_5 * 20
 
         # Module status (20 points)
         ok_modules = sum(
@@ -516,9 +550,9 @@ class MigrationValidator:
             )
 
         # Keyframe recommendations
-        if scorecard.keyframes.recall_at_5 < 0.9:
+        if scorecard.frame_selection.recall_at_5 < 0.9:
             recommendations.append(
-                f"Recall@5 is {scorecard.keyframes.recall_at_5:.2%} - "
+                f"Recall@5 is {scorecard.frame_selection.recall_at_5:.2%} - "
                 "tune visibility index parameters"
             )
 
@@ -556,35 +590,45 @@ class MigrationValidator:
         # Run unit tests
         print("\n[1/6] Running unit tests...")
         scorecard.unit_tests = self.run_pytest("src/")
-        print(f"      Passed: {scorecard.unit_tests.passed}, "
-              f"Failed: {scorecard.unit_tests.failed}, "
-              f"Pass rate: {scorecard.unit_tests.pass_rate:.1f}%")
+        print(
+            f"      Passed: {scorecard.unit_tests.passed}, "
+            f"Failed: {scorecard.unit_tests.failed}, "
+            f"Pass rate: {scorecard.unit_tests.pass_rate:.1f}%"
+        )
 
         # Run integration tests
         print("\n[2/6] Running integration tests...")
         scorecard.integration_tests = self.run_pytest("tests/integration/")
-        print(f"      Passed: {scorecard.integration_tests.passed}, "
-              f"Failed: {scorecard.integration_tests.failed}, "
-              f"Pass rate: {scorecard.integration_tests.pass_rate:.1f}%")
+        print(
+            f"      Passed: {scorecard.integration_tests.passed}, "
+            f"Failed: {scorecard.integration_tests.failed}, "
+            f"Pass rate: {scorecard.integration_tests.pass_rate:.1f}%"
+        )
 
         # Run migration tests
         print("\n[3/6] Running migration equivalence tests...")
         scorecard.migration_tests = self.run_pytest("tests/migration/")
-        print(f"      Passed: {scorecard.migration_tests.passed}, "
-              f"Failed: {scorecard.migration_tests.failed}, "
-              f"Pass rate: {scorecard.migration_tests.pass_rate:.1f}%")
+        print(
+            f"      Passed: {scorecard.migration_tests.passed}, "
+            f"Failed: {scorecard.migration_tests.failed}, "
+            f"Pass rate: {scorecard.migration_tests.pass_rate:.1f}%"
+        )
 
         # Compute parsing metrics
         print("\n[4/6] Computing parsing metrics...")
         scorecard.parsing = self.compute_parsing_metrics()
-        print(f"      Cases: {scorecard.parsing.total_cases}, "
-              f"Overall accuracy: {scorecard.parsing.overall_accuracy:.1f}%")
+        print(
+            f"      Cases: {scorecard.parsing.total_cases}, "
+            f"Overall accuracy: {scorecard.parsing.overall_accuracy:.1f}%"
+        )
 
         # Compute keyframe metrics
         print("\n[5/6] Computing keyframe metrics...")
-        scorecard.keyframes = self.compute_keyframe_metrics()
-        print(f"      Cases: {scorecard.keyframes.total_cases}, "
-              f"Recall@5: {scorecard.keyframes.recall_at_5:.2%}")
+        scorecard.frame_selection = self.compute_frame_selection_metrics()
+        print(
+            f"      Cases: {scorecard.frame_selection.total_cases}, "
+            f"Recall@5: {scorecard.frame_selection.recall_at_5:.2%}"
+        )
 
         # Check module status
         print("\n[6/6] Checking module status...")
@@ -612,38 +656,52 @@ def print_scorecard(scorecard: MigrationScorecard) -> None:
     print(f"Overall Grade: {scorecard.grade}")
 
     print("\n--- Test Results ---")
-    print(f"Unit Tests:        {scorecard.unit_tests.passed}/{scorecard.unit_tests.total} "
-          f"({scorecard.unit_tests.pass_rate:.1f}%)")
-    print(f"Integration Tests: {scorecard.integration_tests.passed}/{scorecard.integration_tests.total} "
-          f"({scorecard.integration_tests.pass_rate:.1f}%)")
-    print(f"Migration Tests:   {scorecard.migration_tests.passed}/{scorecard.migration_tests.total} "
-          f"({scorecard.migration_tests.pass_rate:.1f}%)")
+    print(
+        f"Unit Tests:        {scorecard.unit_tests.passed}/{scorecard.unit_tests.total} "
+        f"({scorecard.unit_tests.pass_rate:.1f}%)"
+    )
+    print(
+        f"Integration Tests: {scorecard.integration_tests.passed}/{scorecard.integration_tests.total} "
+        f"({scorecard.integration_tests.pass_rate:.1f}%)"
+    )
+    print(
+        f"Migration Tests:   {scorecard.migration_tests.passed}/{scorecard.migration_tests.total} "
+        f"({scorecard.migration_tests.pass_rate:.1f}%)"
+    )
 
     print("\n--- Parsing Metrics ---")
     print(f"Total cases:              {scorecard.parsing.total_cases}")
     print(f"Parse mode accuracy:      {scorecard.parsing.parse_mode_accuracy:.1f}%")
-    print(f"Hypothesis kind accuracy: {scorecard.parsing.hypothesis_kind_accuracy:.1f}%")
-    print(f"Target category accuracy: {scorecard.parsing.target_category_accuracy:.1f}%")
+    print(
+        f"Hypothesis kind accuracy: {scorecard.parsing.hypothesis_kind_accuracy:.1f}%"
+    )
+    print(
+        f"Target category accuracy: {scorecard.parsing.target_category_accuracy:.1f}%"
+    )
     print(f"Overall accuracy:         {scorecard.parsing.overall_accuracy:.1f}%")
 
     print("\n--- Keyframe Metrics ---")
-    print(f"Total cases:     {scorecard.keyframes.total_cases}")
-    print(f"Recall@1:        {scorecard.keyframes.recall_at_1:.2%}")
-    print(f"Recall@3:        {scorecard.keyframes.recall_at_3:.2%}")
-    print(f"Recall@5:        {scorecard.keyframes.recall_at_5:.2%}")
-    print(f"Recall@10:       {scorecard.keyframes.recall_at_10:.2%}")
-    print(f"MRR:             {scorecard.keyframes.mrr:.4f}")
-    print(f"Tolerance rate:  {scorecard.keyframes.tolerance_rate:.1f}%")
+    print(f"Total cases:     {scorecard.frame_selection.total_cases}")
+    print(f"Recall@1:        {scorecard.frame_selection.recall_at_1:.2%}")
+    print(f"Recall@3:        {scorecard.frame_selection.recall_at_3:.2%}")
+    print(f"Recall@5:        {scorecard.frame_selection.recall_at_5:.2%}")
+    print(f"Recall@10:       {scorecard.frame_selection.recall_at_10:.2%}")
+    print(f"MRR:             {scorecard.frame_selection.mrr:.4f}")
+    print(f"Tolerance rate:  {scorecard.frame_selection.tolerance_rate:.1f}%")
 
     print("\n--- Latency Metrics ---")
-    print(f"Parsing (mean/p50/p95):   "
-          f"{scorecard.latency.parsing_mean_ms:.0f}ms / "
-          f"{scorecard.latency.parsing_p50_ms:.0f}ms / "
-          f"{scorecard.latency.parsing_p95_ms:.0f}ms")
-    print(f"Keyframe (mean/p50/p95):  "
-          f"{scorecard.latency.keyframe_mean_ms:.0f}ms / "
-          f"{scorecard.latency.keyframe_p50_ms:.0f}ms / "
-          f"{scorecard.latency.keyframe_p95_ms:.0f}ms")
+    print(
+        f"Parsing (mean/p50/p95):   "
+        f"{scorecard.latency.parsing_mean_ms:.0f}ms / "
+        f"{scorecard.latency.parsing_p50_ms:.0f}ms / "
+        f"{scorecard.latency.parsing_p95_ms:.0f}ms"
+    )
+    print(
+        f"Keyframe (mean/p50/p95):  "
+        f"{scorecard.latency.keyframe_mean_ms:.0f}ms / "
+        f"{scorecard.latency.keyframe_p50_ms:.0f}ms / "
+        f"{scorecard.latency.keyframe_p95_ms:.0f}ms"
+    )
 
     print("\n--- Module Status ---")
     for name, status in scorecard.modules.items():
@@ -658,16 +716,16 @@ def print_scorecard(scorecard: MigrationScorecard) -> None:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(
-        description="Run migration validation scorecard"
-    )
+    parser = argparse.ArgumentParser(description="Run migration validation scorecard")
     parser.add_argument(
-        "--verbose", "-v",
+        "--verbose",
+        "-v",
         action="store_true",
         help="Enable verbose output",
     )
     parser.add_argument(
-        "--output", "-o",
+        "--output",
+        "-o",
         type=Path,
         help="Output file for JSON results",
     )

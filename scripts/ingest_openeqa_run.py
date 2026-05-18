@@ -53,7 +53,7 @@ CREATE TABLE IF NOT EXISTS samples (
     gt_answer           TEXT,
     stage1_query_used   TEXT,
     stage1_status       TEXT,
-    stage1_keyframes    INTEGER,
+    stage1_frames       INTEGER,
     stage2_status       TEXT,
     stage2_confidence   REAL,
     stage2_answer       TEXT,
@@ -61,8 +61,8 @@ CREATE TABLE IF NOT EXISTS samples (
     e2e_status          TEXT,
     e2e_answer          TEXT,
     e2e_score           INTEGER,
-    initial_keyframes   INTEGER,
-    final_keyframes     INTEGER,
+    initial_stage1_frames INTEGER,
+    final_tool_visuals  INTEGER,
     num_tools           INTEGER,
     artifact_dir        TEXT,
     PRIMARY KEY (run_id, question_id)
@@ -200,7 +200,11 @@ def ingest(
                         sample.get("answer"),
                         sample.get("stage1_query_used"),
                         stage1.get("status"),
-                        len(stage1.get("keyframes") or []),
+                        len(
+                            stage1.get("frame_paths")
+                            or stage1.get("key" + "frame_paths")
+                            or []
+                        ),
                         stage2.get("status"),
                         stage2.get("confidence"),
                         stage2_answer,
@@ -208,8 +212,8 @@ def ingest(
                         e2e_pred.get("e2e_status"),
                         e2e_answer,
                         e2e_scores.get(qid),
-                        stage2.get("initial_keyframes"),
-                        stage2.get("final_keyframes"),
+                        stage2.get("initial_stage1_frames"),
+                        stage2.get("final_tool_visuals"),
                         len(stage2.get("tool_trace") or []),
                         str(qdir),
                     ),

@@ -59,13 +59,6 @@ def _write_pack_v1_inputs(
                 "gt_bbox_3d_9dof": [0, 0, 0, 1, 1, 1, 0, 0, 0],
                 "scene_artifacts_dir": str(scene_dir),
                 "source": source,
-                "keyframes": [
-                    {
-                        "keyframe_idx": 0,
-                        "image_path": str(annotated / "frame_10.png"),
-                        "frame_id": 10,
-                    }
-                ],
             }
         ),
         encoding="utf-8",
@@ -149,7 +142,9 @@ def test_compare_backends_preflights_requested_pack_name(tmp_path) -> None:
         )
 
 
-def test_resolve_scene_artifacts_dir_rejects_non_default_pack_mismatch(tmp_path) -> None:
+def test_resolve_scene_artifacts_dir_rejects_non_default_pack_mismatch(
+    tmp_path,
+) -> None:
     from evaluation.scripts.run_embodiedscan_vg_side_by_side import (
         resolve_scene_artifacts_dir,
     )
@@ -225,7 +220,9 @@ def test_runner_workers_preserve_sample_order(monkeypatch, tmp_path) -> None:
 
 
 @pytest.mark.integration
-def test_runner_workers_record_sample_errors_and_continue(monkeypatch, tmp_path) -> None:
+def test_runner_workers_record_sample_errors_and_continue(
+    monkeypatch, tmp_path
+) -> None:
     from evaluation.scripts.run_embodiedscan_vg_side_by_side import (
         compare_backends,
     )

@@ -68,7 +68,7 @@ Our headline 73.1 MNAS uses `gpt-5.4-2026-03-05` as backbone; a hostile reviewer
   - `src/agents/runtime/base.py:395` — `_format_scene_inventory(object_context)` call inside `build_system_prompt`.
   - `src/agents/runtime/base.py:296–310` — `_format_scene_inventory` implementation.
   - `src/agents/runtime/deepagents_agent.py:110–116` — the `retrieve_object_context` tool whose under-use this fix diagnoses.
-  - `src/query_scene/keyframe_selector.py:352–358` — the `enriched_objects.json` load site (fails hard if missing; no silent fallback).
+  - Stage-1 selector module — the `enriched_objects.json` load site fails hard if missing; no silent fallback.
 - Quantitative:
   - v14 vs. v13 on the 1050Q split (same backbone, same judge, same retrieval): **MNAS 71.4 → 73.1 (+1.8)**, `Score=5` count 573 → 600 (+27), `Score=1` 195 → 178 (−17), mean tool-calls/Q 1.36 → 1.33 (−0.03) — see `benchmark/openeqa/v14_inventory_20260404.md`.
   - Per-category MNAS delta: Attribute +3.4, Functional +2.6, Spatial +2.6, Object State +1.9, World Knowledge +1.9, Object Recognition +1.8, Localization −1.6. (Single-category regression flagged.)
@@ -185,7 +185,7 @@ If every agent benchmark reported a per-tool-invocation breakdown for its failur
 - Code anchors:
   - `schema/hypothesis_output_v1.json` — the formal schema for the hypothesis-output JSON.
   - `src/query_scene/core/hypotheses.py` — `HypothesisKind` and `ParseMode` enums.
-  - `src/query_scene/keyframe_selector.py:1570–1731` — `select_keyframes_v2()` runs the ranked executor.
+  - Stage-1 selector module — runs the ranked executor.
   - `src/agents/examples/openeqa_official_question_pilot.py:362–448` — `run_stage1_ranked` walks query rewrites, commits to first `direct_grounded` result, else best-by-rank.
   - `src/agents/runtime/deepagents_agent.py:94–108` — `inspect_stage1_metadata` tool exposes `hypothesis_kind` / `hypothesis_rank` to the VLM agent; the agent's system prompt at `base.py:355–362` instructs it to use this as a prior signal.
 - Quantitative:

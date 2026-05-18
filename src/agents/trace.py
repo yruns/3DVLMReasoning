@@ -24,14 +24,38 @@ from .models import (
 )
 
 
+def _active_visual_paths(bundle: Stage2EvidenceBundle) -> list[str]:
+    """Return BEV plus visual evidence queued by active tools."""
+    paths: list[str] = []
+    if bundle.bev_image_path:
+        paths.append(bundle.bev_image_path)
+
+    extra = bundle.extra_metadata or {}
+    for path in extra.get("vg_pending_images") or []:
+        if path:
+            paths.append(str(path))
+    for row in extra.get("vg_pending_image_metadata") or []:
+        if isinstance(row, dict) and row.get("image_path"):
+            paths.append(str(row["image_path"]))
+
+    seen: set[str] = set()
+    unique: list[str] = []
+    for path in paths:
+        if path in seen:
+            continue
+        seen.add(path)
+        unique.append(path)
+    return unique
+
+
 @dataclass
 class TraceImageRef:
     """Reference to an image in the trace."""
 
     path: str
     thumbnail_b64: str | None = None  # Small preview
-    role: str = "keyframe"  # keyframe, bev, crop, etc.
-    keyframe_idx: int | None = None
+    role: str = "visual"
+    frame_id: int | None = None
     view_id: int | None = None
 
 
@@ -169,7 +193,7 @@ class TraceRecorder:
         """Return the recorded trace."""
         return self._trace
 
-    def _make_image_ref(self, path: str, role: str = "keyframe") -> TraceImageRef:
+    def _make_image_ref(self, path: str, role: str = "visual") -> TraceImageRef:
         """Create an image reference with optional thumbnail."""
         ref = TraceImageRef(path=path, role=role)
         try:
@@ -501,8 +525,8 @@ class HTMLTraceRenderer:
 
         images_html = self._render_image_grid(
             [
-                (kf.image_path, f"idx={kf.keyframe_idx} view={kf.view_id}")
-                for kf in bundle.keyframes
+                (path, f"visual {idx}")
+                for idx, path in enumerate(_active_visual_paths(bundle))
             ]
         )
 
@@ -517,9 +541,9 @@ class HTMLTraceRenderer:
 <div class="card">
     <p><strong>Scene:</strong> {bundle.scene_id or 'unknown'}</p>
     <p><strong>Stage-1 Query:</strong> {html.escape(bundle.stage1_query or 'N/A')}</p>
-    <p><strong>Keyframes:</strong> {len(bundle.keyframes)}</p>
+    <p><strong>Active visual paths:</strong> {len(_active_visual_paths(bundle))}</p>
 
-    <h3>Keyframe Images</h3>
+    <h3>Visual Images</h3>
     {images_html}
 
     <div class="collapsible-header">Stage-1 Hypothesis</div>
@@ -580,7 +604,7 @@ class HTMLTraceRenderer:
         input_images_html = (
             self._render_image_grid(
                 [
-                    (img.path, f"{img.role} idx={img.keyframe_idx}")
+                    (img.path, f"{img.role} frame={img.frame_id}")
                     for img in turn.input_images
                 ],
                 css_class="",
@@ -754,10 +778,8 @@ def save_trace_report(
             timestamp=time.time(),
             input_text=task.user_query,
             input_images=[
-                TraceImageRef(
-                    path=kf.image_path, keyframe_idx=kf.keyframe_idx, view_id=kf.view_id
-                )
-                for kf in initial_bundle.keyframes
+                TraceImageRef(path=path, role="visual")
+                for path in _active_visual_paths(initial_bundle)
             ],
             tool_calls=[
                 TraceToolCall(

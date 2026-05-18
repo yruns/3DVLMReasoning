@@ -143,11 +143,7 @@ class TestMockStage2Factory:
             task_type=Stage2TaskType.QA,
             user_query="What color is the chair?",
         )
-        bundle = Stage2EvidenceBundle(
-            keyframes=[],
-            hypothesis_kind="direct",
-            metadata={},
-        )
+        bundle = Stage2EvidenceBundle(extra_metadata={})
 
         result = agent.run(task, bundle)
         assert result.result.summary is not None
@@ -169,11 +165,7 @@ class TestMockStage2Factory:
             task_type=Stage2TaskType.QA,
             user_query="What color is the chair?",
         )
-        bundle = Stage2EvidenceBundle(
-            keyframes=[],
-            hypothesis_kind="direct",
-            metadata={},
-        )
+        bundle = Stage2EvidenceBundle(extra_metadata={})
 
         confidences = set()
         for _i in range(8):
@@ -198,11 +190,7 @@ class TestMockStage2Factory:
             task_type=Stage2TaskType.QA,
             user_query="What color is the chair?",
         )
-        bundle = Stage2EvidenceBundle(
-            keyframes=[],
-            hypothesis_kind="direct",
-            metadata={},
-        )
+        bundle = Stage2EvidenceBundle(extra_metadata={})
 
         # One-shot should have some insufficient evidence cases
         has_low_conf = False

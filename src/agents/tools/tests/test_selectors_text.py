@@ -11,16 +11,23 @@ from agents.runtime.base import Stage2RuntimeState
 from agents.tools.selectors import build_selector_tools
 
 
-class _FakeKeyframeSelector:
+class _FakeTextFrameSelector:
     def __init__(self, fids: list[int]) -> None:
         self._fids = fids
 
     def select_keyframes_v2(self, **_kwargs):
         return SimpleNamespace(
             keyframe_indices=list(self._fids),
-            metadata={"hypothesis_output": {"hypotheses": [
-                {"grounding_query": {"root": {"category": "chair"}}, "kind": "direct"}
-            ]}},
+            metadata={
+                "hypothesis_output": {
+                    "hypotheses": [
+                        {
+                            "grounding_query": {"root": {"category": "chair"}},
+                            "kind": "direct",
+                        }
+                    ]
+                }
+            },
         )
 
 
@@ -37,7 +44,11 @@ def _runtime(tmp_path: Path, fids: list[int]) -> Stage2RuntimeState:
                 category="chair",
                 position_3d=(0.0, 0.0, 0.0),
                 source="mask3d",
-                frame_views={fid: FrameView(frame_id=fid, raw_rgb_path=str(rgb), bbox_2d=(0, 0, 20, 20))},
+                frame_views={
+                    fid: FrameView(
+                        frame_id=fid, raw_rgb_path=str(rgb), bbox_2d=(0, 0, 20, 20)
+                    )
+                },
             )
         )
     catalog = SceneCatalog(
@@ -58,7 +69,7 @@ def _runtime(tmp_path: Path, fids: list[int]) -> Stage2RuntimeState:
     rs = Stage2RuntimeState(bundle=bundle)
     rs.seen_image_paths = set()
     rs.skills_loaded = {"scene-exploration-playbook"}
-    rs.keyframe_selector = _FakeKeyframeSelector(fids)
+    rs.text_frame_selector = _FakeTextFrameSelector(fids)
     return rs
 
 
@@ -132,7 +143,7 @@ def test_select_by_text_force_to_error_short_circuits_before_selector(
     """v9.4 cadence experiment: when
     `force_stage1_text_retrieval_to_error=True`, the tool must
     short-circuit to an explicit ERROR string BEFORE invoking the
-    KeyframeSelector. This cleanly reproduces the v9.1_fix bug-state
+    text-frame selector. This cleanly reproduces the v9.1_fix bug-state
     behaviour while keeping the text-first playbook and system prompt
     consistent. See
     docs/benchmark/nr3d/v9_1_fix_vs_v9_3_audit30_20260517.md §Experiment A.
@@ -141,7 +152,7 @@ def test_select_by_text_force_to_error_short_circuits_before_selector(
       - Tool is still REGISTERED (so the text-first playbook prose
         about `select_by_text` matches the tool surface).
       - Tool body returns ERROR for every call.
-      - `KeyframeSelector.select_keyframes_v2` is NOT invoked (would be
+      - `select_keyframes_v2` is NOT invoked (would be
         wasted compute and would muddy the deliberation cadence we
         want to force).
       - `runtime.record('select_by_text', ...)` is called exactly once
@@ -157,11 +168,11 @@ def test_select_by_text_force_to_error_short_circuits_before_selector(
         def select_keyframes_v2(self, **_kwargs):
             raise AssertionError(
                 "select_by_text must short-circuit to ERROR before "
-                "calling KeyframeSelector when "
+                "calling the text-frame selector when "
                 "force_stage1_text_retrieval_to_error=True"
             )
 
-    rs.keyframe_selector = _ExplodingSelector()
+    rs.text_frame_selector = _ExplodingSelector()
 
     tools = build_selector_tools(rs)
     # Still registered (text-first contract preserved).
@@ -195,9 +206,7 @@ def test_select_by_text_force_to_error_records_into_tool_trace(tmp_path: Path):
 
     rs.record = _record  # type: ignore[method-assign]
 
-    tool = next(
-        t for t in build_selector_tools(rs) if t.name == "select_by_text"
-    )
+    tool = next(t for t in build_selector_tools(rs) if t.name == "select_by_text")
     tool.invoke({"query": "anywhere", "k": 2})
 
     assert len(recorded) == 1

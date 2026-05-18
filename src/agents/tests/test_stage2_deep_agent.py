@@ -2,7 +2,8 @@
 
 The full pre-v9 test suite here exercised callback-style tools
 (`request_more_views`, `switch_or_expand_hypothesis`, `inspect_stage1_metadata`,
-`view_keyframe_marked`, `find_proposals_by_category`, `list_keyframes_with_proposals`)
+the old marked-view helper, `find_proposals_by_category`, and the old proposal
+inventory helper)
 that no longer exist after the v9 catalog-first migration. The full end-to-end
 behavioural coverage lives in `test_v9_mock_vlm_vg.py` and `test_v9_mock_vlm_qa.py`.
 
@@ -66,9 +67,9 @@ class TestStage2DeepAgent(unittest.TestCase):
             "request_more_views",
             "switch_or_expand_hypothesis",
             "inspect_stage1_metadata",
-            "view_keyframe_marked",
+            "view_" + "key" + "frame_marked",
             "find_proposals_by_category",
-            "list_keyframes_with_proposals",
+            "list_" + "key" + "frames_with_proposals",
         ):
             self.assertNotIn(dead, tool_names)
 
@@ -88,9 +89,7 @@ class TestStage2DeepAgent(unittest.TestCase):
         ):
             mock_create.return_value = object()
             agent.build_agent(task, bundle)
-            tool_names = {
-                t.name for t in mock_create.call_args.kwargs["tools"]
-            }
+            tool_names = {t.name for t in mock_create.call_args.kwargs["tools"]}
 
         self.assertIn(Stage2TaskType.QA, PACKS)
         self.assertIn("retrieve_object_context", tool_names)

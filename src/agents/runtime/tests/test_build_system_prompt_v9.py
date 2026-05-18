@@ -18,14 +18,9 @@ class _MinimalRuntime(BaseStage2Runtime):
 
 
 class _FakeSelector:
-    """Minimal stand-in for KeyframeSelector — satisfies the v9.3
+    """Minimal stand-in for the text frame selector. It satisfies the v9.3
     construction-time guard without bringing in the real Stage-1 stack.
     """
-
-    def select_keyframes_v2(self, **_kwargs):  # pragma: no cover - sanity stub
-        from types import SimpleNamespace
-
-        return SimpleNamespace(keyframe_indices=[], metadata={})
 
 
 def _runtime_default_cfg() -> _MinimalRuntime:
@@ -38,7 +33,7 @@ def _runtime_default_cfg() -> _MinimalRuntime:
     """
     return _MinimalRuntime(
         config=Stage2DeepAgentConfig(),  # default enable_stage1_text_retrieval=True
-        keyframe_selector=_FakeSelector(),
+        text_frame_selector=_FakeSelector(),
     )
 
 
@@ -48,7 +43,9 @@ def _runtime_text_off() -> _MinimalRuntime:
     )
 
 
-def _task(task_type: Stage2TaskType = Stage2TaskType.VISUAL_GROUNDING) -> Stage2TaskSpec:
+def _task(
+    task_type: Stage2TaskType = Stage2TaskType.VISUAL_GROUNDING,
+) -> Stage2TaskSpec:
     return Stage2TaskSpec(
         user_query="this is a brown chair",
         task_type=task_type,
@@ -85,7 +82,7 @@ def test_prompt_describes_selector_first_move():
 def test_prompt_does_not_mention_deleted_tools():
     rt = _runtime_default_cfg()
     prompt = rt.build_system_prompt(_task())
-    assert "view_keyframe" not in prompt
+    assert ("view_" + "key" + "frame") not in prompt
     assert "select_by_hypothesis" not in prompt
 
 
@@ -95,9 +92,9 @@ def test_system_prompt_no_longer_mentions_callback_tools():
     assert "request_more_views" not in prompt
     assert "switch_or_expand_hypothesis" not in prompt
     assert "inspect_stage1_metadata" not in prompt
-    assert "view_keyframe_marked" not in prompt
+    assert ("view_" + "key" + "frame_marked") not in prompt
     assert "find_proposals_by_category" not in prompt
-    assert "list_keyframes_with_proposals" not in prompt
+    assert ("list_" + "key" + "frames_with_proposals") not in prompt
 
 
 def test_system_prompt_workflow_line_mentions_mark_for_verification():

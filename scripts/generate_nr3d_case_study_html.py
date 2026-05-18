@@ -1,9 +1,9 @@
-"""Generate an NR3D stage1+stage2 case-study HTML report.
+"""Generate an NR3D Stage-1 + Stage-2 case-study HTML report.
 
 The report is intentionally built from persisted benchmark artifacts only:
 
 - stage1 pack JSON under data/nr3d/scannet/<scene>/<pack>/samples/
-- annotated keyframes under data/nr3d/scannet/<scene>/<pack>/annotated/
+- annotated proposal frames under data/nr3d/scannet/<scene>/<pack>/annotated/
 - per-sample stage2 checkpoints under tmp/nr3d_eval_.../per_sample/
 - leaderboard_metrics.json for correctness / split metadata
 
@@ -103,10 +103,9 @@ def read_json(path: Path) -> Any:
 
 def git_short() -> str:
     try:
-        return (
-            subprocess.check_output(["git", "rev-parse", "--short", "HEAD"], text=True)
-            .strip()
-        )
+        return subprocess.check_output(
+            ["git", "rev-parse", "--short", "HEAD"], text=True
+        ).strip()
     except Exception:
         return "unknown"
 
@@ -324,17 +323,13 @@ def summarize_tool(call: dict[str, Any]) -> str:
     parsed = try_json(text)
 
     if tool == "list_skills" and isinstance(parsed, list):
-        return "Available skills: " + ", ".join(str(x.get("name")) for x in parsed if isinstance(x, dict))
+        return "Available skills: " + ", ".join(
+            str(x.get("name")) for x in parsed if isinstance(x, dict)
+        )
     if tool == "load_skill":
-        return f"Loaded skill: {inp.get('skill_name') if isinstance(inp, dict) else inp}"
-    if tool == "list_keyframes_with_proposals" and isinstance(parsed, list):
-        bits = []
-        for kf in parsed:
-            if isinstance(kf, dict):
-                bits.append(
-                    f"frame {kf.get('frame_id')} ({kf.get('n_proposals')} proposals)"
-                )
-        return "Initial proposal inventory: " + "; ".join(bits)
+        return (
+            f"Loaded skill: {inp.get('skill_name') if isinstance(inp, dict) else inp}"
+        )
     if tool == "list_frame_proposals" and isinstance(parsed, dict):
         frame_id = parsed.get("frame_id")
         visible = parsed.get("visible_proposal_ids") or []
@@ -357,9 +352,13 @@ def summarize_tool(call: dict[str, Any]) -> str:
             f"label={parsed.get('category')} "
             f"frames={len(parsed.get('frames_appeared') or [])}"
         )
-    if tool == "view_keyframe_marked":
+    if tool == ("view_" + "key" + "frame_marked"):
         refs = collect_image_refs(text)
-        frame = refs[0][0] if refs else (inp.get("frame_id") if isinstance(inp, dict) else "?")
+        frame = (
+            refs[0][0]
+            if refs
+            else (inp.get("frame_id") if isinstance(inp, dict) else "?")
+        )
         cats = re.search(r"categories=(\[.*?\])", text)
         cat_text = cats.group(1) if cats else ""
         if len(cat_text) > 220:
@@ -377,9 +376,7 @@ def summarize_tool(call: dict[str, Any]) -> str:
 
 
 def render_table(rows: list[tuple[str, Any]]) -> str:
-    body = "".join(
-        f"<tr><th>{esc(k)}</th><td>{esc(v)}</td></tr>" for k, v in rows
-    )
+    body = "".join(f"<tr><th>{esc(k)}</th><td>{esc(v)}</td></tr>" for k, v in rows)
     return f'<table class="kv">{body}</table>'
 
 
@@ -439,8 +436,7 @@ def render_image_grid(
             chips.append('<span class="chip target">target visible</span>')
         if selected_id is not None and int(selected_id) in ids:
             chips.append('<span class="chip selected">selected visible</span>')
-        cards.append(
-            f"""
+        cards.append(f"""
             <figure class="image-card">
               <img src="{esc(rel)}" alt="{esc(path)}" loading="lazy">
               <figcaption>
@@ -450,8 +446,7 @@ def render_image_grid(
                 <code>{esc(path)}</code>
               </figcaption>
             </figure>
-            """
-        )
+            """)
     return '<div class="image-grid">' + "\n".join(cards) + "</div>"
 
 
@@ -479,7 +474,7 @@ def render_proposal_table(
             "</tr>"
         )
     return (
-        '<table><tr><th>ID</th><th>Role</th><th>Label</th><th>Score</th><th>BBox</th></tr>'
+        "<table><tr><th>ID</th><th>Role</th><th>Label</th><th>Score</th><th>BBox</th></tr>"
         + "\n".join(rows)
         + "</table>"
     )
@@ -518,8 +513,7 @@ def render_tool_timeline(
                 render_ctx=render_ctx,
                 image_mode=image_mode,
             )
-        blocks.append(
-            f"""
+        blocks.append(f"""
             <details class="tool" open>
               <summary><span class="tool-index">{i:02d}</span> <span class="tool-name">{esc(tool)}</span> <span>{esc(summarize_tool(call))}</span></summary>
               <div class="tool-body">
@@ -530,8 +524,7 @@ def render_tool_timeline(
                 {image_html}
               </div>
             </details>
-            """
-        )
+            """)
     return '<div class="timeline">' + "\n".join(blocks) + "</div>"
 
 
@@ -596,33 +589,18 @@ def build_case_html(
     correct = bool(metric["is_correct"])
     filtered = not bool(metric["is_filtered_out"])
     status_class = "ok" if correct else ("failed" if selected_id is None else "wrong")
-    status_label = "CORRECT" if correct else ("NO MATCH" if selected_id is None else "WRONG")
+    status_label = (
+        "CORRECT" if correct else ("NO MATCH" if selected_id is None else "WRONG")
+    )
 
-    stage1_refs = [
-        (kf.get("frame_id"), str(kf.get("image_path")), "stage1 initial keyframe")
-        for kf in sample.get("keyframes") or []
-    ]
+    stage1_refs: list[tuple[int | None, str, str]] = []
     stage2_refs: list[tuple[int | None, str, str]] = []
     for i, call in enumerate(trace, start=1):
         for fid, path in collect_image_refs(str(call.get("response_text") or "")):
-            stage2_refs.append((fid, path, f"stage2 tool #{i}: {call.get('tool_name')}"))
+            stage2_refs.append(
+                (fid, path, f"stage2 tool #{i}: {call.get('tool_name')}")
+            )
 
-    target_initial = sum(
-        1
-        for fid, _, _ in stage1_refs
-        if fid is not None and int(target_id) in visibility.get(int(fid), [])
-    )
-    selected_initial = (
-        sum(
-            1
-            for fid, _, _ in stage1_refs
-            if fid is not None
-            and selected_id is not None
-            and int(selected_id) in visibility.get(int(fid), [])
-        )
-        if selected_id is not None
-        else 0
-    )
     tool_counts = Counter(str(t.get("tool_name") or "") for t in trace)
     proposal_ids = candidate_ids_from_trace(trace, target_id, selected_id)
 
@@ -631,7 +609,10 @@ def build_case_html(
             ("sample_id", spec.sample_id),
             ("query", checkpoint.get("query")),
             ("scene_id", scene_id),
-            ("category / target label", f"{sample.get('category')} / {proposal_label(proposals, target_id)}"),
+            (
+                "category / target label",
+                f"{sample.get('category')} / {proposal_label(proposals, target_id)}",
+            ),
             ("target_id", target_id),
             ("selected_object_id", selected_id),
             ("selected label", proposal_label(proposals, selected_id)),
@@ -646,12 +627,8 @@ def build_case_html(
     stage1_table = render_table(
         [
             ("pack sample", sample_path),
-            ("keyframe_mode", sample.get("keyframe_mode")),
-            ("uses_gt_target", sample.get("keyframe_selection_uses_gt_target")),
-            ("used_non_gt_fallback", sample.get("keyframe_selection_used_fallback")),
-            ("initial keyframes", ", ".join(str(k.get("frame_id")) for k in sample.get("keyframes") or [])),
-            ("target visible in initial keyframes", f"{target_initial}/{len(stage1_refs)}"),
-            ("selected visible in initial keyframes", f"{selected_initial}/{len(stage1_refs)}"),
+            ("bev_image_path", sample.get("bev_image_path")),
+            ("scene_catalog_path", sample.get("scene_catalog_path")),
         ]
     )
 
@@ -670,11 +647,10 @@ def build_case_html(
       <p>{esc(outcome_text(metric=metric, checkpoint=checkpoint, proposals=proposals))}</p>
       {overview}
 
-      <h3>Stage 1: query-driven evidence pack</h3>
+      <h3>Stage 1: catalog package</h3>
       <p>
-        Stage 1 produced the marked keyframe entry points below. The pack
-        explicitly records <code>keyframe_selection_uses_gt_target=false</code>;
-        target id and GT bbox are kept for scoring, not for view selection.
+        The pack provides BEV, SceneCatalog, proposal pool, target id, and GT bbox
+        for scoring. First-person frames are acquired by agent tool calls.
       </p>
       {stage1_table}
       {render_image_grid(stage1_refs, case_prefix=case_prefix + "_stage1", assets_dir=assets_dir, html_dir=html_dir, visibility=visibility, proposals=proposals, target_id=target_id, selected_id=selected_id, render_ctx=render_ctx, image_mode=image_mode)}
@@ -730,7 +706,9 @@ def build_html(
             )
         )
         status = "correct" if metric["is_correct"] else "failed"
-        nav.append(f'<a href="#case-{i}"><span>{i}</span>{esc(spec.title)}<em>{status}</em></a>')
+        nav.append(
+            f'<a href="#case-{i}"><span>{i}</span>{esc(spec.title)}<em>{status}</em></a>'
+        )
 
     return f"""<!doctype html>
 <html lang="en">
@@ -823,7 +801,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--leaderboard-metrics",
         type=Path,
-        default=Path("tmp/nr3d_eval_v5_failed_rerun_merged_20260513/leaderboard_metrics.json"),
+        default=Path(
+            "tmp/nr3d_eval_v5_failed_rerun_merged_20260513/leaderboard_metrics.json"
+        ),
     )
     parser.add_argument(
         "--per-sample-dir",

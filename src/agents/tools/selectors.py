@@ -26,7 +26,9 @@ def _norm_category(category: str) -> str:
     return " ".join(str(category).strip().lower().split())
 
 
-def _camera_pose(runtime: Any, frame_id: int) -> tuple[list[float] | None, float | None]:
+def _camera_pose(
+    runtime: Any, frame_id: int
+) -> tuple[list[float] | None, float | None]:
     traj = (runtime.bundle.extra_metadata or {}).get("camera_trajectory_xy_yaw") or {}
     entry = traj.get(int(frame_id)) or traj.get(str(frame_id))
     if entry is None:
@@ -75,14 +77,14 @@ def _resolve_raw_rgb_path(catalog: SceneCatalog, frame_id: int) -> Path | None:
 
 def build_selector_tools(runtime: Any) -> list[BaseTool]:
     flag_enabled = bool(getattr(runtime, "enable_stage1_text_retrieval", True))
-    selector_available = getattr(runtime, "keyframe_selector", None) is not None
+    selector_available = getattr(runtime, "text_frame_selector", None) is not None
     text_retrieval_enabled = flag_enabled and selector_available
     if flag_enabled and not selector_available:
         from loguru import logger
 
         logger.warning(
             "build_selector_tools: enable_stage1_text_retrieval=True but "
-            "runtime.keyframe_selector is None; dropping select_by_text from "
+            "runtime.text_frame_selector is None; dropping select_by_text from "
             "the tool list to keep the agent's tool surface consistent with "
             "the runtime. This should have been caught at "
             "Stage2DeepResearchAgent construction; if it wasn't, look for a "
@@ -141,9 +143,9 @@ def build_selector_tools(runtime: Any) -> list[BaseTool]:
             )
             runtime.record("select_by_text", request, err)
             return err
-        selector = getattr(runtime, "keyframe_selector", None)
+        selector = getattr(runtime, "text_frame_selector", None)
         if selector is None:
-            err = "ERROR: runtime.keyframe_selector is None; cannot run Stage-1 text retrieval"
+            err = "ERROR: runtime.text_frame_selector is None; cannot run Stage-1 text retrieval"
             runtime.record("select_by_text", request, err)
             return err
         k_in = int(k)
@@ -173,8 +175,18 @@ def build_selector_tools(runtime: Any) -> list[BaseTool]:
             )
             image_path = _resolve_raw_rgb_path(catalog, int(fid))
             base["image_path"] = str(image_path) if image_path else None
-            queued = queue_pending_image_if_new(runtime, base["image_path"] or "")
-            base["already_seen"] = (not queued) and (base["image_path"] in runtime.seen_image_paths)
+            queued = queue_pending_image_if_new(
+                runtime,
+                base["image_path"] or "",
+                metadata={
+                    "frame_id": int(fid),
+                    "source_tool": "select_by_text",
+                    "selected_because": base["selected_because"],
+                },
+            )
+            base["already_seen"] = (not queued) and (
+                base["image_path"] in runtime.seen_image_paths
+            )
             frames.append(base)
 
         summary = ""
@@ -182,7 +194,9 @@ def build_selector_tools(runtime: Any) -> list[BaseTool]:
         if isinstance(hyp, dict) and hyp.get("hypotheses"):
             first = hyp["hypotheses"][0]
             root = (first.get("grounding_query") or {}).get("root") or {}
-            summary = f"target={root.get('category')!r} kind={first.get('kind', 'direct')}"
+            summary = (
+                f"target={root.get('category')!r} kind={first.get('kind', 'direct')}"
+            )
         payload = {"hypothesis_summary": summary + k_warning, "frames": frames}
         text = json.dumps(payload, ensure_ascii=False)
         runtime.record("select_by_text", request, text)
@@ -229,11 +243,18 @@ def build_selector_tools(runtime: Any) -> list[BaseTool]:
             ranked: list[tuple[float, float, int]] = []
             for f in others:
                 pose, yaw = _camera_pose(runtime, f)
-                if anchor_pose is None or pose is None or anchor_yaw is None or yaw is None:
+                if (
+                    anchor_pose is None
+                    or pose is None
+                    or anchor_yaw is None
+                    or yaw is None
+                ):
                     distance = float(abs(f - int(anchor_frame_id)))
                     yaw_delta = 0.0
                 else:
-                    distance = math.hypot(pose[0] - anchor_pose[0], pose[1] - anchor_pose[1])
+                    distance = math.hypot(
+                        pose[0] - anchor_pose[0], pose[1] - anchor_pose[1]
+                    )
                     yaw_delta = abs(yaw - anchor_yaw)
                 ranked.append((distance - yaw_delta, -yaw_delta, f))
             ranked.sort(key=lambda item: (item[0], item[1]))
@@ -241,7 +262,9 @@ def build_selector_tools(runtime: Any) -> list[BaseTool]:
         frames: list[dict] = []
         for fid in chosen:
             base = _build_frame_payload(
-                runtime, catalog, int(fid),
+                runtime,
+                catalog,
+                int(fid),
                 selected_because=(
                     f"select_by_frame_neighbor(anchor={anchor_frame_id}, mode={mode!r}){k_warning}"
                 ),
@@ -249,8 +272,18 @@ def build_selector_tools(runtime: Any) -> list[BaseTool]:
             )
             image_path = _resolve_raw_rgb_path(catalog, int(fid))
             base["image_path"] = str(image_path) if image_path else None
-            queued = queue_pending_image_if_new(runtime, base["image_path"] or "")
-            base["already_seen"] = (not queued) and (base["image_path"] in runtime.seen_image_paths)
+            queued = queue_pending_image_if_new(
+                runtime,
+                base["image_path"] or "",
+                metadata={
+                    "frame_id": int(fid),
+                    "source_tool": "select_by_frame_neighbor",
+                    "selected_because": base["selected_because"],
+                },
+            )
+            base["already_seen"] = (not queued) and (
+                base["image_path"] in runtime.seen_image_paths
+            )
             frames.append(base)
         payload = {"hypothesis_summary": "", "frames": frames}
         text = json.dumps(payload, ensure_ascii=False)
@@ -304,7 +337,9 @@ def build_selector_tools(runtime: Any) -> list[BaseTool]:
         frames: list[dict] = []
         for fid in chosen:
             base = _build_frame_payload(
-                runtime, catalog, int(fid),
+                runtime,
+                catalog,
+                int(fid),
                 selected_because=(
                     f"select_by_proposal(proposal_ids={ids}, require_all={bool(require_all)}){k_warning}"
                 ),
@@ -312,8 +347,18 @@ def build_selector_tools(runtime: Any) -> list[BaseTool]:
             )
             image_path = _resolve_raw_rgb_path(catalog, int(fid))
             base["image_path"] = str(image_path) if image_path else None
-            queued = queue_pending_image_if_new(runtime, base["image_path"] or "")
-            base["already_seen"] = (not queued) and (base["image_path"] in runtime.seen_image_paths)
+            queued = queue_pending_image_if_new(
+                runtime,
+                base["image_path"] or "",
+                metadata={
+                    "frame_id": int(fid),
+                    "source_tool": "select_by_proposal",
+                    "selected_because": base["selected_because"],
+                },
+            )
+            base["already_seen"] = (not queued) and (
+                base["image_path"] in runtime.seen_image_paths
+            )
             frames.append(base)
         payload = {"hypothesis_summary": "", "frames": frames}
         text = json.dumps(payload, ensure_ascii=False)
@@ -339,7 +384,9 @@ def build_selector_tools(runtime: Any) -> list[BaseTool]:
             runtime.record("select_by_region", request, gate)
             return gate
         if region_type not in ("bev_2d", "bbox_3d"):
-            err = f"ERROR: region_type must be 'bev_2d' or 'bbox_3d'; got {region_type!r}"
+            err = (
+                f"ERROR: region_type must be 'bev_2d' or 'bbox_3d'; got {region_type!r}"
+            )
             runtime.record("select_by_region", request, err)
             return err
         k_in = int(k)
@@ -363,7 +410,9 @@ def build_selector_tools(runtime: Any) -> list[BaseTool]:
                         break
         else:
             if len(region) != 6:
-                err = "ERROR: bbox_3d region must be [xmin, ymin, zmin, xmax, ymax, zmax]"
+                err = (
+                    "ERROR: bbox_3d region must be [xmin, ymin, zmin, xmax, ymax, zmax]"
+                )
                 runtime.record("select_by_region", request, err)
                 return err
             xmin, ymin, zmin, xmax, ymax, zmax = (float(v) for v in region)
@@ -384,14 +433,26 @@ def build_selector_tools(runtime: Any) -> list[BaseTool]:
         frames: list[dict] = []
         for fid in chosen:
             base = _build_frame_payload(
-                runtime, catalog, int(fid),
+                runtime,
+                catalog,
+                int(fid),
                 selected_because=f"select_by_region(type={region_type!r}){k_warning}",
                 hidden_categories=[],
             )
             image_path = _resolve_raw_rgb_path(catalog, int(fid))
             base["image_path"] = str(image_path) if image_path else None
-            queued = queue_pending_image_if_new(runtime, base["image_path"] or "")
-            base["already_seen"] = (not queued) and (base["image_path"] in runtime.seen_image_paths)
+            queued = queue_pending_image_if_new(
+                runtime,
+                base["image_path"] or "",
+                metadata={
+                    "frame_id": int(fid),
+                    "source_tool": "select_by_region",
+                    "selected_because": base["selected_because"],
+                },
+            )
+            base["already_seen"] = (not queued) and (
+                base["image_path"] in runtime.seen_image_paths
+            )
             frames.append(base)
         payload = {"hypothesis_summary": "", "frames": frames}
         text = json.dumps(payload, ensure_ascii=False)
@@ -499,14 +560,26 @@ def build_selector_tools(runtime: Any) -> list[BaseTool]:
         frames: list[dict] = []
         for fid in chosen:
             base = _build_frame_payload(
-                runtime, catalog, int(fid),
+                runtime,
+                catalog,
+                int(fid),
                 selected_because=f"select_by_coverage(method={method!r}){k_warning}",
                 hidden_categories=[],
             )
             image_path = _resolve_raw_rgb_path(catalog, int(fid))
             base["image_path"] = str(image_path) if image_path else None
-            queued = queue_pending_image_if_new(runtime, base["image_path"] or "")
-            base["already_seen"] = (not queued) and (base["image_path"] in runtime.seen_image_paths)
+            queued = queue_pending_image_if_new(
+                runtime,
+                base["image_path"] or "",
+                metadata={
+                    "frame_id": int(fid),
+                    "source_tool": "select_by_coverage",
+                    "selected_because": base["selected_because"],
+                },
+            )
+            base["already_seen"] = (not queued) and (
+                base["image_path"] in runtime.seen_image_paths
+            )
             frames.append(base)
         payload = {"hypothesis_summary": "", "frames": frames}
         text = json.dumps(payload, ensure_ascii=False)

@@ -22,8 +22,8 @@ The script generates four JSON files in `tests/migration/ground_truth/`:
    - Query parsing test cases
    - Expected parse modes, hypothesis kinds, categories
    
-2. **keyframes.json** (50+ cases)
-   - Keyframe selection test cases
+2. **frame_selection.json** (50+ cases)
+   - Frame-selection test cases
    - Expected frame indices with k-tolerance
    
 3. **hypotheses.json** (30+ cases)
@@ -42,7 +42,7 @@ The script generates four JSON files in `tests/migration/ground_truth/`:
 - Multi-object: "X and Y" (15)
 - Complex nested: "X on Y near Z" (15)
 
-### Keyframe Selection (50+ cases)
+### Frame Selection (50+ cases)
 - Living room scenes (3+)
 - Bedroom scenes (3+)
 - Kitchen scenes (3+)
@@ -65,7 +65,7 @@ The script generates four JSON files in `tests/migration/ground_truth/`:
 ```python
 # Data Models
 ParsingTestCase      # Query parsing test case
-KeyframeTestCase     # Keyframe selection test case
+KeyframeTestCase     # Frame-selection test case
 HypothesisTestCase   # Hypothesis execution test case
 
 # Generation Functions

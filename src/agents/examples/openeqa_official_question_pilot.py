@@ -29,6 +29,7 @@ import threading  # noqa: E402
 from agents.examples.openeqa_single_scene_pilot import (  # noqa: E402
     DEFAULT_DATA_ROOT,
     DEFAULT_MODEL,
+    _metadata_frame_count,
     build_bundle,
     ensure_runtime_scene,
     infer_stride,
@@ -41,7 +42,7 @@ from benchmarks.openeqa_official_eval import (  # noqa: E402
     DEFAULT_OFFICIAL_REPO_ROOT,
     evaluate_predictions_with_official_llm_match,
 )
-from query_scene.keyframe_selector import KeyframeResult, KeyframeSelector  # noqa: E402
+from query_scene import KeyframeResult, KeyframeSelector  # noqa: E402
 from utils.llm_client import get_langchain_chat_model  # noqa: E402
 
 # Per-scene lock to prevent parallel workers from racing on runtime cache setup
@@ -317,7 +318,9 @@ def load_resume_state(
 
     completed_ids = {str(item["question_id"]) for item in existing_results}
     pending = [
-        sample for sample in work_items if str(sample["question_id"]) not in completed_ids
+        sample
+        for sample in work_items
+        if str(sample["question_id"]) not in completed_ids
     ]
     pending_ids = {str(sample["question_id"]) for sample in pending}
     previous_failed = [
@@ -392,7 +395,9 @@ def apply_force_selection(
         )
 
     filtered = [
-        sample for sample in samples if sample["question_id"] in set(forced_question_ids)
+        sample
+        for sample in samples
+        if sample["question_id"] in set(forced_question_ids)
     ]
     if len(filtered) != len(forced_question_ids):
         filtered_ids = {sample["question_id"] for sample in filtered}
@@ -562,7 +567,7 @@ def run_stage1_ranked(
 
         if not result.keyframe_paths:
             logger.warning(
-                "[Stage1Ranked] query={!r} produced no keyframes (status={})",
+                "[Stage1Ranked] query={!r} produced no ranked frames (status={})",
                 query,
                 status,
             )
@@ -570,7 +575,7 @@ def run_stage1_ranked(
 
         rank = _GROUNDING_RANK.get(status, 99)
         logger.info(
-            "[Stage1Ranked] query={!r} status={} rank={} keyframes={}",
+            "[Stage1Ranked] query={!r} status={} rank={} ranked_frames={}",
             query,
             status,
             rank,
@@ -621,7 +626,9 @@ def run_one_sample(sample: dict[str, Any], args: argparse.Namespace) -> dict[str
         return _run_one_sample_impl(sample, args)
 
 
-def _run_one_sample_impl(sample: dict[str, Any], args: argparse.Namespace) -> dict[str, Any]:
+def _run_one_sample_impl(
+    sample: dict[str, Any], args: argparse.Namespace
+) -> dict[str, Any]:
     clip_id = sample["clip_id"]
     scene_root = args.data_root / clip_id
 
@@ -670,7 +677,7 @@ def _run_one_sample_impl(sample: dict[str, Any], args: argparse.Namespace) -> di
     stage2_summary = serialize_stage2_result(
         "stage2",
         stage2_result,
-        initial_keyframes=len(bundle.keyframes),
+        initial_stage1_frames=_metadata_frame_count(bundle),
     )
     save_json(sample_dir / "stage2.json", stage2_summary)
     stage2_answer = extract_prediction_text(stage2_summary)
@@ -704,7 +711,7 @@ def _run_one_sample_impl(sample: dict[str, Any], args: argparse.Namespace) -> di
         e2e_summary = serialize_stage2_result(
             "e2e",
             e2e_result,
-            initial_keyframes=len(bundle.keyframes),
+            initial_stage1_frames=_metadata_frame_count(bundle),
         )
         save_json(sample_dir / "e2e.json", e2e_summary)
         e2e_answer = extract_prediction_text(e2e_summary)
@@ -729,9 +736,7 @@ def _run_one_sample_impl(sample: dict[str, Any], args: argparse.Namespace) -> di
         "e2e_answer": e2e_answer,
         "e2e_confidence": e2e_summary["confidence"],
         "e2e_tool_calls": len(e2e_summary["tool_trace"]),
-        "e2e_final_keyframes": e2e_summary.get(
-            "final_keyframes", len(bundle.keyframes)
-        ),
+        "e2e_final_tool_visuals": e2e_summary.get("final_tool_visuals", 0),
         "artifact_dir": str(sample_dir),
     }
 
@@ -836,9 +841,13 @@ def main() -> None:
                 return row
             except Exception as exc:
                 last_exc = exc
-                if not is_retryable_sample_error(exc) or attempt >= max_sample_retries - 1:
+                if (
+                    not is_retryable_sample_error(exc)
+                    or attempt >= max_sample_retries - 1
+                ):
                     raise
                 import time
+
                 wait = min(10 * 2**attempt, 120)
                 logger.warning(
                     "[Official] question_id={} attempt {}/{} failed ({}), retrying in {}s",

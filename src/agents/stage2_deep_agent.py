@@ -6,7 +6,7 @@ its implementation now lives in ``agents.runtime``.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from deepagents import create_deep_agent
 from loguru import logger
@@ -26,9 +26,6 @@ from .runtime import (
     ToolChoiceCompatibleAzureChatOpenAI,
 )
 
-if TYPE_CHECKING:
-    from query_scene.keyframe_selector import KeyframeSelector
-
 ToolCallback = Any
 
 
@@ -45,12 +42,12 @@ class Stage2DeepResearchAgent:
         self,
         config: Stage2DeepAgentConfig | None = None,
         crop_callback: ToolCallback | None = None,
-        keyframe_selector: "KeyframeSelector | None" = None,
+        text_frame_selector: Any | None = None,
     ) -> None:
         self._runtime = DeepAgentsStage2Runtime(
             config=config,
             crop_callback=crop_callback,
-            keyframe_selector=keyframe_selector,
+            text_frame_selector=text_frame_selector,
         )
 
     @property
@@ -146,20 +143,12 @@ class Stage2DeepResearchAgent:
 
         runtime = Stage2RuntimeState(bundle=bundle.model_copy(deep=True))
         runtime.task_type = task.task_type
-        # v9.1: forward the pre-built Stage-1 KeyframeSelector to the runtime
+        # Forward the pre-built Stage-1 text-to-frame selector to the runtime
         # state so `select_by_text` can call selector.select_keyframes_v2 at
         # tool-invocation time. This wrapper bypasses
         # DeepAgentsStage2Runtime.build_agent (which has the equivalent line),
         # so the wiring must be repeated here. WARNING: keep these two in sync.
-        runtime.keyframe_selector = self._runtime.keyframe_selector
-        # v9.1: snapshot initial pack-prep "seed" keyframe paths so
-        # build_evidence_update_message refuses to auto-inject them, mirroring
-        # the underlying runtime's build_agent.
-        runtime.initial_keyframe_paths = {
-            kf.image_path
-            for kf in runtime.bundle.keyframes
-            if kf.image_path
-        }
+        runtime.text_frame_selector = self._runtime.text_frame_selector
 
         # Keep the wrapper contract for tests that patch this class directly,
         # while using the same pack-v1 VG setup as the runtime implementation.
@@ -211,10 +200,9 @@ class Stage2DeepResearchAgent:
         graph, runtime = self.build_agent(task, bundle)
         message = self._build_user_message(task, runtime)
         logger.info(
-            "[Stage2DeepResearchAgent] task={} plan_mode={} keyframes={} max_turns={}",
+            "[Stage2DeepResearchAgent] task={} plan_mode={} max_turns={}",
             task.task_type.value,
             task.plan_mode.value,
-            len(runtime.bundle.keyframes),
             task.max_reasoning_turns,
         )
 

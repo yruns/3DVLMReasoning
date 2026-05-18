@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 from unittest.mock import patch
 
@@ -24,10 +25,7 @@ from agents import (
     build_stage2_evidence_bundle,
 )
 from agents.catalog import SceneCatalog, SceneProposal
-from agents.models import (
-    KeyframeEvidence,
-    Stage2EvidenceBundle,
-)
+from agents.models import Stage2EvidenceBundle
 from agents.stage2_deep_agent import Stage2RuntimeState
 
 
@@ -57,6 +55,8 @@ def _attach_scene_catalog(bundle: Stage2EvidenceBundle) -> Stage2EvidenceBundle:
     extra["scene_catalog"] = _stub_scene_catalog(bundle.scene_id or "scene_unknown")
     bundle.extra_metadata = extra
     return bundle
+
+
 from benchmarks import (
     BoundingBox3D,
     OpenEQASample,
@@ -64,7 +64,7 @@ from benchmarks import (
     SQA3DSample,
     SQA3DSituation,
 )
-from query_scene.keyframe_selector import KeyframeResult, SceneObject
+from query_scene import SceneObject
 
 # ---------------------------------------------------------------------------
 # Helper: mock Stage 1 keyframe retrieval
@@ -76,8 +76,8 @@ def mock_stage1_retrieval(
     scene_id: str,
     target_objects: list[SceneObject] | None = None,
     anchor_objects: list[SceneObject] | None = None,
-) -> KeyframeResult:
-    """Simulate Stage 1 keyframe selector output for a given query."""
+) -> SimpleNamespace:
+    """Simulate Stage 1 selected-frame output for a given query."""
     if target_objects is None:
         target_objects = [
             SceneObject(
@@ -88,7 +88,7 @@ def mock_stage1_retrieval(
             )
         ]
 
-    return KeyframeResult(
+    return SimpleNamespace(
         query=query,
         target_term=target_objects[0].category if target_objects else "unknown",
         anchor_term=anchor_objects[0].category if anchor_objects else None,
@@ -548,7 +548,7 @@ class TestCrossBenchmarkPipeline(unittest.TestCase):
 
         # Empty bundle simulates failed Stage 1 retrieval; we still need a
         # SceneCatalog stub so v9 build_user_message can render something.
-        bundle = Stage2EvidenceBundle(scene_id="unknown_scene", keyframes=[])
+        bundle = Stage2EvidenceBundle(scene_id="unknown_scene")
         _attach_scene_catalog(bundle)
 
         fake_graph = _FakeGraph(
@@ -558,7 +558,7 @@ class TestCrossBenchmarkPipeline(unittest.TestCase):
                     "status": "completed",  # Agent claims completion
                     "summary": "Cannot determine carpet color.",
                     "confidence": 0.35,  # Low confidence
-                    "uncertainties": ["No carpet visible in keyframes"],
+                    "uncertainties": ["No selected view shows the carpet"],
                     "cited_frame_indices": [],
                     "evidence_items": [],
                     "plan": [],
@@ -588,13 +588,11 @@ class TestCrossBenchmarkPipeline(unittest.TestCase):
         def mock_crop_callback(bundle, request):
             crop_invoked[0] = True
             new_bundle = bundle.model_copy(deep=True)
-            new_bundle.keyframes.append(
-                KeyframeEvidence(
-                    keyframe_idx=99,
-                    image_path="/mock/crop.jpg",
-                    note="Crop from callback",
-                )
-            )
+            extra = dict(new_bundle.extra_metadata or {})
+            pending = list(extra.get("vg_pending_images") or [])
+            pending.append("/mock/crop.jpg")
+            extra["vg_pending_images"] = pending
+            new_bundle.extra_metadata = extra
             return {"response": "Crop generated", "updated_bundle": new_bundle}
 
         agent = Stage2DeepResearchAgent(
@@ -607,7 +605,7 @@ class TestCrossBenchmarkPipeline(unittest.TestCase):
 
         bundle = Stage2EvidenceBundle(
             scene_id="room0",
-            keyframes=[KeyframeEvidence(keyframe_idx=0, image_path="/mock/frame0.jpg")],
+            extra_metadata={"vg_frame_image_paths": {0: "/mock/frame0.jpg"}},
         )
 
         runtime = Stage2RuntimeState(bundle=bundle.model_copy(deep=True))
@@ -622,7 +620,7 @@ class TestCrossBenchmarkPipeline(unittest.TestCase):
         )
 
         self.assertTrue(crop_invoked[0])
-        self.assertEqual(len(runtime.bundle.keyframes), 2)
+        self.assertEqual(len(runtime.bundle.extra_metadata["vg_pending_images"]), 1)
         self.assertTrue(runtime.evidence_updated)
 
 

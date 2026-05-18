@@ -47,14 +47,6 @@ def test_prepare_detector_pack_inputs_smoke(tmp_path, monkeypatch) -> None:
             {(scene_id, target_id): sample},
         ),
     )
-    monkeypatch.setattr(
-        prep,
-        "select_keyframes_for_sample",
-        lambda *args, **kwargs: [
-            {"keyframe_idx": 0, "image_path": str(rgb_paths[0]), "frame_id": 0}
-        ],
-    )
-
     written = prep.prepare_detector_pack_inputs(
         detector_records_path=detector_records,
         sample_ids_path=sample_ids,
@@ -120,9 +112,7 @@ def test_prepare_detector_pack_inputs_smoke(tmp_path, monkeypatch) -> None:
         0.0,
         0.0,
     ]
-    assert sample_payload["keyframes"] == [
-        {"keyframe_idx": 0, "image_path": str(rgb_paths[0]), "frame_id": 0}
-    ]
+    assert "key" + "frames" not in sample_payload
     assert sample_payload["proposals"][0]["id"] == 0
     assert sample_payload["proposals"][0]["metadata"]["raw_corners"] == _raw_corners(
         2.0
@@ -299,20 +289,6 @@ def test_prepare_detector_pack_inputs_skips_bad_vg_rows_outside_detector_scenes(
         ),
         encoding="utf-8",
     )
-    monkeypatch.setattr(
-        prep,
-        "select_keyframes_for_sample",
-        lambda sample, adapter, data_root, **kwargs: [
-            {
-                "keyframe_idx": 0,
-                "image_path": str(
-                    data_root / sample.scene_id / "raw" / "000000-rgb.jpg"
-                ),
-                "frame_id": 0,
-            }
-        ],
-    )
-
     written = prep.prepare_detector_pack_inputs(
         detector_records_path=detector_records,
         data_root=data_root,
@@ -427,15 +403,6 @@ def test_prepare_detector_pack_inputs_filters_visibility_by_projection(
             {(scene_id, target_id): sample},
         ),
     )
-    monkeypatch.setattr(
-        prep,
-        "select_keyframes_for_sample",
-        lambda *args, **kwargs: [
-            {"keyframe_idx": 0, "image_path": str(rgb_paths[0]), "frame_id": 0},
-            {"keyframe_idx": 1, "image_path": str(rgb_paths[1]), "frame_id": 1},
-        ],
-    )
-
     prep.prepare_detector_pack_inputs(
         detector_records_path=detector_records,
         sample_ids_path=sample_ids,
@@ -497,14 +464,6 @@ def test_prepare_detector_pack_inputs_assigns_stable_ids(
             {(scene_id, target_id): sample},
         ),
     )
-    monkeypatch.setattr(
-        prep,
-        "select_keyframes_for_sample",
-        lambda *args, **kwargs: [
-            {"keyframe_idx": 0, "image_path": str(rgb_paths[0]), "frame_id": 0}
-        ],
-    )
-
     observed = []
     for _ in range(2):
         prep.prepare_detector_pack_inputs(

@@ -139,13 +139,14 @@ def demo_frame_based_stage2(replica_root: Path | None = None):
 
     logger.info(f"Task type: {task.task_type}")
     logger.info(f"User query: {task.user_query}")
-    logger.info(f"Bundle keyframes: {len(bundle.keyframes)}")
+    frames = (bundle.extra_metadata or {}).get("benchmark_frames") or []
+    logger.info(f"Benchmark frame metadata: {len(frames)}")
     logger.info(f"Hypothesis mode: {bundle.hypothesis.hypothesis_kind}")
 
     # Show frame paths if available
-    for i, kf in enumerate(bundle.keyframes[:3]):
+    for i, frame in enumerate(frames[:3]):
         logger.info(
-            f"  Frame {i}: {Path(kf.image_path).name if kf.image_path else 'N/A'}"
+            f"  Frame {i}: {Path(frame['image_path']).name if frame.get('image_path') else 'N/A'}"
         )
 
     logger.success("Demo 2 complete: Frame-based Stage 2 inputs prepared.")
@@ -179,9 +180,10 @@ def demo_full_pipeline_with_vlm(replica_root: Path):
         sample, "replica", scene_summary="A modern apartment living room."
     )
 
-    logger.info(f"Evidence bundle: {len(bundle.keyframes)} keyframes")
+    frames = (bundle.extra_metadata or {}).get("benchmark_frames") or []
+    logger.info(f"Evidence bundle frame metadata: {len(frames)}")
 
-    if not bundle.keyframes:
+    if not frames:
         logger.warning("No frames available - skipping VLM inference")
         return None
 

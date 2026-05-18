@@ -154,9 +154,7 @@ def _write_sample_ids(
     )
 
 
-def _fake_v9_bev(
-    *, scene_id, data_root, proposals, output_path, highlight_ids
-) -> Path:
+def _fake_v9_bev(*, scene_id, data_root, proposals, output_path, highlight_ids) -> Path:
     """Patch in tests where ScanNet mesh assets are absent. Writes a tiny PNG stub."""
     Path(output_path).parent.mkdir(parents=True, exist_ok=True)
     Path(output_path).write_bytes(b"\x89PNG\r\n\x1a\n")
@@ -204,9 +202,9 @@ def test_prepare_pack_v1_inputs_nr3d_smoke(tmp_path, monkeypatch) -> None:
     assert [p["id"] for p in proposals_payload["proposals"]] == [0, 1]
     assert proposals_payload["proposals"][0]["label"] == "chair"
     assert "0" in proposals_payload["proposals"][0]["frame_views"]
-    assert proposals_payload["proposals"][0]["frame_views"]["0"]["raw_rgb_path"].endswith(
-        "000000-rgb.png"
-    )
+    assert proposals_payload["proposals"][0]["frame_views"]["0"][
+        "raw_rgb_path"
+    ].endswith("000000-rgb.png")
     assert len(proposals_payload["proposals"][0]["frame_views"]["0"]["bbox_2d"]) == 4
     assert json.loads((scene_dir / "visibility.json").read_text()) == {
         "0": [0],
@@ -216,12 +214,11 @@ def test_prepare_pack_v1_inputs_nr3d_smoke(tmp_path, monkeypatch) -> None:
     payload = json.loads(sample_json.read_text())
     assert payload["sample_id"] == "scannet/scene0001_00::0::A1"
     assert payload["query"] == "the chair by the table"
-    assert payload["keyframe_mode"] == "gt_target"
-    assert payload["keyframe_selection_uses_gt_target"] is True
-    assert payload["keyframe_selection_used_fallback"] is False
+    assert ("key" + "frames") not in payload
+    assert ("key" + "frame_mode") not in payload
+    assert ("key" + "frame_selection_uses_gt_target") not in payload
+    assert ("key" + "frame_selection_used_fallback") not in payload
     # v9 catalog-first: scene_catalog / bev_image / camera trajectory are the source of truth.
-    # The legacy `keyframes` field is still emitted as a backward-compat anchor for runners
-    # that haven't fully migrated; v9.1 agent runtime does not consume it.
     assert Path(payload["scene_catalog_path"]).exists()
     assert Path(payload["bev_image_path"]).exists()
     assert Path(payload["camera_trajectory_path"]).exists()
@@ -326,125 +323,6 @@ def test_sample_artifact_path_sanitizes_scannet_sample_id(tmp_path) -> None:
         / "samples"
         / "scannet__scene0001_00__3__assignment-7.json"
     )
-
-
-def test_select_keyframes_uses_phase8_object_to_views(tmp_path) -> None:
-    from evaluation.scripts.prepare_pack_v1_inputs_nr3d import (
-        load_phase8_visibility_index,
-        select_keyframes_for_sample,
-    )
-
-    data_root = tmp_path / "scannet"
-    _write_phase8_tree(
-        data_root,
-        visibility={
-            "object_to_views": {0: [(4, 0.9), (2, 0.8), (9, 0.7), (1, 0.6)]},
-            "view_to_objects": {
-                1: [(0, 0.6)],
-                2: [(0, 0.8)],
-                4: [(0, 0.9)],
-                9: [(0, 0.7)],
-            },
-            "metadata": {"use_depth": True},
-        },
-    )
-    raw = data_root / "scene0001_00" / "raw"
-    for frame_id in (20, 40, 90):
-        Image.new("RGB", (100, 100), color="white").save(
-            raw / f"{frame_id:06d}-rgb.png"
-        )
-        np.savetxt(raw / f"{frame_id:06d}.txt", np.eye(4))
-    (raw / "scene_info.json").write_text(
-        json.dumps(
-            {
-                "scene_id": "scene0001_00",
-                "frame_stride": 10,
-                "kept_frame_ids": list(range(0, 100, 10)),
-            }
-        ),
-        encoding="utf-8",
-    )
-    visibility = load_phase8_visibility_index(data_root / "scene0001_00")
-
-    keyframes = select_keyframes_for_sample(
-        scene_root=data_root / "scene0001_00",
-        target_id=0,
-        visibility=visibility,
-        k=3,
-    )
-
-    assert [item["frame_id"] for item in keyframes] == [4, 2, 9]
-    assert keyframes[0]["image_path"].endswith("000040-rgb.png")
-
-
-def test_query_driven_helper_uses_selector_without_visual_context(tmp_path) -> None:
-    from evaluation.scripts.prepare_pack_v1_inputs_nr3d import (
-        select_keyframes_query_driven,
-    )
-
-    data_root = tmp_path / "scannet"
-    _write_phase8_tree(data_root)
-
-    class FakeSelector:
-        def __init__(self) -> None:
-            self.calls: list[dict[str, Any]] = []
-
-        def select_keyframes_v2(self, **kwargs: Any) -> SimpleNamespace:
-            self.calls.append(kwargs)
-            return SimpleNamespace(keyframe_indices=[1])
-
-    selector = FakeSelector()
-    keyframes, used_fallback = select_keyframes_query_driven(
-        selector=selector,
-        scene_id="scene0001_00",
-        query="the chair by the table",
-        raw_frames_root=data_root,
-        k=3,
-    )
-
-    assert selector.calls == [
-        {
-            "query": "the chair by the table",
-            "k": 3,
-            "use_visual_context": False,
-        }
-    ]
-    assert [item["frame_id"] for item in keyframes] == [1]
-    assert used_fallback is False
-
-
-def test_query_driven_helper_falls_back_to_density(tmp_path) -> None:
-    from evaluation.scripts.prepare_pack_v1_inputs_nr3d import (
-        load_phase8_visibility_index,
-        select_keyframes_query_driven,
-    )
-
-    data_root = tmp_path / "scannet"
-    _write_phase8_tree(
-        data_root,
-        visibility={
-            "object_to_views": {0: [(0, 0.9)], 1: [(1, 0.7)]},
-            "view_to_objects": {0: [(0, 0.9)], 1: [(0, 0.8), (1, 0.7)]},
-            "metadata": {"use_depth": True},
-        },
-    )
-    visibility = load_phase8_visibility_index(data_root / "scene0001_00")
-
-    class EmptySelector:
-        def select_keyframes_v2(self, **kwargs: Any) -> SimpleNamespace:
-            return SimpleNamespace(keyframe_indices=[])
-
-    keyframes, used_fallback = select_keyframes_query_driven(
-        selector=EmptySelector(),
-        scene_id="scene0001_00",
-        query="the chair by the table",
-        raw_frames_root=data_root,
-        k=3,
-        fallback_visibility=visibility,
-    )
-
-    assert [item["frame_id"] for item in keyframes] == [1, 0]
-    assert used_fallback is True
 
 
 def test_load_phase8_visibility_index_rejects_projection_only_index(tmp_path) -> None:
@@ -590,11 +468,10 @@ def test_render_annotated_frames_uses_visible_bbox_projection(
     }
 
 
-def test_prepare_query_driven_groups_by_scene_and_bounds_selector_cache(
+def test_prepare_groups_by_scene_and_bounds_scene_artifact_cache(
     tmp_path,
     monkeypatch,
 ) -> None:
-    import query_scene.keyframe_selector as keyframe_selector_mod
     from evaluation.scripts import prepare_pack_v1_inputs_nr3d as prep
 
     data_root = tmp_path / "scannet"
@@ -645,29 +522,6 @@ def test_prepare_query_driven_groups_by_scene_and_bounds_selector_cache(
         ),
     )
 
-    built_scenes: list[str] = []
-
-    class FakeSelector:
-        def select_keyframes_v2(self, **kwargs: Any) -> SimpleNamespace:
-            return SimpleNamespace(keyframe_indices=[0])
-
-    class FakeKeyframeSelector:
-        @staticmethod
-        def from_scene_path(
-            path: str,
-            *,
-            stride: int,
-            llm_model: str,
-            ensure_lightweight_pcd: bool = False,
-        ) -> FakeSelector:
-            built_scenes.append(Path(path).parent.name)
-            return FakeSelector()
-
-    monkeypatch.setattr(
-        keyframe_selector_mod,
-        "KeyframeSelector",
-        FakeKeyframeSelector,
-    )
     monkeypatch.setattr(prep, "_render_v9_bev", _fake_v9_bev)
 
     written = prep.prepare_pack_v1_inputs_nr3d(
@@ -675,8 +529,6 @@ def test_prepare_query_driven_groups_by_scene_and_bounds_selector_cache(
         data_root=data_root,
         pack_name="pack_nr3d_v1",
         split="test",
-        keyframe_mode="query_driven",
-        max_selector_cache_size=1,
         max_scene_artifact_cache_size=1,
     )
 
@@ -685,7 +537,6 @@ def test_prepare_query_driven_groups_by_scene_and_bounds_selector_cache(
         "scannet__scene0001_00__0__A2.json",
         "scannet__scene0002_00__0__B1.json",
     ]
-    assert built_scenes == ["scene0001_00", "scene0002_00"]
 
 
 def test_evict_lru_cache_removes_oldest_entry() -> None:

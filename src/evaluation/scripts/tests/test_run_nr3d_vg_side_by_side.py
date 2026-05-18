@@ -67,38 +67,11 @@ def _write_nr3d_pack_inputs(
                 "gt_bbox_3d_9dof": [0, 0, 0, 1, 1, 1, 0, 0, 0],
                 "scene_artifacts_dir": str(scene_dir),
                 "source": source,
-                "keyframes": [
-                    {
-                        "keyframe_idx": 0,
-                        "image_path": str(annotated / "frame_10.png"),
-                        "frame_id": 10,
-                    }
-                ],
             }
         ),
         encoding="utf-8",
     )
     return tmp_path
-
-
-def test_clean_keyframe_image_path_rewrites_annotated_nr3d(tmp_path) -> None:
-    from evaluation.scripts.run_nr3d_vg_side_by_side import clean_keyframe_image_path
-
-    scene_id = "scene0001_00"
-    raw = tmp_path / scene_id / "raw"
-    raw.mkdir(parents=True)
-    (raw / "000040-rgb.png").write_bytes(b"\x89PNG")
-    (raw / "scene_info.json").write_text(
-        json.dumps({"kept_frame_ids": [0, 10, 20, 30, 40]}),
-        encoding="utf-8",
-    )
-
-    assert clean_keyframe_image_path(
-        data_root=tmp_path,
-        scene_id=scene_id,
-        image_path=str(tmp_path / scene_id / "pack" / "annotated" / "frame_4.png"),
-        frame_id=4,
-    ) == str(raw / "000040-rgb.png")
 
 
 def test_parse_nr3d_sample_id_accepts_three_segments() -> None:
@@ -171,7 +144,7 @@ def test_run_one_sample_scores_agent_bbox(monkeypatch, tmp_path) -> None:
     )
     monkeypatch.setattr(
         runner,
-        "_get_or_build_keyframe_selector",
+        "_get_or_build_text_frame_selector",
         lambda *a, **kw: object(),
     )
 
@@ -194,7 +167,7 @@ def test_run_one_sample_preserves_tool_trace(monkeypatch, tmp_path) -> None:
     class FakeToolTrace:
         def model_dump(self):
             return {
-                "tool_name": "view_keyframe_marked",
+                "tool_name": "mark_frame_with_bbox",
                 "tool_input": {"frame_id": 10},
                 "response_text": "saw chair",
             }
@@ -231,7 +204,7 @@ def test_run_one_sample_preserves_tool_trace(monkeypatch, tmp_path) -> None:
     )
     monkeypatch.setattr(
         runner,
-        "_get_or_build_keyframe_selector",
+        "_get_or_build_text_frame_selector",
         lambda *a, **kw: object(),
     )
 
@@ -243,7 +216,7 @@ def test_run_one_sample_preserves_tool_trace(monkeypatch, tmp_path) -> None:
 
     assert out["tool_trace"] == [
         {
-            "tool_name": "view_keyframe_marked",
+            "tool_name": "mark_frame_with_bbox",
             "tool_input": {"frame_id": 10},
             "response_text": "saw chair",
         },
@@ -280,7 +253,7 @@ def test_nr3d_pack_wires_crop_callback(monkeypatch, tmp_path) -> None:
     )
     monkeypatch.setattr(
         runner,
-        "_get_or_build_keyframe_selector",
+        "_get_or_build_text_frame_selector",
         lambda *a, **kw: selector,
         raising=False,
     )
@@ -294,6 +267,7 @@ def test_nr3d_pack_wires_crop_callback(monkeypatch, tmp_path) -> None:
 
     assert result == "ok"
     assert captured["agent_kwargs"]["crop_callback"] == "crop"
+    assert captured["agent_kwargs"]["text_frame_selector"] is selector
     assert "more_views_callback" not in captured["agent_kwargs"]
     assert "hypothesis_callback" not in captured["agent_kwargs"]
 
@@ -305,7 +279,7 @@ def test_extract_result_tool_trace_accepts_raw_dict() -> None:
         {
             "tool_trace": [
                 {
-                    "tool_name": "view_keyframe_marked",
+                    "tool_name": "mark_frame_with_bbox",
                     "tool_input": {"frame_id": 10},
                     "response_text": "ok",
                 },
@@ -320,7 +294,7 @@ def test_extract_result_tool_trace_accepts_raw_dict() -> None:
 
     assert trace == [
         {
-            "tool_name": "view_keyframe_marked",
+            "tool_name": "mark_frame_with_bbox",
             "tool_input": {"frame_id": 10},
             "response_text": "ok",
         },

@@ -12,8 +12,8 @@ The detector proposal IDs are local to the detector pool and deliberately do
 not reuse EmbodiedScan GT bbox IDs.
 """
 
-# NOTE: helpers below duplicate select_keyframes_for_sample / scene_intrinsic /
-# load_image_size / etc. from prepare_pack_v1_inputs.py. Tracked for refactor
+# NOTE: helpers below duplicate scene_intrinsic / load_image_size / etc. from
+# prepare_pack_v1_inputs.py. Tracked for refactor
 # into _pack_prep_common.py - do not let them drift.
 
 from __future__ import annotations
@@ -21,7 +21,6 @@ from __future__ import annotations
 import argparse
 import json
 import pickle
-from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -732,15 +731,6 @@ def write_sample_artifact(
     data_root: Path,
     scene_artifacts: DetectorSceneArtifacts,
 ) -> Path:
-    keyframes = select_keyframes_for_sample(sample, adapter, data_root)
-    if not keyframes:
-        raise ValueError(
-            f"keyframe selection returned no frames for {request.sample_id}"
-        )
-    normalized_keyframes = normalize_prepared_keyframes(
-        keyframes,
-        scene_artifacts.annotated_dir,
-    )
     payload = {
         "sample_id": request.sample_id,
         "scene_id": request.scene_id,
@@ -753,7 +743,6 @@ def write_sample_artifact(
         ),
         "scene_artifacts_dir": str(scene_artifacts.scene_dir),
         "source": "vdetr",
-        "keyframes": normalized_keyframes,
         "proposals": scene_artifacts.proposals,
     }
     if not payload["query"]:
@@ -767,96 +756,6 @@ def write_sample_artifact(
         encoding="utf-8",
     )
     return sample_path
-
-
-def select_keyframes_for_sample(
-    sample: Any,
-    adapter: Any,
-    embodiedscan_data_root: Path,
-    *,
-    k: int = 5,
-) -> list[dict[str, Any]]:
-    """Pick up to k GT-visible, projectable frames for the target."""
-    scene_info = adapter.dataset.get_scene_info(sample.scan_id)
-    if not scene_info:
-        raise ValueError(f"scene_info missing for scan_id={sample.scan_id}")
-    images = scene_info.get("images") or []
-    if not isinstance(images, list) or not images:
-        raise ValueError(f"scene_info.images missing or empty for {sample.scan_id}")
-
-    target_instance_idx = unique_instance_index_for_bbox_id(
-        scene_info.get("instances") or [],
-        int(sample.target_id),
-        field_name=f"{sample.scan_id}.target_id={sample.target_id}",
-    )
-
-    visible: list[tuple[int, dict[str, Any]]] = []
-    for default_id, image in enumerate(images):
-        if not isinstance(image, dict):
-            continue
-        visible_instance_indices = {
-            int(x) for x in (image.get("visible_instance_ids") or [])
-        }
-        if target_instance_idx in visible_instance_indices:
-            frame_id = int(image.get("frame_id", image.get("frame_idx", default_id)))
-            visible.append((frame_id, image))
-    if not visible:
-        raise ValueError(
-            f"no visible frames for target_id={sample.target_id} in {sample.scan_id}"
-        )
-
-    sample_name = getattr(
-        sample,
-        "sample_id",
-        f"{getattr(sample, 'scene_id', sample.scan_id)}::{sample.target_id}",
-    )
-    gt_bbox = validate_gt_bbox(getattr(sample, "gt_bbox_3d", None), sample_name)
-    intrinsic = scene_intrinsic(scene_info)
-    axis_align_matrix = scene_info.get("axis_align_matrix")
-    aligned_to_world: np.ndarray | None = None
-    if axis_align_matrix is not None:
-        aligned_to_world = np.linalg.inv(
-            validate_matrix_4x4(axis_align_matrix, field_name="axis_align_matrix")
-        )
-
-    projectable: list[tuple[int, dict[str, Any], Path]] = []
-    for frame_id, image in visible:
-        rgb_path = resolve_rgb_path(image, embodiedscan_data_root, frame_pos=frame_id)
-        extrinsic = image_world_to_cam(image)
-        if aligned_to_world is not None:
-            extrinsic = extrinsic @ aligned_to_world
-        rect = project_bbox_3d_to_2d(
-            gt_bbox,
-            intrinsic,
-            extrinsic,
-            load_image_size(rgb_path),
-        )
-        if rect is not None:
-            projectable.append((frame_id, image, rgb_path))
-    if not projectable:
-        raise ValueError(
-            f"no projectable visible frames for target_id={sample.target_id} "
-            f"in {sample.scan_id}"
-        )
-
-    if len(projectable) <= k:
-        chosen = projectable
-    else:
-        step = len(projectable) / k
-        chosen = [
-            projectable[min(int(i * step), len(projectable) - 1)] for i in range(k)
-        ]
-
-    keyframes: list[dict[str, Any]] = []
-    for keyframe_idx, (frame_id, _image, rgb_path) in enumerate(chosen):
-        keyframes.append(
-            {
-                "keyframe_idx": keyframe_idx,
-                "image_path": str(rgb_path),
-                "frame_id": frame_id,
-            }
-        )
-    return keyframes
 
 
 def load_scene_info(adapter: Any, sample: Any) -> dict[str, Any]:
@@ -981,23 +880,6 @@ def load_image_size(path: Path) -> tuple[int, int]:
         return image.size
 
 
-def normalize_prepared_keyframes(
-    keyframes: Sequence[dict[str, Any]],
-    annotated_dir: Path,
-) -> list[dict[str, Any]]:
-    out = []
-    for idx, keyframe in enumerate(keyframes):
-        frame_id = int(keyframe["frame_id"])
-        out.append(
-            {
-                "keyframe_idx": int(keyframe.get("keyframe_idx", idx)),
-                "image_path": str(Path(str(keyframe["image_path"]))),
-                "frame_id": frame_id,
-            }
-        )
-    return out
-
-
 def unique_instance_index_for_bbox_id(
     instances: list[dict[str, Any]],
     bbox_id: int,
@@ -1075,6 +957,5 @@ __all__ = [
     "load_sample_requests",
     "prepare_detector_pack_inputs",
     "prepare_detector_scene_artifacts",
-    "select_keyframes_for_sample",
     "write_sample_artifact",
 ]

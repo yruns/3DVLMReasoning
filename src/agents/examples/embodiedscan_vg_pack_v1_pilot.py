@@ -4,12 +4,12 @@
 This is the only supported EmbodiedScan VG pilot after Plan C. It builds a
 proposal-pool bundle and terminates through the chassis submit_final tool.
 """
+
 from __future__ import annotations
 
 import argparse
 import json
 import sys
-from collections.abc import Sequence
 from pathlib import Path
 
 import numpy as np
@@ -21,7 +21,6 @@ sys.path.insert(0, str(PROJECT_ROOT))
 import agents.packs  # noqa: F401, E402  (triggers VG_PACK registration)
 from agents.core.agent_config import Stage2DeepAgentConfig, Stage2TaskType  # noqa: E402
 from agents.core.task_types import (  # noqa: E402
-    KeyframeEvidence,
     Stage2EvidenceBundle,
     Stage2TaskSpec,
 )
@@ -37,7 +36,6 @@ def build_pack_v1_bundle(
     source: str,
     annotated_image_dir: Path,
     frame_visibility: dict[int, list[int]],
-    keyframes: Sequence[tuple[int, str, int]],
     scene_id: str,
     axis_align_matrix: np.ndarray | None = None,
     query: str | None = None,
@@ -66,10 +64,6 @@ def build_pack_v1_bundle(
         # (and any future submit-time tool) reads `bundle.stage1_query`
         # to identify the user's spatial relations.
         stage1_query=str(query or ""),
-        keyframes=[
-            KeyframeEvidence(keyframe_idx=idx, image_path=path, frame_id=fid)
-            for idx, path, fid in keyframes
-        ],
         extra_metadata=extra,
     )
 
@@ -81,7 +75,6 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--source", choices=["gt", "vdetr", "conceptgraph"], default="gt")
     p.add_argument("--annotated-image-dir", type=Path, required=True)
     p.add_argument("--visibility-json", type=Path, required=True)
-    p.add_argument("--keyframes-json", type=Path, required=True)
     p.add_argument("--query", required=True)
     p.add_argument("--output", type=Path, required=True)
     return p.parse_args()
@@ -89,20 +82,20 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
-    visibility = {int(k): [int(x) for x in v]
-                  for k, v in json.loads(args.visibility_json.read_text()).items()}
-    keyframes = json.loads(args.keyframes_json.read_text())  # [[idx, path, fid], ...]
+    visibility = {
+        int(k): [int(x) for x in v]
+        for k, v in json.loads(args.visibility_json.read_text()).items()
+    }
 
     bundle = build_pack_v1_bundle(
         proposals_jsonl=args.proposals_jsonl,
         source=args.source,
         annotated_image_dir=args.annotated_image_dir,
         frame_visibility=visibility,
-        keyframes=keyframes,
         scene_id=args.scene_id,
     )
 
-    # This pilot does not build a per-scene KeyframeSelector, so Stage-1
+    # This pilot does not build a per-scene text frame selector, so Stage-1
     # text retrieval cannot be served — disable explicitly to keep the agent's
     # tool surface consistent with what the runtime can fulfill.
     cfg = Stage2DeepAgentConfig(

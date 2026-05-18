@@ -223,31 +223,6 @@ class Stage2DeepAgentConfig(BaseModel):
             "when text retrieval is disabled (the tool isn't registered)."
         ),
     )
-    restore_stage1_seed_keyframe_drain: bool = Field(
-        default=False,
-        description=(
-            "v9.4 cadence experiment (Experiment D from "
-            "docs/benchmark/nr3d/v9_4a_strat600_force_error_20260517.md). "
-            "When True, `DeepAgentsStage2Runtime.build_evidence_update_message` "
-            "skips the `initial_keyframe_paths` filter, restoring the "
-            "Stage-1 seed-keyframe drain leak that was present at commit "
-            "`d5f40ba` (v9.1_fix FULL REPRO at 82.95 %) and fixed in "
-            "`8ebf701`. This causes the 5 GT-target-visible Stage-1 seed "
-            "keyframes (written by pack-prep into `bundle.keyframes`) to "
-            "be auto-injected into agent context on every evidence-update "
-            "turn — exactly the silent leak that the v9.1_fix run "
-            "benefited from. The v9_catalog_first leak-fix doc shows the "
-            "leak is harmful in catalog-only mode (-5 pp on random100) but "
-            "the v9.1_fix FULL run was text-first + broken-Stage-1, where "
-            "the leak may instead help by injecting target-visible context "
-            "that the broken `select_by_text` can no longer surface. "
-            "Combined with `force_stage1_text_retrieval_to_error=True` "
-            "this attempts to cleanly reproduce the v9.1_fix run-time "
-            "behaviour on current code. **Test-time use only** — this is "
-            "an explicit information leak that exposes GT-visible frames "
-            "to the agent."
-        ),
-    )
     no_match_guard_max_repeats: int = Field(
         default=3,
         ge=1,

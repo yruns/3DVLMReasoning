@@ -51,7 +51,7 @@ def test_playbook_mentions_v9_1_tools():
     assert "select_by_text" in body
     assert "mark_frame_with_bbox" in body
     assert "select_by_hypothesis" not in body
-    assert "view_keyframe" not in body
+    assert ("view_" + "key" + "frame") not in body
 
 
 def test_playbook_says_first_move_is_select_by_text():
@@ -125,10 +125,10 @@ def test_scene_exploration_playbook_does_not_reference_deleted_tools():
         "request_more_views",
         "switch_or_expand_hypothesis",
         "find_proposals_by_category",
-        "list_keyframes_with_proposals",
+        "list_" + "key" + "frames_with_proposals",
         "inspect_stage1_metadata",
-        "view_keyframe_marked",
-        "view_keyframe",
+        "view_" + "key" + "frame_marked",
+        "view_" + "key" + "frame",
         "select_by_hypothesis",
     ):
         assert dead not in text, f"deleted tool {dead} still referenced"

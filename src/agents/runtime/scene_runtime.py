@@ -35,17 +35,33 @@ def get_scene_catalog(runtime: Any) -> SceneCatalog:
     return catalog
 
 
-def queue_pending_image(runtime: Any, image_path: str) -> None:
-    """Append an image to bundle.extra_metadata['vg_pending_images'] and mark evidence updated."""
+def queue_pending_image(
+    runtime: Any,
+    image_path: str,
+    *,
+    metadata: dict[str, Any] | None = None,
+) -> None:
+    """Append an image to the pending queue and mark evidence updated."""
     extra = dict(runtime.bundle.extra_metadata or {})
     pending = list(extra.get("vg_pending_images") or [])
-    pending.append(str(image_path))
+    path = str(image_path)
+    pending.append(path)
     extra["vg_pending_images"] = pending
+    if metadata is not None:
+        metadata_rows = list(extra.get("vg_pending_image_metadata") or [])
+        row = {"image_path": path, **dict(metadata)}
+        metadata_rows.append(row)
+        extra["vg_pending_image_metadata"] = metadata_rows
     runtime.bundle.extra_metadata = extra
     runtime.mark_evidence_updated()
 
 
-def queue_pending_image_if_new(runtime: Any, path: str) -> bool:
+def queue_pending_image_if_new(
+    runtime: Any,
+    path: str,
+    *,
+    metadata: dict[str, Any] | None = None,
+) -> bool:
     """Queue `path` for the next evidence update only if it has not already been seen.
 
     Returns True if the image was queued (caller should mark `already_seen=False`),
@@ -56,7 +72,10 @@ def queue_pending_image_if_new(runtime: Any, path: str) -> bool:
         return False
     if path in runtime.seen_image_paths:
         return False
-    queue_pending_image(runtime, path)
+    pending = set((runtime.bundle.extra_metadata or {}).get("vg_pending_images") or [])
+    if path in pending:
+        return False
+    queue_pending_image(runtime, path, metadata=metadata)
     return True
 
 

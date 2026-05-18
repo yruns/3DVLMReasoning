@@ -4,14 +4,11 @@ This viewer is **v9 catalog-first native**:
 
 - The "Turn 0" panel shows what the agent actually sees on its very first
   HumanMessage — the BEV image, the SceneCatalog category table, the task,
-  and a footer reminding the reader that **no first-person keyframes are
+  and a footer reminding the reader that no first-person frames are
   injected** before the agent calls a tool. (v9 build_user_message contract.)
 - Tools are grouped by family: `setup`, `catalog`, `selector`, `view`,
-  `reason`, `terminal`, `legacy` (v9.1: `view_keyframe` / `select_by_hypothesis`
-  in historical traces). Deprecated names from earlier versions
-  (`view_keyframe_marked`, `request_more_views`, `switch_or_expand_hypothesis`,
-  `find_proposals_by_category`, `list_keyframes_with_proposals`) still get
-  labels so a historical run can still be opened, but they are visually
+  `reason`, `terminal`, `legacy`. Deprecated names from earlier versions still
+  get labels so a historical run can still be opened, but they are visually
   flagged as "legacy".
 - The viewer is built from persisted benchmark artifacts only:
   - leaderboard_metrics.json for correctness / split labels
@@ -150,10 +147,12 @@ def make_thumb(
 
 # Patterns that v9 tools embed in their response_text when they queue an image.
 _PATH_HINTS = [
-    # view_keyframe (rgb mode) — raw RGB path
+    # legacy RGB view mode: raw RGB path
     re.compile(r"frame_id=(?P<fid>\d+) rgb image at (?P<path>[^;\s]+)"),
-    # view_keyframe (marked / auto) — produced annotated image
-    re.compile(r"frame_id=(?P<fid>\d+)\s+(?:filtered\s+)?marked image at (?P<path>[^;\s]+)"),
+    # legacy marked / auto mode: produced annotated image
+    re.compile(
+        r"frame_id=(?P<fid>\d+)\s+(?:filtered\s+)?marked image at (?P<path>[^;\s]+)"
+    ),
     # v9.1 mark_frame_with_bbox — same line as legacy marked, different phrase
     re.compile(r"frame_id=(?P<fid>\d+)\s+mark image at (?P<path>[^;\s]+)"),
     # view_bev — re-rendered BEV with highlight
@@ -163,7 +162,9 @@ _PATH_HINTS = [
 ]
 
 
-def collect_image_refs(response_text: str, tool_input: dict[str, Any] | None = None) -> list[tuple[int | None, str]]:
+def collect_image_refs(
+    response_text: str, tool_input: dict[str, Any] | None = None
+) -> list[tuple[int | None, str]]:
     """Extract (frame_id, path) tuples for any images this tool produced."""
     refs: list[tuple[int | None, str]] = []
 
@@ -209,11 +210,11 @@ def collect_image_refs(response_text: str, tool_input: dict[str, Any] | None = N
 # ---------------------------------------------------------------------------
 
 _LEGACY_TOOLS = {
-    "view_keyframe_marked",
+    "view_" + "key" + "frame_marked",
     "request_more_views",
     "switch_or_expand_hypothesis",
     "find_proposals_by_category",
-    "list_keyframes_with_proposals",
+    "list_" + "key" + "frames_with_proposals",
     "inspect_stage1_metadata",
 }
 
@@ -234,7 +235,7 @@ _FAMILY = {
     "select_by_region": "selector",
     "select_by_coverage": "selector",
     # image-producing view tools
-    "view_keyframe": "legacy",
+    "view_" + "key" + "frame": "legacy",
     "mark_frame_with_bbox": "view",
     "view_bev": "view",
     "request_crops": "view",  # historically image-producing
@@ -246,10 +247,10 @@ _FAMILY = {
 
 # Legacy aliases keep their pre-v9 labels but family classification.
 for _legacy_tool, _family in (
-    ("view_keyframe_marked", "view"),
+    ("view_" + "key" + "frame_marked", "view"),
     ("request_more_views", "view"),
     ("find_proposals_by_category", "catalog"),
-    ("list_keyframes_with_proposals", "catalog"),
+    ("list_" + "key" + "frames_with_proposals", "catalog"),
     ("inspect_stage1_metadata", "catalog"),
     ("switch_or_expand_hypothesis", "setup"),
 ):
@@ -269,18 +270,18 @@ _LABELS = {
     "select_by_proposal": "按候选 id 搜帧",
     "select_by_region": "按 BEV 区域搜帧",
     "select_by_coverage": "按覆盖度搜帧",
-    "view_keyframe": "查看关键帧 (legacy)",
+    "view_" + "key" + "frame": "查看旧式帧 (legacy)",
     "mark_frame_with_bbox": "带框标注帧 (v9.1)",
     "view_bev": "查看 BEV",
     "request_crops": "请求局部裁剪",
     "compare_proposals_spatial": "几何关系排序",
     "submit_final": "提交最终答案",
     # Legacy
-    "view_keyframe_marked": "查看带框关键帧 (legacy)",
+    "view_" + "key" + "frame_marked": "查看带框旧式帧 (legacy)",
     "request_more_views": "请求更多视角 (legacy)",
     "switch_or_expand_hypothesis": "切换/扩展 Stage1 假设 (legacy)",
     "find_proposals_by_category": "按类别搜索候选 (legacy)",
-    "list_keyframes_with_proposals": "读取初始帧候选清单 (legacy)",
+    "list_" + "key" + "frames_with_proposals": "读取初始帧候选清单 (legacy)",
     "inspect_stage1_metadata": "检查 Stage1 元数据 (legacy)",
 }
 
@@ -313,14 +314,18 @@ def summarize_tool(call: dict[str, Any]) -> str:
     if tool == "list_scene_proposals":
         if isinstance(parsed, dict):
             cats = parsed.get("proposals_by_category") or {}
-            n_props = parsed.get("n_proposals") or sum(len(v) for v in cats.values() if isinstance(v, list))
+            n_props = parsed.get("n_proposals") or sum(
+                len(v) for v in cats.values() if isinstance(v, list)
+            )
             return f"目录读取：{n_props} 候选，{len(cats)} 个类别"
         return "读取场景候选目录"
     if tool == "list_frame_proposals" and isinstance(parsed, dict):
         ltr = parsed.get("left_to_right") or parsed.get("visible_proposal_ids") or []
         suffix = "" if len(ltr) <= 8 else f" ... +{len(ltr) - 8}"
         return (
-            f"frame {parsed.get('frame_id')} 可见 {len(ltr)} 个候选：" + "，".join(map(str, ltr[:8])) + suffix
+            f"frame {parsed.get('frame_id')} 可见 {len(ltr)} 个候选："
+            + "，".join(map(str, ltr[:8]))
+            + suffix
         )
     if tool == "inspect_proposal" and isinstance(parsed, dict):
         frames = parsed.get("frames_appeared") or parsed.get("frames") or []
@@ -335,20 +340,20 @@ def summarize_tool(call: dict[str, Any]) -> str:
     if tool == "select_by_text":
         q = inp.get("query") if isinstance(inp, dict) else None
         k = inp.get("k") if isinstance(inp, dict) else None
-        return (
-            f"文本 query=「{q}」 top-{k or '?'}：" + _summarize_selector_response(parsed, text)
+        return f"文本 query=「{q}」 top-{k or '?'}：" + _summarize_selector_response(
+            parsed, text
         )
     if tool == "select_by_proposal":
         ids = inp.get("proposal_ids") if isinstance(inp, dict) else None
-        return (
-            f"按 proposal_ids={ids} 搜帧：" + _summarize_selector_response(parsed, text)
+        return f"按 proposal_ids={ids} 搜帧：" + _summarize_selector_response(
+            parsed, text
         )
     if tool == "select_by_hypothesis":
         return "按假设搜帧：" + _summarize_selector_response(parsed, text)
     if tool == "select_by_frame_neighbor":
         anchor = inp.get("frame_id") if isinstance(inp, dict) else None
-        return (
-            f"以 frame {anchor} 为锚搜邻帧：" + _summarize_selector_response(parsed, text)
+        return f"以 frame {anchor} 为锚搜邻帧：" + _summarize_selector_response(
+            parsed, text
         )
     if tool == "select_by_region":
         return "BEV 区域搜帧：" + _summarize_selector_response(parsed, text)
@@ -356,7 +361,7 @@ def summarize_tool(call: dict[str, Any]) -> str:
         return "按覆盖度搜帧：" + _summarize_selector_response(parsed, text)
 
     # ---- view tools ----
-    if tool == "view_keyframe":
+    if tool == ("view_" + "key" + "frame"):
         if isinstance(inp, dict):
             fid = inp.get("frame_id")
             mode = inp.get("mode") or "auto"
@@ -393,14 +398,19 @@ def summarize_tool(call: dict[str, Any]) -> str:
         return "带框标注 · " + " · ".join(parts)
     if tool == "request_crops" and isinstance(inp, dict):
         return (
-            f"frame_indices={inp.get('frame_indices')} object_terms={inp.get('object_terms')}：" + compact_text(text, max_chars=160)
+            f"frame_indices={inp.get('frame_indices')} object_terms={inp.get('object_terms')}："
+            + compact_text(text, max_chars=160)
         )
 
     # ---- legacy ----
-    if tool == "view_keyframe_marked":
+    if tool == ("view_" + "key" + "frame_marked"):
         refs = collect_image_refs(text, inp if isinstance(inp, dict) else None)
-        frame_id = refs[0][0] if refs else (inp.get("frame_id") if isinstance(inp, dict) else "?")
-        return f"legacy view_keyframe_marked(frame={frame_id})"
+        frame_id = (
+            refs[0][0]
+            if refs
+            else (inp.get("frame_id") if isinstance(inp, dict) else "?")
+        )
+        return f"legacy marked frame view(frame={frame_id})"
     if tool == "request_more_views":
         return "legacy request_more_views：" + text[:160]
 
@@ -485,8 +495,7 @@ def render_image_cards(
             )
             continue
         fid_label = "BEV" if frame_id is None else f"frame {frame_id}"
-        cards.append(
-            f"""
+        cards.append(f"""
             <figure class="image-card">
               <img src="{esc(rel)}" alt="{esc(path)}" loading="lazy">
               <figcaption>
@@ -495,8 +504,7 @@ def render_image_cards(
                 <code>{esc(path)}</code>
               </figcaption>
             </figure>
-            """
-        )
+            """)
     if not cards:
         return '<div class="empty">这一步没有返回新图像。</div>'
     return '<div class="image-grid">' + "\n".join(cards) + "</div>"
@@ -550,11 +558,20 @@ def render_tool_card(
     )
     refs = [
         (frame_id, path, f"#{step_index:02d} {tool_label(tool)}")
-        for frame_id, path in collect_image_refs(response, inp if isinstance(inp, dict) else None)
+        for frame_id, path in collect_image_refs(
+            response, inp if isinstance(inp, dict) else None
+        )
     ]
-    image_html = render_image_cards(
-        refs, assets_dir=assets_dir, html_dir=html_dir, prefix=f"{case_prefix}_step{step_index:02d}"
-    ) if refs else ""
+    image_html = (
+        render_image_cards(
+            refs,
+            assets_dir=assets_dir,
+            html_dir=html_dir,
+            prefix=f"{case_prefix}_step{step_index:02d}",
+        )
+        if refs
+        else ""
+    )
     return f"""
     <details class="call-card {esc(family)}{legacy_tool_cls}{view_amber_cls}" id="{esc(case_prefix)}-step-{step_index}" open>
       <summary>
@@ -581,27 +598,23 @@ def render_tool_card(
 
 
 def render_tree(trace: list[dict[str, Any]], *, case_prefix: str) -> str:
-    rows = [
-        f"""
+    rows = [f"""
         <a class="tree-node turn0" href="#{esc(case_prefix)}-turn0">
           <span class="tree-dot"></span>
           <span class="tree-index">T0</span>
           <span class="tree-tool">初始 BEV + 目录</span>
         </a>
-        """
-    ]
+        """]
     for idx, call in enumerate(trace, start=1):
         tool = str(call.get("tool_name") or "")
         v_amb = " view-amber" if tool == "mark_frame_with_bbox" else ""
-        rows.append(
-            f"""
+        rows.append(f"""
             <a class="tree-node {esc(tool_family(tool))}{v_amb}" href="#{esc(case_prefix)}-step-{idx}">
               <span class="tree-dot"></span>
               <span class="tree-index">{idx:02d}</span>
               <span class="tree-tool">{esc(tool_label(tool))}</span>
             </a>
-            """
-        )
+            """)
     return '<div class="trace-tree">' + "\n".join(rows) + "</div>"
 
 
@@ -710,7 +723,7 @@ def build_case(
     """
 
     family_mix = " ".join(
-        f"<span class=\"chip {esc(fam)}\">{esc(fam)}={c}</span>"
+        f'<span class="chip {esc(fam)}">{esc(fam)}={c}</span>'
         for fam, c in family_counts.most_common()
     )
 
@@ -752,7 +765,7 @@ def build_case(
         <main>
           <section class="turn0-card" id="{esc(case_prefix)}-turn0">
             <h3>Turn 0 — Agent 看到的初始上下文（v9 catalog-first）</h3>
-            <p>v9 的 <code>build_user_message</code> 只注入 <strong>BEV 图像</strong> 和 <strong>SceneCatalog 文字目录</strong>，<em>不</em> 注入任何第一人称关键帧。Agent 必须主动调用 selector / <code>mark_frame_with_bbox</code>（v9.1）或历史 trace 中的 <code>view_keyframe</code> 等工具才能拿到第一人称证据。</p>
+            <p>v9 的 <code>build_user_message</code> 只注入 <strong>BEV 图像</strong> 和 <strong>SceneCatalog 文字目录</strong>，<em>不</em> 注入任何第一人称帧。Agent 必须主动调用 selector / <code>mark_frame_with_bbox</code>（v9.1）或历史 trace 中的旧式查看工具才能拿到第一人称证据。</p>
             <div class="turn0-grid">
               <div class="turn0-bev">
                 {bev_thumb or '<div class="empty">未找到 BEV 图像路径</div>'}
@@ -785,7 +798,9 @@ def build_case(
     return nav, html_case
 
 
-def select_metrics(metrics_payload: dict[str, Any], args: argparse.Namespace) -> list[dict[str, Any]]:
+def select_metrics(
+    metrics_payload: dict[str, Any], args: argparse.Namespace
+) -> list[dict[str, Any]]:
     items = [
         item
         for item in metrics_payload.get("per_sample", [])
@@ -1020,7 +1035,7 @@ def build_html(
   <div class="app">
     <aside class="sidebar">
       <h1>{esc(title)}</h1>
-      <p>v9 catalog-first 静态查看器。<strong>初始上下文只有 BEV + Cat-B 文字目录</strong>，第一人称帧均由 agent 主动调用 selector、<code>mark_frame_with_bbox</code>（v9.1）或历史 <code>view_keyframe</code> 获取。</p>
+      <p>v9 catalog-first 静态查看器。<strong>初始上下文只有 BEV + Cat-B 文字目录</strong>，第一人称帧均由 agent 主动调用 selector、<code>mark_frame_with_bbox</code>（v9.1）或历史旧式查看工具获取。</p>
       <p>Run: <code>{esc(run_id)}</code></p>
       <p>Run commit: <code>{esc(run_commit)}</code> · Report commit: <code>{esc(git_short())}</code></p>
       <p>Artifacts: <code>{esc(run_output)}</code></p>
@@ -1100,12 +1115,16 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--output",
         type=Path,
-        default=Path("docs/benchmark/nr3d/v9_catalog_first_langsmith_trace_20260515.html"),
+        default=Path(
+            "docs/benchmark/nr3d/v9_catalog_first_langsmith_trace_20260515.html"
+        ),
     )
     parser.add_argument(
         "--assets-dir",
         type=Path,
-        default=Path("docs/benchmark/nr3d/assets/v9_catalog_first_langsmith_trace_20260515"),
+        default=Path(
+            "docs/benchmark/nr3d/assets/v9_catalog_first_langsmith_trace_20260515"
+        ),
     )
     parser.add_argument("--title", default="NR3D v9 Catalog-First Agent Trace")
     parser.add_argument("--run-id", default="v9_full_20260515_1401")

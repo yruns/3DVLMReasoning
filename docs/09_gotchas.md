@@ -53,8 +53,8 @@ fi
 
 | Enforcer | Location |
 |---|---|
-| `enriched_objects.json` must exist | `src/query_scene/keyframe_selector.py:352-358` raises `FileNotFoundError` |
-| Stage 1 must return ≥ 1 keyframe | `src/agents/examples/openeqa_official_question_pilot.py:440` raises `RuntimeError` |
+| `enriched_objects.json` must exist | Stage-1 selector module raises `FileNotFoundError` |
+| Agent text-frame selector must be wired when enabled | runtime construction raises `ValueError` |
 | Required dirs must exist | `ensure_runtime_scene` raises `FileNotFoundError` if `conceptgraph/` or `raw/` missing |
 | FAISS required on Linux | `src/query_scene/index_builder.py:29-33` raises `ImportError` on Linux if FAISS missing |
 | Upstream OpenEQA repo must be cloned | `src/benchmarks/openeqa_official_eval.py:28` raises `FileNotFoundError` |
@@ -101,7 +101,7 @@ If you edit `CLAUDE.md`, keep this table in sync or add a new row.
 
 **Observed failure mode (pre-v9)**: two workers writing the same overlay races on symlink creation → intermittent `FileExistsError` or stale symlinks pointing into a partially-built tree.
 **Fix**: `_get_scene_lock(clip_id)` at `src/agents/examples/openeqa_official_question_pilot.py:47-55` wraps every `ensure_runtime_scene` call in a per-clip `threading.Lock`.
-**Rule for new code**: any new entry point that instantiates `KeyframeSelector` across multiple threads/workers **must** serialise overlay creation via the same (or an equivalent) per-clip lock. No exceptions.
+**Rule for new code**: any new entry point that instantiates the Stage-1 text-frame selector across multiple threads/workers **must** serialise overlay creation via the same (or an equivalent) per-clip lock. No exceptions.
 
 ## 9.11 Eval judge non-comparability
 

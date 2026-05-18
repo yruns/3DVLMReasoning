@@ -25,6 +25,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 # Thumbnail helper
 # ---------------------------------------------------------------------------
 
+
 def make_thumb_b64(path: str | Path, size: int = 280) -> str | None:
     """Generate a base64 data-url thumbnail."""
     try:
@@ -52,6 +53,7 @@ def esc(text: str) -> str:
 # Data loading
 # ---------------------------------------------------------------------------
 
+
 def load_eval_data(eval_dir: Path) -> dict[str, Any]:
     """Load all evaluation artifacts from an eval run directory."""
     summary_path = eval_dir / "official_batch_summary.json"
@@ -62,8 +64,12 @@ def load_eval_data(eval_dir: Path) -> dict[str, Any]:
 
     s2_metrics_path = eval_dir / "official_predictions_stage2-metrics.json"
     e2e_metrics_path = eval_dir / "official_predictions_e2e-metrics.json"
-    s2_metrics = json.loads(s2_metrics_path.read_text()) if s2_metrics_path.exists() else {}
-    e2e_metrics = json.loads(e2e_metrics_path.read_text()) if e2e_metrics_path.exists() else {}
+    s2_metrics = (
+        json.loads(s2_metrics_path.read_text()) if s2_metrics_path.exists() else {}
+    )
+    e2e_metrics = (
+        json.loads(e2e_metrics_path.read_text()) if e2e_metrics_path.exists() else {}
+    )
 
     # Load per-question detail files
     cases: list[dict[str, Any]] = []
@@ -94,6 +100,7 @@ def load_eval_data(eval_dir: Path) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 # Score helpers
 # ---------------------------------------------------------------------------
+
 
 def score_color(score: int | None) -> str:
     if score is None:
@@ -127,6 +134,7 @@ def status_badge(status: str) -> str:
 # ---------------------------------------------------------------------------
 # HTML builder
 # ---------------------------------------------------------------------------
+
 
 def build_html(data: dict[str, Any]) -> str:
     cases = data["cases"]
@@ -230,7 +238,11 @@ def _render_heatmap_row(c: dict) -> str:
     delta = (e2e or 0) - (s2 or 0) if s2 is not None and e2e is not None else 0
     delta_color = "#059669" if delta > 0 else "#dc2626" if delta < 0 else "#94a3b8"
     delta_str = f"+{delta}" if delta > 0 else str(delta)
-    guarded = ' <span style="font-size:10px;color:#7c3aed" title="Confidence guard applied">G</span>' if c.get("e2e_guarded") else ""
+    guarded = (
+        ' <span style="font-size:10px;color:#7c3aed" title="Confidence guard applied">G</span>'
+        if c.get("e2e_guarded")
+        else ""
+    )
 
     clip_short = c["clip_id"].split("-")[0]
     q_short = esc(c["question"][:50]) + ("..." if len(c["question"]) > 50 else "")
@@ -278,7 +290,9 @@ def _render_case(c: dict, idx: int) -> str:
     # E2E tool trace
     tool_trace_html = ""
     for tc in e2e.get("tool_trace", []):
-        tool_input_json = esc(json.dumps(tc.get("tool_input", {}), indent=2, ensure_ascii=False))
+        tool_input_json = esc(
+            json.dumps(tc.get("tool_input", {}), indent=2, ensure_ascii=False)
+        )
         resp_text = esc(tc.get("response_text", "")[:600])
         tool_trace_html += f"""<div class="tool-call">
   <div class="tool-header">
@@ -303,13 +317,23 @@ def _render_case(c: dict, idx: int) -> str:
         frames = ", ".join(str(f) for f in ev.get("frame_indices", []))
         e2e_evidence += f'<div class="evidence-item"><span class="ev-frames">frames [{frames}]</span> {esc(ev.get("claim", ""))}</div>'
 
-    guarded_badge = '<span class="guarded-badge">GUARDED</span>' if c.get("e2e_guarded") else ""
+    guarded_badge = (
+        '<span class="guarded-badge">GUARDED</span>' if c.get("e2e_guarded") else ""
+    )
 
     # Payload
     s2_payload = stage2.get("payload", {})
     e2e_payload = e2e.get("payload", {})
-    s2_answer = s2_payload.get("answer", stage2.get("summary", "N/A")) if isinstance(s2_payload, dict) else str(s2_payload)
-    e2e_answer = e2e_payload.get("answer", e2e.get("summary", "N/A")) if isinstance(e2e_payload, dict) else str(e2e_payload)
+    s2_answer = (
+        s2_payload.get("answer", stage2.get("summary", "N/A"))
+        if isinstance(s2_payload, dict)
+        else str(s2_payload)
+    )
+    e2e_answer = (
+        e2e_payload.get("answer", e2e.get("summary", "N/A"))
+        if isinstance(e2e_payload, dict)
+        else str(e2e_payload)
+    )
 
     return f"""
 <div class="case-card" id="case-{qid}">
@@ -391,7 +415,7 @@ def _render_case(c: dict, idx: int) -> str:
         Status: {status_badge(e2e.get('status', ''))}
         &middot; Confidence: <strong>{e2e.get('confidence', 0):.2f}</strong>
         &middot; Tool calls: <strong>{len(e2e.get('tool_trace', []))}</strong>
-        &middot; Final keyframes: {e2e.get('final_keyframes', '?')}
+        &middot; Final tool visuals: {e2e.get('final_tool_visuals', '?')}
       </div>
       <div class="tool-trace">{tool_trace_html}</div>
       {f'<div class="evidence-list"><h4>Evidence</h4>{e2e_evidence}</div>' if e2e_evidence else ''}
@@ -407,6 +431,7 @@ def _render_case(c: dict, idx: int) -> str:
 # ---------------------------------------------------------------------------
 # CSS
 # ---------------------------------------------------------------------------
+
 
 def _css() -> str:
     return """<style>
@@ -818,11 +843,18 @@ document.addEventListener('keydown', e => {
 # CLI
 # ---------------------------------------------------------------------------
 
+
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Generate OpenEQA evaluation HTML report.")
-    parser.add_argument("--eval-dir", type=Path, required=True, help="Eval output directory")
+    parser = argparse.ArgumentParser(
+        description="Generate OpenEQA evaluation HTML report."
+    )
+    parser.add_argument(
+        "--eval-dir", type=Path, required=True, help="Eval output directory"
+    )
     parser.add_argument("--output", type=Path, default=None, help="Output HTML path")
-    parser.add_argument("--open", action="store_true", help="Open in browser after generation")
+    parser.add_argument(
+        "--open", action="store_true", help="Open in browser after generation"
+    )
     args = parser.parse_args()
 
     eval_dir = args.eval_dir
@@ -835,7 +867,9 @@ def main() -> None:
     output = args.output or (eval_dir / "report.html")
     output.write_text(html_content, encoding="utf-8")
     print(f"Report generated: {output}")
-    print(f"  {len(data['cases'])} cases, {len(set(c['clip_id'] for c in data['cases']))} scenes")
+    print(
+        f"  {len(data['cases'])} cases, {len(set(c['clip_id'] for c in data['cases']))} scenes"
+    )
 
     if args.open:
         webbrowser.open(f"file://{output.resolve()}")

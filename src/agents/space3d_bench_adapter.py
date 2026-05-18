@@ -18,7 +18,6 @@ from pathlib import Path
 from typing import Any
 
 from .models import (
-    KeyframeEvidence,
     Stage1HypothesisSummary,
     Stage2EvidenceBundle,
     Stage2TaskSpec,
@@ -200,7 +199,7 @@ def build_evidence_bundle_for_space3d(
     we use the reference images when available, or create a bundle
     with just the detection context.
     """
-    keyframes = []
+    reference_frames: list[dict[str, Any]] = []
 
     # Use reference images if available
     all_images = list(sample.image_paths)
@@ -208,15 +207,15 @@ def build_evidence_bundle_for_space3d(
         all_images.extend(extra_image_paths)
 
     for idx, img_path in enumerate(all_images):
-        keyframes.append(
-            KeyframeEvidence(
-                keyframe_idx=idx,
-                image_path=str(img_path),
-                view_id=idx,
-                frame_id=idx,
-                score=1.0,
-                note="space3d_bench_reference",
-            )
+        reference_frames.append(
+            {
+                "index": idx,
+                "image_path": str(img_path),
+                "view_id": idx,
+                "frame_id": idx,
+                "score": 1.0,
+                "note": "space3d_bench_reference",
+            }
         )
 
     # Build hypothesis
@@ -242,7 +241,6 @@ def build_evidence_bundle_for_space3d(
     return Stage2EvidenceBundle(
         scene_id=sample.scene_id,
         stage1_query=sample.question,
-        keyframes=keyframes,
         bev_image_path=None,
         scene_summary=scene_summary,
         object_context=object_context,
@@ -250,7 +248,8 @@ def build_evidence_bundle_for_space3d(
         extra_metadata={
             "benchmark": "space3d_bench",
             "question_id": sample.question_id,
-            "has_reference_images": len(keyframes) > 0,
+            "has_reference_images": len(reference_frames) > 0,
+            "benchmark_frames": reference_frames,
             "num_objects": len(object_context),
         },
     )

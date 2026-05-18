@@ -38,7 +38,7 @@ from agents import (  # noqa: E402
     Stage2TaskType,
     build_stage2_evidence_bundle,
 )
-from query_scene.keyframe_selector import KeyframeResult, KeyframeSelector  # noqa: E402
+from query_scene import KeyframeResult, KeyframeSelector  # noqa: E402
 
 DEFAULT_DATA_ROOT = PROJECT_ROOT / "data" / "OpenEQA" / "scannet"
 DEFAULT_CACHE_ROOT = PROJECT_ROOT / "tmp" / "openeqa_runtime_cache"
@@ -100,7 +100,7 @@ def parse_args() -> argparse.Namespace:
         "--k",
         type=int,
         default=3,
-        help="Number of initial keyframes to retrieve in Stage 1.",
+        help="Number of Stage 1 candidate frames to record as metadata.",
     )
     parser.add_argument(
         "--stage1-query",
@@ -246,8 +246,18 @@ def serialize_stage1_result(
     }
 
 
+def _metadata_frame_count(bundle) -> int:
+    extra = bundle.extra_metadata or {}
+    return len(extra.get("stage1_selected_frames") or [])
+
+
+def _tool_visual_count(bundle) -> int:
+    extra = bundle.extra_metadata or {}
+    return len(extra.get("vg_pending_image_metadata") or [])
+
+
 def serialize_stage2_result(
-    name: str, result, initial_keyframes: int
+    name: str, result, initial_stage1_frames: int
 ) -> dict[str, Any]:
     return {
         "run_name": name,
@@ -259,8 +269,8 @@ def serialize_stage2_result(
         "cited_frame_indices": result.result.cited_frame_indices,
         "evidence_items": [item.model_dump() for item in result.result.evidence_items],
         "tool_trace": [item.model_dump() for item in result.tool_trace],
-        "initial_keyframes": initial_keyframes,
-        "final_keyframes": len(result.final_bundle.keyframes),
+        "initial_stage1_frames": initial_stage1_frames,
+        "final_tool_visuals": _tool_visual_count(result.final_bundle),
     }
 
 
@@ -292,10 +302,10 @@ def run_stage1(
     )
     if not result.keyframe_paths:
         raise RuntimeError(
-            f"Stage 1 produced no keyframes. status={result.metadata.get('status')}"
+            f"Stage 1 produced no ranked frames. status={result.metadata.get('status')}"
         )
     logger.info(
-        "[Stage 1] status={} keyframes={} target={} anchor={}",
+        "[Stage 1] status={} ranked_frames={} target={} anchor={}",
         summary["status"],
         len(result.keyframe_paths),
         result.target_term,
@@ -338,7 +348,7 @@ def run_stage2(
         if selector is None:
             raise ValueError("selector is required when callbacks are enabled")
         callbacks = Stage1BackendCallbacks(
-            keyframe_selector=selector,
+            text_frame_selector=selector,
             scene_id=scene_id,
         )
 
@@ -351,7 +361,7 @@ def run_stage2(
             enable_stage1_text_retrieval=selector is not None,
         ),
         crop_callback=callbacks.crops if callbacks else None,
-        keyframe_selector=selector,
+        text_frame_selector=selector,
     )
     task = Stage2TaskSpec(
         task_type=Stage2TaskType.QA,
@@ -413,7 +423,7 @@ def main() -> None:
         stage2_summary = serialize_stage2_result(
             "stage2",
             stage2_result,
-            initial_keyframes=len(bundle.keyframes),
+            initial_stage1_frames=_metadata_frame_count(bundle),
         )
         save_json(output_dir / "stage2.json", stage2_summary)
         logger.info(
@@ -437,15 +447,15 @@ def main() -> None:
         e2e_summary = serialize_stage2_result(
             "e2e",
             e2e_result,
-            initial_keyframes=len(bundle.keyframes),
+            initial_stage1_frames=_metadata_frame_count(bundle),
         )
         save_json(output_dir / "e2e.json", e2e_summary)
         logger.info(
-            "[E2E] status={} confidence={:.2f} tool_calls={} final_keyframes={}",
+            "[E2E] status={} confidence={:.2f} tool_calls={} final_tool_visuals={}",
             e2e_summary["status"],
             e2e_summary["confidence"],
             len(e2e_summary["tool_trace"]),
-            e2e_summary["final_keyframes"],
+            e2e_summary["final_tool_visuals"],
         )
 
     if args.mode == "stage1":

@@ -27,7 +27,6 @@ from agents import (
     Stage2TaskSpec,
     Stage2TaskType,
 )
-from agents.models import KeyframeEvidence
 
 
 def create_test_image(
@@ -157,19 +156,11 @@ def test_stage2_agent_image_perception():
     test_image = Path(tmp.name)
     print(f"Created test image: {test_image}")
 
-    # Build evidence bundle with the test image
+    # Build evidence bundle with the test image as the attached overview image.
     bundle = Stage2EvidenceBundle(
         scene_id="test_scene",
         scene_summary="Test scene with a geometric shape for perception verification.",
-        keyframes=[
-            KeyframeEvidence(
-                keyframe_idx=0,
-                image_path=str(test_image),
-                view_id=0,
-                frame_id=0,
-                note="Test image with geometric shape",
-            )
-        ],
+        bev_image_path=str(test_image),
     )
 
     # Build task
@@ -179,7 +170,7 @@ def test_stage2_agent_image_perception():
         max_reasoning_turns=1,
     )
 
-    # Run agent. This perception-only smoke does not build a KeyframeSelector,
+    # Run agent. This perception-only smoke does not build a text frame selector,
     # so disable Stage-1 text retrieval to satisfy the construction-time guard.
     from agents.models import Stage2DeepAgentConfig
 

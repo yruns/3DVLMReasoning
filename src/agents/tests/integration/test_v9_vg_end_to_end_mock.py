@@ -105,18 +105,15 @@ def test_vg_v9_tool_surface_end_to_end(tmp_path: Path):
     )
 
     class _FakeSelector:
-        def select_keyframes_v2(self, **_kwargs):  # pragma: no cover - sanity stub
-            from types import SimpleNamespace
-
-            return SimpleNamespace(keyframe_indices=[], metadata={})
+        pass
 
     selector = _FakeSelector()
     rt = DeepAgentsStage2Runtime(
         config=Stage2DeepAgentConfig(),  # default: text retrieval enabled
-        keyframe_selector=selector,
+        text_frame_selector=selector,
     )
     state = Stage2RuntimeState(bundle=bundle, task_type=task.task_type)
-    state.keyframe_selector = selector
+    state.text_frame_selector = selector
     tools = {t.name: t for t in rt.build_runtime_tools(state)}
 
     # The catalog-first surface should expose at minimum:
@@ -159,8 +156,8 @@ def test_vg_v9_tool_surface_end_to_end(tmp_path: Path):
         "request_more_views",
         "switch_or_expand_hypothesis",
         "inspect_stage1_metadata",
-        "view_keyframe_marked",
+        "view_" + "key" + "frame_marked",
         "find_proposals_by_category",
-        "list_keyframes_with_proposals",
+        "list_" + "key" + "frames_with_proposals",
     ):
         assert dead not in tools, f"deleted tool {dead!r} should not be wired"

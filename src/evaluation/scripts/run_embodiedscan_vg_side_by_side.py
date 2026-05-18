@@ -158,6 +158,7 @@ def compare_backends(
     output_dir.mkdir(parents=True, exist_ok=True)
     results: dict[str, dict] = {}
     for backend in ("pack_v1",):
+
         def run_sample_with_error_record(
             sample_id: str,
             backend: BackendName = backend,
@@ -198,7 +199,9 @@ def compare_backends(
             per_sample = [run_sample_with_error_record(s) for s in sample_ids]
         else:
             with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as executor:
-                per_sample = list(executor.map(run_sample_with_error_record, sample_ids))
+                per_sample = list(
+                    executor.map(run_sample_with_error_record, sample_ids)
+                )
         ious = [r["iou"] for r in per_sample if r.get("iou") is not None]
         acc25 = sum(1 for v in ious if v >= 0.25) / max(len(ious), 1)
         acc50 = sum(1 for v in ious if v >= 0.50) / max(len(ious), 1)
@@ -453,9 +456,7 @@ def run_pack_v1_sample(
     # so Stage-1 text retrieval (`select_by_text`) cannot be served. Disable
     # it explicitly so construction does not raise and the agent's tool list
     # remains consistent with what the runtime can fulfill.
-    config_no_text = config.model_copy(
-        update={"enable_stage1_text_retrieval": False}
-    )
+    config_no_text = config.model_copy(update={"enable_stage1_text_retrieval": False})
     agent = Stage2DeepResearchAgent(config=config_no_text)
     return agent.run(task=task, bundle=bundle)
 
@@ -480,23 +481,11 @@ def build_pack_v1_bundle_from_sample(
         int(k): [int(x) for x in v]
         for k, v in json.loads(visibility_json.read_text(encoding="utf-8")).items()
     }
-    keyframes = [
-        (
-            int(kf["keyframe_idx"]),
-            str(kf["image_path"]),
-            int(kf["frame_id"]),
-        )
-        for kf in sample.get("keyframes", [])
-    ]
-    if not keyframes:
-        raise ValueError(f"Sample {sample.get('sample_id')} has no keyframes")
-
     return build_pack_v1_bundle(
         proposals_jsonl=scene_dir / "proposals.jsonl",
         source=source,
         annotated_image_dir=scene_dir / "annotated",
         frame_visibility=frame_visibility,
-        keyframes=keyframes,
         scene_id=str(sample["scene_id"]),
     )
 

@@ -23,13 +23,13 @@ from agents import (
     Stage1BackendCallbacks,
     Stage2DeepAgentConfig,
     Stage2DeepResearchAgent,
+    Stage2EvidenceBundle,
     Stage2PlanMode,
     Stage2TaskSpec,
     Stage2TaskType,
-    build_stage2_evidence_bundle,
     save_trace_report,
 )
-from query_scene.keyframe_selector import KeyframeSelector
+from query_scene import KeyframeSelector as TextFrameSelector
 
 
 def main():
@@ -45,8 +45,8 @@ def main():
     logger.info("=" * 70)
 
     # Load selector
-    logger.info("[Stage 1] Loading KeyframeSelector...")
-    selector = KeyframeSelector.from_scene_path(
+    logger.info("[Stage 1] Loading text frame selector...")
+    selector = TextFrameSelector.from_scene_path(
         str(scene_path),
         llm_model="gpt-5.2-2025-12-11",
         use_pool=False,
@@ -64,13 +64,7 @@ def main():
     logger.info(f"Stage 1 query: {stage1_query}")
     logger.info(f"Task query: {task_query}")
 
-    # Retrieve only 1 keyframe to force the agent to request more
-    logger.info("[Stage 1] Retrieving minimal keyframes (k=1)...")
-    keyframe_result = selector.select_keyframes_v2(stage1_query, k=1)
-    logger.info(f"  Found {len(keyframe_result.keyframe_paths)} keyframe")
-
-    bundle = build_stage2_evidence_bundle(
-        keyframe_result,
+    bundle = Stage2EvidenceBundle(
         scene_id=scene_path.name,
         scene_summary=f"Living room scene with {len(selector.objects)} detected objects including furniture and decor.",
     )
@@ -78,16 +72,14 @@ def main():
     # Create agent with FULL plan mode to encourage tool usage
     logger.info("[Stage 2] Creating agent with BRIEF plan mode...")
     callbacks = Stage1BackendCallbacks(
-        keyframe_selector=selector,
+        text_frame_selector=selector,
         scene_id=scene_path.name,
-        max_additional_views=3,
     )
 
     agent = Stage2DeepResearchAgent(
         config=Stage2DeepAgentConfig(include_thoughts=False),
-        more_views_callback=callbacks.more_views,
         crop_callback=callbacks.crops,
-        hypothesis_callback=callbacks.hypothesis,
+        text_frame_selector=selector,
     )
 
     task = Stage2TaskSpec(
@@ -108,8 +100,6 @@ def main():
     logger.info(f"Tool calls: {len(result.tool_trace)}")
     for tc in result.tool_trace:
         logger.info(f"  - {tc.tool_name}: {tc.tool_input}")
-    logger.info(f"Initial keyframes: {len(bundle.keyframes)}")
-    logger.info(f"Final keyframes: {len(result.final_bundle.keyframes)}")
     logger.info(f"Summary: {result.result.summary}")
 
     # Generate trace report

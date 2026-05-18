@@ -33,14 +33,14 @@ _SELECTOR_CACHE_LOCK = threading.Lock()
 _SELECTOR_BUILD_LOCK = threading.Lock()
 
 
-def _remember_keyframe_selector(scene_id: str, selector: Any) -> None:
+def _remember_text_frame_selector(scene_id: str, selector: Any) -> None:
     _SELECTOR_CACHE[scene_id] = selector
     _SELECTOR_CACHE.move_to_end(scene_id)
     while len(_SELECTOR_CACHE) > _MAX_SELECTOR_CACHE_SIZE:
         _SELECTOR_CACHE.popitem(last=False)
 
 
-def _get_or_build_keyframe_selector(
+def _get_or_build_text_frame_selector(
     scene_id: str,
     phase8_data_root: Path,
     llm_model: str = "gemini-2.5-pro",
@@ -63,7 +63,7 @@ def _get_or_build_keyframe_selector(
                 f"Stage1 callbacks require enriched object metadata: {enriched}"
             )
 
-        from query_scene.keyframe_selector import KeyframeSelector
+        from query_scene import KeyframeSelector
 
         selector = KeyframeSelector.from_scene_path(
             str(cg_root),
@@ -73,7 +73,7 @@ def _get_or_build_keyframe_selector(
             ensure_lightweight_pcd=True,
         )
         with _SELECTOR_CACHE_LOCK:
-            _remember_keyframe_selector(scene_id, selector)
+            _remember_text_frame_selector(scene_id, selector)
         return selector
 
 
@@ -305,7 +305,7 @@ def run_pack_v1_sample(
 
     The `enable_stage1_callback` flag gates the **crop callback** only
     (it controls whether `request_crops` can actually extract crops).
-    The `select_by_text` tool's `keyframe_selector` is gated by
+    The `select_by_text` tool's text-frame selector is gated by
     `config.enable_stage1_text_retrieval` independently — previous
     versions conflated the two and silently broke `select_by_text` when
     the crop callback was disabled (see docs/benchmark/nr3d/
@@ -321,15 +321,14 @@ def run_pack_v1_sample(
         from agents.stage2_deep_agent import Stage2DeepResearchAgent as agent_cls
 
     crop_callback = None
-    keyframe_selector = None
+    text_frame_selector = None
     # getattr fallback keeps tests that pass SimpleNamespace() as config working.
-    need_keyframe_selector = (
-        bool(getattr(config, "enable_stage1_text_retrieval", True))
-        or bool(enable_stage1_callback)
+    need_text_frame_selector = bool(
+        getattr(config, "enable_stage1_text_retrieval", True)
     )
-    if need_keyframe_selector:
+    if need_text_frame_selector:
         scene_id = str(sample["scene_id"])
-        keyframe_selector = _get_or_build_keyframe_selector(
+        text_frame_selector = _get_or_build_text_frame_selector(
             scene_id,
             data_root if phase8_data_root is None else phase8_data_root,
         )
@@ -338,7 +337,7 @@ def run_pack_v1_sample(
         from agents.stage1_callbacks import create_crop_callback
 
         crop_callback = create_crop_callback(
-            keyframe_selector,
+            text_frame_selector,
             scene_id=scene_id,
             crop_scale=2.0,
         )
@@ -346,7 +345,7 @@ def run_pack_v1_sample(
     agent = agent_cls(
         config=config,
         crop_callback=crop_callback,
-        keyframe_selector=keyframe_selector,
+        text_frame_selector=text_frame_selector,
     )
     return agent.run(task=task, bundle=bundle)
 
@@ -371,21 +370,6 @@ def build_pack_v1_bundle_from_sample(
         int(k): [int(x) for x in v]
         for k, v in json.loads(visibility_json.read_text(encoding="utf-8")).items()
     }
-    keyframes = [
-        (
-            int(kf["keyframe_idx"]),
-            clean_keyframe_image_path(
-                data_root=data_root,
-                scene_id=scene_id,
-                image_path=str(kf["image_path"]),
-                frame_id=int(kf["frame_id"]),
-            ),
-            int(kf["frame_id"]),
-        )
-        for kf in sample.get("keyframes", [])
-    ]
-    if not keyframes:
-        raise ValueError(f"Sample {sample.get('sample_id')} has no keyframes")
     bundle_builder = build_pack_v1_bundle
     if bundle_builder is None:
         from agents.examples.embodiedscan_vg_pack_v1_pilot import (
@@ -412,28 +396,12 @@ def build_pack_v1_bundle_from_sample(
         source=source,
         annotated_image_dir=scene_dir / "annotated",
         frame_visibility=frame_visibility,
-        keyframes=keyframes,
         scene_id=scene_id,
         scene_catalog=scene_catalog,
         bev_image_path=bev_image_path,
         camera_trajectory=camera_trajectory,
         query=sample.get("query"),
     )
-
-
-def clean_keyframe_image_path(
-    *,
-    data_root: Path,
-    scene_id: str,
-    image_path: str,
-    frame_id: int,
-) -> str:
-    path = Path(image_path)
-    if path.parent.name != "annotated":
-        return str(path)
-    from evaluation.scripts.prepare_pack_v1_inputs_nr3d import resolve_raw_rgb_path
-
-    return str(resolve_raw_rgb_path(Path(data_root) / scene_id, int(frame_id)))
 
 
 def resolve_scene_artifacts_dir(
@@ -783,10 +751,11 @@ def extract_result_tool_trace(result: Any) -> list[dict[str, Any]]:
             raw = dict(item)
         elif hasattr(item, "model_dump"):
             dumped = item.model_dump()
-            raw = dict(dumped) if isinstance(dumped, dict) else {"response_text": dumped}
+            raw = (
+                dict(dumped) if isinstance(dumped, dict) else {"response_text": dumped}
+            )
         elif any(
-            hasattr(item, attr)
-            for attr in ("tool_name", "tool_input", "response_text")
+            hasattr(item, attr) for attr in ("tool_name", "tool_input", "response_text")
         ):
             raw = {
                 attr: getattr(item, attr)
@@ -956,26 +925,6 @@ def parse_args() -> argparse.Namespace:
             "effect when combined with --disable-stage1-text-retrieval."
         ),
     )
-    parser.add_argument(
-        "--restore-stage1-seed-keyframe-drain",
-        action="store_true",
-        default=False,
-        help=(
-            "v9.4 cadence experiment D (from "
-            "docs/benchmark/nr3d/v9_4a_strat600_force_error_20260517.md "
-            "§Recommended next experiments). Restore the Stage-1 "
-            "seed-keyframe drain leak that was present at commit "
-            "`d5f40ba` (v9.1_fix FULL REPRO at 82.95 %) and fixed in "
-            "`8ebf701`. Causes the 5 GT-target-visible Stage-1 seed "
-            "keyframes (written by pack-prep into `bundle.keyframes`) to "
-            "be auto-injected on every evidence-update turn. **Test-time "
-            "use only** — this is an explicit information leak; the "
-            "agent silently receives target-visible RGB frames it didn't "
-            "ask for. Combined with --force-stage1-text-retrieval-to-error "
-            "this attempts to reproduce the v9.1_fix run-time behaviour "
-            "on current code."
-        ),
-    )
     return parser.parse_args()
 
 
@@ -988,7 +937,6 @@ def main() -> None:
         use_evidence_frame_guard=args.use_evidence_frame_guard,
         enable_stage1_text_retrieval=not args.disable_stage1_text_retrieval,
         force_stage1_text_retrieval_to_error=args.force_stage1_text_retrieval_to_error,
-        restore_stage1_seed_keyframe_drain=args.restore_stage1_seed_keyframe_drain,
     )
     compare_backends(
         sample_ids=sample_ids,

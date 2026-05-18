@@ -7,7 +7,7 @@ from pathlib import Path
 
 
 from agents.core.agent_config import Stage2TaskType
-from agents.core.task_types import KeyframeEvidence, Stage2EvidenceBundle
+from agents.core.task_types import Stage2EvidenceBundle
 from agents.packs.vg_embodiedscan.ctx import (
     Proposal,
     ProposalFrameView,
@@ -28,12 +28,7 @@ def _runtime(tmp_path: Path) -> Stage2RuntimeState:
     Image.new("RGB", (160, 80), color=(220, 220, 220)).save(
         tmp_path / "raw11.png", format="PNG"
     )
-    bundle = Stage2EvidenceBundle(
-        keyframes=[
-            KeyframeEvidence(keyframe_idx=0, image_path="a.png", frame_id=10),
-            KeyframeEvidence(keyframe_idx=1, image_path="b.png", frame_id=11),
-        ]
-    )
+    bundle = Stage2EvidenceBundle()
     rs = Stage2RuntimeState(bundle=bundle)
     rs.task_type = Stage2TaskType.VISUAL_GROUNDING
     rs.task_ctx = VgEmbodiedScanCtx(
@@ -340,5 +335,3 @@ def test_compare_proposals_spatial_unknown_relation_errors(tmp_path: Path) -> No
         }
     )
     assert response.startswith("ERROR")
-
-

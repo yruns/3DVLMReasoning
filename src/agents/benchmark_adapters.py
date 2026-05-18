@@ -20,7 +20,6 @@ from typing import Any, Literal, Protocol
 from loguru import logger
 
 from .models import (
-    KeyframeEvidence,
     Stage1HypothesisSummary,
     Stage2EvidenceBundle,
     Stage2TaskSpec,
@@ -267,17 +266,17 @@ def build_evidence_bundle_from_frames(
     This is the "frame-based" mode that bypasses Stage 1 retrieval
     and uses benchmark-provided frames directly.
     """
-    keyframes = []
+    benchmark_frames: list[dict[str, Any]] = []
     for idx, frame_path in enumerate(frame_paths):
-        keyframes.append(
-            KeyframeEvidence(
-                keyframe_idx=idx,
-                image_path=str(frame_path),
-                view_id=idx,  # Use index as view_id
-                frame_id=idx,
-                score=1.0 / (idx + 1),  # Simple decreasing score
-                note="benchmark_provided",
-            )
+        benchmark_frames.append(
+            {
+                "index": idx,
+                "image_path": str(frame_path),
+                "view_id": idx,
+                "frame_id": idx,
+                "score": 1.0 / (idx + 1),
+                "note": "benchmark_provided",
+            }
         )
 
     # Build mock hypothesis from sample info
@@ -303,7 +302,6 @@ def build_evidence_bundle_from_frames(
     return Stage2EvidenceBundle(
         scene_id=sample_info.scene_id,
         stage1_query=sample_info.query,
-        keyframes=keyframes,
         bev_image_path=None,  # No BEV for benchmark-direct mode
         scene_summary=scene_summary,
         object_context={},  # Not available without Stage 1
@@ -312,6 +310,7 @@ def build_evidence_bundle_from_frames(
             "benchmark_type": sample_info.benchmark_type,
             "sample_id": sample_info.sample_id,
             "mode": "benchmark_direct",
+            "benchmark_frames": benchmark_frames,
         },
     )
 

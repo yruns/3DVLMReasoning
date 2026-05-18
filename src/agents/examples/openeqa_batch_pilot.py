@@ -28,6 +28,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 from agents.examples.openeqa_single_scene_pilot import (  # noqa: E402
     DEFAULT_DATA_ROOT,
     DEFAULT_MODEL,
+    _metadata_frame_count,
     build_bundle,
     ensure_runtime_scene,
     infer_stride,
@@ -251,7 +252,7 @@ def run_batch_sample(
     stage2_summary = serialize_stage2_result(
         "stage2",
         stage2_result,
-        initial_keyframes=len(bundle.keyframes),
+        initial_stage1_frames=_metadata_frame_count(bundle),
     )
     save_json(scene_output_dir / "stage2.json", stage2_summary)
 
@@ -267,7 +268,7 @@ def run_batch_sample(
     e2e_summary = serialize_stage2_result(
         "e2e",
         e2e_result,
-        initial_keyframes=len(bundle.keyframes),
+        initial_stage1_frames=_metadata_frame_count(bundle),
     )
     save_json(scene_output_dir / "e2e.json", e2e_summary)
 
@@ -287,7 +288,7 @@ def run_batch_sample(
         "e2e_status": e2e_summary["status"],
         "e2e_confidence": e2e_summary["confidence"],
         "e2e_tool_calls": len(e2e_summary["tool_trace"]),
-        "e2e_final_keyframes": e2e_summary["final_keyframes"],
+        "e2e_final_tool_visuals": e2e_summary["final_tool_visuals"],
         "artifact_dir": str(scene_output_dir),
     }
 

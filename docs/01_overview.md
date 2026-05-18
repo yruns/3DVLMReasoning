@@ -23,10 +23,10 @@ OpenEQA provides the benchmark, the frame-level episodic-memory format, and four
 
 | Axis | OpenEQA CVPR 2024 baseline | This project (HEAD = `a8e651e`) |
 |---|---|---|
-| Retrieval | Uniform frame sampling (50f); scene-KB lookup for ConceptGraphs baseline | Query-driven `KeyframeSelector.select_keyframes_v2` with typed hypothesis ranking (`DIRECT_GROUNDED` > `PROXY_GROUNDED` > `CONTEXT_ONLY`), joint-coverage view selection, BETWEEN-midpoint retrieval, min-3 keyframe padding. Code: `src/query_scene/keyframe_selector.py:1570-1731` |
-| Stage 2 | Single VLM forward pass over frames + optional KB text | ReAct-style DeepAgents loop with 5 + 2 tools, uncertainty-aware stopping, evidence nudge on insufficient-evidence. Code: `src/agents/runtime/deepagents_agent.py:570-692` |
+| Retrieval | Uniform frame sampling (50f); scene-KB lookup for ConceptGraphs baseline | Agent-triggered selector tools (`select_by_text`, `select_by_proposal`, `select_by_region`, etc.) with typed hypothesis ranking and coverage-aware frame selection behind the tool boundary |
+| Stage 2 | Single VLM forward pass over frames + optional KB text | ReAct-style DeepAgents loop with selector tools, crop/mark tools, uncertainty-aware stopping, and evidence nudge on insufficient-evidence |
 | Relationship to scene graph | Ground-truth or KB; no verification | High-recall prior, demoted; agent system prompt explicitly says *"Stage 1 is a high-recall evidence retriever, not ground truth"* at `src/agents/runtime/base.py:358-359` |
-| Tool use | None (baselines) | `inspect_stage1_metadata`, `retrieve_object_context`, `request_more_views`, `request_crops`, `switch_or_expand_hypothesis`, + `select_object` / `spatial_compare` for VG. Gating on task type at `src/agents/runtime/deepagents_agent.py:204-247` |
+| Tool use | None (baselines) | `select_by_*`, `mark_frame_with_bbox`, `request_crops`, scene proposal inspection, and `submit_final`; first-person frames are acquired only by active tool calls |
 | Calibration policy | None | Scalar-confidence gate at three control points: runtime downgrade (`runtime/base.py:415`), nudge injection (`deepagents_agent.py:635`), E2E rerun (`pilot:519-555`) |
 | Evaluation | LLM-match with GPT-4 → integer 1–5 → MNAS 0–100 | Same upstream scorer, judge swapped to Gemini 2.5 Pro for key-pool / concurrency reasons; pool-rotated retry + progressive resume. See `docs/05_evaluation.md` |
 | Reported SOTA on OpenEQA ScanNet (their judge) | GPT-4 + ConceptGraphs 37.8; GPT-4V 500Q 51.3 | **MNAS 73.1 (1050Q, v14, commit `fbd642e`)**; judge is Gemini 2.5 Pro — not directly comparable, flagged at `docs/benchmark/openeqa/leaderboard.md` |

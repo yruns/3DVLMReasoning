@@ -8,7 +8,6 @@ from pathlib import Path
 import numpy as np
 
 from .models import (
-    KeyframeEvidence,
     Stage1HypothesisSummary,
     Stage2EvidenceBundle,
 )
@@ -86,7 +85,7 @@ def build_stage2_evidence_bundle(
         + list(getattr(keyframe_result, "anchor_objects", []) or [])
     )
 
-    keyframes = []
+    selected_frames: list[dict[str, object]] = []
     frame_mappings = metadata.get("frame_mappings", []) or []
     selection_scores = (
         metadata.get("selection_scores")
@@ -114,19 +113,17 @@ def build_stage2_evidence_bundle(
                 total=len(getattr(keyframe_result, "keyframe_paths", []) or []),
                 prev_view_id=previous_view_id,
             )
-        keyframes.append(
-            KeyframeEvidence(
-                keyframe_idx=idx,
-                image_path=str(Path(image_path)),
-                view_id=resolved_view_id,
-                frame_id=mapping.get(
+        selected_frames.append(
+            {
+                "index": idx,
+                "image_path": str(Path(image_path)),
+                "view_id": resolved_view_id,
+                "frame_id": mapping.get(
                     "resolved_frame_id", mapping.get("requested_frame_id")
                 ),
-                score=selection_scores.get(
-                    resolved_view_id
-                ),
-                note=note,
-            )
+                "score": selection_scores.get(resolved_view_id),
+                "note": note,
+            }
         )
         if resolved_view_id is not None:
             previous_view_id = int(resolved_view_id)
@@ -150,12 +147,11 @@ def build_stage2_evidence_bundle(
     return Stage2EvidenceBundle(
         scene_id=scene_id,
         stage1_query=getattr(keyframe_result, "query", ""),
-        keyframes=keyframes,
         bev_image_path=bev_image_path,
         scene_summary=scene_summary,
         object_context=bundle_object_context,
         hypothesis=hypothesis,
-        extra_metadata=metadata,
+        extra_metadata={**metadata, "stage1_selected_frames": selected_frames},
     )
 
 

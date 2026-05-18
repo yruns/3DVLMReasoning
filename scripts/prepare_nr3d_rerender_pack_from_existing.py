@@ -62,16 +62,6 @@ def main() -> None:
 
         scene_dir = scene_dirs[request.scene_id]
         payload["scene_artifacts_dir"] = str(scene_dir)
-        for keyframe in payload.get("keyframes", []):
-            frame_id = int(keyframe["frame_id"])
-            marked_path = scene_dir / "annotated" / f"frame_{frame_id}.png"
-            if not marked_path.exists():
-                raise FileNotFoundError(
-                    f"missing rerendered keyframe for {request.sample_id}: {marked_path}"
-                )
-            keyframe["image_path"] = str(
-                resolve_raw_rgb_path(args.data_root / request.scene_id, frame_id)
-            )
 
         out_path = sample_artifact_path(
             args.data_root,

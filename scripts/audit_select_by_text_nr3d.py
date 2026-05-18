@@ -198,7 +198,7 @@ def get_or_build_selector(
     if scene_id in cache:
         cache.move_to_end(scene_id)
         return cache[scene_id]
-    from query_scene.keyframe_selector import KeyframeSelector
+    from query_scene import KeyframeSelector
 
     cg_root = data_root / scene_id / "conceptgraph"
     enriched = cg_root / "enriched_objects.json"
@@ -264,7 +264,9 @@ def main() -> int:
     if isinstance(samples_raw, dict):
         samples_raw = samples_raw.get("sample_ids") or samples_raw.get("samples") or []
     if not isinstance(samples_raw, list) or not samples_raw:
-        raise ValueError(f"--sample-ids JSON must be a non-empty list: {args.sample_ids}")
+        raise ValueError(
+            f"--sample-ids JSON must be a non-empty list: {args.sample_ids}"
+        )
 
     if args.max_samples is not None:
         samples_raw = samples_raw[: args.max_samples]
@@ -289,7 +291,9 @@ def main() -> int:
         target_id = int(row["target_id"])
         category = row.get("category") or ""
         if sample_id in existing_results:
-            print(f"[{idx}/{len(samples_raw)}] {sample_id}  (skip, resumed)", flush=True)
+            print(
+                f"[{idx}/{len(samples_raw)}] {sample_id}  (skip, resumed)", flush=True
+            )
             samples_out.append(existing_results[sample_id])
             continue
 
@@ -403,7 +407,9 @@ def _write_output(
 def summarize(samples_out: list[dict[str, Any]], k_values: list[int]) -> dict[str, Any]:
     n_total = len(samples_out)
     n_error = sum(1 for s in samples_out if "error" in s)
-    measurable = [s for s in samples_out if not s.get("unmeasurable", True) and "error" not in s]
+    measurable = [
+        s for s in samples_out if not s.get("unmeasurable", True) and "error" not in s
+    ]
     n_measurable = len(measurable)
     n_unmeasurable = sum(1 for s in samples_out if s.get("unmeasurable") is True)
 

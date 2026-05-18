@@ -2,9 +2,9 @@
 
 This module provides the real crop extraction capability for the Stage-2 VLM agent.
 It supports:
-1. Cropping objects from keyframes using 2D bounding boxes
+1. Cropping objects from selected first-person frames using 2D bounding boxes
 2. Multiple crop requests in a single call
-3. Returning cropped images as new KeyframeEvidence entries in the bundle
+3. Queueing cropped images through bundle.extra_metadata["vg_pending_images"]
 
 Design rationale (Academic alignment):
 - Supports "adaptive evidence acquisition" by letting the agent request focused
@@ -28,7 +28,6 @@ import numpy as np
 from loguru import logger
 
 from ..models import (
-    KeyframeEvidence,
     Stage2EvidenceBundle,
     Stage2ToolResult,
 )
@@ -99,7 +98,7 @@ class BBox2D:
 class CropRequest:
     """A single crop request for one frame-bbox pair."""
 
-    frame_idx: int  # Index in bundle.keyframes
+    frame_idx: int  # Frame id selected by an earlier tool call
     bbox: BBox2D | None = None  # If None, use object_term to find bbox
     object_term: str | None = None  # Object category to find
     padding: float = 0.15  # Padding ratio around bbox
@@ -133,12 +132,12 @@ class CropBackendConfig:
 
 
 class CropBackend:
-    """Backend for extracting object crops from keyframes.
+    """Backend for extracting object crops from selected frames.
 
     This backend implements the real crop extraction capability:
-    1. Reads keyframe images from paths in the evidence bundle
+    1. Reads frame images from metadata queued by selector tools
     2. Crops regions based on provided bounding boxes or object terms
-    3. Saves crops to disk and returns updated evidence bundle
+    3. Saves crops to disk and queues them for the next evidence update
 
     Usage:
         backend = CropBackend()
@@ -195,6 +194,66 @@ class CropBackend:
         if img is None:
             return None
         return cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+
+    def _frame_image_map(self, bundle: Stage2EvidenceBundle) -> dict[int, str]:
+        """Return frame_id -> image path from tool metadata and scene catalog."""
+        extra = bundle.extra_metadata or {}
+        mapping: dict[int, str] = {}
+        for key in ("vg_frame_image_paths", "frame_image_paths"):
+            raw = extra.get(key)
+            if isinstance(raw, dict):
+                for frame_id, path in raw.items():
+                    try:
+                        mapping[int(frame_id)] = str(path)
+                    except (TypeError, ValueError):
+                        continue
+
+        metadata_rows = list(extra.get("vg_pending_image_metadata") or [])
+        metadata_rows.extend(extra.get("stage1_selected_frames") or [])
+        metadata_rows.extend(extra.get("benchmark_frames") or [])
+        for row in metadata_rows:
+            if not isinstance(row, dict):
+                continue
+            frame_id = row.get("frame_id")
+            image_path = row.get("image_path")
+            if frame_id is None or not image_path:
+                continue
+            try:
+                mapping[int(frame_id)] = str(image_path)
+            except (TypeError, ValueError):
+                continue
+
+        catalog = extra.get("scene_catalog")
+        if isinstance(catalog, dict):
+            for proposal in catalog.get("proposals", []) or []:
+                if not isinstance(proposal, dict):
+                    continue
+                frame_views = proposal.get("frame_views") or {}
+                if isinstance(frame_views, dict):
+                    iterable = frame_views.values()
+                elif isinstance(frame_views, list):
+                    iterable = frame_views
+                else:
+                    iterable = []
+                for view in iterable:
+                    if not isinstance(view, dict):
+                        continue
+                    frame_id = view.get("frame_id")
+                    image_path = view.get("raw_rgb_path")
+                    if frame_id is None or not image_path:
+                        continue
+                    try:
+                        mapping.setdefault(int(frame_id), str(image_path))
+                    except (TypeError, ValueError):
+                        continue
+        return mapping
+
+    def _resolve_frame_image_path(
+        self,
+        bundle: Stage2EvidenceBundle,
+        frame_id: int,
+    ) -> str | None:
+        return self._frame_image_map(bundle).get(int(frame_id))
 
     def _save_crop(self, crop: np.ndarray, output_path: Path) -> bool:
         """Save crop image to disk."""
@@ -254,16 +313,21 @@ class CropBackend:
         Returns:
             CropResult with success/failure status
         """
-        # Validate frame index
-        if request.frame_idx < 0 or request.frame_idx >= len(bundle.keyframes):
+        # Validate frame id
+        if request.frame_idx < 0:
             return CropResult(
                 success=False,
                 original_frame_idx=request.frame_idx,
-                error=f"Invalid frame index: {request.frame_idx}",
+                error=f"Invalid frame id: {request.frame_idx}",
             )
 
-        keyframe = bundle.keyframes[request.frame_idx]
-        image_path = keyframe.image_path
+        image_path = self._resolve_frame_image_path(bundle, request.frame_idx)
+        if image_path is None:
+            return CropResult(
+                success=False,
+                original_frame_idx=request.frame_idx,
+                error=f"No selected frame image found for frame_id={request.frame_idx}",
+            )
 
         # Load image
         image = self._load_image(image_path)
@@ -360,31 +424,31 @@ class CropBackend:
             )
 
         results: list[CropResult] = []
-        new_keyframes: list[KeyframeEvidence] = []
-
         for request in actual_requests:
             result = self.process_crop_request(request, bundle)
             results.append(result)
 
-            if result.success and result.crop_path:
-                # Create new KeyframeEvidence for the crop
-                base_keyframe = bundle.keyframes[result.original_frame_idx]
-                new_idx = len(bundle.keyframes) + len(new_keyframes)
-
-                new_keyframes.append(
-                    KeyframeEvidence(
-                        keyframe_idx=new_idx,
-                        image_path=result.crop_path,
-                        view_id=base_keyframe.view_id,
-                        frame_id=base_keyframe.frame_id,
-                        score=base_keyframe.score,
-                        note=f"crop:{result.note}",
-                    )
-                )
-
         # Create updated bundle with new crops
         updated_bundle = bundle.model_copy(deep=True)
-        updated_bundle.keyframes.extend(new_keyframes)
+        extra = dict(updated_bundle.extra_metadata or {})
+        pending = list(extra.get("vg_pending_images") or [])
+        metadata_rows = list(extra.get("vg_pending_image_metadata") or [])
+        for result in results:
+            if not result.success or not result.crop_path:
+                continue
+            pending.append(result.crop_path)
+            metadata_rows.append(
+                {
+                    "image_path": result.crop_path,
+                    "frame_id": int(result.original_frame_idx),
+                    "source_tool": "request_crops",
+                    "bbox_2d": list(result.bbox.to_tuple()) if result.bbox else None,
+                    "selected_because": result.note or "crop request",
+                }
+            )
+        extra["vg_pending_images"] = pending
+        extra["vg_pending_image_metadata"] = metadata_rows
+        updated_bundle.extra_metadata = extra
 
         return results, updated_bundle
 
@@ -446,9 +510,7 @@ class CropBackend:
             for r in failed:
                 response_lines.append(f"  - Frame {r.original_frame_idx}: {r.error}")
 
-        response_lines.append(
-            f"\nTotal keyframes in updated bundle: {len(updated_bundle.keyframes)}"
-        )
+        response_lines.append(f"\nQueued crop images: {len(successful)}")
 
         return Stage2ToolResult(
             response_text="\n".join(response_lines),
@@ -466,18 +528,19 @@ class CropBackend:
 
         The agent might request crops in several ways:
         1. Specific frame_indices with object_terms -> crop those objects in those frames
-        2. Only frame_indices -> need bboxes from elsewhere or use whole frame
-        3. Only object_terms -> find objects across all keyframes
+        2. Only frame_indices -> need bboxes from elsewhere
+        3. Only object_terms -> search across selected frame metadata
         """
         requests: list[CropRequest] = []
 
         # Normalize frame indices
         if not frame_indices:
-            # Default to all keyframes if none specified
-            frame_indices = list(range(len(bundle.keyframes)))
+            # Default to frames selected by prior tools if none specified.
+            frame_indices = sorted(self._frame_image_map(bundle))
         else:
-            # Filter to valid indices
-            frame_indices = [i for i in frame_indices if 0 <= i < len(bundle.keyframes)]
+            # Filter to valid frame ids that have an image path.
+            available = self._frame_image_map(bundle)
+            frame_indices = [i for i in frame_indices if int(i) in available]
 
         # Case 1: Frame indices + object terms -> match pairs
         if frame_indices and object_terms:
@@ -514,9 +577,9 @@ class CropBackend:
                     "Crop request with frame_indices but no object_terms or bboxes"
                 )
 
-        # Case 3: Only object terms -> search across all frames
+        # Case 3: Only object terms -> search across selected frames
         elif object_terms and not frame_indices:
-            for frame_idx in range(len(bundle.keyframes)):
+            for frame_idx in sorted(self._frame_image_map(bundle)):
                 for obj_term in object_terms:
                     requests.append(
                         CropRequest(

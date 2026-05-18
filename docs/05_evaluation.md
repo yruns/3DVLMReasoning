@@ -82,7 +82,7 @@ Flow (line references in `openeqa_official_eval.py`):
 
 - Retryable: error strings containing `{"500", "502", "503", "429", "rate limit", "server error", "timeout", "connection", "resource exhausted"}`.
 - Backoff schedule: `min(10 * 2^attempt, 120)` seconds = 10, 20, 40, 80, 120.
-- Non-retryable: propagated immediately (`run_stage1_ranked` raises on zero keyframes, for example — we want that to surface, not retry).
+- Non-retryable: propagated immediately (for example, a Stage-1 retrieval failure should surface instead of being hidden by retry logic).
 
 Retries happen **per sample**, not per prediction; so a crash during Stage 2 for question *q* retries Stage 1 + Stage 2 + E2E, not just the failing LLM call. The scoring retry (§5.4) is independent and lives inside the scoring LLM call.
 

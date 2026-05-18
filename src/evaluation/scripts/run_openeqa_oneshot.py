@@ -219,9 +219,7 @@ def create_mock_stage2_factory():
             answer = "Based on frame 0, the answer appears to be related to the query"
             payload = {
                 "answer": answer,
-                "supporting_claims": [
-                    f"Observed in frame {i}" for i in range(len(bundle.keyframes))
-                ],
+                "supporting_claims": [],
             }
         else:
             answer = "Visual grounding result from one-shot inference"
@@ -233,7 +231,7 @@ def create_mock_stage2_factory():
             summary=answer,
             confidence=confidence,
             uncertainties=uncertainties,
-            cited_frame_indices=list(range(min(3, len(bundle.keyframes)))),
+            cited_frame_indices=[],
             evidence_items=[],
             plan=[],
             payload=payload,

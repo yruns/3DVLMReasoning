@@ -18,7 +18,6 @@ import numpy as np
 import pytest
 
 from agents.models import (
-    KeyframeEvidence,
     Stage2EvidenceBundle,
     Stage2ToolResult,
 )
@@ -57,19 +56,20 @@ def test_image_path(temp_output_dir):
 
 @pytest.fixture
 def sample_bundle(test_image_path):
-    """Create a sample evidence bundle with one keyframe."""
+    """Create a sample evidence bundle with one selected frame."""
     return Stage2EvidenceBundle(
         scene_id="test_scene",
-        keyframes=[
-            KeyframeEvidence(
-                keyframe_idx=0,
-                image_path=test_image_path,
-                view_id=1,
-                frame_id=100,
-                score=0.9,
-                note="test keyframe",
-            )
-        ],
+        extra_metadata={
+            "vg_frame_image_paths": {0: test_image_path},
+            "vg_pending_image_metadata": [
+                {
+                    "image_path": test_image_path,
+                    "frame_id": 0,
+                    "source_tool": "select_by_text",
+                    "selected_because": "test selected frame",
+                }
+            ],
+        },
         object_context={"summary": "test objects"},
     )
 
@@ -237,7 +237,7 @@ class TestProcessCropRequest:
         result = backend.process_crop_request(request, sample_bundle)
 
         assert result.success is False
-        assert "Invalid frame index" in result.error
+        assert "No selected frame image found" in result.error
 
     def test_no_bbox_no_object_term(self, backend, sample_bundle):
         """Test error when neither bbox nor object_term provided."""
@@ -302,8 +302,7 @@ class TestProcessRequests:
 
         assert len(results) == 2
         assert all(r.success for r in results)
-        # Original 1 keyframe + 2 new crops
-        assert len(updated_bundle.keyframes) == 3
+        assert len(updated_bundle.extra_metadata["vg_pending_images"]) == 2
 
     def test_max_crops_limit(self, sample_bundle, temp_output_dir):
         """Test that max_crops config is respected."""
@@ -331,11 +330,10 @@ class TestProcessRequests:
         )
         _, updated_bundle = backend.process_requests([request], sample_bundle)
 
-        new_keyframe = updated_bundle.keyframes[-1]
-        assert new_keyframe.keyframe_idx == 1
-        assert "crop:" in new_keyframe.note
-        # Inherits view_id and frame_id from original
-        assert new_keyframe.view_id == sample_bundle.keyframes[0].view_id
+        crop_meta = updated_bundle.extra_metadata["vg_pending_image_metadata"][-1]
+        assert crop_meta["source_tool"] == "request_crops"
+        assert crop_meta["frame_id"] == 0
+        assert "object detail" in crop_meta["selected_because"]
 
     def test_mixed_success_failure(self, backend, sample_bundle):
         """Test bundle only updated for successful crops."""
@@ -357,8 +355,7 @@ class TestProcessRequests:
 
         assert len(successful) == 1
         assert len(failed) == 1
-        # Only 1 new crop added
-        assert len(updated_bundle.keyframes) == 2
+        assert len(updated_bundle.extra_metadata["vg_pending_images"]) == 1
 
 
 # ============================================================================
@@ -480,7 +477,7 @@ class TestCreateCallback:
         result = callback(sample_bundle, request)
 
         assert result.updated_bundle is not None
-        assert len(result.updated_bundle.keyframes) == 2
+        assert len(result.updated_bundle.extra_metadata["vg_pending_images"]) == 1
 
 
 # ============================================================================
@@ -495,12 +492,9 @@ class TestEdgeCases:
         """Test handling of missing image file."""
         bundle = Stage2EvidenceBundle(
             scene_id="test",
-            keyframes=[
-                KeyframeEvidence(
-                    keyframe_idx=0,
-                    image_path="/nonexistent/path/image.jpg",
-                )
-            ],
+            extra_metadata={
+                "vg_frame_image_paths": {0: "/nonexistent/path/image.jpg"},
+            },
             object_context={},
         )
 
@@ -513,11 +507,10 @@ class TestEdgeCases:
         assert result.success is False
         assert "Failed to load image" in result.error
 
-    def test_empty_keyframes(self, backend):
-        """Test handling of bundle with no keyframes."""
+    def test_empty_selected_frames(self, backend):
+        """Test handling of bundle with no selected frames."""
         bundle = Stage2EvidenceBundle(
             scene_id="test",
-            keyframes=[],
             object_context={},
         )
 

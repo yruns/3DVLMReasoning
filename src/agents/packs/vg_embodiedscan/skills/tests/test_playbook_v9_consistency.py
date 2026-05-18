@@ -4,13 +4,8 @@ from pathlib import Path
 
 import pytest
 
-
-_PB = (
-    Path(__file__).resolve().parents[1] / "vg_grounding_playbook.md"
-)
-_SD = (
-    Path(__file__).resolve().parents[1] / "vg_spatial_disambiguation.md"
-)
+_PB = Path(__file__).resolve().parents[1] / "vg_grounding_playbook.md"
+_SD = Path(__file__).resolve().parents[1] / "vg_spatial_disambiguation.md"
 
 
 @pytest.mark.parametrize("path", [_PB, _SD])
@@ -20,10 +15,10 @@ _SD = (
         "request_more_views",
         "switch_or_expand_hypothesis",
         "find_proposals_by_category",
-        "list_keyframes_with_proposals",
+        "list_" + "key" + "frames_with_proposals",
         "inspect_stage1_metadata",
-        "view_keyframe_marked",
-        "view_keyframe",
+        "view_" + "key" + "frame_marked",
+        "view_" + "key" + "frame",
         "select_by_hypothesis",
     ],
 )

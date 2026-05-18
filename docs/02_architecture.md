@@ -10,16 +10,16 @@ Component tree + data flow + design motivation. All file paths are relative to t
                    ▼
   ┌────────────────────────────────────────┐
   │ Stage 1: task-conditioned retrieval    │
-  │ src/query_scene/keyframe_selector.py   │
+  │ src/query_scene frame selector stack   │
   │                                        │
   │   query → HypothesisOutputV1           │
   │   hypothesis ranked execution          │
   │     DIRECT > PROXY > CONTEXT           │
   │   joint-coverage view selection        │
-  │   pad to min(k, 3) keyframes           │
+  │   return candidate frame ids           │
   └───────────────────┬────────────────────┘
                       │
-                      │ KeyframeResult
+                      │ Stage-1 result metadata
                       ▼
          ┌────────────────────────────┐
          │ Stage 1 → Stage 2 bridge   │
@@ -70,7 +70,7 @@ Only modules that carry architectural weight are listed. Peer-level `tests/`, `e
 |  | `src/benchmarks/embodiedscan_loader.py` | EmbodiedScan VG loader (commit `493931a`) |
 |  | `src/benchmarks/embodiedscan_eval.py` | Oriented 3D IoU evaluation (commit `e6a8412`) |
 |  | `src/benchmarks/sqa3d_loader.py`, `scanrefer_loader.py` | Loaders only; no Stage-2 glue exercised at HEAD |
-| **Stage 1 — retrieval** | `src/query_scene/keyframe_selector.py` | `KeyframeSelector` class + `select_keyframes_v2` public API |
+| **Stage 1 — retrieval** | `src/query_scene/` selector implementation | frame selector used behind `select_by_text` |
 |  | `src/query_scene/index_builder.py` | Hierarchical CLIP index (region / object / point) + FAISS/numpy back-ends |
 |  | `src/query_scene/query_parser.py`, `src/query_scene/parsing/` | LLM-based query → `HypothesisOutputV1` parsing |
 |  | `src/query_scene/core/hypotheses.py` | `HypothesisKind`, `ParseMode`, `QueryHypothesis`, `HypothesisOutputV1` dataclasses |
@@ -78,12 +78,12 @@ Only modules that carry architectural weight are listed. Peer-level `tests/`, `e
 |  | `src/query_scene/spatial_relations.py` | Geometric checks (above/below/between/near/…); used by PROXY hypotheses |
 |  | `src/query_scene/bev_builder.py` | BEV rendering for multimodal query parsing |
 |  | `schema/hypothesis_output_v1.json` | Pydantic JSON schema for the parser output |
-| **Stage 1 → Stage 2 bridge** | `src/agents/stage1_adapters.py` | `build_stage2_evidence_bundle()` — the canonical bridge |
+| **Stage 1 → Stage 2 bridge** | `src/agents/stage1_adapters.py` | `build_stage2_evidence_bundle()` — converts Stage-1 metadata without seeding images |
 |  | `src/agents/adapters.py` | Backward-compat shim (same exports) |
 |  | `src/agents/adapters/openeqa_adapter.py` | `BenchmarkAdapter` wrapper for OpenEQA (Phase 7, commit `60d6f51`) |
 |  | `src/agents/adapters_pkg/` | Benchmark-adapter scaffolding |
 |  | `src/agents/benchmark_adapters.py` | Multi-benchmark adapter with frame / mock modes |
-|  | `src/agents/stage1_callbacks.py` | External Stage-1 callbacks for `request_more_views` / `request_crops` / `switch_or_expand_hypothesis` tools |
+|  | `src/agents/stage1_callbacks.py` | Crop callback wrapper; broader Stage-1 exploration is exposed through selector tools |
 | **Stage 2 — agent runtime** | `src/agents/stage2_deep_agent.py` | Compatibility shim preserving the old public class `Stage2DeepResearchAgent` |
 |  | `src/agents/runtime/__init__.py` | Runtime package exports |
 |  | `src/agents/runtime/base.py` | `BaseStage2Runtime` + `Stage2RuntimeState` + `build_system_prompt` + uncertainty stopping |
@@ -110,22 +110,21 @@ Only modules that carry architectural weight are listed. Peer-level `tests/`, `e
 
 | Field | Source | Consumer | Purpose |
 |---|---|---|---|
-| `keyframes: list[KeyframeEvidence]` | `KeyframeResult.keyframe_paths` + `frame_mappings` | Stage 2 initial image payload | Minimum evidence set |
 | `bev_image_path: str \| None` | `bev/` output | Stage 2 optional multimodal input | Scene overview |
 | `scene_summary: str` | `"OpenEQA scene X with N detected objects."` default | Stage 2 system prompt | One-line context |
 | `object_context: dict[str, str]` | `enriched_objects.json` via `build_object_context` (adapters) | Stage 2 system prompt (v14) + `retrieve_object_context` tool | Per-object enrichment |
-| `hypothesis: Stage1HypothesisSummary` | `KeyframeResult.metadata.selected_hypothesis_*` | Stage 2 `inspect_stage1_metadata` tool | Typed retrieval mode signal |
-| `extra_metadata: dict` | Full Stage 1 dump | Stage 2 debugging + VG candidates | Escape hatch |
+| `hypothesis: Stage1HypothesisSummary` | Stage-1 metadata | Stage 2 prompt / debugging | Typed retrieval mode signal |
+| `extra_metadata: dict` | SceneCatalog, proposal pools, candidate-frame metadata | Stage 2 tools + debugging | Escape hatch; not an image injection path |
 
-The bundle is deep-copied before each Stage 2 run so callbacks can mutate it without affecting the source.
+The bundle is deep-copied before each Stage 2 run so tools can append active visual evidence metadata without affecting the source.
 
 ## 2.4 Design motivations (why these components exist)
 
 | Component | Why it exists |
 |---|---|
-| Ranked hypothesis tree (Stage 1) | Because CLIP alone mis-fires on compositional 3D queries; the DIRECT/PROXY/CONTEXT fallback was empirically necessary to get > 0 keyframes on queries whose literal anchor is absent. Added pre-v9, refined through v11's open-ended mode (`02ea2f3`) |
-| Joint coverage + padding | Because a single keyframe often omits either the target or the anchor; v11 padding (`keyframe_selector.py:1684`) addressed 18/36 v10 low-score cases caused by single-frame fragility |
-| `request_more_views` / `request_crops` / `switch_or_expand_hypothesis` | To make evidence acquisition a *policy*, not a pre-commit at Stage 1 time. v10 had zero callback calls; v11 enabled callbacks and recorded 61 invocations (`benchmark/openeqa/v11_callbacks_20260330.md`) |
+| Ranked hypothesis tree (Stage 1) | Because CLIP alone mis-fires on compositional 3D queries; the DIRECT/PROXY/CONTEXT fallback is now reached only when the agent calls `select_by_text`. |
+| Joint coverage + padding | Candidate-frame selection remains useful, but the frames are returned through selector tools rather than preloaded into Stage 2. |
+| Selector tools / `request_crops` / `mark_frame_with_bbox` | To make evidence acquisition a *policy*, not a pre-commit at Stage 1 time. |
 | Uncertainty-aware stopping | Because 42 % of v9 runs ended with `insufficient_evidence` but the model was being asked to answer anyway; downgrading to `insufficient_evidence` when confidence < threshold prevents hallucinated answers |
 | E2E nudge + guard | To handle two failure modes: (a) agent gives up prematurely (nudge), (b) agent reports completed with wrong confidence (guard triggers E2E rerun) |
 | Scene inventory injection (v14) | Because 51 % of v13 failures had the answer in `enriched_objects.json` but the agent never called `retrieve_object_context`. Pre-injecting dominates tool-gating at current VLM capability (Claim 2 in `00_research_manifest.md`) |

@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 from pathlib import Path
+from types import SimpleNamespace
 
 import numpy as np
 
 from agents import build_stage2_evidence_bundle
-from query_scene.keyframe_selector import KeyframeResult, SceneObject
+from query_scene import SceneObject
 
 
 def _make_pose(yaw_deg: float = 0.0) -> np.ndarray:
@@ -24,19 +25,15 @@ def _make_pose(yaw_deg: float = 0.0) -> np.ndarray:
     return pose
 
 
-def _make_keyframe_result(status: str = "direct_grounded") -> KeyframeResult:
-    return KeyframeResult(
+def _make_stage1_result(status: str = "direct_grounded") -> SimpleNamespace:
+    return SimpleNamespace(
         query="find the pillow",
         target_term="pillow",
         anchor_term="sofa",
         keyframe_indices=[0, 1],
         keyframe_paths=[Path("/tmp/frame0.jpg"), Path("/tmp/frame1.jpg")],
-        target_objects=[
-            SceneObject(obj_id=1, category="pillow", object_tag="pillow")
-        ],
-        anchor_objects=[
-            SceneObject(obj_id=2, category="sofa", object_tag="sofa")
-        ],
+        target_objects=[SceneObject(obj_id=1, category="pillow", object_tag="pillow")],
+        anchor_objects=[SceneObject(obj_id=2, category="sofa", object_tag="sofa")],
         metadata={
             "status": status,
             "selected_hypothesis_kind": "direct",
@@ -88,16 +85,17 @@ def test_temporal_note_generation_when_pose_aware() -> None:
     ]
 
     bundle = build_stage2_evidence_bundle(
-        _make_keyframe_result(),
+        _make_stage1_result(),
         scene_id="room0",
         selector=selector,
     )
 
-    assert bundle.keyframes[0].note == "order=1/2 dwell neighbors=[1, 2]"
-    assert "order=2/2" in bundle.keyframes[1].note
-    assert "traverse" in bundle.keyframes[1].note
-    assert "heading=+30°" in bundle.keyframes[1].note
-    assert "neighbors=[1, 3]" in bundle.keyframes[1].note
+    frames = bundle.extra_metadata["stage1_selected_frames"]
+    assert frames[0]["note"] == "order=1/2 dwell neighbors=[1, 2]"
+    assert "order=2/2" in frames[1]["note"]
+    assert "traverse" in frames[1]["note"]
+    assert "heading=+30°" in frames[1]["note"]
+    assert "neighbors=[1, 3]" in frames[1]["note"]
 
 
 def test_temporal_note_fallback_to_v14_when_pose_aware_off() -> None:
@@ -107,12 +105,13 @@ def test_temporal_note_fallback_to_v14_when_pose_aware_off() -> None:
     selector.camera_poses = [_make_pose() for _ in range(4)]
 
     bundle = build_stage2_evidence_bundle(
-        _make_keyframe_result(status="proxy_grounded"),
+        _make_stage1_result(status="proxy_grounded"),
         scene_id="room0",
         selector=selector,
     )
 
-    assert [keyframe.note for keyframe in bundle.keyframes] == [
+    frames = bundle.extra_metadata["stage1_selected_frames"]
+    assert [frame["note"] for frame in frames] == [
         "proxy_grounded",
         "proxy_grounded",
     ]

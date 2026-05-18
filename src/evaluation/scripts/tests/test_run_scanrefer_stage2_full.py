@@ -66,7 +66,6 @@ class TestMockStage2Factory:
     def _create_mock_task_and_bundle(self):
         """Helper to create mock task and bundle for testing."""
         from agents.models import (
-            KeyframeEvidence,
             Stage2EvidenceBundle,
             Stage2PlanMode,
             Stage2TaskSpec,
@@ -80,11 +79,6 @@ class TestMockStage2Factory:
             max_reasoning_turns=5,
         )
         bundle = Stage2EvidenceBundle(
-            keyframes=[
-                KeyframeEvidence(keyframe_idx=0, image_path="/mock/frame0.jpg"),
-                KeyframeEvidence(keyframe_idx=1, image_path="/mock/frame1.jpg"),
-                KeyframeEvidence(keyframe_idx=2, image_path="/mock/frame2.jpg"),
-            ],
             scene_id="scene0000_00",
             stage1_query="the chair next to the table",
         )

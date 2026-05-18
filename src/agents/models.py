@@ -5,7 +5,6 @@ New code should import directly from agents.core or agents.core.*.
 """
 
 from .core import (
-    KeyframeEvidence,
     Stage1HypothesisSummary,
     Stage2AgentResult,
     Stage2DeepAgentConfig,
@@ -26,7 +25,6 @@ __all__ = [
     "Stage2Status",
     "Stage2DeepAgentConfig",
     "Stage2TaskSpec",
-    "KeyframeEvidence",
     "Stage1HypothesisSummary",
     "Stage2EvidenceBundle",
     "Stage2EvidenceCitation",

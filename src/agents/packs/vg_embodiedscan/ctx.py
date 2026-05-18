@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+import json
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal
@@ -64,13 +65,8 @@ class VgEmbodiedScanCtx:
 
 
 def cumulative_seen_frame_ids(runtime: object) -> set[int]:
-    """Frames visible to the agent so far: bundle keyframes + marked views."""
+    """Frame ids visible to the agent through successful selector or mark calls."""
     frame_ids: set[int] = set()
-    bundle = getattr(runtime, "bundle", None)
-    for keyframe in getattr(bundle, "keyframes", []) or []:
-        frame_id = getattr(keyframe, "frame_id", None)
-        if frame_id is not None:
-            frame_ids.add(int(frame_id))
 
     for obs in getattr(runtime, "tool_trace", []) or []:
         if isinstance(obs, dict):
@@ -81,12 +77,23 @@ def cumulative_seen_frame_ids(runtime: object) -> set[int]:
             tool_name = getattr(obs, "tool_name", "")
             response_text = str(getattr(obs, "response_text", ""))
             tool_input = getattr(obs, "tool_input", {}) or {}
-        # v9.1: `mark_frame_with_bbox(frame_id=..., labels?|ids?)` is the
-        # single-frame annotation tool. Selectors return multiple frames
-        # whose ids only appear in response text and are accounted for via
-        # `runtime.seen_image_paths` elsewhere; here we only count frames
-        # the agent explicitly marked with an annotated zoom.
-        if tool_name == "mark_frame_with_bbox":
+        if tool_name in (
+            "select_by_text",
+            "select_by_proposal",
+            "select_by_region",
+            "select_by_frame_neighbor",
+            "select_by_coverage",
+        ):
+            if response_text.startswith("ERROR"):
+                continue
+            try:
+                payload = json.loads(response_text)
+            except json.JSONDecodeError:
+                continue
+            for frame in payload.get("frames", []) or []:
+                if isinstance(frame, dict) and frame.get("frame_id") is not None:
+                    frame_ids.add(int(frame["frame_id"]))
+        elif tool_name == "mark_frame_with_bbox":
             if response_text.startswith("ERROR"):
                 continue
             frame_id = tool_input.get("frame_id")

@@ -17,7 +17,6 @@ from pathlib import Path
 from typing import Any
 
 from ..core.task_types import (
-    KeyframeEvidence,
     Stage2EvidenceBundle,
     Stage2TaskSpec,
 )
@@ -246,7 +245,7 @@ class BenchmarkAdapter(ABC):
 
         Args:
             sample: The benchmark sample
-            frame_ids: Selected keyframe indices
+            frame_ids: Selected frame indices
             frame_provider: Provider for loading frames
 
         Returns:
@@ -304,7 +303,7 @@ def build_evidence_from_frames(
     in their build_evidence_bundle implementations.
 
     Args:
-        frame_paths: Paths to keyframe images
+        frame_paths: Paths to selected frame images
         frame_ids: Frame indices (defaults to 0..N-1 if not provided)
         scores: Relevance scores for each frame (defaults to 1.0)
         bev_path: Optional path to bird's eye view image
@@ -325,18 +324,19 @@ def build_evidence_from_frames(
     if scores is None:
         scores = [1.0] * len(frame_paths)
 
-    keyframes = [
-        KeyframeEvidence(
-            frame_id=fid,
-            image_path=str(fpath),
-            score=score,
-        )
+    selected_frames = [
+        {
+            "frame_id": fid,
+            "image_path": str(fpath),
+            "score": score,
+            "source_tool": "benchmark_adapter",
+        }
         for fid, fpath, score in zip(frame_ids, frame_paths, scores, strict=False)
     ]
 
     return Stage2EvidenceBundle(
-        keyframes=keyframes,
-        bev_path=str(bev_path) if bev_path else None,
+        bev_image_path=str(bev_path) if bev_path else None,
+        extra_metadata={"benchmark_frames": selected_frames},
     )
 
 

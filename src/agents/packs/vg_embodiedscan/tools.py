@@ -9,7 +9,6 @@ from typing import Any
 
 from langchain_core.tools import BaseTool, tool
 
-
 PRIMARY_SKILL = "vg-grounding-playbook"
 CLIP_VISIBLE_OVERFLOW_K = 3
 
@@ -50,7 +49,9 @@ def _marked_frame_geometry(ctx: Any, frame_id: int, visible: list[int]) -> str:
     return f"; left_to_right={left_to_right}; boxes_2d={boxes}"
 
 
-def _left_to_right_entries(ctx: Any, frame_id: int, visible: Sequence[int]) -> list[str]:
+def _left_to_right_entries(
+    ctx: Any, frame_id: int, visible: Sequence[int]
+) -> list[str]:
     proposal_by_id = {p.id: p for p in ctx.proposals}
     rows: list[tuple[float, int, str]] = []
     missing_geometry = False
@@ -271,25 +272,6 @@ def _render_filtered_marked_frame(
     return out_path
 
 
-def format_keyframe_proposal_inventory(ctx: Any, keyframes: Sequence[Any]) -> str:
-    """Text-only initial VG proposal inventory for clean keyframe images."""
-    lines = ["## Initial frame proposal inventory"]
-    for keyframe in keyframes:
-        frame_id = getattr(keyframe, "frame_id", None)
-        if frame_id is None:
-            lines.append(f"keyframe_idx={keyframe.keyframe_idx} frame_id=N/A")
-            continue
-        visible = ctx.frame_index.get(int(frame_id), [])
-        entries = _left_to_right_entries(ctx, int(frame_id), visible)
-        if entries:
-            lines.append(
-                f"frame_id={int(frame_id)} left_to_right: {', '.join(entries)}"
-            )
-        else:
-            lines.append(f"frame_id={int(frame_id)} left_to_right: none")
-    return "\n".join(lines)
-
-
 def _box_center_x(box: tuple[int, int, int, int]) -> float:
     x1, _, x2, _ = box
     return (float(x1) + float(x2)) / 2.0
@@ -408,11 +390,10 @@ def build_vg_tools(runtime: Any) -> list[BaseTool]:
         runtime.record("list_frame_proposals", request, text)
         return text
 
-    # v9.1: the legacy pack-local marked-keyframe tool was retired together
+    # v9.1: the legacy pack-local marked-frame tool was retired together
     # with the unified frame-injection tool; `agents.tools.mark_frame_with_bbox`
     # is the canonical high-contrast annotated-zoom tool, wired for both VG
     # and QA in DeepAgentsStage2Runtime.build_runtime_tools.
-
 
     @tool
     def inspect_proposal(proposal_id: int) -> str:

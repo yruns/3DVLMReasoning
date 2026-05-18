@@ -176,7 +176,14 @@ def _draw_label(
     cv2.rectangle(img, (x1, y1), (x2, y2), colour, -1)
     text_color = _label_text_color_for_bg(colour)
     cv2.putText(
-        img, text, anchor.origin, font, scale, text_color, thickness, cv2.LINE_AA,
+        img,
+        text,
+        anchor.origin,
+        font,
+        scale,
+        text_color,
+        thickness,
+        cv2.LINE_AA,
     )
 
 
@@ -237,7 +244,9 @@ def build_mark_frame_with_bbox_tool(runtime: Any) -> BaseTool:
             )
             runtime.record("mark_frame_with_bbox", request, err)
             return err
-        proposals_here = [p for p in catalog.proposals if int(frame_id) in p.frame_views]
+        proposals_here = [
+            p for p in catalog.proposals if int(frame_id) in p.frame_views
+        ]
         visible = _filter_visible(proposals_here, int(frame_id), labels_in, ids_in)
         if not visible:
             err = (
@@ -260,21 +269,36 @@ def build_mark_frame_with_bbox_tool(runtime: Any) -> BaseTool:
             view = prop.frame_views[int(frame_id)]
             _draw_palette_bbox(img, view.bbox_2d, colour)
             _draw_label(
-                img, f"#{prop.proposal_id} {prop.category}", view.bbox_2d,
+                img,
+                f"#{prop.proposal_id} {prop.category}",
+                view.bbox_2d,
                 colour=colour,
             )
         catalog_dir = Path(catalog.bev_image_path).parent
         cache_dir = catalog_dir / "filtered_marks"
         cache_dir.mkdir(parents=True, exist_ok=True)
-        ids_token = "_".join(str(p.proposal_id) for p in sorted(visible, key=lambda q: q.proposal_id))
+        ids_token = "_".join(
+            str(p.proposal_id) for p in sorted(visible, key=lambda q: q.proposal_id)
+        )
         out_path = cache_dir / f"frame_{int(frame_id)}_ids_{ids_token}.png"
         Image.fromarray(img).save(out_path, format="PNG")
-        queue_pending_image(runtime, str(out_path))
+        queue_pending_image(
+            runtime,
+            str(out_path),
+            metadata={
+                "frame_id": int(frame_id),
+                "source_tool": "mark_frame_with_bbox",
+                "selected_because": f"marked labels={labels_in} ids={ids_in}",
+            },
+        )
         left_to_right_pairs = sorted(
             visible,
             key=lambda p: (
-                (p.frame_views[int(frame_id)].bbox_2d[0]
-                 + p.frame_views[int(frame_id)].bbox_2d[2]) / 2.0,
+                (
+                    p.frame_views[int(frame_id)].bbox_2d[0]
+                    + p.frame_views[int(frame_id)].bbox_2d[2]
+                )
+                / 2.0,
                 p.proposal_id,
             ),
         )

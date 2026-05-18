@@ -2,7 +2,7 @@
 """End-to-end Stage 2 test with HTML trace visualization.
 
 This script demonstrates the full pipeline with visual debugging:
-1. Stage 1 keyframe retrieval
+1. Stage 1 text frame selector wiring
 2. Stage 2 agentic reasoning
 3. HTML trace report generation
 
@@ -30,12 +30,12 @@ from agents import (
     Stage1BackendCallbacks,
     Stage2DeepAgentConfig,
     Stage2DeepResearchAgent,
+    Stage2EvidenceBundle,
     Stage2TaskSpec,
     Stage2TaskType,
-    build_stage2_evidence_bundle,
     save_trace_report,
 )
-from query_scene.keyframe_selector import KeyframeSelector
+from query_scene import KeyframeSelector as TextFrameSelector
 
 
 def run_with_trace(
@@ -59,40 +59,34 @@ def run_with_trace(
     logger.info("Stage 2 E2E with Trace Visualization")
     logger.info("=" * 70)
 
-    # Stage 1: Keyframe retrieval
-    logger.info("[Stage 1] Loading KeyframeSelector...")
-    selector = KeyframeSelector.from_scene_path(
+    del stage1_query, k
+
+    # Stage 1: build the selector used by select_by_text.
+    logger.info("[Stage 1] Loading text frame selector...")
+    selector = TextFrameSelector.from_scene_path(
         str(scene_path),
         llm_model="gpt-5.2-2025-12-11",
         use_pool=False,
     )
     logger.info(f"  Loaded {len(selector.objects)} objects")
 
-    logger.info("[Stage 1] Retrieving keyframes...")
-    keyframe_result = selector.select_keyframes_v2(stage1_query, k=k)
-    logger.info(f"  Found {len(keyframe_result.keyframe_paths)} keyframes")
-    logger.info(f"  Status: {keyframe_result.metadata.get('status')}")
-
-    # Build evidence bundle
-    bundle = build_stage2_evidence_bundle(
-        keyframe_result,
+    # Build evidence bundle without first-person seed frames.
+    bundle = Stage2EvidenceBundle(
         scene_id=scene_path.name,
         scene_summary=f"Replica scene {scene_path.name} with {len(selector.objects)} detected objects.",
     )
 
-    # Stage 2: Create agent with real callbacks
-    logger.info("[Stage 2] Creating agent with callbacks...")
+    # Stage 2: Create agent with selector tools and crop callback.
+    logger.info("[Stage 2] Creating agent...")
     callbacks = Stage1BackendCallbacks(
-        keyframe_selector=selector,
+        text_frame_selector=selector,
         scene_id=scene_path.name,
-        max_additional_views=3,
     )
 
     agent = Stage2DeepResearchAgent(
         config=Stage2DeepAgentConfig(include_thoughts=False),
-        more_views_callback=callbacks.more_views,
         crop_callback=callbacks.crops,
-        hypothesis_callback=callbacks.hypothesis,
+        text_frame_selector=selector,
     )
 
     # Create task
@@ -110,7 +104,6 @@ def run_with_trace(
     logger.info(f"  Confidence: {result.result.confidence:.2f}")
     logger.info(f"  Summary: {result.result.summary[:100]}...")
     logger.info(f"  Tool calls: {len(result.tool_trace)}")
-    logger.info(f"  Final keyframes: {len(result.final_bundle.keyframes)}")
 
     # Generate trace report
     timestamp = int(__import__("time").time())

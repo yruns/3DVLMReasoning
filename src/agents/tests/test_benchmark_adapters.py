@@ -143,8 +143,9 @@ class TestBuildEvidenceBundleFromFrames:
         assert isinstance(bundle, Stage2EvidenceBundle)
         assert bundle.scene_id == "scene001"
         assert bundle.stage1_query == "What is on the table?"
-        assert len(bundle.keyframes) == 2
-        assert bundle.keyframes[0].image_path == "/frames/f1.png"
+        frames = bundle.extra_metadata["benchmark_frames"]
+        assert len(frames) == 2
+        assert frames[0]["image_path"] == "/frames/f1.png"
         assert bundle.hypothesis.status == "benchmark_direct"
 
     def test_empty_frames(self):
@@ -159,7 +160,7 @@ class TestBuildEvidenceBundleFromFrames:
 
         bundle = build_evidence_bundle_from_frames(sample_info, [])
 
-        assert len(bundle.keyframes) == 0
+        assert bundle.extra_metadata["benchmark_frames"] == []
         assert bundle.hypothesis is not None
 
     def test_sqa3d_scene_summary_from_situation(self):

@@ -39,28 +39,6 @@ def test_safe_sample_id():
     assert safe_sample_id("scannet/scene_a::5::3") == "scannet__scene_a__5__3"
 
 
-def test_clean_keyframe_image_path_rewrites_annotated_scanrefer(tmp_path):
-    from evaluation.scripts.run_scanrefer_vg_side_by_side import (
-        clean_keyframe_image_path,
-    )
-
-    scene_id = "scene0001_00"
-    raw = tmp_path / scene_id / "raw"
-    raw.mkdir(parents=True)
-    (raw / "000040-rgb.png").write_bytes(b"\x89PNG")
-    (raw / "scene_info.json").write_text(
-        json.dumps({"kept_frame_ids": [0, 10, 20, 30, 40]}),
-        encoding="utf-8",
-    )
-
-    assert clean_keyframe_image_path(
-        raw_frames_root=tmp_path,
-        scene_id=scene_id,
-        image_path=str(tmp_path / scene_id / "pack" / "annotated" / "frame_4.png"),
-        frame_id=4,
-    ) == str(raw / "000040-rgb.png")
-
-
 def test_compare_backends_persists_failed_sentinel_on_sample_exception(
     tmp_path, monkeypatch
 ):
@@ -281,11 +259,11 @@ def test_main_wires_checkpoint_only_batch_flags(tmp_path, monkeypatch) -> None:
     assert captured["max_new_samples"] == 7
 
 
-def test_callback_keyframe_selector_uses_scanrefer_visibility_stride(
+def test_callback_text_frame_selector_uses_scanrefer_visibility_stride(
     tmp_path,
     monkeypatch,
 ):
-    import query_scene.keyframe_selector as keyframe_selector_mod
+    import query_scene
     from evaluation.scripts import run_scanrefer_vg_side_by_side as mod
 
     mod._SELECTOR_CACHE.clear()
@@ -296,7 +274,7 @@ def test_callback_keyframe_selector_uses_scanrefer_visibility_stride(
     captured = {}
     fake_selector = object()
 
-    class _FakeKeyframeSelector:
+    class _FakeTextFrameSelector:
         @staticmethod
         def from_scene_path(path, *, stride, llm_model):
             captured["path"] = path
@@ -305,12 +283,12 @@ def test_callback_keyframe_selector_uses_scanrefer_visibility_stride(
             return fake_selector
 
     monkeypatch.setattr(
-        keyframe_selector_mod,
+        query_scene,
         "KeyframeSelector",
-        _FakeKeyframeSelector,
+        _FakeTextFrameSelector,
     )
 
-    selector = mod._get_or_build_keyframe_selector(
+    selector = mod._get_or_build_text_frame_selector(
         "scene_a",
         tmp_path,
         llm_model="test-model",
@@ -322,11 +300,11 @@ def test_callback_keyframe_selector_uses_scanrefer_visibility_stride(
     assert captured["llm_model"] == "test-model"
 
 
-def test_callback_keyframe_selector_cache_evicts_least_recent_scene(
+def test_callback_text_frame_selector_cache_evicts_least_recent_scene(
     tmp_path,
     monkeypatch,
 ):
-    import query_scene.keyframe_selector as keyframe_selector_mod
+    import query_scene
     from evaluation.scripts import run_scanrefer_vg_side_by_side as mod
 
     mod._SELECTOR_CACHE.clear()
@@ -337,21 +315,21 @@ def test_callback_keyframe_selector_cache_evicts_least_recent_scene(
         cg_root.mkdir(parents=True)
         (cg_root / "enriched_objects.json").write_text("{}", encoding="utf-8")
 
-    class _FakeKeyframeSelector:
+    class _FakeTextFrameSelector:
         @staticmethod
         def from_scene_path(path, *, stride, llm_model):
             return {"path": path, "stride": stride, "llm_model": llm_model}
 
     monkeypatch.setattr(
-        keyframe_selector_mod,
+        query_scene,
         "KeyframeSelector",
-        _FakeKeyframeSelector,
+        _FakeTextFrameSelector,
     )
 
-    mod._get_or_build_keyframe_selector("scene_a", tmp_path)
-    mod._get_or_build_keyframe_selector("scene_b", tmp_path)
-    mod._get_or_build_keyframe_selector("scene_a", tmp_path)
-    mod._get_or_build_keyframe_selector("scene_c", tmp_path)
+    mod._get_or_build_text_frame_selector("scene_a", tmp_path)
+    mod._get_or_build_text_frame_selector("scene_b", tmp_path)
+    mod._get_or_build_text_frame_selector("scene_a", tmp_path)
+    mod._get_or_build_text_frame_selector("scene_c", tmp_path)
 
     assert list(mod._SELECTOR_CACHE) == ["scene_a", "scene_c"]
     assert "scene_b" not in mod._SELECTOR_CACHE
@@ -445,7 +423,7 @@ def test_scanrefer_pack_wires_crop_callback(monkeypatch):
 
     monkeypatch.setattr(mod, "Stage2DeepResearchAgent", FakeAgent)
     monkeypatch.setattr(
-        mod, "_get_or_build_keyframe_selector", lambda *a, **kw: selector
+        mod, "_get_or_build_text_frame_selector", lambda *a, **kw: selector
     )
     monkeypatch.setattr(
         mod,
@@ -462,6 +440,7 @@ def test_scanrefer_pack_wires_crop_callback(monkeypatch):
 
     assert result == "ok"
     assert captured["agent_kwargs"]["crop_callback"] == "crop"
+    assert captured["agent_kwargs"]["text_frame_selector"] is selector
     assert "more_views_callback" not in captured["agent_kwargs"]
     assert "hypothesis_callback" not in captured["agent_kwargs"]
 

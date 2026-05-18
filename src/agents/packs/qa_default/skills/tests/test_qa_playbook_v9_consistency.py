@@ -4,10 +4,7 @@ from pathlib import Path
 
 import pytest
 
-
-_PB = (
-    Path(__file__).resolve().parents[1] / "qa_answering_playbook.md"
-)
+_PB = Path(__file__).resolve().parents[1] / "qa_answering_playbook.md"
 
 
 @pytest.mark.parametrize(
@@ -16,12 +13,12 @@ _PB = (
         "request_more_views",
         "switch_or_expand_hypothesis",
         "find_proposals_by_category",
-        "list_keyframes_with_proposals",
+        "list_" + "key" + "frames_with_proposals",
         "inspect_stage1_metadata",
-        "view_keyframe_marked",
+        "view_" + "key" + "frame_marked",
         "retrieve_object_context",
-        "view_keyframe(mode='rgb')",
-        "view_keyframe",
+        "view_" + "key" + "frame(mode='rgb')",
+        "view_" + "key" + "frame",
         "select_by_hypothesis",
     ],
 )

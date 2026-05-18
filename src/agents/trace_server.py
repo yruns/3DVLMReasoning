@@ -41,6 +41,31 @@ from .models import (
     Stage2TaskSpec,
 )
 
+
+def _collect_visual_paths(bundle: Stage2EvidenceBundle) -> list[str]:
+    """Collect images explicitly visible or queued by active tools."""
+    paths: list[str] = []
+    if bundle.bev_image_path:
+        paths.append(bundle.bev_image_path)
+
+    extra = bundle.extra_metadata or {}
+    for path in extra.get("vg_pending_images") or []:
+        if path:
+            paths.append(str(path))
+    for row in extra.get("vg_pending_image_metadata") or []:
+        if isinstance(row, dict) and row.get("image_path"):
+            paths.append(str(row["image_path"]))
+
+    seen: set[str] = set()
+    unique: list[str] = []
+    for path in paths:
+        if path in seen:
+            continue
+        seen.add(path)
+        unique.append(path)
+    return unique
+
+
 # ============================================================================
 # Data Models
 # ============================================================================
@@ -61,8 +86,8 @@ class TraceRecord:
 
     # Bundle info
     scene_id: str = ""
-    initial_keyframe_count: int = 0
-    final_keyframe_count: int = 0
+    initial_visual_count: int = 0
+    final_visual_count: int = 0
 
     # Result info
     status: str = ""
@@ -80,7 +105,7 @@ class TraceRecord:
     tool_trace_json: str = "[]"
     initial_bundle_json: str = "{}"
     final_bundle_json: str = "{}"
-    keyframe_paths_json: str = "[]"  # For image serving
+    visual_paths_json: str = "[]"  # For image serving
     metadata_json: str = "{}"
 
     @property
@@ -88,8 +113,8 @@ class TraceRecord:
         return json.loads(self.tool_trace_json)
 
     @property
-    def keyframe_paths(self) -> list[str]:
-        return json.loads(self.keyframe_paths_json)
+    def visual_paths(self) -> list[str]:
+        return json.loads(self.visual_paths_json)
 
 
 @dataclass
@@ -129,8 +154,8 @@ class TraceDB:
         user_query TEXT,
         plan_mode TEXT,
         scene_id TEXT,
-        initial_keyframe_count INTEGER DEFAULT 0,
-        final_keyframe_count INTEGER DEFAULT 0,
+        initial_visual_count INTEGER DEFAULT 0,
+        final_visual_count INTEGER DEFAULT 0,
         status TEXT,
         confidence REAL DEFAULT 0.0,
         summary TEXT,
@@ -142,7 +167,7 @@ class TraceDB:
         tool_trace_json TEXT DEFAULT '[]',
         initial_bundle_json TEXT DEFAULT '{}',
         final_bundle_json TEXT DEFAULT '{}',
-        keyframe_paths_json TEXT DEFAULT '[]',
+        visual_paths_json TEXT DEFAULT '[]',
         metadata_json TEXT DEFAULT '{}'
     );
 
@@ -204,11 +229,11 @@ class TraceDB:
                 INSERT INTO traces (
                     trace_id, created_at, finished_at,
                     task_type, user_query, plan_mode,
-                    scene_id, initial_keyframe_count, final_keyframe_count,
+                    scene_id, initial_visual_count, final_visual_count,
                     status, confidence, summary,
                     num_turns, num_tool_calls, input_tokens, output_tokens, duration_ms,
                     tool_trace_json, initial_bundle_json, final_bundle_json,
-                    keyframe_paths_json, metadata_json
+                    visual_paths_json, metadata_json
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
@@ -219,8 +244,8 @@ class TraceDB:
                     trace.user_query,
                     trace.plan_mode,
                     trace.scene_id,
-                    trace.initial_keyframe_count,
-                    trace.final_keyframe_count,
+                    trace.initial_visual_count,
+                    trace.final_visual_count,
                     trace.status,
                     trace.confidence,
                     trace.summary,
@@ -232,7 +257,7 @@ class TraceDB:
                     trace.tool_trace_json,
                     trace.initial_bundle_json,
                     trace.final_bundle_json,
-                    trace.keyframe_paths_json,
+                    trace.visual_paths_json,
                     trace.metadata_json,
                 ),
             )
@@ -380,10 +405,8 @@ class TracingAgent:
         trace_id = f"trace_{uuid.uuid4().hex[:12]}"
         start_time = time.time()
 
-        # Collect keyframe paths for image serving
-        keyframe_paths = [kf.image_path for kf in bundle.keyframes]
-        if bundle.bev_image_path:
-            keyframe_paths.append(bundle.bev_image_path)
+        # Collect visual paths for image serving.
+        visual_paths = _collect_visual_paths(bundle)
 
         # Create initial trace record
         trace = TraceRecord(
@@ -393,9 +416,9 @@ class TracingAgent:
             user_query=task.user_query,
             plan_mode=task.plan_mode.value,
             scene_id=bundle.scene_id,
-            initial_keyframe_count=len(bundle.keyframes),
+            initial_visual_count=len(visual_paths),
             initial_bundle_json=bundle.model_dump_json(),
-            keyframe_paths_json=json.dumps(keyframe_paths),
+            visual_paths_json=json.dumps(visual_paths),
             metadata_json=json.dumps(metadata or {}),
         )
         self.db.insert_trace(trace)
@@ -409,15 +432,13 @@ class TracingAgent:
             # Update trace with results
             end_time = time.time()
 
-            # Collect all keyframe paths from final bundle
-            final_paths = [kf.image_path for kf in result.final_bundle.keyframes]
-            if result.final_bundle.bev_image_path:
-                final_paths.append(result.final_bundle.bev_image_path)
+            # Collect all visual paths from final bundle.
+            final_paths = _collect_visual_paths(result.final_bundle)
 
             self.db.update_trace(
                 trace_id,
                 finished_at=end_time,
-                final_keyframe_count=len(result.final_bundle.keyframes),
+                final_visual_count=len(final_paths),
                 status=result.result.status.value,
                 confidence=result.result.confidence,
                 summary=result.result.summary,
@@ -425,7 +446,7 @@ class TracingAgent:
                 duration_ms=(end_time - start_time) * 1000,
                 tool_trace_json=json.dumps([t.model_dump() for t in result.tool_trace]),
                 final_bundle_json=result.final_bundle.model_dump_json(),
-                keyframe_paths_json=json.dumps(list(set(keyframe_paths + final_paths))),
+                visual_paths_json=json.dumps(list(set(visual_paths + final_paths))),
             )
 
             logger.info(
@@ -586,10 +607,10 @@ class TraceServerHandler(BaseHTTPRequestHandler):
 
         turns = self.db.get_turns(trace_id)
 
-        # Generate thumbnails for keyframe paths
-        keyframe_paths = trace.keyframe_paths
+        # Generate thumbnails for visual paths.
+        visual_paths = trace.visual_paths
         thumbnails = []
-        for i, path in enumerate(keyframe_paths):
+        for i, path in enumerate(visual_paths):
             thumb = _generate_thumbnail(path)
             thumbnails.append(
                 {
@@ -610,8 +631,8 @@ class TraceServerHandler(BaseHTTPRequestHandler):
                     "user_query": trace.user_query,
                     "plan_mode": trace.plan_mode,
                     "scene_id": trace.scene_id,
-                    "initial_keyframe_count": trace.initial_keyframe_count,
-                    "final_keyframe_count": trace.final_keyframe_count,
+                    "initial_visual_count": trace.initial_visual_count,
+                    "final_visual_count": trace.final_visual_count,
                     "status": trace.status,
                     "confidence": trace.confidence,
                     "summary": trace.summary,
@@ -636,18 +657,18 @@ class TraceServerHandler(BaseHTTPRequestHandler):
                     }
                     for t in turns
                 ],
-                "keyframes": thumbnails,
+                "visuals": thumbnails,
             }
         )
 
     def _api_get_image(self, trace_id: str, image_idx: int) -> None:
-        """API: Serve a keyframe image."""
+        """API: Serve a trace image."""
         trace = self.db.get_trace(trace_id)
         if trace is None:
             self._send_json({"error": "Trace not found"}, 404)
             return
 
-        paths = trace.keyframe_paths
+        paths = trace.visual_paths
         if image_idx < 0 or image_idx >= len(paths):
             self._send_json({"error": "Image index out of range"}, 404)
             return
@@ -759,20 +780,20 @@ class TraceServerHandler(BaseHTTPRequestHandler):
     def _build_trace_html(self, trace: TraceRecord) -> str:
         """Build trace detail HTML."""
         self.db.get_turns(trace.trace_id)
-        keyframe_paths = trace.keyframe_paths
+        visual_paths = trace.visual_paths
 
-        # Keyframe thumbnails
-        keyframes_html = ""
-        for i, path in enumerate(keyframe_paths):
+        # Visual thumbnails
+        visuals_html = ""
+        for i, path in enumerate(visual_paths):
             thumb = _generate_thumbnail(path, 150)
             if thumb:
-                keyframes_html += f"""
+                visuals_html += f"""
                 <div class="image-thumb" onclick="showImage('/api/image/{trace.trace_id}/{i}')">
-                    <img src="data:image/jpeg;base64,{thumb}" alt="keyframe {i}">
+                    <img src="data:image/jpeg;base64,{thumb}" alt="visual {i}">
                     <div class="image-label">#{i}</div>
                 </div>"""
             else:
-                keyframes_html += f"""
+                visuals_html += f"""
                 <div class="image-thumb">
                     <div class="placeholder">#{i}</div>
                 </div>"""
@@ -833,8 +854,8 @@ class TraceServerHandler(BaseHTTPRequestHandler):
         <h2>Summary</h2>
         <div class="summary-box">{trace.summary}</div>
 
-        <h2>Keyframes ({len(keyframe_paths)})</h2>
-        <div class="image-grid">{keyframes_html}</div>
+        <h2>Visual Evidence ({len(visual_paths)})</h2>
+        <div class="image-grid">{visuals_html}</div>
 
         <h2>Tool Calls ({trace.num_tool_calls})</h2>
         {tools_html if tools_html else '<p>No tool calls</p>'}

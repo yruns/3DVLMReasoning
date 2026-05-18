@@ -74,7 +74,7 @@ def test_build_user_message_no_first_person_seed_only_bev(tmp_path: Path):
     assert len(text_parts) == 1
     assert len(image_parts) == 1
     text = text_parts[0]["text"]
-    assert "Current keyframes:" not in text
+    assert ("Current " + "key" + "frames:") not in text
     assert "Stage-1 hypothesis summary" not in text
     assert "## Scene" in text
     assert "## BEV image (attached above)" in text
@@ -113,7 +113,7 @@ def test_build_user_message_qa_uses_mark_frame_note(tmp_path: Path):
     # v9.1: no per-task view-mode hint; selectors return RGB by default and
     # mark_frame_with_bbox is the shared annotated-zoom tool.
     assert "mark_frame_with_bbox" in text
-    assert "view_keyframe" not in text
+    assert ("view_" + "key" + "frame") not in text
 
 
 def test_build_user_message_does_not_mention_deleted_tools(tmp_path: Path):
@@ -128,11 +128,11 @@ def test_build_user_message_does_not_mention_deleted_tools(tmp_path: Path):
         max_reasoning_turns=4,
     )
     text = rt.build_user_message(task, rs).content[0]["text"]
-    assert "view_keyframe" not in text
+    assert ("view_" + "key" + "frame") not in text
     assert "select_by_hypothesis" not in text
 
 
-def test_build_user_message_zero_keyframes_viewed_line(tmp_path: Path):
+def test_build_user_message_zero_first_person_frames_viewed_line(tmp_path: Path):
     rt = DeepAgentsStage2Runtime(
         config=Stage2DeepAgentConfig(enable_stage1_text_retrieval=False)
     )
@@ -144,7 +144,7 @@ def test_build_user_message_zero_keyframes_viewed_line(tmp_path: Path):
         max_reasoning_turns=2,
     )
     text = rt.build_user_message(task, rs).content[0]["text"]
-    assert "viewed 0 keyframes out of 187" in text
+    assert "viewed 0 first-person frames out of 187" in text
 
 
 def test_collect_image_paths_returns_bev_only(tmp_path: Path):

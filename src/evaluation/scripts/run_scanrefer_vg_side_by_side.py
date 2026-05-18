@@ -26,7 +26,7 @@ BackendName = Literal["pack_v1"]
 Stage2DeepResearchAgent: Any | None = None
 build_pack_v1_bundle: Any | None = None
 
-# Per-scene KeyframeSelector cache for the Stage 2 → Stage 1 callback loop.
+# Per-scene text frame selector cache for the Stage 2 selector tools.
 # Each scene's selector loads pcd + enriched_objects + visibility (~1-3s) and
 # is reused across all workers/samples in the same scene.
 _MAX_SELECTOR_CACHE_SIZE = 4
@@ -34,13 +34,13 @@ _SELECTOR_CACHE: OrderedDict[str, Any] = OrderedDict()
 _SELECTOR_CACHE_LOCK = threading.Lock()
 _SELECTOR_BUILD_LOCKS: dict[str, threading.Lock] = {}
 _MAX_CONCEPTGRAPH_OBJECT_CACHE_SIZE = 4
-_CONCEPTGRAPH_OBJECT_CACHE: OrderedDict[
-    tuple[str, str], list[dict[str, Any]]
-] = OrderedDict()
+_CONCEPTGRAPH_OBJECT_CACHE: OrderedDict[tuple[str, str], list[dict[str, Any]]] = (
+    OrderedDict()
+)
 _CONCEPTGRAPH_OBJECT_CACHE_LOCK = threading.Lock()
 
 
-def _remember_keyframe_selector(scene_id: str, selector: Any | None) -> None:
+def _remember_text_frame_selector(scene_id: str, selector: Any | None) -> None:
     _SELECTOR_CACHE[scene_id] = selector
     _SELECTOR_CACHE.move_to_end(scene_id)
     while len(_SELECTOR_CACHE) > _MAX_SELECTOR_CACHE_SIZE:
@@ -57,12 +57,12 @@ def _remember_conceptgraph_objects(
         _CONCEPTGRAPH_OBJECT_CACHE.popitem(last=False)
 
 
-def _get_or_build_keyframe_selector(
+def _get_or_build_text_frame_selector(
     scene_id: str,
     phase8_data_root: Path,
     llm_model: str = "gemini-2.5-pro",
 ) -> Any | None:
-    """Return a cached KeyframeSelector for `scene_id`, or build one lazily.
+    """Return a cached text frame selector for `scene_id`, or build one lazily.
 
     Returns None when the scene has no enriched_objects.json (callback should
     be disabled for that scene; gt_target back-compat). Thread-safe via a
@@ -85,10 +85,10 @@ def _get_or_build_keyframe_selector(
         enriched = cg_root / "enriched_objects.json"
         if not enriched.exists():
             with _SELECTOR_CACHE_LOCK:
-                _remember_keyframe_selector(scene_id, None)
+                _remember_text_frame_selector(scene_id, None)
             return None
 
-        from query_scene.keyframe_selector import KeyframeSelector
+        from query_scene import KeyframeSelector
 
         # ScanRefer Phase-8 visibility indices are saved at stride=1. Using a
         # different stride makes callback view IDs fail path resolution.
@@ -98,7 +98,7 @@ def _get_or_build_keyframe_selector(
             llm_model=llm_model,
         )
         with _SELECTOR_CACHE_LOCK:
-            _remember_keyframe_selector(scene_id, selector)
+            _remember_text_frame_selector(scene_id, selector)
         return selector
 
 
@@ -342,25 +342,26 @@ def run_pack_v1_sample(
     # v9 catalog-first: Stage-1 more-views / hypothesis flows are exposed
     # directly as selector tools. `enable_stage1_callback` gates the crop
     # callback (object-centric red-bbox crops for `request_crops`).
-    # `select_by_text`'s keyframe_selector is gated independently by
+    # `select_by_text`'s text_frame_selector is gated independently by
     # `config.enable_stage1_text_retrieval`; previous versions conflated the
     # two and silently broke select_by_text when the crop callback was off.
     crop_callback = None
-    keyframe_selector = None
+    text_frame_selector = None
     # getattr fallback keeps tests that pass SimpleNamespace() as config working.
-    need_keyframe_selector = (
-        bool(getattr(config, "enable_stage1_text_retrieval", True))
-        or bool(enable_stage1_callback)
-    )
-    if need_keyframe_selector:
+    need_text_frame_selector = bool(
+        getattr(config, "enable_stage1_text_retrieval", True)
+    ) or bool(enable_stage1_callback)
+    if need_text_frame_selector:
         scene_id = str(sample["scene_id"])
-        keyframe_selector = _get_or_build_keyframe_selector(scene_id, phase8_data_root)
-    if enable_stage1_callback and keyframe_selector is not None:
+        text_frame_selector = _get_or_build_text_frame_selector(
+            scene_id, phase8_data_root
+        )
+    if enable_stage1_callback and text_frame_selector is not None:
         scene_id = str(sample["scene_id"])
         from agents.stage1_callbacks import create_crop_callback
 
         crop_callback = create_crop_callback(
-            keyframe_selector,
+            text_frame_selector,
             scene_id=scene_id,
             crop_scale=2.0,
         )
@@ -368,7 +369,7 @@ def run_pack_v1_sample(
     agent = agent_cls(
         config=config,
         crop_callback=crop_callback,
-        keyframe_selector=keyframe_selector,
+        text_frame_selector=text_frame_selector,
     )
     return agent.run(task=task, bundle=bundle)
 
@@ -542,21 +543,6 @@ def build_pack_v1_bundle_from_sample(
         int(k): [int(x) for x in v]
         for k, v in json.loads(visibility_json.read_text(encoding="utf-8")).items()
     }
-    keyframes = [
-        (
-            int(kf["keyframe_idx"]),
-            clean_keyframe_image_path(
-                raw_frames_root=phase8_data_root,
-                scene_id=scene_id,
-                image_path=str(kf["image_path"]),
-                frame_id=int(kf["frame_id"]),
-            ),
-            int(kf["frame_id"]),
-        )
-        for kf in sample.get("keyframes", [])
-    ]
-    if not keyframes:
-        raise ValueError(f"Sample {sample.get('sample_id')} has no keyframes")
     bundle_builder = build_pack_v1_bundle
     if bundle_builder is None:
         from agents.examples.embodiedscan_vg_pack_v1_pilot import (
@@ -568,7 +554,6 @@ def build_pack_v1_bundle_from_sample(
         source=source,
         annotated_image_dir=scene_dir / "annotated",
         frame_visibility=frame_visibility,
-        keyframes=keyframes,
         scene_id=scene_id,
         query=sample.get("query"),
     )
@@ -580,23 +565,6 @@ def build_pack_v1_bundle_from_sample(
             phase8_data_root=phase8_data_root,
         )
     return bundle
-
-
-def clean_keyframe_image_path(
-    *,
-    raw_frames_root: Path,
-    scene_id: str,
-    image_path: str,
-    frame_id: int,
-) -> str:
-    path = Path(image_path)
-    if path.parent.name != "annotated":
-        return str(path)
-    from evaluation.scripts.prepare_pack_v1_inputs_scanrefer import (
-        _resolve_raw_rgb_path,
-    )
-
-    return str(_resolve_raw_rgb_path(Path(raw_frames_root) / scene_id, int(frame_id)))
 
 
 def resolve_scene_artifacts_dir(

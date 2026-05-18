@@ -4,9 +4,9 @@ Deep dive into `src/agents/runtime/` and `src/agents/tools/`. Line numbers again
 
 ## 4.1 Public contract
 
-**Entry**: `Stage2DeepResearchAgent(config, more_views_callback, crop_callback, hypothesis_callback).run(task, bundle)` (compatibility shim at `src/agents/stage2_deep_agent.py:31-148`).
+**Entry**: `Stage2DeepResearchAgent(config, crop_callback, text_frame_selector).run(task, bundle)` (compatibility shim at `src/agents/stage2_deep_agent.py`).
 **Actual runtime**: `DeepAgentsStage2Runtime` at `src/agents/runtime/deepagents_agent.py:33-692`.
-**Input**: `Stage2TaskSpec` (task type, user query, plan mode, max reasoning turns, optional output schema) + `Stage2EvidenceBundle` (keyframes + context + hypothesis prior; see `02_architecture.md §2.3`).
+**Input**: `Stage2TaskSpec` (task type, user query, plan mode, max reasoning turns, optional output schema) + `Stage2EvidenceBundle` (BEV, scene context, hypothesis prior, and metadata; see `02_architecture.md §2.3`). It does not carry first-person seed frames.
 **Output**: `Stage2AgentResult(task, result: Stage2StructuredResponse, tool_trace, final_bundle)`.
 
 ## 4.2 Runtime lifecycle
@@ -39,24 +39,21 @@ Stage2DeepResearchAgent.run(task, bundle)
 
 Three exit conditions, in priority order:
 1. **Structured completion** — agent emits `COMPLETED` or `FAILED`.
-2. **Evidence injection** — a callback mutated `runtime.bundle`; new images added via `build_evidence_update_message`; loop continues.
+2. **Evidence injection** — a selector / crop / mark tool queued new images in `vg_pending_images`; `build_evidence_update_message` injects only those tool-acquired images, then the loop continues.
 3. **Nudge** — agent reported `INSUFFICIENT_EVIDENCE` or `NEEDS_MORE_EVIDENCE` and turns remain; a follow-up message urges tool use (`_build_evidence_nudge`, line 355; injected at line 644).
 
 Post-loop, `apply_uncertainty_stopping` (`runtime/base.py:415-490`) may downgrade a `COMPLETED` response with sub-threshold confidence to `INSUFFICIENT_EVIDENCE` when the loop cannot acquire more evidence.
 
-## 4.3 Tool inventory (5 core + 2 VG)
+## 4.3 Tool Inventory
 
 All tools are registered in `build_runtime_tools` (`deepagents_agent.py:84-249`). VG tools are gated on `runtime.task_type == Stage2TaskType.VISUAL_GROUNDING and runtime.vg_scene_objects is not None` (lines 204-208). Every call is logged via `runtime.record()` (`runtime/base.py:51-64`), which appends to `runtime.tool_trace` — the data source for the "tool under-use" diagnostic in `00_research_manifest.md` Claim 4.
 
-| # | Tool | Decorator site | Callback / handler | Side-effect on bundle |
-|---|---|---|---|---|
-| 1 | `inspect_stage1_metadata()` | `deepagents_agent.py:94-108` | in-process, reads `runtime.bundle.hypothesis` + `.extra_metadata` | none (read-only) |
-| 2 | `retrieve_object_context(object_terms)` | `deepagents_agent.py:110-116` | in-process `BaseStage2Runtime.select_object_context` (`runtime/base.py:222-245`) | none (read-only) |
-| 3 | `request_more_views(request_text, frame_indices, object_terms)` | `deepagents_agent.py:118-142` | external `Stage1BackendCallbacks.more_views` → `create_more_views_callback` at `src/agents/stage1_callbacks.py:30`; re-queries the live `KeyframeSelector` in `targeted` or `explore` mode | appends new `KeyframeEvidence`; marks `mark_evidence_updated()` |
-| 4 | `request_crops(request_text, frame_indices, object_terms)` | `deepagents_agent.py:144-168` | external `Stage1BackendCallbacks.crops` → `create_crop_callback` at `src/agents/stage1_callbacks.py:227`; generates red-bbox PIL crops from `SceneObject.xyxy` per-frame detections | appends new cropped `KeyframeEvidence`; marks `mark_evidence_updated()` |
-| 5 | `switch_or_expand_hypothesis(request_text, preferred_kind)` | `deepagents_agent.py:170-194` | external `Stage1BackendCallbacks.hypothesis` → `create_hypothesis_callback` at `src/agents/stage1_callbacks.py:496`; re-runs Stage 1 with an LLM-rewritten query and/or preferred hypothesis kind | may replace bundle entirely; marks `mark_evidence_updated()` |
-| 6 (VG) | `select_object(object_id, rationale)` | `deepagents_agent.py:212-224` → `handle_select_object` in `src/agents/tools/select_object.py` | computes precise 9-DOF 3D bbox from `pcd_np` + `axis_align_matrix`; fills `runtime.vg_selected_bbox_3d` | sets VG state on `runtime` |
-| 7 (VG) | `spatial_compare(target_category, relation, anchor_category)` | `deepagents_agent.py:226-247` → `handle_spatial_compare` in `src/agents/tools/spatial_compare.py` | ranks target-category objects by 3D distance to anchor-category centroid; `closest_to` / `farthest_from` | none (read-only) |
+| Tool group | Tools | Side-effect |
+|---|---|---|
+| Scene/catalog reads | `view_bev`, `list_scene_proposals`, `list_frame_proposals`, `inspect_proposal`, `retrieve_object_context` | read-only except `view_bev` image display |
+| Active frame selection | `select_by_text`, `select_by_proposal`, `select_by_frame_neighbor`, `select_by_region`, `select_by_coverage` | queues selected first-person RGB paths into `vg_pending_images` |
+| Active image refinement | `mark_frame_with_bbox`, `request_crops` | queues annotated frames or crops into `vg_pending_images` |
+| Finalization / VG reasoning | `submit_final`, `compare_proposals_spatial` | records final payload or read-only ranking |
 
 Design principle: **every write-side tool marks `evidence_updated`, every read-side tool does not**. The loop depends on this distinction to decide whether to inject an evidence-update message.
 
@@ -84,7 +81,7 @@ Defaults (`src/agents/core/agent_config.py:58-69`):
 - `confidence_threshold = 0.4`
 - `enable_uncertainty_stopping = True`
 
-`can_acquire_more_evidence` is `True` iff any of the three external callbacks (`more_views_callback`, `crop_callback`, `hypothesis_callback`) is configured AND turns remain. When the OpenEQA pilot runs with `enable_callbacks=False` (the first Stage-2 invocation inside the pilot, line 500), the stopping logic effectively becomes "complete or give up" — evidence injection is only available in the E2E rerun.
+`can_acquire_more_evidence` is `True` when selector / crop / mark tools remain available and turns remain. Evidence injection is now tool-driven, not prep-driven.
 
 ## 4.6 E2E nudge loop
 
@@ -165,7 +162,7 @@ The plan mode feeds into `build_system_prompt` via the `plan_instructions` block
 
 ## 4.10 Tool trace → evidence items → predictions
 
-Every tool call appends to `runtime.tool_trace: list[Stage2ToolResult]`. `normalize_final_response` at `deepagents_agent.py:540-569` maps the agent's declared `evidence_items` back to observed keyframes and renormalises `cited_frame_indices`. The final `Stage2AgentResult.tool_trace` is what `openeqa_single_scene_pilot.serialize_stage2_result` persists into the per-sample `stage2.json` / `e2e.json`.
+Every tool call appends to `runtime.tool_trace: list[Stage2ToolResult]`. The final `Stage2AgentResult.tool_trace` is the durable record of which selector or image-refinement tools produced visual evidence.
 
 For a QA task, `payload["answer"]` is the final natural-language string consumed by `extract_prediction_text` in the pilot. For VG, the runtime exports `vg_selected_object_id`, `vg_selected_bbox_3d`, `vg_selection_rationale` to `raw_state` (lines 681-684) — not through `payload`.
 

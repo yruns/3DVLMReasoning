@@ -29,7 +29,7 @@ VG_PACK = TaskPack(
         ),
         SkillSpec(
             name="vg-grounding-playbook",
-            description="EmbodiedScan VG main loop: read marked keyframes, pick proposal, submit.",
+            description="EmbodiedScan VG main loop: read selected frames, pick proposal, submit.",
             body_path=_SKILLS_DIR / "vg_grounding_playbook.md",
             task_types={Stage2TaskType.VISUAL_GROUNDING},
         ),

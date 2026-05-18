@@ -16,7 +16,6 @@ from .response_schema import (
     Stage2ToolResult,
 )
 from .task_types import (
-    KeyframeEvidence,
     Stage1HypothesisSummary,
     Stage2AgentResult,
     Stage2EvidenceBundle,
@@ -48,7 +47,6 @@ __all__ = [
     "Stage2ToolResult",
     # Task types
     "Stage2TaskSpec",
-    "KeyframeEvidence",
     "Stage1HypothesisSummary",
     "Stage2EvidenceBundle",
     "Stage2AgentResult",

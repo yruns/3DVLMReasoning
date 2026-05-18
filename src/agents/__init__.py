@@ -30,7 +30,6 @@ from .benchmark_adapters import (
     extract_sample_info,
 )
 from .models import (
-    KeyframeEvidence,
     Stage1HypothesisSummary,
     Stage2AgentResult,
     Stage2DeepAgentConfig,
@@ -69,6 +68,7 @@ def __getattr__(name: str):
         return Stage2DeepResearchAgent
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
+
 __all__ = [
     # Benchmark adapters
     "BenchmarkSampleInfo",
@@ -90,7 +90,6 @@ __all__ = [
     # Stage 2 agent
     "ExecutionTrace",
     "HTMLTraceRenderer",
-    "KeyframeEvidence",
     "Stage1HypothesisSummary",
     "Stage2AgentResult",
     "Stage2DeepAgentConfig",

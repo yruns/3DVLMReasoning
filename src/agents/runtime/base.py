@@ -10,12 +10,9 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from io import BytesIO
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from loguru import logger
-
-if TYPE_CHECKING:
-    from query_scene.keyframe_selector import KeyframeSelector
 
 from ..models import (
     Stage2AgentResult,
@@ -44,20 +41,11 @@ class Stage2RuntimeState:
         default_factory=set
     )  # Track already-injected images
 
-    # v9 catalog-first invariant: the LLM must never auto-receive
-    # pack-prep "seed" keyframes (Stage-1 GT-target-visible RGBs). The
-    # initial set is snapshotted by the runtime when it constructs this
-    # state, and `build_evidence_update_message` skips any keyframe whose
-    # image_path is in this set. Tools that append new keyframes (e.g.
-    # request_crops) bypass this filter because their crops are not in
-    # the snapshot.
-    initial_keyframe_paths: set[str] = field(default_factory=set)
-
-    # v9.1: pre-built Stage-1 KeyframeSelector instance. Populated by
+    # v9.1: pre-built Stage-1 text-to-frame selector instance. Populated by
     # `DeepAgentsStage2Runtime.build_agent` from the agent constructor's
-    # keyframe_selector argument. The `select_by_text` tool reads this at
-    # invocation time. None ⇒ select_by_text returns an explicit error.
-    keyframe_selector: "KeyframeSelector | None" = None
+    # text_frame_selector argument. The `select_by_text` tool reads this at
+    # invocation time. None ⇒ select_by_text is omitted from the tool list.
+    text_frame_selector: Any | None = None
 
     # v9.2: when False, the `select_by_text` tool is omitted from the tool
     # set, the system prompt and playbooks switch to their catalog-first
@@ -73,16 +61,6 @@ class Stage2RuntimeState:
     # `BaseStage2Runtime.configure_runtime_state`. Only meaningful when
     # `enable_stage1_text_retrieval=True`.
     force_stage1_text_retrieval_to_error: bool = False
-
-    # v9.4 cadence experiment D: when True,
-    # `build_evidence_update_message` skips the `initial_keyframe_paths`
-    # filter, restoring the Stage-1 seed-keyframe drain leak that was
-    # present at commit `d5f40ba` (v9.1_fix FULL REPRO) and fixed in
-    # `8ebf701`. Causes the 5 GT-target-visible seed keyframes to be
-    # auto-injected on every evidence-update turn. Copied from
-    # `Stage2DeepAgentConfig.restore_stage1_seed_keyframe_drain` by
-    # `BaseStage2Runtime.configure_runtime_state`.
-    restore_stage1_seed_keyframe_drain: bool = False
 
     task_type: Stage2TaskType | None = None
 
@@ -208,47 +186,49 @@ class BaseStage2Runtime(ABC):
         self,
         config: Stage2DeepAgentConfig | None = None,
         crop_callback: ToolCallback | None = None,
-        keyframe_selector: "KeyframeSelector | None" = None,
+        text_frame_selector: Any | None = None,
     ) -> None:
         """Initialize the agent runtime with configuration and (optional) crop callback.
 
         v9 removed the more_views / hypothesis Stage-1 callbacks; only the crop
         callback is preserved (still used by `request_crops`).
 
-        v9.1 introduces `keyframe_selector`: a pre-built
-        `KeyframeSelector` instance the agent uses when invoking the
-        `select_by_text` tool (Stage-1 language → frames). Other selectors do
-        not depend on this attribute.
+        v9.1 introduces `text_frame_selector`: a pre-built Stage-1 selector
+        instance the agent uses when invoking the `select_by_text` tool
+        (language → frames). Other selectors do not depend on this attribute.
 
         v9.3 (current): construction MUST fail loud when the config wants
         text retrieval but no selector is supplied. Previously this configuration
         produced an agent whose ``select_by_text`` tool was registered (so the
         system prompt said it was available) but returned
-        ``"ERROR: runtime.keyframe_selector is None; cannot run Stage-1 text
+        ``"ERROR: runtime.text_frame_selector is None; cannot run Stage-1 text
         retrieval"`` at every invocation — a silent regression-trap that bit
         v9.1_fix (see docs/benchmark/nr3d/v9_1_real_stage1_actually_works_20260516.md
-        and v9_1_fix_keyframe_selector_wiring_20260515.md). The contract is now
+        and v9_1_fix_selector_wiring_20260515.md). The contract is now
         symmetric: either pass a selector, or explicitly disable text retrieval
         via ``Stage2DeepAgentConfig(enable_stage1_text_retrieval=False)``.
 
         Raises:
             ValueError: when ``config.enable_stage1_text_retrieval=True`` and
-                ``keyframe_selector is None``.
+                ``text_frame_selector is None``.
         """
         self.config = config or Stage2DeepAgentConfig()
         self.crop_callback = crop_callback
-        self.keyframe_selector: KeyframeSelector | None = keyframe_selector
-        if self.config.enable_stage1_text_retrieval and self.keyframe_selector is None:
+        self.text_frame_selector: Any | None = text_frame_selector
+        if (
+            self.config.enable_stage1_text_retrieval
+            and self.text_frame_selector is None
+        ):
             raise ValueError(
                 "Stage2 runtime constructed with "
-                "enable_stage1_text_retrieval=True but no keyframe_selector. "
-                "Either pass a pre-built KeyframeSelector via "
-                "keyframe_selector=..., or disable Stage-1 text retrieval "
+                "enable_stage1_text_retrieval=True but no text_frame_selector. "
+                "Either pass a pre-built text-frame selector via "
+                "text_frame_selector=..., or disable Stage-1 text retrieval "
                 "explicitly via "
                 "Stage2DeepAgentConfig(enable_stage1_text_retrieval=False). "
                 "Without one of these, select_by_text would be registered "
                 "as a tool but fail at every invocation with "
-                "'runtime.keyframe_selector is None; cannot run Stage-1 text "
+                "'runtime.text_frame_selector is None; cannot run Stage-1 text "
                 "retrieval'. See docs/benchmark/nr3d/"
                 "v9_1_real_stage1_actually_works_20260516.md for the historical "
                 "v9.1_fix regression this guard now prevents."
@@ -290,14 +270,9 @@ class BaseStage2Runtime(ABC):
         runtime.no_match_guard_max_repeats = self.config.no_match_guard_max_repeats
         runtime.no_match_guard_max_viewed = self.config.no_match_guard_max_viewed
         runtime.use_evidence_frame_guard = self.config.use_evidence_frame_guard
-        runtime.enable_stage1_text_retrieval = (
-            self.config.enable_stage1_text_retrieval
-        )
+        runtime.enable_stage1_text_retrieval = self.config.enable_stage1_text_retrieval
         runtime.force_stage1_text_retrieval_to_error = (
             self.config.force_stage1_text_retrieval_to_error
-        )
-        runtime.restore_stage1_seed_keyframe_drain = (
-            self.config.restore_stage1_seed_keyframe_drain
         )
 
         if os.environ.get("TADG_DISABLE") == "1":
@@ -435,7 +410,7 @@ class BaseStage2Runtime(ABC):
         return (
             "Scene object inventory (from 3D scene graph + LLM enrichment):\n"
             "Use this to identify objects that may be in the scene but not immediately "
-            "visible in your keyframes. Cross-reference when identifying objects.\n"
+            "visible in the currently selected first-person frames. Cross-reference when identifying objects.\n"
             f"{inventory}\n\n"
         )
 
@@ -638,7 +613,7 @@ class BaseStage2Runtime(ABC):
 
         Args:
             task: Task specification with query, type, and constraints
-            bundle: Evidence bundle with keyframes and context
+            bundle: Evidence bundle with scene context and active visual metadata
 
         Returns:
             AgentResult with response, tool trace, and final bundle

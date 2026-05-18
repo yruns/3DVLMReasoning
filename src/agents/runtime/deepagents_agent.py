@@ -4,15 +4,12 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from deepagents import create_deep_agent
 from langchain_core.messages import HumanMessage
 from langchain_core.tools import BaseTool, tool
 from loguru import logger
-
-if TYPE_CHECKING:
-    from query_scene.keyframe_selector import KeyframeSelector
 
 from ..models import (
     Stage2AgentResult,
@@ -32,7 +29,9 @@ from .base import (
 from .langchain_agent import ToolChoiceCompatibleAzureChatOpenAI
 
 
-def _collect_v9_tools(*, runtime: Stage2RuntimeState, task_type: Stage2TaskType | None) -> list[BaseTool]:
+def _collect_v9_tools(
+    *, runtime: Stage2RuntimeState, task_type: Stage2TaskType | None
+) -> list[BaseTool]:
     """Build the v9 catalog-aware tool set for a given task pack.
 
     Returns selectors, scene perception, and mark_frame_with_bbox. The order matches
@@ -67,17 +66,17 @@ class DeepAgentsStage2Runtime(BaseStage2Runtime):
         self,
         config: Stage2DeepAgentConfig | None = None,
         crop_callback=None,
-        keyframe_selector: "KeyframeSelector | None" = None,
+        text_frame_selector: Any | None = None,
     ) -> None:
         """Initialize the DeepAgents runtime.
 
         v9: only crop_callback is accepted; more_views / hypothesis callbacks were
         deleted with the corresponding tool wrappers.
 
-        v9.1: `keyframe_selector` is forwarded to the runtime state so the
+        v9.1: `text_frame_selector` is forwarded to the runtime state so the
         `select_by_text` tool can run Stage-1 language-to-frame retrieval.
         """
-        super().__init__(config, crop_callback, keyframe_selector=keyframe_selector)
+        super().__init__(config, crop_callback, text_frame_selector=text_frame_selector)
         self._llm = None
 
     def get_llm(self):
@@ -162,7 +161,9 @@ class DeepAgentsStage2Runtime(BaseStage2Runtime):
         # SceneCatalog (the runtime is tolerant to legacy bundles for
         # back-compat).
         if (runtime.bundle.extra_metadata or {}).get("scene_catalog") is not None:
-            tools.extend(_collect_v9_tools(runtime=runtime, task_type=runtime.task_type))
+            tools.extend(
+                _collect_v9_tools(runtime=runtime, task_type=runtime.task_type)
+            )
 
         # Chassis trio attaches when the active task pack opts in
         # (TaskPack.exposes_chassis=True) or when the operator forces it via
@@ -263,7 +264,7 @@ class DeepAgentsStage2Runtime(BaseStage2Runtime):
             "Always load_skill('scene-exploration-playbook') first.\n"
             "Then load_skill('vg-grounding-playbook') (VG) or "
             "load_skill('qa-answering-playbook') (QA).\n\n"
-            f"You have viewed 0 keyframes out of {catalog.total_frames}. "
+            f"You have viewed 0 first-person frames out of {catalog.total_frames}. "
             "Use selectors to fetch ≤3 RGB frames per call; use "
             "mark_frame_with_bbox to annotate one frame for verification."
         )
@@ -289,9 +290,7 @@ class DeepAgentsStage2Runtime(BaseStage2Runtime):
         Called when the agent returned insufficient_evidence / needs_more_evidence
         but still has turns remaining. v9 nudges towards selectors + view tools.
         """
-        text_first = bool(
-            getattr(runtime, "enable_stage1_text_retrieval", True)
-        )
+        text_first = bool(getattr(runtime, "enable_stage1_text_retrieval", True))
         if text_first:
             available_tools = [
                 "select_by_text(query, k≤3, hidden_categories) — Stage-1 "
@@ -578,35 +577,10 @@ class DeepAgentsStage2Runtime(BaseStage2Runtime):
             HumanMessage with new images, or None if no new images
         """
         new_images: list[str] = []
-        # v9 catalog-first: never auto-inject pack-prep "seed" keyframes
-        # (Stage-1 GT-target-visible RGBs). The agent must explicitly fetch
-        # first-person frames via select_* / mark_frame_with_bbox / view_bev /
-        # request_crops. Tool-produced keyframes (e.g. request_crops crops)
-        # are not in initial_keyframe_paths and are still drained below.
-        #
-        # v9.4 cadence experiment D: when
-        # `runtime.restore_stage1_seed_keyframe_drain` is True, bypass this
-        # filter entirely — every keyframe in `runtime.bundle.keyframes`
-        # (including the 5 GT-target-visible Stage-1 seeds written by
-        # pack-prep) gets auto-injected on every evidence-update turn.
-        # This reproduces the silent leak that was present at commit
-        # `d5f40ba` (v9.1_fix FULL REPRO at 82.95 %) and was fixed in
-        # `8ebf701`. See
-        # docs/benchmark/nr3d/v9_4d_strat600_force_error_seed_drain_*.md
-        # for the v9.4 ablation that uses this flag.
-        if getattr(runtime, "restore_stage1_seed_keyframe_drain", False):
-            initial_seeds: set[str] = set()
-        else:
-            initial_seeds = runtime.initial_keyframe_paths
-        for keyframe in runtime.bundle.keyframes:
-            if keyframe.image_path in initial_seeds:
-                continue
-            if Path(keyframe.image_path).exists():
-                if keyframe.image_path not in runtime.seen_image_paths:
-                    new_images.append(keyframe.image_path)
-
-        # Drain any pack-pushed pending images (e.g. selector / mark
-        # tools queue first-person frames here for the next turn).
+        # Drain explicit pending images. First-person frames only arrive here
+        # after the agent calls a selector, mark_frame_with_bbox, or
+        # request_crops; pack prep and bundle construction never inject RGB
+        # frames directly.
         extra = runtime.bundle.extra_metadata or {}
         pending = extra.get("vg_pending_images", [])
         for marked_path in pending:
@@ -638,17 +612,28 @@ class DeepAgentsStage2Runtime(BaseStage2Runtime):
         if not new_images:
             return None
 
-        keyframe_lines = []
-        for keyframe in runtime.bundle.keyframes:
-            if keyframe.image_path in new_images:
-                keyframe_lines.append(
-                    f"- idx={keyframe.keyframe_idx}, view_id={keyframe.view_id}, "
-                    f"frame_id={keyframe.frame_id}, note={keyframe.note or 'N/A'}"
+        metadata_by_path: dict[str, Any] = {}
+        for item in extra.get("vg_pending_image_metadata", []) or []:
+            if isinstance(item, dict) and item.get("image_path"):
+                metadata_by_path[str(item["image_path"])] = item
+
+        evidence_lines: list[str] = []
+        for image_path in new_images:
+            metadata = metadata_by_path.get(image_path)
+            if isinstance(metadata, dict):
+                frame_id = metadata.get("frame_id", "N/A")
+                source = metadata.get("source_tool", metadata.get("source", "tool"))
+                reason = metadata.get("selected_because", metadata.get("reason", ""))
+                evidence_lines.append(
+                    f"- image={Path(image_path).name}, frame_id={frame_id}, "
+                    f"source={source}, reason={reason or 'N/A'}"
                 )
+            else:
+                evidence_lines.append(f"- image={Path(image_path).name}")
 
         prompt = (
             "New visual evidence has been acquired:\n\n"
-            f"Newly added keyframes:\n{chr(10).join(keyframe_lines) if keyframe_lines else '- BEV or crop images'}\n\n"
+            f"Newly added visual evidence:\n{chr(10).join(evidence_lines)}\n\n"
             "If you already called submit_final before seeing these newly injected images, "
             "that submission was premature and was not accepted. Re-examine the visual "
             "evidence and submit again only after using it.\n\n"
@@ -688,21 +673,10 @@ class DeepAgentsStage2Runtime(BaseStage2Runtime):
 
         runtime = Stage2RuntimeState(bundle=bundle.model_copy(deep=True))
         runtime.task_type = task.task_type
-        # v9.1: forward the pre-built Stage-1 KeyframeSelector to the runtime
+        # Forward the pre-built Stage-1 text-to-frame selector to the runtime
         # state so `select_by_text` can call selector.select_keyframes_v2 at
-        # tool-invocation time. When None, the tool returns an explicit error
-        # rather than silently failing.
-        runtime.keyframe_selector = self.keyframe_selector
-        # v9 catalog-first: snapshot the initial pack-prep "seed" keyframe
-        # paths so build_evidence_update_message can refuse to auto-inject
-        # them. Tools that mutate bundle.keyframes later (e.g. request_crops
-        # appending new crops) will not be in this set and are still drained
-        # by the regular evidence-update path.
-        runtime.initial_keyframe_paths = {
-            kf.image_path
-            for kf in runtime.bundle.keyframes
-            if kf.image_path
-        }
+        # tool-invocation time.
+        runtime.text_frame_selector = self.text_frame_selector
 
         # Populate VG runtime state from bundle extra_metadata.
         if task.task_type == Stage2TaskType.VISUAL_GROUNDING:
@@ -784,8 +758,8 @@ class DeepAgentsStage2Runtime(BaseStage2Runtime):
         """Execute the Stage-2 DeepAgent with iterative evidence refinement.
 
         This implementation supports a true evidence-seeking loop:
-        1. Initial invocation with all currently available keyframes
-        2. If tools acquire new evidence (via callbacks), inject new images
+        1. Initial invocation with scene context and BEV only
+        2. If tools acquire new evidence, inject new images
         3. Continue until structured response or max_reasoning_turns reached
 
         Args:
@@ -798,10 +772,9 @@ class DeepAgentsStage2Runtime(BaseStage2Runtime):
         graph, runtime = self.build_agent(task, bundle)
         message = self.build_user_message(task, runtime)
         logger.info(
-            "[DeepAgentsStage2Runtime] task={} plan_mode={} keyframes={} max_turns={}",
+            "[DeepAgentsStage2Runtime] task={} plan_mode={} max_turns={}",
             task.task_type.value,
             task.plan_mode.value,
-            len(runtime.bundle.keyframes),
             task.max_reasoning_turns,
         )
 

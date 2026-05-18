@@ -32,7 +32,6 @@ DATA_ROOT="${DATA_ROOT:-data/nr3d/scannet}"
 NR3D_ROOT="${NR3D_ROOT:-data/nr3d}"
 WORKERS="${WORKERS:-50}"
 RSS_LIMIT_MB="${RSS_LIMIT_MB:-15000}"
-KEYFRAME_MODE="${KEYFRAME_MODE:-gt_target}"
 
 mkdir -p "$OUT_DIR" tmp/nr3d_artifacts
 
@@ -43,8 +42,8 @@ fi
 
 # --- 1) pack-prep ------------------------------------------------------------
 # v9 catalog-first writes scene_catalog.json + bev.png + camera_trajectory.json
-# per scene, plus per-sample artifacts. gt_target keyframe mode is the fastest
-# (no Gemini calls) and keyframes themselves are not consumed by the v9 agent.
+# per scene, plus per-sample artifacts. First-person frames are obtained only
+# by explicit selector tool calls during the agent run.
 PREP_CMD=$(cat <<EOF
 set -euo pipefail
 cd $ROOT
@@ -56,9 +55,7 @@ python -m evaluation.scripts.prepare_pack_v1_inputs_nr3d \\
     --nr3d-root '$NR3D_ROOT' \\
     --pack-name '$PACK_NAME' \\
     --split test \\
-    --keyframe-mode '$KEYFRAME_MODE' \\
     --ensure-lightweight-cache \\
-    --max-selector-cache-size 2 \\
     --max-scene-artifact-cache-size 1 \\
     2>&1 | tee '$PREP_LOG'
 EOF
