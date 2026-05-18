@@ -36,20 +36,24 @@ _BOXES_2D_RE = re.compile(r"boxes_2d=({[^}]*})")
 _FRAME_CITATION_RE = re.compile(r"\bframe(?:[_\s-]?id)?[_\s-]*(\d+)\b", re.I)
 _FRAME_RANGE_RE = re.compile(r"\bframes?\s+(\d+)\s*[-\u2013]\s*(\d+)\b", re.I)
 _FRAMES_LIST_RE = re.compile(
-    r"\bframes?\s+(\d+(?:\s*,\s*(?:and\s+)?\d+)*(?:\s*(?:and|&)\s*\d+)?)",
+    r"\bframes\s+(\d+(?:\s*,\s*(?:and\s+)?\d+)*(?:\s*(?:and|&)\s*\d+)?)",
     re.I,
 )
 _LEFT_RELATION_RE = re.compile(r"\b(?:to\s+the\s+)?left\s+of\b|\bleft-hand\b", re.I)
 _RIGHT_RELATION_RE = re.compile(r"\b(?:to\s+the\s+)?right\s+of\b|\bright-hand\b", re.I)
 _LEFT_TARGET_SIDE_RE = re.compile(
-    r"\b(?:on|at|to)\s+the\s+(?:far\s+)?left\b"
-    r"|\b(?:left|leftmost)\s+(?:one|table|object|candidate|proposal)\b"
+    r"\b(?:on|at|to|in)\s+the\s+(?:far\s+)?left(?:\s+(?:side|corner))?\b"
+    r"|\btowards?\s+the\s+(?:far\s+)?left\b"
+    r"|\b(?:left|leftmost)\s+"
+    r"(?:one|option|side|corner|table|object|candidate|proposal)\b"
     r"|\b(?:upper|lower|front|back|rear)\s+left\b",
     re.I,
 )
 _RIGHT_TARGET_SIDE_RE = re.compile(
-    r"\b(?:on|at|to)\s+the\s+(?:far\s+)?right\b"
-    r"|\b(?:right|rightmost)\s+(?:one|table|object|candidate|proposal)\b"
+    r"\b(?:on|at|to|in)\s+the\s+(?:far\s+)?right(?:\s+(?:side|corner))?\b"
+    r"|\btowards?\s+the\s+(?:far\s+)?right\b"
+    r"|\b(?:right|rightmost)\s+"
+    r"(?:one|option|side|corner|table|object|candidate|proposal)\b"
     r"|\b(?:upper|lower|front|back|rear)\s+right\b",
     re.I,
 )
@@ -216,6 +220,7 @@ def _cited_frame_ids(rationale: str, evidence_refs: list[dict] | None) -> list[i
     text = rationale or ""
     frame_ids: list[int] = []
     consumed_spans: list[tuple[int, int]] = []
+    citation_groups: list[tuple[int, list[int]]] = []
 
     for match in _FRAME_RANGE_RE.finditer(text):
         try:
@@ -224,21 +229,42 @@ def _cited_frame_ids(rationale: str, evidence_refs: list[dict] | None) -> list[i
         except ValueError:
             continue
         step = 1 if start <= end else -1
+        group: list[int] = []
         for frame_id in range(start, end + step, step):
-            _append_frame_id(frame_ids, frame_id)
+            if frame_id >= 0:
+                group.append(frame_id)
+        if group:
+            citation_groups.append((match.start(), group))
         consumed_spans.append(match.span())
 
     for match in _FRAMES_LIST_RE.finditer(text):
         if any(start <= match.start() < end for start, end in consumed_spans):
             continue
+        group = []
         for raw_id in re.findall(r"\d+", match.group(1)):
-            _append_frame_id(frame_ids, raw_id)
+            try:
+                frame_id = int(raw_id)
+            except ValueError:
+                continue
+            if frame_id >= 0:
+                group.append(frame_id)
+        if group:
+            citation_groups.append((match.start(), group))
         consumed_spans.append(match.span())
 
     for match in _FRAME_CITATION_RE.finditer(text):
         if any(start <= match.start() < end for start, end in consumed_spans):
             continue
-        _append_frame_id(frame_ids, match.group(1))
+        try:
+            frame_id = int(match.group(1))
+        except ValueError:
+            continue
+        if frame_id >= 0:
+            citation_groups.append((match.start(), [frame_id]))
+
+    for _, group in sorted(citation_groups, key=lambda item: item[0]):
+        for frame_id in group:
+            _append_frame_id(frame_ids, frame_id)
 
     for ref in evidence_refs or []:
         if not isinstance(ref, dict):
@@ -422,11 +448,22 @@ def _candidate_ids_for_submitted_pid(
         except json.JSONDecodeError:
             continue
         proposal_ids = response.get("proposal_ids")
-        if not isinstance(proposal_ids, list):
-            continue
-        candidate_ids = {
-            proposal_id for proposal_id in proposal_ids if isinstance(proposal_id, int)
-        }
+        if isinstance(proposal_ids, list):
+            candidate_ids = {
+                proposal_id
+                for proposal_id in proposal_ids
+                if isinstance(proposal_id, int)
+            }
+        else:
+            proposals = response.get("proposals")
+            if not isinstance(proposals, list):
+                continue
+            candidate_ids = {
+                proposal.get("proposal_id")
+                for proposal in proposals
+                if isinstance(proposal, dict)
+                and isinstance(proposal.get("proposal_id"), int)
+            }
         if submitted_pid in candidate_ids:
             return candidate_ids
     return None

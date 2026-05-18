@@ -21,6 +21,7 @@ from agents.skills import (
 from agents.skills.chassis_tools import build_chassis_tools
 from agents.skills.evidence_frame_guard import (
     _cited_frame_ids,
+    _direction_from_text,
     evaluate_evidence_frame_guard,
 )
 
@@ -648,6 +649,128 @@ def test_evidence_frame_guard_query_right_one_beats_contrastive_rationale_left(
     assert response.startswith("submitted;")
 
 
+def test_evidence_frame_guard_query_right_option_beats_left_alternative(
+    tmp_path: Path,
+) -> None:
+    _register_vg_stub_pack(tmp_path)
+    rs = Stage2RuntimeState(
+        bundle=Stage2EvidenceBundle(
+            stage1_query="When facing the two tables choose the right option."
+        )
+    )
+    rs.task_type = Stage2TaskType.VISUAL_GROUNDING
+    rs.use_evidence_frame_guard = True
+    _record_view(
+        rs,
+        frame_id=8,
+        visible_ids=[16, 17],
+        categories=["table", "table"],
+        left_to_right=["16:table@x=200.0", "17:table@x=500.0"],
+        boxes_2d={16: [100, 200, 300, 650], 17: [400, 200, 620, 650]},
+    )
+    _, _, submit_final = build_chassis_tools(rs)
+
+    response = submit_final.invoke(
+        {
+            "payload": {"proposal_id": 17, "confidence": 0.7},
+            "rationale": (
+                "Frame 8 shows proposal 17 as the right table; proposal 16 is "
+                "the left-hand alternative."
+            ),
+            "evidence_refs": [],
+        }
+    )
+
+    assert response.startswith("submitted;")
+
+
+def test_direction_from_text_covers_plan_target_side_vocabulary() -> None:
+    right_phrases = [
+        "choose the right option",
+        "choose the right side",
+        "choose the one in the right corner",
+        "pick the item in the right",
+        "move toward the right",
+        "move towards the right",
+        "choose the right one",
+        "choose the one on the right",
+        "choose the upper right object",
+        "choose the back right table",
+    ]
+    left_phrases = [
+        "choose the left option",
+        "choose the left side",
+        "choose the one in the left corner",
+        "pick the item in the left",
+        "move toward the left",
+        "move towards the left",
+        "choose the left one",
+        "choose the one on the left",
+        "choose the lower left object",
+        "choose the front left table",
+    ]
+
+    assert [_direction_from_text(text) for text in right_phrases] == ["right"] * len(
+        right_phrases
+    )
+    assert [_direction_from_text(text) for text in left_phrases] == ["left"] * len(
+        left_phrases
+    )
+
+
+def test_evidence_frame_guard_uses_current_list_scene_proposals_shape(
+    tmp_path: Path,
+) -> None:
+    _register_vg_stub_pack(tmp_path)
+    rs = Stage2RuntimeState(
+        bundle=Stage2EvidenceBundle(stage1_query="Choose the table on the right.")
+    )
+    rs.task_type = Stage2TaskType.VISUAL_GROUNDING
+    rs.use_evidence_frame_guard = True
+    rs.tool_trace.append(
+        Stage2ToolObservation(
+            tool_name="list_scene_proposals",
+            tool_input={"category": "table"},
+            response_text=json.dumps(
+                {
+                    "count": 2,
+                    "proposals": [
+                        {"proposal_id": 16, "category": "table"},
+                        {"proposal_id": 17, "category": "table"},
+                    ],
+                }
+            ),
+        )
+    )
+    _record_view(
+        rs,
+        frame_id=8,
+        visible_ids=[16, 17, 99],
+        categories=["table", "table", "table lamp"],
+        left_to_right=[
+            "16:table@x=200.0",
+            "17:table@x=500.0",
+            "99:table lamp@x=700.0",
+        ],
+        boxes_2d={
+            16: [100, 200, 300, 650],
+            17: [400, 200, 620, 650],
+            99: [640, 180, 820, 650],
+        },
+    )
+    _, _, submit_final = build_chassis_tools(rs)
+
+    response = submit_final.invoke(
+        {
+            "payload": {"proposal_id": 17, "confidence": 0.7},
+            "rationale": "Frame 8 shows proposal 17 as the table on the right.",
+            "evidence_refs": [],
+        }
+    )
+
+    assert response.startswith("submitted;")
+
+
 def test_evidence_frame_guard_parses_plural_frame_citations(tmp_path: Path) -> None:
     _register_vg_stub_pack(tmp_path)
     rs = _runtime()
@@ -678,6 +801,10 @@ def test_cited_frame_ids_parses_oxford_comma_lists_and_dedupes_refs() -> None:
         "Frames 0, 1, and 2 show the target.",
         [{"frame_id": 1}, {"frame": 3}],
     ) == [0, 1, 2, 3]
+
+
+def test_cited_frame_ids_preserves_mixed_singular_citation_order() -> None:
+    assert _cited_frame_ids("frame_0 frame-id 1 frame 2", []) == [0, 1, 2]
 
 
 def test_evidence_frame_guard_parses_frame_range_without_marked_evidence(
