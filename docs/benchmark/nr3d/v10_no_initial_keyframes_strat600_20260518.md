@@ -2450,3 +2450,107 @@ same slice, dropping 5 / 15 to 3 / 15. Do not keep `97d60c9` active as-is.
 Future work should either narrow the rule to the exact unsupported
 anchor-ambiguity loop or add a proper joint multi-anchor ranking tool instead
 of broadly rejecting superlative overrides.
+
+### Multi-anchor spatial tool probe: 80aa8f6
+
+Commit `80aa8f6` adds a no-GT `compare_candidates_to_anchors` VG tool and
+playbook routing for closest/farthest/near/next_to cases where the anchor
+category has multiple plausible proposals. The tool ranks the same target
+candidate set against each anchor candidate and returns per-anchor rankings,
+`top1_by_anchor`, `anchor_disagreement`, and a stable `evidence_id`. It reuses
+proposal 3D centers only; no target id or GT answer enters the runtime.
+
+Run metadata:
+
+| Field | Value |
+|---|---|
+| Branch | `feat/remove-initial-keyframes` |
+| Head / run-time commit | `80aa8f6` (no worktree drift) |
+| Probe IDs | `docs/benchmark/nr3d/assets/v10_superlative_anchor15_sample_ids_20260519.json` |
+| Output dir | `tmp/nr3d_eval_v10_multi_anchor15_20260519_80aa8f6/` |
+| Run log | `/tmp/nr3d_multi_anchor15_80aa8f6.log` |
+| SQLite run id | `v10_multi_anchor15_20260519` |
+| Workers | 15 |
+| Sample retries | 0 |
+| Guards | TADG + no-match + evidence-frame |
+
+Artifact checksums:
+
+| Artifact | MD5 |
+|---|---|
+| `side_by_side.json` | `a4d88a6e87a9593c0aa2987c84a9a576` |
+| `leaderboard_metrics.json` | `1ea07646d0b5695b5fd35ea8c0238443` |
+
+Representative command:
+
+```bash
+tmux new-session -d -s nr3d-multi-anchor15-80aa8f6 \
+  "cd /Users/bytedance/project/3DVLMReasoning && bash -lc 'set -euo pipefail; \
+   export PYTHONPATH=src PYTHONUNBUFFERED=1; \
+   .venv/bin/python -m evaluation.scripts.run_nr3d_vg_side_by_side \
+     --sample-ids docs/benchmark/nr3d/assets/v10_superlative_anchor15_sample_ids_20260519.json \
+     --data-root data/nr3d/scannet \
+     --pack-name pack_nr3d_v9_catalog_first \
+     --output-dir tmp/nr3d_eval_v10_multi_anchor15_20260519_80aa8f6 \
+     --workers 15 \
+     --sample-retries 0 \
+     --use-tool-answer-disagreement-gate \
+     --use-no-match-candidate-guard \
+     --use-evidence-frame-guard \
+     2>&1 | tee /tmp/nr3d_multi_anchor15_80aa8f6.log; \
+   .venv/bin/python -m evaluation.scripts.nr3d_leaderboard_metrics \
+     --side-by-side tmp/nr3d_eval_v10_multi_anchor15_20260519_80aa8f6/side_by_side.json \
+     --nr3d-data-root data/nr3d \
+     --phase8-data-root data/nr3d/scannet \
+     --sample-ids docs/benchmark/nr3d/assets/v10_superlative_anchor15_sample_ids_20260519.json \
+     --output tmp/nr3d_eval_v10_multi_anchor15_20260519_80aa8f6/leaderboard_metrics.json \
+     --canonical-filter true \
+     2>&1 | tee -a /tmp/nr3d_multi_anchor15_80aa8f6.log'"
+
+PYTHONPATH=src .venv/bin/python scripts/ingest_nr3d_run.py \
+  --output-dir tmp/nr3d_eval_v10_multi_anchor15_20260519_80aa8f6 \
+  --run-id v10_multi_anchor15_20260519 \
+  --branch feat/remove-initial-keyframes \
+  --commit 80aa8f6 \
+  --backend pack_v1 \
+  --leaderboard-metrics tmp/nr3d_eval_v10_multi_anchor15_20260519_80aa8f6/leaderboard_metrics.json \
+  --notes "Diagnostic 15-case probe after adding compare_candidates_to_anchors multi-anchor closest/farthest/near/next_to tool and playbook routing; 9/15 correct vs 5/15 anchor-coverage baseline." \
+  --db docs/benchmark/nr3d/runs.sqlite
+```
+
+Probe metrics:
+
+| Variant | Commit | Overall | Easy | Hard | V-Dep | V-Ind | Statuses |
+|---|---|---:|---:|---:|---:|---:|---|
+| Anchor-coverage baseline | `71510a0` | 33.33 | 20.00 | 40.00 | 22.22 | 50.00 | 14 completed, 1 failed |
+| Strict override rejection | `97d60c9` | 20.00 | 20.00 | 20.00 | 11.11 | 33.33 | 14 completed, 1 failed |
+| Multi-anchor tool + routing | `80aa8f6` | 60.00 | 40.00 | 70.00 | 55.56 | 66.67 | 15 completed |
+
+Case deltas vs `71510a0`:
+
+| Recovered | Preserved correct | Still wrong |
+|---|---|---|
+| `scene0644_00::43::2885`, `scene0648_00::22::18216`, `scene0700_00::16::239`, `scene0494_00::3::5674` | `scene0574_00::25::14751`, `scene0616_00::7::34453`, `scene0025_00::18::35283`, `scene0338_00::21::35740`, `scene0187_00::13::24038` | `scene0329_00::33::13927`, `scene0025_00::30::15602`, `scene0095_00::29::20881`, `scene0222_00::20::39339`, `scene0423_00::3::12539`, `scene0549_00::3::7602` |
+
+Trace reading:
+
+- `compare_candidates_to_anchors` was actually called in 4 / 15 cases:
+  `scene0329`, `scene0648`, `scene0222`, `scene0616`.
+- It directly helped on `scene0648` and preserved `scene0616`: both traces
+  exposed `anchor_disagreement=true`, then the agent used marked visual
+  evidence to choose the right anchor / target.
+- `scene0222` remains wrong. The new tool correctly reports
+  `top1_by_anchor={"3": 19, "24": 20}` for `farthest_from`, but the agent still
+  finalizes `#19`; this needs a narrower finalizer/TADG policy for unresolved
+  `anchor_disagreement`, not a broad rank-override ban.
+- `scene0329` remains wrong and reveals a tool-use failure: the agent passed
+  the same ids as candidates and anchors (`[30,31,32,33]`), so self-distance
+  dominated the per-anchor rankings. A follow-up should reject or flag
+  `candidate_ids ∩ anchor_ids` for the multi-anchor tool.
+
+Reading: positive diagnostic. The active code keeps the no-initial-keyframes /
+no pending-image contract and improves this audited slice from 5 / 15 to
+9 / 15 without regressing any `71510a0` correct case. Because several recovered
+cases did not call the new tool, the gain is partly prompt/skill routing rather
+than tool mechanics alone. A full strat600 rerun is required before claiming a
+general accuracy improvement.
