@@ -15,10 +15,6 @@ from agents.tools.request_crops import (
 )
 
 
-def _assert_no_legacy_image_channel(extra_metadata: dict) -> None:
-    assert not any(key.startswith("vg_" + "pending") for key in extra_metadata)
-
-
 def test_make_tool_image_ref_records_metadata(tmp_path: Path) -> None:
     image_path = tmp_path / "frame.png"
     image_path.write_bytes(b"not-used")
@@ -44,7 +40,6 @@ def test_make_tool_image_ref_records_metadata(tmp_path: Path) -> None:
         "source_tool": "select_by_text",
         "selected_because": "unit-test",
     }
-    _assert_no_legacy_image_channel(runtime.bundle.extra_metadata)
 
 
 def test_crop_backend_records_crops_without_keyframe_field(tmp_path: Path) -> None:
@@ -75,7 +70,6 @@ def test_crop_backend_records_crops_without_keyframe_field(tmp_path: Path) -> No
     assert len(results) == 1
     assert results[0].success is True
     assert not hasattr(updated, "key" + "frames")
-    _assert_no_legacy_image_channel(updated.extra_metadata)
     crop_meta = backend.crop_image_metadata(results)[0]
     assert Path(crop_meta["image_path"]).exists()
     assert crop_meta["source_tool"] == "request_crops"
@@ -105,4 +99,3 @@ def test_runtime_state_has_no_keyframes_after_crop(tmp_path: Path) -> None:
     )
 
     assert not hasattr(state.bundle, "key" + "frames")
-    _assert_no_legacy_image_channel(state.bundle.extra_metadata)

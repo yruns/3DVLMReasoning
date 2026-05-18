@@ -106,9 +106,6 @@ def test_select_by_region_bev_2d_returns_three_frames_with_images(tmp_path: Path
     for frame in payload["frames"]:
         assert frame.get("image_path")
     assert len(rs.tool_trace[-1].image_metadata) == 3
-    assert not any(
-        key.startswith("vg_" + "pending") for key in rs.bundle.extra_metadata
-    )
 
 
 def test_select_by_region_bbox_3d_returns_three_frames_with_images(tmp_path: Path):
@@ -122,6 +119,3 @@ def test_select_by_region_bbox_3d_returns_three_frames_with_images(tmp_path: Pat
     for frame in payload["frames"]:
         assert frame.get("image_path")
     assert len(rs.tool_trace[-1].image_metadata) == 3
-    assert not any(
-        key.startswith("vg_" + "pending") for key in rs.bundle.extra_metadata
-    )

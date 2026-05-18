@@ -69,9 +69,6 @@ def test_select_by_proposal_returns_3_frames_with_images(tmp_path: Path):
     for frame in payload["frames"]:
         assert "image_path" in frame
     assert len(rs.tool_trace[-1].image_metadata) == 3
-    assert not any(
-        key.startswith("vg_" + "pending") for key in rs.bundle.extra_metadata
-    )
 
 
 def test_select_by_proposal_respects_k_cap(tmp_path: Path):

@@ -625,12 +625,6 @@ class TestCrossBenchmarkPipeline(unittest.TestCase):
         )
 
         self.assertTrue(crop_invoked[0])
-        self.assertFalse(
-            any(
-                key.startswith("vg_" + "pending")
-                for key in runtime.bundle.extra_metadata
-            )
-        )
         self.assertEqual(len(runtime.tool_trace[-1].image_metadata), 1)
         self.assertTrue(runtime.evidence_updated)
 

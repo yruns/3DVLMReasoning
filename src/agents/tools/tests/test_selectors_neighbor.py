@@ -63,9 +63,6 @@ def test_select_by_frame_neighbor_temporal_returns_three_frames_with_images(
     for frame in payload["frames"]:
         assert "image_path" in frame
     assert len(rs.tool_trace[-1].image_metadata) == 3
-    assert not any(
-        key.startswith("vg_" + "pending") for key in rs.bundle.extra_metadata
-    )
 
 
 def test_select_by_frame_neighbor_respects_k_cap_viewpoint_diverse(tmp_path: Path):

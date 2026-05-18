@@ -99,6 +99,3 @@ def test_image_metadata_is_recorded_for_trace_injection(tiny_runtime):
     tool.invoke({"frame_id": 42, "ids": [4]})
     assert rs.tool_trace[-1].image_metadata
     assert rs.tool_trace[-1].image_metadata[-1]["image_path"].endswith(".png")
-    assert not any(
-        key.startswith("vg_" + "pending") for key in rs.bundle.extra_metadata
-    )

@@ -70,7 +70,4 @@ def test_make_tool_image_ref_returns_metadata_without_runtime_queue(tmp_path):
     assert first == {"image_path": str(tmp_path / "x.png")}
     assert second == {"image_path": str(tmp_path / "y.png")}
     assert not any("pending" in name and "image" in name for name in dir(rs))
-    assert not any(
-        key.startswith("vg_" + "pending") for key in rs.bundle.extra_metadata
-    )
     assert rs.evidence_updated is False

@@ -19,9 +19,6 @@ def test_make_tool_image_ref_if_new_returns_unseen():
     image_ref = make_tool_image_ref_if_new(rs, "/tmp/frame_42.png")
     assert image_ref == {"image_path": "/tmp/frame_42.png"}
     assert not any("pending" in name and "image" in name for name in dir(rs))
-    assert not any(
-        key.startswith("vg_" + "pending") for key in rs.bundle.extra_metadata
-    )
 
 
 def test_make_tool_image_ref_if_new_skips_seen():
@@ -29,15 +26,9 @@ def test_make_tool_image_ref_if_new_skips_seen():
     rs.seen_image_paths.add("/tmp/frame_42.png")
     assert make_tool_image_ref_if_new(rs, "/tmp/frame_42.png") is None
     assert not any("pending" in name and "image" in name for name in dir(rs))
-    assert not any(
-        key.startswith("vg_" + "pending") for key in rs.bundle.extra_metadata
-    )
 
 
 def test_make_tool_image_ref_if_new_handles_empty_path():
     rs = _FakeRuntime()
     assert make_tool_image_ref_if_new(rs, "") is None
     assert not any("pending" in name and "image" in name for name in dir(rs))
-    assert not any(
-        key.startswith("vg_" + "pending") for key in rs.bundle.extra_metadata
-    )

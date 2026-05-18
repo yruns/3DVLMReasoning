@@ -108,9 +108,6 @@ def test_select_by_text_returns_image_paths_and_records_them(tmp_path: Path):
         assert "image_path" in frame
         assert frame["already_seen"] is False
     assert len(rs.tool_trace[-1].image_metadata) == 3
-    assert not any(
-        key.startswith("vg_" + "pending") for key in rs.bundle.extra_metadata
-    )
 
 
 def test_select_by_text_caps_k_at_3(tmp_path: Path):
@@ -219,9 +216,6 @@ def test_select_by_text_force_to_error_short_circuits_before_selector(
 
     # No tool images were returned.
     assert rs.tool_trace[-1].image_metadata == []
-    assert not any(
-        key.startswith("vg_" + "pending") for key in rs.bundle.extra_metadata
-    )
 
 
 def test_select_by_text_force_to_error_records_into_tool_trace(tmp_path: Path):

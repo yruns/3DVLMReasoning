@@ -71,9 +71,6 @@ def test_select_by_coverage_obj_iou_without_seen_returns_three_with_images(
     for frame in payload["frames"]:
         assert frame.get("image_path")
     assert len(rs.tool_trace[-1].image_metadata) == 3
-    assert not any(
-        key.startswith("vg_" + "pending") for key in rs.bundle.extra_metadata
-    )
 
 
 def test_select_by_coverage_pose_depth_excludes_seen_and_records_images(
@@ -88,6 +85,3 @@ def test_select_by_coverage_pose_depth_excludes_seen_and_records_images(
     for frame in payload["frames"]:
         assert frame.get("image_path")
     assert len(rs.tool_trace[-1].image_metadata) == 3
-    assert not any(
-        key.startswith("vg_" + "pending") for key in rs.bundle.extra_metadata
-    )

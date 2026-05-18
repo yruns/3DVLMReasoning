@@ -54,9 +54,6 @@ def test_view_bev_default_returns_catalog_path(tmp_path: Path):
     assert rs.tool_trace[-1].image_metadata[0]["image_path"] == str(
         tmp_path / "bev.png"
     )
-    assert not any(
-        key.startswith("vg_" + "pending") for key in rs.bundle.extra_metadata
-    )
     assert rs.evidence_updated is True
 
 

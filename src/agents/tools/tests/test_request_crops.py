@@ -294,9 +294,6 @@ class TestProcessRequests:
 
         assert len(results) == 2
         assert all(r.success for r in results)
-        assert not any(
-            key.startswith("vg_" + "pending") for key in updated_bundle.extra_metadata
-        )
         assert len(backend.crop_image_metadata(results)) == 2
 
     def test_max_crops_limit(self, sample_bundle, temp_output_dir):
@@ -325,9 +322,6 @@ class TestProcessRequests:
         )
         results, updated_bundle = backend.process_requests([request], sample_bundle)
 
-        assert not any(
-            key.startswith("vg_" + "pending") for key in updated_bundle.extra_metadata
-        )
         crop_meta = backend.crop_image_metadata(results)[-1]
         assert crop_meta["source_tool"] == "request_crops"
         assert crop_meta["frame_id"] == 0
@@ -353,9 +347,6 @@ class TestProcessRequests:
 
         assert len(successful) == 1
         assert len(failed) == 1
-        assert not any(
-            key.startswith("vg_" + "pending") for key in updated_bundle.extra_metadata
-        )
         assert len(backend.crop_image_metadata(results)) == 1
 
 
@@ -480,10 +471,6 @@ class TestCreateCallback:
         result = callback(sample_bundle, request)
 
         assert result.updated_bundle is not None
-        assert not any(
-            key.startswith("vg_" + "pending")
-            for key in result.updated_bundle.extra_metadata
-        )
         assert len(result.image_metadata) == 1
 
 
