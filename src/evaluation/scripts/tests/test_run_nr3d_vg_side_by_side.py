@@ -228,6 +228,30 @@ def test_run_one_sample_preserves_tool_trace(monkeypatch, tmp_path) -> None:
     ]
 
 
+def test_extract_pack_v1_prediction_resolves_structured_proposal_payload() -> None:
+    from evaluation.scripts.run_nr3d_vg_side_by_side import extract_pack_v1_prediction
+
+    result = SimpleNamespace(
+        result=SimpleNamespace(payload={"proposal_id": 72, "confidence": 0.92}),
+        final_bundle=SimpleNamespace(
+            extra_metadata={
+                "vg_proposal_pool": {
+                    "proposals": [
+                        {"id": 72, "bbox_3d_9dof": [1, 2, 3, 4, 5, 6, 0, 0, 0]},
+                    ],
+                },
+            },
+        ),
+    )
+
+    prediction = extract_pack_v1_prediction(result)
+
+    assert prediction["status"] == "completed"
+    assert prediction["selected_object_id"] == 72
+    assert prediction["bbox_3d"] == [1, 2, 3, 4, 5, 6, 0, 0, 0]
+    assert prediction["confidence"] == 0.92
+
+
 def test_nr3d_pack_wires_crop_callback(monkeypatch, tmp_path) -> None:
     """v9: only the crop callback survives the Stage-1 → tools migration."""
     import agents.stage1_callbacks as callbacks

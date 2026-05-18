@@ -706,8 +706,17 @@ def config_for_backend(
 def extract_pack_v1_prediction(result: Any) -> dict[str, Any]:
     payload = extract_result_payload(result)
     bbox_3d = payload.get("bbox_3d")
-    selected_id = payload.get("selected_object_id")
+    selected_id = payload.get("selected_object_id", payload.get("proposal_id"))
     status = payload.get("status")
+    if _is_failed_marker(selected_id, status) or selected_id == -1:
+        return {
+            "status": "failed",
+            "selected_object_id": None,
+            "bbox_3d": None,
+            "confidence": payload.get("confidence", extract_result_confidence(result)),
+        }
+    if bbox_3d is None and selected_id is not None:
+        bbox_3d = resolve_pack_v1_bbox_from_result(result, selected_id)
     if status is None and bbox_3d is not None:
         status = "completed"
     return {
@@ -725,6 +734,43 @@ def extract_result_payload(result: Any) -> dict[str, Any]:
         if isinstance(payload, dict):
             return payload
     raise ValueError("pack_v1 result must expose result.payload as a dict")
+
+
+def resolve_pack_v1_bbox_from_result(
+    result: Any, proposal_id: Any
+) -> list[float] | None:
+    """Resolve a structured-response proposal_id to a pack-v1 bbox."""
+    try:
+        pid = int(proposal_id)
+    except (TypeError, ValueError):
+        return None
+    final_bundle = getattr(result, "final_bundle", None)
+    extra = (
+        getattr(final_bundle, "extra_metadata", None)
+        if final_bundle is not None
+        else None
+    )
+    if not isinstance(extra, dict):
+        return None
+    pool = extra.get("vg_proposal_pool")
+    if not isinstance(pool, dict):
+        return None
+    proposals = pool.get("proposals")
+    if not isinstance(proposals, list):
+        return None
+    for proposal in proposals:
+        if not isinstance(proposal, dict):
+            continue
+        try:
+            candidate_id = int(proposal.get("id", -999999))
+        except (TypeError, ValueError):
+            continue
+        if candidate_id != pid:
+            continue
+        bbox = proposal.get("bbox_3d_9dof")
+        if isinstance(bbox, list) and len(bbox) == 9:
+            return [float(x) for x in bbox]
+    return None
 
 
 def extract_result_confidence(result: Any) -> float | None:
