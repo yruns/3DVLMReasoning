@@ -629,6 +629,38 @@ def test_tadg_candidate_coverage_reads_current_list_scene_proposals_shape() -> N
     assert "proposal 22" in decision.message
 
 
+def test_tadg_candidate_coverage_ignores_mixed_current_list_scene_proposals_shape() -> None:
+    rs = _runtime(bundle=_bundle_with_query("the chair nearest the whiteboard"))
+    rs.tool_trace.append(
+        Stage2ToolObservation(
+            tool_name="list_scene_proposals",
+            tool_input={"region_bev": [0, 0, 10, 10]},
+            response_text=json.dumps(
+                {
+                    "count": 3,
+                    "proposals": [
+                        {"proposal_id": 21, "category": "chair"},
+                        {"proposal_id": 35, "category": "table"},
+                        {"proposal_id": 2, "category": "whiteboard"},
+                    ],
+                }
+            ),
+        )
+    )
+    _record_compare(
+        rs,
+        relation="closest_to",
+        anchor_id=2,
+        candidate_ids=[21],
+        ranked_ids=[21],
+    )
+
+    decision = evaluate_tadg(rs, {"proposal_id": 21, "confidence": 0.8})
+
+    assert decision.blocked is False
+    assert decision.subcase == ""
+
+
 def test_tadg_same_category_coverage_allows_anchor_excluded_from_candidates() -> None:
     rs = _runtime(bundle=_bundle_with_query("a black chair next to another same chair"))
     _record_category_lookup(rs, category="chair", proposal_ids=[0, 1, 2, 3, 5, 9])

@@ -281,6 +281,52 @@ def _proposal_ids_from_list_scene_response(response: dict[str, Any]) -> list[int
     return []
 
 
+def _normalized_category(value: Any) -> str | None:
+    if not isinstance(value, str):
+        return None
+    normalized = re.sub(r"\s+", " ", value.strip().lower())
+    return normalized or None
+
+
+def _explicit_lookup_category(entry: Any, payload: dict[str, Any]) -> str | None:
+    tool_input = getattr(entry, "tool_input", {}) or {}
+    if not isinstance(tool_input, dict):
+        tool_input = {}
+    return _normalized_category(tool_input.get("category")) or _normalized_category(
+        payload.get("category")
+    )
+
+
+def _same_category_ids_for_submitted_pid(
+    entry: Any,
+    payload: dict[str, Any],
+    submitted_pid: int,
+) -> list[int]:
+    rows = payload.get("proposals")
+    if isinstance(rows, list):
+        parsed_rows: list[tuple[int, str | None]] = []
+        submitted_category: str | None = None
+        for row in rows:
+            if not isinstance(row, dict) or not isinstance(row.get("proposal_id"), int):
+                continue
+            proposal_id = int(row["proposal_id"])
+            category = _normalized_category(row.get("category"))
+            parsed_rows.append((proposal_id, category))
+            if proposal_id == submitted_pid and category is not None:
+                submitted_category = category
+        if submitted_category is None:
+            return []
+        return [
+            proposal_id
+            for proposal_id, category in parsed_rows
+            if category == submitted_category
+        ]
+
+    if _explicit_lookup_category(entry, payload) is None:
+        return []
+    return _proposal_ids_from_list_scene_response(payload)
+
+
 def _last_matching_compare(
     runtime: Any,
     relevant_relations: set[str],
@@ -598,7 +644,11 @@ def _candidate_coverage_gap(
             continue
         if not isinstance(payload, dict):
             continue
-        category_ids = _proposal_ids_from_list_scene_response(payload)
+        category_ids = _same_category_ids_for_submitted_pid(
+            entry,
+            payload,
+            submitted_pid,
+        )
         if submitted_pid not in category_ids:
             continue
         if len(category_ids) > 12:
