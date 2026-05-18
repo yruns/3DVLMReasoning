@@ -161,16 +161,6 @@ _KEYWORD_PATTERNS: dict[str, re.Pattern[str]] = {
     )
     for tool_rel, aliases in _TOOL_RELATION_ALIASES.items()
 }
-_REQUIRED_VERTICAL_RELATION_PATTERNS: dict[str, re.Pattern[str]] = {
-    "below": re.compile(
-        r"\b(?:under|right\s+under|below|beneath|underneath|lower\s+than)\b",
-        re.IGNORECASE,
-    ),
-    "above": re.compile(
-        r"\b(?:above|over|on\s+top\s+of|higher\s+than)\b",
-        re.IGNORECASE,
-    ),
-}
 
 _SAME_CATEGORY_ADJACENCY_PATTERN = re.compile(
     r"\b(same|same\s+type|of\s+the\s+same\s+type|another\s+same)\b",
@@ -275,86 +265,6 @@ def _query_relation_set(runtime: Any) -> set[str]:
             matched.add("left_of")
 
     return matched
-
-
-def _required_vertical_relation_without_compare(runtime: Any) -> str | None:
-    """Return explicit vertical relation requiring a compare before final submit.
-
-    Plain "on" is intentionally excluded: support-surface expressions are common
-    and often better resolved visually. This guard only targets explicit
-    above/below/under wording.
-    """
-    query_text = _bundle_query_text(runtime)
-    if not query_text:
-        return None
-    for relation, pattern in _REQUIRED_VERTICAL_RELATION_PATTERNS.items():
-        if pattern.search(query_text):
-            return relation
-    return None
-
-
-def _missing_relation_evidence_decision(
-    runtime: Any,
-    *,
-    relation: str,
-    submitted_pid: int,
-    tool_override_reason: str | None,
-) -> TADGDecision:
-    min_chars = max(int(getattr(runtime, "tadg_override_min_chars", 6)), 1)
-    reason = (tool_override_reason or "").strip()
-    if reason and len(reason) >= min_chars:
-        runtime.tadg_triggered = True
-        runtime.tool_override_reason = reason
-        return TADGDecision(
-            blocked=False,
-            message=(
-                "TADG_MISSING_RELATION_OVERRIDE_ACCEPTED: agent submitted "
-                f"{submitted_pid} for explicit relation {relation!r} without "
-                "matching compare_proposals_spatial evidence; "
-                f"override_reason={reason!r}."
-            ),
-            submitted_pid=submitted_pid,
-            relation=relation,
-            subcase="missing_relation_evidence",
-        )
-
-    block_count = dict(getattr(runtime, "tadg_block_count", {}) or {})
-    next_count = block_count.get(submitted_pid, 0) + 1
-    block_count[submitted_pid] = next_count
-    runtime.tadg_block_count = block_count
-    max_repeats = max(int(getattr(runtime, "tadg_max_repeats", 3)), 1)
-    if next_count >= max_repeats:
-        runtime.tadg_triggered = True
-        return TADGDecision(
-            blocked=False,
-            message=(
-                "TADG_MISSING_RELATION_FORCE_PASS: identical submission of "
-                f"proposal {submitted_pid} reached {next_count} attempts "
-                f"without relation evidence for {relation!r}; the gate "
-                "auto-escalates and accepts the submission."
-            ),
-            submitted_pid=submitted_pid,
-            relation=relation,
-            subcase="missing_relation_evidence",
-            force_passed=True,
-        )
-
-    runtime.tadg_triggered = True
-    return TADGDecision(
-        blocked=True,
-        message=(
-            "TADG_MISSING_RELATION_EVIDENCE: the query explicitly asks for "
-            f"relation {relation!r}, but submit_final did not bind matching "
-            "compare_proposals_spatial evidence. Run compare_proposals_spatial "
-            "with the target-category candidate ids, the described anchor id, "
-            f"and relation={relation!r}; then resubmit with "
-            'relation_evidence={"evidence_id": "<compare id>"}. If a '
-            "comparison is impossible, resubmit with tool_override_reason."
-        ),
-        submitted_pid=submitted_pid,
-        relation=relation,
-        subcase="missing_relation_evidence",
-    )
 
 
 def _proposal_ids_from_list_scene_response(response: dict[str, Any]) -> list[int]:
@@ -920,14 +830,6 @@ def evaluate_tadg(
         relevant_relations = _query_relation_set(runtime)
         compare = _last_matching_compare(runtime, relevant_relations)
     if compare is None:
-        missing_relation = _required_vertical_relation_without_compare(runtime)
-        if missing_relation is not None:
-            return _missing_relation_evidence_decision(
-                runtime,
-                relation=missing_relation,
-                submitted_pid=submitted_pid,
-                tool_override_reason=tool_override_reason,
-            )
         return TADGDecision(blocked=False)
 
     ranked_ids = compare["ranked_ids"]
