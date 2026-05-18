@@ -526,9 +526,9 @@ def build_vg_tools(runtime: Any) -> list[BaseTool]:
         elif relation == "farthest_from":
             scored.sort(key=lambda x: x[1], reverse=True)
         elif relation == "above":
-            scored.sort(key=lambda x: (x[3] <= 0.0, -x[3], x[2]))
+            scored.sort(key=lambda x: (x[3] <= 0.0, x[2], -x[3]))
         elif relation == "below":
-            scored.sort(key=lambda x: (x[3] >= 0.0, x[3], x[2]))
+            scored.sort(key=lambda x: (x[3] >= 0.0, x[2], x[3]))
         elif relation == "left_of":
             scored.sort(
                 key=lambda x: (

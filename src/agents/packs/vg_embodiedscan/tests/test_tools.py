@@ -323,6 +323,74 @@ def test_compare_proposals_spatial_below_uses_z_axis(tmp_path: Path) -> None:
     assert payload["vertical_offsets"] == [-2.0, 2.0]
 
 
+def test_compare_proposals_spatial_below_prefers_horizontal_alignment(
+    tmp_path: Path,
+) -> None:
+    rs = _runtime(tmp_path)
+    rs.skills_loaded.add("vg-grounding-playbook")
+    rs.task_ctx.proposals = [
+        Proposal(
+            id=0, bbox_3d_9dof=[0, 0, -2, 1, 1, 1, 0, 0, 0], category="printer", score=0.9
+        ),
+        Proposal(
+            id=1, bbox_3d_9dof=[5, 0, -3, 1, 1, 1, 0, 0, 0], category="printer", score=0.9
+        ),
+        Proposal(
+            id=2,
+            bbox_3d_9dof=[0, 0, 0, 1, 1, 1, 0, 0, 0],
+            category="window",
+            score=0.8,
+        ),
+    ]
+    tool = next(t for t in build_vg_tools(rs) if t.name == "compare_proposals_spatial")
+    payload = json.loads(
+        tool.invoke(
+            {
+                "candidate_ids": [0, 1],
+                "anchor_id": 2,
+                "relation": "below",
+            }
+        )
+    )
+    assert payload["ranked_ids"] == [0, 1]
+    assert payload["horizontal_distances"] == [0.0, 5.0]
+    assert payload["vertical_offsets"] == [-2.0, -3.0]
+
+
+def test_compare_proposals_spatial_above_prefers_horizontal_alignment(
+    tmp_path: Path,
+) -> None:
+    rs = _runtime(tmp_path)
+    rs.skills_loaded.add("vg-grounding-playbook")
+    rs.task_ctx.proposals = [
+        Proposal(
+            id=0, bbox_3d_9dof=[0, 0, 2, 1, 1, 1, 0, 0, 0], category="cabinet", score=0.9
+        ),
+        Proposal(
+            id=1, bbox_3d_9dof=[5, 0, 3, 1, 1, 1, 0, 0, 0], category="cabinet", score=0.9
+        ),
+        Proposal(
+            id=2,
+            bbox_3d_9dof=[0, 0, 0, 1, 1, 1, 0, 0, 0],
+            category="counter",
+            score=0.8,
+        ),
+    ]
+    tool = next(t for t in build_vg_tools(rs) if t.name == "compare_proposals_spatial")
+    payload = json.loads(
+        tool.invoke(
+            {
+                "candidate_ids": [0, 1],
+                "anchor_id": 2,
+                "relation": "above",
+            }
+        )
+    )
+    assert payload["ranked_ids"] == [0, 1]
+    assert payload["horizontal_distances"] == [0.0, 5.0]
+    assert payload["vertical_offsets"] == [2.0, 3.0]
+
+
 def test_compare_proposals_spatial_left_right_use_coviewed_2d_geometry(
     tmp_path: Path,
 ) -> None:
