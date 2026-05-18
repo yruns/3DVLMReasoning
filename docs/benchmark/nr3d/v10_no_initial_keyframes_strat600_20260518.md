@@ -361,3 +361,118 @@ Interpretation: this is a one-sided recovery probe, not a valid replacement
 for the full strat600 score. If the original 386 correct samples did not
 regress, the arithmetic upper projection would be `(386 + 81) / 600 = 77.83 %`.
 That number is not claimable until the full 600 is rerun on the same code.
+
+### Full strat600 rerun after tool-trace image metadata: cfee0ef
+
+After removing the runtime / bundle pending-image side channel, the full
+canonical 600-case fold was rerun from commit `cfee0ef`. This commit changes
+tool-produced images to flow through `Stage2ToolObservation.image_metadata`
+only; `build_evidence_update_message()` scans tool trace metadata and no longer
+reads bundle-side image queues.
+
+Launch state:
+
+| Item | Value |
+|---|---|
+| Branch | `feat/remove-initial-keyframes` |
+| Head commit at launch | `cfee0ef987368404cb31a6ddf90706cc327fdcef` |
+| Run-time code commit | `cfee0ef987368404cb31a6ddf90706cc327fdcef` - no worktree drift |
+| Fold | `tmp/nr3d_artifacts/v9_3_strat600_sample_ids.json` |
+| Fold MD5 | `12a69d8d14a81519024bbe00d6334434` |
+| Output dir | `tmp/nr3d_eval_v10_tool_trace_images_strat600_20260518_cfee0ef/` |
+| Workers | 20 |
+| Sample retries | 2 |
+| Guards | TADG + no-match + evidence-frame |
+| Diagnostic leak flags | none |
+| Eval exit status | `0` |
+| Metrics exit status | `0` |
+| SQLite run id | `v10_tool_trace_images_strat600_20260518` |
+
+Command:
+
+```bash
+PYTHONPATH=src PYTHONUNBUFFERED=1 .venv/bin/python -m evaluation.scripts.run_nr3d_vg_side_by_side \
+  --sample-ids tmp/nr3d_artifacts/v9_3_strat600_sample_ids.json \
+  --data-root data/nr3d/scannet \
+  --pack-name pack_nr3d_v9_catalog_first \
+  --output-dir tmp/nr3d_eval_v10_tool_trace_images_strat600_20260518_cfee0ef \
+  --workers 20 \
+  --sample-retries 2 \
+  --use-tool-answer-disagreement-gate \
+  --use-no-match-candidate-guard \
+  --use-evidence-frame-guard
+
+PYTHONPATH=src .venv/bin/python -m evaluation.scripts.nr3d_leaderboard_metrics \
+  --side-by-side tmp/nr3d_eval_v10_tool_trace_images_strat600_20260518_cfee0ef/side_by_side.json \
+  --nr3d-data-root data/nr3d \
+  --phase8-data-root data/nr3d/scannet \
+  --sample-ids tmp/nr3d_artifacts/v9_3_strat600_sample_ids.json \
+  --output tmp/nr3d_eval_v10_tool_trace_images_strat600_20260518_cfee0ef/leaderboard_metrics.json \
+  --canonical-filter true
+
+PYTHONPATH=src .venv/bin/python scripts/ingest_nr3d_run.py \
+  --output-dir tmp/nr3d_eval_v10_tool_trace_images_strat600_20260518_cfee0ef \
+  --run-id v10_tool_trace_images_strat600_20260518 \
+  --branch feat/remove-initial-keyframes \
+  --commit cfee0ef \
+  --backend pack_v1 \
+  --judge-model none \
+  --leaderboard-metrics tmp/nr3d_eval_v10_tool_trace_images_strat600_20260518_cfee0ef/leaderboard_metrics.json \
+  --notes "Route tool images through Stage2 tool_trace image_metadata; remove bundle/runtime pending image queues; canonical NR3D strat600 rerun."
+```
+
+Run stability:
+
+- 600 / 600 per-sample JSON files written.
+- 600 / 600 side-by-side rows written.
+- 590 / 600 final `status=completed`.
+- 10 / 600 final `status=failed`.
+- 0 Tracebacks / logged Exceptions.
+- 295 ModelHub 429 retry lines, all at attempt 1/5; 0 attempt 2/5 or later.
+- Output artifact scan found 0 occurrences of the removed image side-channel
+  keys.
+- 596 / 600 samples contain tool-trace image metadata; total
+  `image_metadata` rows: 6 830.
+
+Headline metrics:
+
+| Metric | 220f128 v10 baseline | cfee0ef tool-trace images | Delta |
+|---|---:|---:|---:|
+| Overall | 64.33 | **61.00** | -3.33 |
+| Easy | 72.41 | 67.93 | -4.48 |
+| Hard | 56.77 | 54.52 | -2.26 |
+| V-Dep | 53.55 | 52.13 | -1.42 |
+| V-Indep | 70.18 | 65.81 | -4.37 |
+
+Matched-sample churn vs the original `220f128` full strat600 run:
+
+| Count | Value |
+|---|---:|
+| `220f128` correct samples | 386 |
+| `cfee0ef` correct samples | 366 |
+| Old positives preserved | 293 |
+| Old positives now wrong / failed | 93 |
+| Old misses recovered | 73 |
+| Net correct delta | -20 |
+
+The 10 non-completed samples were:
+
+| Sample | Primary failure shape |
+|---|---|
+| `scannet/scene0552_00::30::40217` | Target-category guard repeatedly parsed the anchor `wall` as target; agent kept trying the box. |
+| `scannet/scene0629_00::30::28923` | Target-category guard repeatedly parsed anchor `mirror` as target; agent kept trying the chair. |
+| `scannet/scene0665_00::19::10095` | Agent concluded no round table was in the pool after inspecting table candidates. |
+| `scannet/scene0144_00::17::37726` | Pack prediction missing status; payload had `status=None`, `selected_object_id=None`. |
+| `scannet/scene0700_00::34::40232` | Pack prediction missing status; payload had `status=None`, `selected_object_id=None`. |
+| `scannet/scene0019_00::19::19821` | Pack prediction missing status; payload had `status=None`, `selected_object_id=None`. |
+| `scannet/scene0164_00::24::20371` | Pack prediction missing status; payload had `status=None`, `selected_object_id=None`. |
+| `scannet/scene0648_00::24::25259` | Target-category guard repeatedly parsed anchor `plant` as target; agent kept trying the supporting shelf. |
+| `scannet/scene0606_00::32::9837` | Target-category guard repeatedly parsed anchor `clock` as target; agent kept trying the storage bin. |
+| `scannet/scene0598_00::2::4382` | No-match guard plus target-category guard deadlock around monitor vs bookshelf anchor. |
+
+Reading: removing the pending-image side channel is architecturally cleaner and
+keeps artifacts leak-free, but the exact `cfee0ef` rerun is not an accuracy
+improvement. It introduces 10 final failed statuses and a net -20 correct
+samples vs `220f128`. The largest actionable failure mode is still target /
+anchor parsing in guards, now exposed more sharply because the runtime no
+longer has any hidden bundle image queue to lean on.
