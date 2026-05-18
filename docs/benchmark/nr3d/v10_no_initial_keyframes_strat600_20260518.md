@@ -476,3 +476,101 @@ improvement. It introduces 10 final failed statuses and a net -20 correct
 samples vs `220f128`. The largest actionable failure mode is still target /
 anchor parsing in guards, now exposed more sharply because the runtime no
 longer has any hidden bundle image queue to lean on.
+
+### Target-category guard recovery probe: 2ce81df
+
+After the `cfee0ef` full strat600 run, three independent read-only case audits
+covered 15 base cases: 10 final failed statuses plus 5 old-positive regressions.
+The dominant actionable bucket was target-category guard target/anchor
+inversion. The guard was interpreting anchor/support nouns as the target head in
+queries like `chair closest to the mirror` or `shelf that has a plant`.
+
+Code change:
+
+- `02a2c0c` updates `target_category_guard` head-noun parsing so relation cues
+  (`closest to`, `farthest from`, `against`, etc.) truncate the candidate head
+  before anchor nouns.
+- It treats `that/which/who` as relative-clause cues rather than demonstrative
+  target heads.
+- It handles discourse-set queries like `When looking at the three storage
+  bins, it...` by using the set category as the target.
+- The change uses only query text and proposal categories; it does not inspect
+  GT targets, GT boxes, target-visible frames, or metrics.
+
+Validation:
+
+| Item | Value |
+|---|---|
+| Branch | `feat/remove-initial-keyframes` |
+| Head commit at launch | `2ce81df09aac8a008be82bb69563f46c2efda618` |
+| Run-time code commit | `2ce81df09aac8a008be82bb69563f46c2efda618` - no worktree drift |
+| Sample ids | `docs/benchmark/nr3d/assets/v10_target_category_guard5_sample_ids_20260519.json` |
+| Output dir | `tmp/nr3d_eval_v10_target_category_guard5_20260519_2ce81df/` |
+| SQLite run id | `v10_target_category_guard5_20260519` |
+| Workers | 5 |
+| Sample retries | 2 |
+| Guards | TADG + no-match + evidence-frame |
+| Eval exit status | `0` |
+| Metrics exit status | `0` |
+
+Commands:
+
+```bash
+PYTHONPATH=src PYTHONUNBUFFERED=1 .venv/bin/python -m evaluation.scripts.run_nr3d_vg_side_by_side \
+  --sample-ids docs/benchmark/nr3d/assets/v10_target_category_guard5_sample_ids_20260519.json \
+  --data-root data/nr3d/scannet \
+  --pack-name pack_nr3d_v9_catalog_first \
+  --output-dir tmp/nr3d_eval_v10_target_category_guard5_20260519_2ce81df \
+  --workers 5 \
+  --sample-retries 2 \
+  --use-tool-answer-disagreement-gate \
+  --use-no-match-candidate-guard \
+  --use-evidence-frame-guard
+
+PYTHONPATH=src .venv/bin/python -m evaluation.scripts.nr3d_leaderboard_metrics \
+  --side-by-side tmp/nr3d_eval_v10_target_category_guard5_20260519_2ce81df/side_by_side.json \
+  --nr3d-data-root data/nr3d \
+  --phase8-data-root data/nr3d/scannet \
+  --sample-ids docs/benchmark/nr3d/assets/v10_target_category_guard5_sample_ids_20260519.json \
+  --output tmp/nr3d_eval_v10_target_category_guard5_20260519_2ce81df/leaderboard_metrics.json \
+  --canonical-filter true
+
+PYTHONPATH=src .venv/bin/python scripts/ingest_nr3d_run.py \
+  --output-dir tmp/nr3d_eval_v10_target_category_guard5_20260519_2ce81df \
+  --run-id v10_target_category_guard5_20260519 \
+  --branch feat/remove-initial-keyframes \
+  --commit 2ce81df \
+  --backend pack_v1 \
+  --judge-model none \
+  --leaderboard-metrics tmp/nr3d_eval_v10_target_category_guard5_20260519_2ce81df/leaderboard_metrics.json \
+  --notes "Target-category guard head-noun fix recovery probe on 5 prior guard-deadlock failures; no GT inputs, standard guards."
+```
+
+Probe result:
+
+| Sample | `cfee0ef` status / selected | `2ce81df` status / selected | Guard outcome |
+|---|---|---|---|
+| `scannet/scene0552_00::30::40217` | failed / `null` | completed / `30` | expected `box`, submitted `box`, not blocked |
+| `scannet/scene0629_00::30::28923` | failed / `null` | completed / `30` | expected `chair`, submitted `chair`, not blocked |
+| `scannet/scene0648_00::24::25259` | failed / `null` | completed / `24` | expected `bookshelf`, submitted `bookshelf`, not blocked |
+| `scannet/scene0606_00::32::9837` | failed / `null` | completed / `32` | expected `storage bin`, submitted `storage bin`, not blocked |
+| `scannet/scene0598_00::2::4382` | failed / `null` | completed / `2` | expected `monitor`, submitted `monitor`, not blocked |
+
+Metrics on this diagnostic subset:
+
+| Metric | Value |
+|---|---:|
+| n | 5 |
+| Overall | 100.00 |
+| Easy | 100.00 |
+| Hard | 100.00 |
+| V-Dep | 100.00 |
+| V-Indep | 100.00 |
+
+Reading: this is not a benchmark-grade accuracy claim; it is a targeted
+regression probe over five previously audited guard-deadlock failures. It
+confirms that the head-noun fix removes the target-category guard blockage on
+the exact failure pattern. Remaining high-impact buckets from the 15-case audit
+are missing-status result extraction, unsupported `behind` / `in_front_of`
+spatial relations, evidence-frame guard overreach, and candidate coverage before
+no-match.
