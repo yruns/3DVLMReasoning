@@ -1027,3 +1027,86 @@ without code/tool changes. The remaining failures point to harder work:
 role-bound composite relation evidence, noun-scoped EFG direction parsing,
 target-category guard operative-clause parsing, and candidate-closure gates for
 ordinal / superlative / wall-row queries.
+
+### Bookshelf target-category guard probe: c5a75ae
+
+This one-case probe follows the `23f68de` 15-case audit: the remaining
+`scene0208_00::106::14558` failure was not a visual miss after the prompt
+change, but a `TARGET_CATEGORY_GUARD` parse bug. The query contains context
+phrases like "that wall" and "angled wall", followed by the operative clause
+"Find the bookshelf...". Before this fix, demonstrative context heads were
+evaluated before explicit action targets, so the guard expected `wall` and
+blocked bookshelf submissions. Commit `c5a75ae` makes explicit target actions
+(`find`, `select`, `choose`, `want`, etc.) take precedence over demonstrative
+context heads.
+
+Run metadata:
+
+| Item | Value |
+|---|---|
+| Branch | `feat/remove-initial-keyframes` |
+| Head commit at launch | `c5a75ae` |
+| Run-time code commit | `c5a75ae` - no worktree drift |
+| Probe IDs | `tmp/nr3d_artifacts/v10_bookshelf_guard_probe_ids_c5a75ae.json` |
+| Output dir | `tmp/nr3d_eval_v10_bookshelf_guard_probe_20260519_c5a75ae/` |
+| Leaderboard metrics | `tmp/nr3d_eval_v10_bookshelf_guard_probe_20260519_c5a75ae/leaderboard_metrics.json` |
+| SQLite run id | `v10_bookshelf_guard_probe_20260519` |
+| Workers | 1 |
+| Sample retries | 2 |
+| Guards | TADG + no-match + evidence-frame |
+
+Commands:
+
+```bash
+tmux new-session -d -s nr3d_bookshelf_guard_probe_c5a75ae \
+  "cd /Users/bytedance/project/3DVLMReasoning && \
+   PYTHONPATH=src .venv/bin/python src/evaluation/scripts/run_nr3d_vg_side_by_side.py \
+     --sample-ids tmp/nr3d_artifacts/v10_bookshelf_guard_probe_ids_c5a75ae.json \
+     --data-root data/nr3d/scannet \
+     --pack-name pack_nr3d_v9_catalog_first \
+     --output-dir tmp/nr3d_eval_v10_bookshelf_guard_probe_20260519_c5a75ae \
+     --workers 1 \
+     --sample-retries 2 \
+     --use-tool-answer-disagreement-gate \
+     --use-no-match-candidate-guard \
+     --use-evidence-frame-guard \
+     2>&1 | tee /tmp/nr3d_bookshelf_guard_probe_c5a75ae.log"
+
+PYTHONPATH=src .venv/bin/python src/evaluation/scripts/nr3d_leaderboard_metrics.py \
+  --side-by-side tmp/nr3d_eval_v10_bookshelf_guard_probe_20260519_c5a75ae/side_by_side.json \
+  --nr3d-data-root data/nr3d \
+  --phase8-data-root data/nr3d/scannet \
+  --sample-ids tmp/nr3d_artifacts/v10_bookshelf_guard_probe_ids_c5a75ae.json \
+  --output tmp/nr3d_eval_v10_bookshelf_guard_probe_20260519_c5a75ae/leaderboard_metrics.json \
+  --canonical-filter true
+
+PYTHONPATH=src .venv/bin/python scripts/ingest_nr3d_run.py \
+  --output-dir tmp/nr3d_eval_v10_bookshelf_guard_probe_20260519_c5a75ae \
+  --run-id v10_bookshelf_guard_probe_20260519 \
+  --branch feat/remove-initial-keyframes \
+  --commit c5a75ae \
+  --backend pack_v1 \
+  --judge-model none \
+  --leaderboard-metrics tmp/nr3d_eval_v10_bookshelf_guard_probe_20260519_c5a75ae/leaderboard_metrics.json \
+  --notes "One-case probe after target-category guard explicit-target priority fix; checks scene0208 bookshelf query that was previously parsed as wall and failed." \
+  --db docs/benchmark/nr3d/runs.sqlite
+```
+
+Probe metrics:
+
+| Metric | Value |
+|---|---:|
+| n | 1 |
+| classification_acc_filtered | 100.00 |
+| Hard | 100.00 |
+| V-Dep | 100.00 |
+
+Case outcome:
+
+| Sample | 23f68de outcome | c5a75ae outcome | Reading |
+|---|---|---|---|
+| `scannet/scene0208_00::106::14558` | `failed`; guard expected `wall`, blocked bookshelf submissions, and the run fell into no-match / wall fallback | completed with `selected_object_id=106`, IoU 1.0; submit trace shows expected/submitted category `bookshelf` | Recovered. The target-category guard now follows the operative `Find the bookshelf` clause instead of the context `that wall` demonstratives. |
+
+Reading: diagnostic only. This closes one of the 15-case audit's hardest guard
+failures without GT inputs. It does not address the larger candidate-closure
+and role-bound relation buckets still open from the same audit.
