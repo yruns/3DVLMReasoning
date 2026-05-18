@@ -925,3 +925,105 @@ work from this 15-case audit is broader: relation verifiers for
 `behind/in_front_of/opposite/across_from`, composite `over/contains/on`
 relations, open/closed door crops, and positive-final candidate coverage for
 view-dependent left/right cases.
+
+### View-dependent side-evidence probe: 23f68de
+
+This probe follows the next 15-case subagent audit. The audited failures split
+into three buckets: view-dependent left/right evidence, composite target-anchor
+relations, and group-internal ordinal / row-level reasoning. The code change is
+prompt/skill-only and remains no-GT: the shared scene exploration playbook and
+VG grounding playbooks now require a single viewer/anchor frame for
+view-dependent left/right queries, recommend `select_by_proposal(...,
+require_all=True)` for small co-visible candidate sets, and explicitly forbid
+combining screen-left/right evidence from different camera viewpoints or
+different candidate pairs.
+
+Run metadata:
+
+| Item | Value |
+|---|---|
+| Branch | `feat/remove-initial-keyframes` |
+| Head commit at launch | `23f68de` |
+| Run-time code commit | `23f68de` - no worktree drift |
+| Probe IDs | `tmp/nr3d_artifacts/v10_viewdep15_probe_ids_23f68de.json` |
+| Output dir | `tmp/nr3d_eval_v10_viewdep15_probe_20260519_23f68de/` |
+| Leaderboard metrics | `tmp/nr3d_eval_v10_viewdep15_probe_20260519_23f68de/leaderboard_metrics.json` |
+| SQLite run id | `v10_viewdep15_probe_20260519` |
+| Workers | 5 |
+| Sample retries | 2 |
+| Guards | TADG + no-match + evidence-frame |
+
+Commands:
+
+```bash
+tmux new-session -d -s nr3d_v10_viewdep15_probe_23f68de \
+  "cd /Users/bytedance/project/3DVLMReasoning && \
+   PYTHONPATH=src .venv/bin/python src/evaluation/scripts/run_nr3d_vg_side_by_side.py \
+     --sample-ids tmp/nr3d_artifacts/v10_viewdep15_probe_ids_23f68de.json \
+     --data-root data/nr3d/scannet \
+     --pack-name pack_nr3d_v9_catalog_first \
+     --output-dir tmp/nr3d_eval_v10_viewdep15_probe_20260519_23f68de \
+     --workers 5 \
+     --sample-retries 2 \
+     --use-tool-answer-disagreement-gate \
+     --use-no-match-candidate-guard \
+     --use-evidence-frame-guard \
+     2>&1 | tee /tmp/nr3d_v10_viewdep15_probe_23f68de.log"
+
+PYTHONPATH=src .venv/bin/python src/evaluation/scripts/nr3d_leaderboard_metrics.py \
+  --side-by-side tmp/nr3d_eval_v10_viewdep15_probe_20260519_23f68de/side_by_side.json \
+  --nr3d-data-root data/nr3d \
+  --phase8-data-root data/nr3d/scannet \
+  --sample-ids tmp/nr3d_artifacts/v10_viewdep15_probe_ids_23f68de.json \
+  --output tmp/nr3d_eval_v10_viewdep15_probe_20260519_23f68de/leaderboard_metrics.json \
+  --canonical-filter true
+
+PYTHONPATH=src .venv/bin/python scripts/ingest_nr3d_run.py \
+  --output-dir tmp/nr3d_eval_v10_viewdep15_probe_20260519_23f68de \
+  --run-id v10_viewdep15_probe_20260519 \
+  --branch feat/remove-initial-keyframes \
+  --commit 23f68de \
+  --backend pack_v1 \
+  --judge-model none \
+  --leaderboard-metrics tmp/nr3d_eval_v10_viewdep15_probe_20260519_23f68de/leaderboard_metrics.json \
+  --notes "15-case probe after view-dependent side-evidence playbook tightening from a new 15-case subagent audit; sample ids omit target metadata; checks view-dependent side, composite relation, and ordinal/row failure buckets." \
+  --db docs/benchmark/nr3d/runs.sqlite
+```
+
+Probe metrics:
+
+| Metric | Value |
+|---|---:|
+| n | 15 |
+| classification_acc_filtered | 33.33 |
+| Easy | 0.00 |
+| Hard | 33.33 |
+| V-Dep | 33.33 |
+| V-Indep | 0.00 |
+
+Case outcomes vs `a6f6077`:
+
+| Sample | a6f6077 selected | 23f68de selected | Reading |
+|---|---:|---:|---|
+| `scannet/scene0095_00::24::19560` | 20 | 24 | Recovered. Prompt caused a co-visible all-mouse frame via `require_all=True`, avoiding cross-view pairwise leftness. |
+| `scannet/scene0187_00::13::24038` | 0 | 13 | Recovered. The agent kept the table-facing frame as the ordering frame. |
+| `scannet/scene0423_00::3::23715` | 1 | 3 | Recovered. The "two closest" subset was preserved before applying right-from-behind. |
+| `scannet/scene0025_00::1::6057` | 0 | 1 | Recovered. The prompt reduced EFG over-steering from a non-left/right query and kept the keyboard-monitor relation in focus. |
+| `scannet/scene0552_00::10::35833` | 9 | 10 | Recovered. The nested table relation was handled in the intended role order. |
+| `scannet/scene0196_00::3::16361` | 1 | 1 | Still wrong. Door-view candidate coverage remains incomplete. |
+| `scannet/scene0221_00::39::34411` | 40 | 40 | Still wrong. The direction word modifies `left bed`, not target `pillow`; EFG still treats it as target-left. |
+| `scannet/scene0149_00::21::1743` | 4 | 9 | Still wrong. Cupboard/cabinet synonym coverage and under-counter / pantry relation binding remain missing. |
+| `scannet/scene0231_00::16::3011` | 20 | 20 | Still wrong. Needs role-bound armchair-facing-kitchen then picture-above-anchor verification. |
+| `scannet/scene0249_00::23::30460` | 27 | 27 | Still wrong. Superlative / visual attribute coverage across all trash cans remains missing. |
+| `scannet/scene0030_00::18::30641` | 19 | 19 | Still wrong. Needs group-ordinal closure for "these 3". |
+| `scannet/scene0030_00::23::28411` | 81 | 73 | Still wrong. Singular/plural book category and contained-in-selected-bookcase binding remain missing. |
+| `scannet/scene0208_00::106::14558` | 6 | failed | Still blocked by target-category guard parsing `wall` as target instead of `bookshelf`. |
+| `scannet/scene0307_00::15::33619` | 24 | 24 | Still wrong. Wall-row shelf candidate coverage remains incomplete. |
+| `scannet/scene0500_00::25::13471` | 23 | 23 | Still wrong. Same-wall middle-window grouping remains incomplete. |
+
+Reading: this is a diagnostic probe, not a leaderboard row. The playbook-only
+change is useful: it recovers 5 / 15 audited failures without any GT input and
+without code/tool changes. The remaining failures point to harder work:
+role-bound composite relation evidence, noun-scoped EFG direction parsing,
+target-category guard operative-clause parsing, and candidate-closure gates for
+ordinal / superlative / wall-row queries.
