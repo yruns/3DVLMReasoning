@@ -123,6 +123,46 @@ def test_target_category_guard_blocks_white_board_alias_head() -> None:
     assert decision.submitted_category == "chair"
 
 
+def test_target_category_guard_allows_wall_painting_as_picture_target() -> None:
+    rs = _runtime_with_categories(
+        "A red, yellow wall painting to the left of the white bedroom door. "
+        "It's hung on the wall.",
+        [(14, "picture"), (30, "wall"), (2, "door")],
+    )
+
+    decision = evaluate_target_category_guard(rs, {"proposal_id": 14})
+
+    assert decision.blocked is False
+    assert decision.expected_category == "picture"
+    assert decision.submitted_category == "picture"
+
+
+def test_target_category_guard_blocks_wall_for_wall_painting_target() -> None:
+    rs = _runtime_with_categories(
+        "A red yellow wall painting to the left of the white bedroom door.",
+        [(14, "picture"), (30, "wall"), (2, "door")],
+    )
+
+    decision = evaluate_target_category_guard(rs, {"proposal_id": 30})
+
+    assert decision.blocked is True
+    assert decision.expected_category == "picture"
+    assert decision.submitted_category == "wall"
+
+
+def test_target_category_guard_preserves_wall_target() -> None:
+    rs = _runtime_with_categories(
+        "The wall to the left of the clock.",
+        [(30, "wall"), (9, "clock"), (14, "picture")],
+    )
+
+    decision = evaluate_target_category_guard(rs, {"proposal_id": 30})
+
+    assert decision.blocked is False
+    assert decision.expected_category == "wall"
+    assert decision.submitted_category == "wall"
+
+
 def test_target_category_guard_explicit_target_overrides_later_context() -> None:
     rs = _runtime(
         "Staring at both beds from their foot, you want the bed on the right. "

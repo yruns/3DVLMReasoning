@@ -25,6 +25,16 @@ class TargetCategoryDecision:
 
 _LABEL_ALIASES: dict[str, tuple[str, ...]] = {
     "bookshelf": ("bookshelf", "bookcase", "book case"),
+    "picture": (
+        "picture",
+        "painting",
+        "wall painting",
+        "wall picture",
+        "wall art",
+        "artwork",
+        "art piece",
+        "framed picture",
+    ),
     "whiteboard": ("whiteboard", "white board"),
     "trash can": ("trash can", "trashcan"),
 }
@@ -37,6 +47,15 @@ _WANT_HEAD_RE = re.compile(
     r"\b(?:want|select|choose|pick|find|looking\s+for|refer(?:ring)?\s+to)\s+"
     r"(?:the|a|an|this|that)?\s*"
     r"(?P<label>[a-z][a-z0-9]*(?:\s+[a-z][a-z0-9]*){0,2})\b",
+    re.I,
+)
+_RELATION_CUE_RE = re.compile(
+    r"\b(?:"
+    r"to\s+the\s+(?:left|right|front|back)\s+of|"
+    r"left\s+of|right\s+of|in\s+front\s+of|next\s+to|"
+    r"near|beside|behind|above|below|under|over|"
+    r"on|in|with|by|from|that|which|who"
+    r")\b",
     re.I,
 )
 
@@ -179,15 +198,42 @@ def _match_label_to_category(label: str, categories: list[str]) -> str | None:
     for category in categories:
         if _category_matches(label_norm, category):
             return category
-    matches = [
-        category
-        for category in categories
-        if any(
-            _alias_mentioned(label_norm, alias) for alias in _category_aliases(category)
-        )
-    ]
-    unique = _unique(matches)
-    return unique[0] if len(unique) == 1 else None
+
+    matches: list[tuple[int, str]] = []
+    for category in categories:
+        for alias in _category_aliases(category):
+            if _alias_mentioned(label_norm, alias):
+                matches.append((len(_compact(alias)), category))
+
+    if not matches:
+        return None
+    best_score = max(score for score, _ in matches)
+    best_categories = _unique(
+        [category for score, category in matches if score == best_score]
+    )
+    return best_categories[0] if len(best_categories) == 1 else None
+
+
+def _leading_label_from_clause(clause: str) -> str | None:
+    text = " ".join(str(clause).lower().split())
+    if not text:
+        return None
+
+    text = re.sub(
+        r"^\s*(?:(?:it|this|that)\s+(?:is|s)\s+|it's\s+)",
+        "",
+        text,
+        flags=re.I,
+    )
+    text = re.sub(r"^\s*(?:the|a|an|this|that)\s+", "", text, flags=re.I)
+    cue = _RELATION_CUE_RE.search(text)
+    if cue is not None:
+        text = text[: cue.start()].strip()
+
+    words = re.findall(r"[a-z][a-z0-9]*", text)
+    if not words:
+        return None
+    return " ".join(words[:6])
 
 
 def _head_category_from_query(query: str, categories: list[str]) -> str | None:
@@ -210,11 +256,15 @@ def _head_category_from_query(query: str, categories: list[str]) -> str | None:
 
     head_candidates: list[str] = []
     for clause in clauses:
-        leading = _LEADING_HEAD_RE.search(clause)
-        if leading is not None:
-            category = _match_label_to_category(leading.group("label"), categories)
-            if category is not None:
-                head_candidates.append(category)
+        label = _leading_label_from_clause(clause)
+        if label is None:
+            leading = _LEADING_HEAD_RE.search(clause)
+            label = leading.group("label") if leading is not None else None
+        if label is None:
+            continue
+        category = _match_label_to_category(label, categories)
+        if category is not None:
+            head_candidates.append(category)
     unique_heads = _unique(head_candidates)
     if unique_heads:
         return unique_heads[0] if len(unique_heads) == 1 else None
