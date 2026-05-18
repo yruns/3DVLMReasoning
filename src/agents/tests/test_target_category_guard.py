@@ -369,6 +369,22 @@ def test_target_category_guard_explicit_target_overrides_later_context() -> None
     assert decision.submitted_category == "bed"
 
 
+def test_target_category_guard_find_bookshelf_overrides_context_wall() -> None:
+    rs = _runtime_with_categories(
+        "There is one wall of books that at a unique angle. Go to the end of "
+        "that wall that is closest to the two small tables containing books. "
+        "Find the bookshelf against the angled wall that is just to the left "
+        "of the furthest right bookshelf.",
+        [(106, "bookshelf"), (6, "wall")],
+    )
+
+    decision = evaluate_target_category_guard(rs, {"proposal_id": 106})
+
+    assert decision.blocked is False
+    assert decision.expected_category == "bookshelf"
+    assert decision.submitted_category == "bookshelf"
+
+
 def test_target_category_guard_allows_matching_head_category() -> None:
     rs = _runtime("The pillow is the back right option.")
 

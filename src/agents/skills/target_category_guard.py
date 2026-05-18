@@ -319,16 +319,6 @@ def _head_category_from_query(query: str, categories: list[str]) -> str | None:
         return None
 
     clauses = _split_clauses(query)
-    demonstrative_candidates: list[str] = []
-    for clause in clauses:
-        for target in _DEMONSTRATIVE_HEAD_RE.finditer(clause):
-            category = _match_label_to_category(target.group("label"), categories)
-            if category is not None:
-                demonstrative_candidates.append(category)
-    unique_demonstrative = _unique(demonstrative_candidates)
-    if unique_demonstrative:
-        return unique_demonstrative[0] if len(unique_demonstrative) == 1 else None
-
     explicit_found = False
     explicit_candidates: list[str] = []
     for clause in clauses:
@@ -342,6 +332,16 @@ def _head_category_from_query(query: str, categories: list[str]) -> str | None:
         unique_explicit = _unique(explicit_candidates)
         if unique_explicit:
             return unique_explicit[0] if len(unique_explicit) == 1 else None
+
+    demonstrative_candidates: list[str] = []
+    for clause in clauses:
+        for target in _DEMONSTRATIVE_HEAD_RE.finditer(clause):
+            category = _match_label_to_category(target.group("label"), categories)
+            if category is not None:
+                demonstrative_candidates.append(category)
+    unique_demonstrative = _unique(demonstrative_candidates)
+    if unique_demonstrative:
+        return unique_demonstrative[0] if len(unique_demonstrative) == 1 else None
 
     generic_copular_candidates: list[str] = []
     for clause in clauses:
