@@ -2096,3 +2096,109 @@ same-slice accuracy stays at 5 / 15, matching the negative broad-prompt probe
 and losing 3 cases vs the stable `54198ef` probe. Do not keep this guard active.
 Future work should make the relation tool itself easier to call correctly
 without forcing every explicit vertical final answer through a brittle block.
+
+### Unavailable crop tool-surface probe: cbfb9ed -> 1d3b02d
+
+The 5-worker audit found failures where `request_crops` returned the old
+success-like stub text even though no concrete crop image was generated. That
+violates the no-silent-fallback rule: an agent can cite crop evidence that does
+not exist. Commit `d588b34` first made the generic callback fail loud with an
+`ERROR`. The direct probe below showed that exposing an ERROR-only tool hurt
+accuracy on this diagnostic slice, so commit `1d3b02d` instead hides
+`request_crops` from tools, system prompt, and evidence nudges unless a real
+crop callback is configured.
+
+Run metadata:
+
+| Item | Value |
+|---|---|
+| Branch | `feat/remove-initial-keyframes` |
+| Parent run-time code commit | `5193cff` |
+| Fail-loud run-time code commit | `cbfb9ed` |
+| Hidden-tool run-time code commit | `1d3b02d` |
+| Probe IDs | `docs/benchmark/nr3d/assets/v10_crop_fail_loud_probe26_sample_ids_20260519.json` |
+| Probe IDs MD5 | `1546be2afa96bfe012b22a45d7211032` |
+| Parent output dir | `tmp/nr3d_eval_v10_crop_parent_probe26_20260519_5193cff_maincwd/` |
+| Fail-loud output dir | `tmp/nr3d_eval_v10_crop_fail_loud_probe26_20260519_cbfb9ed/` |
+| Hidden-tool output dir | `tmp/nr3d_eval_v10_crop_hidden_probe26_20260519_1d3b02d/` |
+| SQLite run ids | `v10_crop_parent_probe26_20260519`, `v10_crop_fail_loud_probe26_20260519`, `v10_crop_hidden_probe26_20260519` |
+| Workers | 8 |
+| Sample retries | 0 |
+| Guards | TADG + no-match + evidence-frame |
+
+Artifact checksums:
+
+| Artifact | MD5 |
+|---|---|
+| parent `side_by_side.json` | `babec59a2a3e3ac9fb302d0f7bdcf1c7` |
+| parent `leaderboard_metrics.json` | `6021ef9f9ed7109d3e6bc1e568adeeee` |
+| fail-loud `side_by_side.json` | `f9d8b44980635b365a58ed4c96a0831b` |
+| fail-loud `leaderboard_metrics.json` | `2dbfe92d22e8a6ede71a9a4830d61cfe` |
+| hidden-tool `side_by_side.json` | `7f34041372e815e064580cf5163d7fdb` |
+| hidden-tool `leaderboard_metrics.json` | `bc2ddb8f9cf0603df5c4a364f91ffa95` |
+
+Commands:
+
+```bash
+tmux new-session -d -s nr3d-crop-hidden-probe26-1d3b02d \
+  "cd /Users/bytedance/project/3DVLMReasoning && bash -lc 'set -euo pipefail; \
+   export PYTHONPATH=src PYTHONUNBUFFERED=1; \
+   .venv/bin/python -m evaluation.scripts.run_nr3d_vg_side_by_side \
+     --sample-ids docs/benchmark/nr3d/assets/v10_crop_fail_loud_probe26_sample_ids_20260519.json \
+     --data-root data/nr3d/scannet \
+     --pack-name pack_nr3d_v9_catalog_first \
+     --output-dir tmp/nr3d_eval_v10_crop_hidden_probe26_20260519_1d3b02d \
+     --workers 8 \
+     --sample-retries 0 \
+     --use-tool-answer-disagreement-gate \
+     --use-no-match-candidate-guard \
+     --use-evidence-frame-guard \
+     2>&1 | tee /tmp/nr3d_crop_hidden_probe26_1d3b02d.log; \
+   .venv/bin/python -m evaluation.scripts.nr3d_leaderboard_metrics \
+     --side-by-side tmp/nr3d_eval_v10_crop_hidden_probe26_20260519_1d3b02d/side_by_side.json \
+     --nr3d-data-root data/nr3d \
+     --phase8-data-root data/nr3d/scannet \
+     --sample-ids docs/benchmark/nr3d/assets/v10_crop_fail_loud_probe26_sample_ids_20260519.json \
+     --output tmp/nr3d_eval_v10_crop_hidden_probe26_20260519_1d3b02d/leaderboard_metrics.json \
+     --canonical-filter true \
+     2>&1 | tee -a /tmp/nr3d_crop_hidden_probe26_1d3b02d.log'"
+
+PYTHONPATH=src .venv/bin/python scripts/ingest_nr3d_run.py \
+  --output-dir tmp/nr3d_eval_v10_crop_hidden_probe26_20260519_1d3b02d \
+  --run-id v10_crop_hidden_probe26_20260519 \
+  --branch feat/remove-initial-keyframes \
+  --commit 1d3b02d \
+  --backend pack_v1 \
+  --leaderboard-metrics tmp/nr3d_eval_v10_crop_hidden_probe26_20260519_1d3b02d/leaderboard_metrics.json \
+  --notes "Diagnostic 26-case probe after hiding unavailable request_crops tool; no crop tool calls; no GT runtime inputs." \
+  --db docs/benchmark/nr3d/runs.sqlite
+```
+
+For the parent comparison, `5193cff` was run with
+`PYTHONPATH=/tmp/3dvlm_crop_parent_5193cff/src` from the main repository cwd.
+That cwd matters because the prepared sample artifacts contain relative
+`scene_artifacts_dir` paths. Earlier parent attempts from the detached worktree
+failed path preflight / visibility checks and were not used as the comparison.
+
+Probe metrics:
+
+| Variant | Commit | Overall | Easy | Hard | V-Dep | V-Ind | Statuses | Crop tool calls |
+|---|---|---:|---:|---:|---:|---:|---|---:|
+| Old success-like crop stub | `5193cff` | 50.00 | 50.00 | 50.00 | 33.33 | 58.82 | 26 completed | 11 stub calls, 0 images |
+| Fail-loud unavailable crop callback | `cbfb9ed` | 42.31 | 37.50 | 44.44 | 22.22 | 52.94 | 26 completed | 12 ERROR calls, 0 images |
+| Hide unavailable crop tool | `1d3b02d` | 50.00 | 50.00 | 50.00 | 22.22 | 64.71 | 25 completed, 1 failed sentinel | 0 calls |
+
+Case deltas:
+
+| Comparison | Recoveries | Regressions |
+|---|---|---|
+| hidden-tool vs fail-loud | `scene0030_00::0::23137`, `scene0307_00::25::35532`, `scene0432_00::2::29554` | `scene0249_00::23::30460` |
+| hidden-tool vs parent stub | `scene0030_00::0::23137`, `scene0307_00::25::35532`, `scene0549_00::7::17436`, `scene0565_00::23::30788` | `scene0025_00::1::6057`, `scene0149_00::25::10119`, `scene0249_00::23::30460`, `scene0574_00::5::13504` |
+
+Reading: do not restore the old stub. It was not visual evidence and should not
+be available under the no-fallback rule. The active fix is `1d3b02d`: when no
+concrete crop renderer is configured, `request_crops` is absent from the tool
+list and from runtime prompt/nudge text. The diagnostic slice returns to the
+parent's 13 / 26 without allowing any false crop-evidence path. Future work
+should either implement a real object/frame crop renderer or keep this tool
+hidden for NR3D/ScanRefer pack-v1 runs.
