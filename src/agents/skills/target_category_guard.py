@@ -162,7 +162,10 @@ def _match_label_to_category(label: str, categories: list[str]) -> str | None:
     matches = [
         category
         for category in categories
-        if _compact(category) and _compact(category) in compact_label
+        if any(
+            compact_alias and compact_alias in compact_label
+            for compact_alias in (_compact(alias) for alias in _category_aliases(category))
+        )
     ]
     unique = _unique(matches)
     return unique[0] if len(unique) == 1 else None

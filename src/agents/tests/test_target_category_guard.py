@@ -28,6 +28,22 @@ def _runtime(query: str) -> Stage2RuntimeState:
     return rs
 
 
+def _runtime_with_categories(query: str, categories: list[tuple[int, str]]) -> Stage2RuntimeState:
+    rs = Stage2RuntimeState(bundle=Stage2EvidenceBundle(stage1_query=query))
+    rs.task_type = Stage2TaskType.VISUAL_GROUNDING
+    rs.task_ctx = VgEmbodiedScanCtx(
+        proposal_pool_source="unit",
+        proposals=[
+            Proposal(id=proposal_id, category=category, score=0.9, bbox_3d_9dof=[0] * 9)
+            for proposal_id, category in categories
+        ],
+        frame_index={},
+        proposal_index={},
+        annotated_image_dir=Path("/tmp"),
+    )
+    return rs
+
+
 def test_target_category_guard_blocks_context_object_submission() -> None:
     rs = _runtime("Choose the pillow on the back right bed.")
 
@@ -37,6 +53,32 @@ def test_target_category_guard_blocks_context_object_submission() -> None:
     assert decision.expected_category == "pillow"
     assert decision.submitted_category == "bed"
     assert "TARGET_CATEGORY_GUARD" in decision.message
+
+
+def test_target_category_guard_blocks_book_case_alias_with_relation_tail() -> None:
+    rs = _runtime_with_categories(
+        "Choose the book case on the left.",
+        [(21, "bookshelf"), (6, "chair")],
+    )
+
+    decision = evaluate_target_category_guard(rs, {"proposal_id": 6})
+
+    assert decision.blocked is True
+    assert decision.expected_category == "bookshelf"
+    assert decision.submitted_category == "chair"
+
+
+def test_target_category_guard_blocks_bookcase_alias_with_relation_tail() -> None:
+    rs = _runtime_with_categories(
+        "Choose the bookcase on the left.",
+        [(21, "bookshelf"), (6, "chair")],
+    )
+
+    decision = evaluate_target_category_guard(rs, {"proposal_id": 6})
+
+    assert decision.blocked is True
+    assert decision.expected_category == "bookshelf"
+    assert decision.submitted_category == "chair"
 
 
 def test_target_category_guard_explicit_target_overrides_later_context() -> None:
