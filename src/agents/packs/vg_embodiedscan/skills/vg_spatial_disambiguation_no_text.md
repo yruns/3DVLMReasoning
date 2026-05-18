@@ -30,6 +30,16 @@ For negated relations like "not closer to X", first compare the positive
 relation to identify candidates to avoid, then choose among the remaining
 target-category candidates.
 
+Nested anchor relations must be resolved in dependency order. For expressions
+like "the chair behind the desk closest to the window", resolve the anchor
+candidates first: find all desk candidates, identify the window anchor, and call
+`compare_proposals_spatial(candidate_ids=[anchor ids], anchor_id=#window, relation='closest_to')`.
+Only after that comparison names the desk anchor should you then rank the target
+candidates against that resolved anchor. If the target relation is unsupported
+by `compare_proposals_spatial` (for example `behind`), use marked frames and
+BEV evidence against the resolved anchor instead of comparing against every
+desk candidate at once.
+
 Use `select_by_region(region_type='bbox_3d')` to fetch frames that show both the
 anchor and the candidates simultaneously, or `select_by_proposal(ids=[#a, #b, #x],
 require_all=True)` when you want a single frame containing all three. If no

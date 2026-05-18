@@ -97,6 +97,22 @@ def test_playbooks_document_view_dependent_left_right_evidence_contract(
     )
 
 
+@pytest.mark.parametrize("path", [_PB, _PB_NO_TEXT, _SD, _SD_NO_TEXT])
+def test_playbooks_document_nested_anchor_resolution_before_target_ranking(
+    path: Path,
+):
+    text = path.read_text()
+    normalized = " ".join(text.split())
+    assert "Nested anchor relations" in normalized
+    assert "resolve the anchor candidates first" in normalized
+    assert "desk closest to the window" in normalized
+    assert (
+        "compare_proposals_spatial(candidate_ids=[anchor ids], anchor_id=#window, relation='closest_to')"
+        in normalized
+    )
+    assert "then rank the target candidates against that resolved anchor" in normalized
+
+
 def test_vg_playbook_mentions_ood_proposal_minus_one():
     text = _PB.read_text()
     assert "proposal_id" in text
