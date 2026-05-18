@@ -173,6 +173,19 @@ def _head_category_from_query(query: str, categories: list[str]) -> str | None:
         return None
 
     clauses = _split_clauses(query)
+    explicit_found = False
+    explicit_candidates: list[str] = []
+    for clause in clauses:
+        for target in _WANT_HEAD_RE.finditer(clause):
+            explicit_found = True
+            category = _match_label_to_category(target.group("label"), categories)
+            if category is not None:
+                explicit_candidates.append(category)
+
+    if explicit_found:
+        unique_explicit = _unique(explicit_candidates)
+        return unique_explicit[0] if len(unique_explicit) == 1 else None
+
     head_candidates: list[str] = []
     for clause in clauses:
         leading = _LEADING_HEAD_RE.search(clause)
@@ -180,22 +193,8 @@ def _head_category_from_query(query: str, categories: list[str]) -> str | None:
             category = _match_label_to_category(leading.group("label"), categories)
             if category is not None:
                 head_candidates.append(category)
-
-    if head_candidates:
-        return head_candidates[-1]
-
-    want_candidates: list[str] = []
-    for clause in clauses:
-        want = _WANT_HEAD_RE.search(clause)
-        if want is not None:
-            category = _match_label_to_category(want.group("label"), categories)
-            if category is not None:
-                want_candidates.append(category)
-    if len(_unique(want_candidates)) == 1:
-        return want_candidates[0]
-
-    mentioned = _mentioned_categories(query, categories)
-    return mentioned[0] if len(mentioned) == 1 else None
+    unique_heads = _unique(head_candidates)
+    return unique_heads[0] if len(unique_heads) == 1 else None
 
 
 def _expected_category(runtime: Any) -> str | None:
@@ -203,12 +202,7 @@ def _expected_category(runtime: Any) -> str | None:
     proposal_categories = _unique(list(_proposal_category_map(runtime).values()))
     trace_categories = _trace_list_scene_categories(runtime)
 
-    if trace_categories:
-        trace_mentions = _mentioned_categories(query, trace_categories)
-        if len(trace_mentions) == 1:
-            return trace_mentions[0]
-
-    return _head_category_from_query(query, proposal_categories)
+    return _head_category_from_query(query, _unique(proposal_categories + trace_categories))
 
 
 def _is_visual_grounding(runtime: Any) -> bool:

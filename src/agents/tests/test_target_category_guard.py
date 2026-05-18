@@ -29,10 +29,7 @@ def _runtime(query: str) -> Stage2RuntimeState:
 
 
 def test_target_category_guard_blocks_context_object_submission() -> None:
-    rs = _runtime(
-        "Staring at both beds from their foot, you want the bed on the right. "
-        "The pillow is the back right option."
-    )
+    rs = _runtime("Choose the pillow on the back right bed.")
 
     decision = evaluate_target_category_guard(rs, {"proposal_id": 8})
 
@@ -40,6 +37,19 @@ def test_target_category_guard_blocks_context_object_submission() -> None:
     assert decision.expected_category == "pillow"
     assert decision.submitted_category == "bed"
     assert "TARGET_CATEGORY_GUARD" in decision.message
+
+
+def test_target_category_guard_explicit_target_overrides_later_context() -> None:
+    rs = _runtime(
+        "Staring at both beds from their foot, you want the bed on the right. "
+        "The pillow is the back right option."
+    )
+
+    decision = evaluate_target_category_guard(rs, {"proposal_id": 8})
+
+    assert decision.blocked is False
+    assert decision.expected_category == "bed"
+    assert decision.submitted_category == "bed"
 
 
 def test_target_category_guard_allows_matching_head_category() -> None:
@@ -54,6 +64,24 @@ def test_target_category_guard_allows_matching_head_category() -> None:
 
 def test_target_category_guard_passes_ambiguous_head() -> None:
     rs = _runtime("It is the one on the left.")
+
+    decision = evaluate_target_category_guard(rs, {"proposal_id": 8})
+
+    assert decision.blocked is False
+    assert decision.expected_category is None
+
+
+def test_target_category_guard_passes_conflicting_explicit_targets() -> None:
+    rs = _runtime("Choose the pillow on the bed, then pick the bed on the right.")
+
+    decision = evaluate_target_category_guard(rs, {"proposal_id": 8})
+
+    assert decision.blocked is False
+    assert decision.expected_category is None
+
+
+def test_target_category_guard_passes_conflicting_generic_heads() -> None:
+    rs = _runtime("The pillow is on the left. The bed is on the right.")
 
     decision = evaluate_target_category_guard(rs, {"proposal_id": 8})
 
