@@ -10,6 +10,13 @@ _SD = Path(__file__).resolve().parents[1] / "vg_spatial_disambiguation.md"
 _SD_NO_TEXT = (
     Path(__file__).resolve().parents[1] / "vg_spatial_disambiguation_no_text.md"
 )
+_SHARED = (
+    Path(__file__).resolve().parents[4]
+    / "skills"
+    / "shared_skills"
+    / "scene_exploration_playbook.md"
+)
+_SHARED_NO_TEXT = _SHARED.with_name("scene_exploration_playbook_no_text.md")
 
 
 @pytest.mark.parametrize("path", [_PB, _SD])
@@ -73,6 +80,21 @@ def test_vg_playbooks_document_unsupported_semantic_relation_workflow(path: Path
     assert "same_side_as" in text
     assert "between" in text
     assert "Do not call `compare_proposals_spatial`" in text
+
+
+@pytest.mark.parametrize("path", [_PB, _PB_NO_TEXT, _SHARED, _SHARED_NO_TEXT])
+def test_playbooks_document_view_dependent_left_right_evidence_contract(
+    path: Path,
+):
+    text = path.read_text()
+    normalized = " ".join(text.split())
+    assert "view-dependent left/right" in normalized
+    assert "require_all=True" in normalized
+    assert "same marked frame" in normalized
+    assert (
+        "Do not combine screen-left/right evidence from different camera viewpoints"
+        in normalized
+    )
 
 
 def test_vg_playbook_mentions_ood_proposal_minus_one():

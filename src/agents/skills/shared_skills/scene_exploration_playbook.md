@@ -103,6 +103,15 @@ marked evidence or an explicit elimination reason. A selector returning frames
 for only one spatial cluster is not enough to eliminate unseen same-category
 candidates.
 
+For view-dependent left/right queries ("facing the X", "from behind",
+"looking in from the door", "standing at the foot/end"), first establish the
+viewer/anchor frame, then compare target candidates in that same marked frame.
+Use `select_by_proposal(..., require_all=True)` when the candidate set is small
+enough to seek a co-visible frame. Do not combine screen-left/right evidence
+from different camera viewpoints or different candidate pairs as if it were one
+ordering. If a previous spatial comparison narrowed the set, apply left/right
+only inside that subset.
+
 ## Anti-patterns
 
 - Answering from BEV labels alone. BEV is a map, not ground truth.

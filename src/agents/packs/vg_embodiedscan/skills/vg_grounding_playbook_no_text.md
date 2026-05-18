@@ -51,6 +51,16 @@ between/opposite checks, and cite the marked frames used for appearance.
 For negated relations like "not closer to X", first compare the positive
 relation to identify candidates to avoid, then choose among the remaining
 target-category candidates.
+
+For view-dependent left/right queries ("facing the X", "from behind",
+"looking in from the door", "standing at the foot/end"), first establish the
+viewer/anchor frame, then compare target candidates in that same marked frame.
+Use `select_by_proposal(..., require_all=True)` when the candidate set is
+small enough to seek a co-visible frame. Do not combine screen-left/right
+evidence from different camera viewpoints or different candidate pairs as if
+it were one ordering. If a previous spatial comparison narrowed the set (for
+example "the two closest to the table"), apply left/right only inside that
+subset, not across every same-category object in the frame.
 5. **Submit** with `submit_final(payload={"proposal_id": <id>}, …)`. The
    evidence-frame guard requires that at least one `mark_frame_with_bbox`
    call covered the submitted proposal id.
