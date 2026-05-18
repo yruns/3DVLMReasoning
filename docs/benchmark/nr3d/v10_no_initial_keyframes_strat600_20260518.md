@@ -1110,3 +1110,126 @@ Case outcome:
 Reading: diagnostic only. This closes one of the 15-case audit's hardest guard
 failures without GT inputs. It does not address the larger candidate-closure
 and role-bound relation buckets still open from the same audit.
+
+### Guard-scope 15-case probe: 6355781
+
+This probe follows a fresh 15-case subagent audit over failures from
+`v10_no_gt_fixes_strat600_20260519`. The audit found two no-GT guard errors
+that could be fixed locally:
+
+- Target-category guard parsed an earlier "want the bed" context as the target
+  even when a later option head said "The pillow is...".
+- Evidence-frame guard treated anchor / room-side phrases such as "on the
+  larger desk to the left" and "left side of the room" as image-left
+  constraints on the submitted target.
+
+Commit `6355781` fixes those two guard scopes and keeps the evidence contract
+unchanged: no initial keyframes, no pending-image side channel, and first-person
+tool images only via `tool_trace.image_metadata`.
+
+Run metadata:
+
+| Item | Value |
+|---|---|
+| Branch | `feat/remove-initial-keyframes` |
+| Head commit at launch | `6355781` |
+| Run-time code commit | `6355781` - no worktree drift |
+| Probe IDs used at launch | `/tmp/nr3d_guard_scope_probe15_sample_ids_20260519.json` |
+| Durable probe IDs | `docs/benchmark/nr3d/assets/v10_guard_scope_probe15_sample_ids_20260519.json` |
+| Durable probe IDs MD5 | `6663813191523d007d71457346fbe505` |
+| Output dir | `tmp/nr3d_eval_v10_guard_scope_probe15_20260519_6355781/` |
+| Run log | `tmp/nr3d_eval_v10_guard_scope_probe15_20260519_6355781/run.log` |
+| Side-by-side JSON | `tmp/nr3d_eval_v10_guard_scope_probe15_20260519_6355781/side_by_side.json` |
+| Side-by-side MD5 | `ae597f8851e88cf796284c3c8a769d71` |
+| Leaderboard metrics | `tmp/nr3d_eval_v10_guard_scope_probe15_20260519_6355781/leaderboard_metrics.json` |
+| Leaderboard metrics MD5 | `13295426da7bd3de9cdbeea8752671a7` |
+| SQLite run id | `v10_guard_scope_probe15_20260519` |
+| Workers | 15 |
+| Sample retries | 2 |
+| Guards | TADG + no-match + evidence-frame |
+
+The launch-time `/tmp` sample-id file included audit helper fields for human
+review, but `run_nr3d_vg_side_by_side.load_sample_ids()` consumes only the
+`sample_id` field. The durable copy above is therefore stored as a string-only
+sample-id list for future reruns.
+
+Commands:
+
+```bash
+tmux new-session -d -s nr3d_guard_probe15_6355781 \
+  "cd /Users/bytedance/project/3DVLMReasoning && \
+   mkdir -p tmp/nr3d_eval_v10_guard_scope_probe15_20260519_6355781 && \
+   PYTHONPATH=src PYTHONUNBUFFERED=1 .venv/bin/python -m evaluation.scripts.run_nr3d_vg_side_by_side \
+     --sample-ids /tmp/nr3d_guard_scope_probe15_sample_ids_20260519.json \
+     --data-root data/nr3d/scannet \
+     --pack-name pack_nr3d_v9_catalog_first \
+     --output-dir tmp/nr3d_eval_v10_guard_scope_probe15_20260519_6355781 \
+     --workers 15 \
+     --sample-retries 2 \
+     --use-tool-answer-disagreement-gate \
+     --use-no-match-candidate-guard \
+     --use-evidence-frame-guard \
+     2>&1 | tee tmp/nr3d_eval_v10_guard_scope_probe15_20260519_6355781/run.log"
+
+PYTHONPATH=src .venv/bin/python -m evaluation.scripts.nr3d_leaderboard_metrics \
+  --side-by-side tmp/nr3d_eval_v10_guard_scope_probe15_20260519_6355781/side_by_side.json \
+  --nr3d-data-root data/nr3d \
+  --phase8-data-root data/nr3d/scannet \
+  --sample-ids /tmp/nr3d_guard_scope_probe15_sample_ids_20260519.json \
+  --output tmp/nr3d_eval_v10_guard_scope_probe15_20260519_6355781/leaderboard_metrics.json \
+  --canonical-filter true
+
+PYTHONPATH=src .venv/bin/python scripts/ingest_nr3d_run.py \
+  --output-dir tmp/nr3d_eval_v10_guard_scope_probe15_20260519_6355781 \
+  --run-id v10_guard_scope_probe15_20260519 \
+  --branch feat/remove-initial-keyframes \
+  --commit 6355781 \
+  --backend pack_v1 \
+  --judge-model none \
+  --leaderboard-metrics tmp/nr3d_eval_v10_guard_scope_probe15_20260519_6355781/leaderboard_metrics.json \
+  --notes "Focused 15-case probe after TCG later-option target-head and EFG side-scope fixes; no GT inputs, standard guards."
+```
+
+Probe stability:
+
+- 15 / 15 samples completed.
+- 0 missing `selected_object_id`.
+- 0 Tracebacks / logged Exceptions.
+- Guard blocks in final-submit traces: TADG 2, TCG 1, EFG 4, no-match 0.
+
+Probe metrics:
+
+| Metric | Value |
+|---|---:|
+| n | 15 |
+| classification_acc_filtered | 53.33 |
+| Easy | 0.00 |
+| Hard | 53.33 |
+| V-Dep | 53.33 |
+| V-Indep | 0.00 |
+
+Case outcomes vs `v10_no_gt_fixes_strat600_20260519`:
+
+| Sample | a6f6077 selected | 6355781 selected | Reading |
+|---|---:|---:|---|
+| `scannet/scene0025_00::26::38922` | 2 | 26 | Recovered. EFG no longer treats "desk to the left" as a target image-left constraint. |
+| `scannet/scene0095_00::29::20881` | 23 | 29 | Recovered. The monitor/keyboard relation stays scoped to the target candidate instead of drifting to the monitor anchor. |
+| `scannet/scene0221_00::18::33317` | 19 | 18 | Recovered. Side evidence remains bound to the bag candidate instead of being overruled by broad room-side wording. |
+| `scannet/scene0221_00::46::36120` | 8 | 46 | Recovered. TCG now chooses the later `pillow` option head rather than the earlier `bed` context. |
+| `scannet/scene0231_00::55::11667` | 56 | 55 | Recovered. Same-category window comparison improved after the guard stopped over-constraining context-side language. |
+| `scannet/scene0338_00::21::35740` | 19 | 21 | Recovered. The agent kept the co-visible box frame and selected the back-left box. |
+| `scannet/scene0351_00::22::23771` | 23 | 22 | Recovered. "Left side of room" is no longer interpreted as image-left for the final monitor id. |
+| `scannet/scene0565_00::6::7388` | 7 | 6 | Recovered. The side relation is resolved within the relevant marked box cluster. |
+| `scannet/scene0081_00::0::38576` | 7 | 7 | Still wrong. Needs viewer-frame candidate closure for couch-side language. |
+| `scannet/scene0231_00::55::41048` | 25 | 25 | Still wrong. Window superlative / room-side grouping remains unresolved. |
+| `scannet/scene0246_00::39::37886` | 38 | 42 | Still wrong. Pillow/headboard side language still needs noun-scoped anchor handling beyond this guard fix. |
+| `scannet/scene0329_00::31::21581` | 32 | 30 | Still wrong. Monitor/keyboard group ranking needs relation-bound candidate closure. |
+| `scannet/scene0329_00::33::13927` | 32 | 32 | Still wrong. Same monitor cluster remains ambiguous without a stronger row/side verifier. |
+| `scannet/scene0494_00::3::5674` | 1 | 1 | Still wrong. Chair "facing/behind" relation remains a visual/geometry gap. |
+| `scannet/scene0565_00::7::7026` | 8 | 8 | Still wrong. Box ordinal / side comparison still picks the neighboring candidate. |
+
+Reading: this is a diagnostic probe, not a leaderboard row. It recovers 8 / 15
+freshly audited failures without introducing any GT evidence path. The strongest
+next buckets are candidate closure for ordinal/superlative same-category sets,
+role-bound relation evidence for monitor/keyboard and chair-facing queries, and
+noun-scoped EFG for anchor-side phrases like pillow/bed/headboard.
