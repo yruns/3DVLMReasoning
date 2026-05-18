@@ -1664,3 +1664,105 @@ not net-positive because a negated-window case regressed. Do not promote this
 as a general improvement without either a larger failed-case probe or a
 follow-up fix that separates negated anchor relations from nested superlative
 anchors.
+
+### Negated-anchor prompt probe: fd1a628
+
+This probe tests a narrow follow-up to the `scene0222` regression from
+`3b675f9`. Commit `fd1a628` adds prompt/skill text requiring a marked positive
+counterexample for negated anchor relations, e.g. mark the pillow/bed/window
+that is next to the forbidden window before selecting the remaining pillow.
+The intent was to recover `scene0222_00::20::35738` without changing tools or
+adding GT inputs.
+
+Run metadata:
+
+| Item | Value |
+|---|---|
+| Branch | `feat/remove-initial-keyframes` |
+| Head commit at launch | `fd1a628` |
+| Run-time code commit | `fd1a628` - no worktree drift |
+| Probe IDs used at run time | `tmp/nr3d_artifacts/v10_rationale_payload_probe3_sample_ids_20260519.json` |
+| Durable probe IDs | `docs/benchmark/nr3d/assets/v10_rationale_payload_probe3_sample_ids_20260519.json` |
+| Durable probe IDs MD5 | `4ef53f60e189403c1d66d718534d8e60` |
+| Output dir | `tmp/nr3d_eval_v10_negated_anchor_probe3_20260519_fd1a628/` |
+| Run log | `/tmp/nr3d_negated_anchor_probe3_fd1a628.log` |
+| Side-by-side JSON | `tmp/nr3d_eval_v10_negated_anchor_probe3_20260519_fd1a628/side_by_side.json` |
+| Side-by-side MD5 | `dd880a11f282f382db1ae1e3c946c808` |
+| Leaderboard metrics | `tmp/nr3d_eval_v10_negated_anchor_probe3_20260519_fd1a628/leaderboard_metrics.json` |
+| Leaderboard metrics MD5 | `c0a83e5efab56364886fc3ad37be49c9` |
+| SQLite run id | `v10_negated_anchor_probe3_20260519` |
+| Workers | 3 |
+| Sample retries | 0 |
+| Guards | TADG + no-match + evidence-frame + rationale/payload |
+
+Commands:
+
+```bash
+tmux new-session -d -s nr3d-negated-probe3-fd1a628 \
+  "cd /Users/bytedance/project/3DVLMReasoning && bash -lc 'set -euo pipefail; \
+   export PYTHONPATH=src PYTHONUNBUFFERED=1; \
+   .venv/bin/python -m evaluation.scripts.run_nr3d_vg_side_by_side \
+     --sample-ids tmp/nr3d_artifacts/v10_rationale_payload_probe3_sample_ids_20260519.json \
+     --data-root data/nr3d/scannet \
+     --pack-name pack_nr3d_v9_catalog_first \
+     --output-dir tmp/nr3d_eval_v10_negated_anchor_probe3_20260519_fd1a628 \
+     --workers 3 \
+     --sample-retries 0 \
+     --use-tool-answer-disagreement-gate \
+     --use-no-match-candidate-guard \
+     --use-evidence-frame-guard \
+     2>&1 | tee /tmp/nr3d_negated_anchor_probe3_fd1a628.log; \
+   .venv/bin/python -m evaluation.scripts.nr3d_leaderboard_metrics \
+     --side-by-side tmp/nr3d_eval_v10_negated_anchor_probe3_20260519_fd1a628/side_by_side.json \
+     --nr3d-data-root data/nr3d \
+     --phase8-data-root data/nr3d/scannet \
+     --sample-ids tmp/nr3d_artifacts/v10_rationale_payload_probe3_sample_ids_20260519.json \
+     --output tmp/nr3d_eval_v10_negated_anchor_probe3_20260519_fd1a628/leaderboard_metrics.json \
+     --canonical-filter true \
+     2>&1 | tee -a /tmp/nr3d_negated_anchor_probe3_fd1a628.log'"
+
+PYTHONPATH=src .venv/bin/python scripts/ingest_nr3d_run.py \
+  --output-dir tmp/nr3d_eval_v10_negated_anchor_probe3_20260519_fd1a628 \
+  --run-id v10_negated_anchor_probe3_20260519 \
+  --branch feat/remove-initial-keyframes \
+  --commit fd1a628 \
+  --backend pack_v1 \
+  --leaderboard-metrics tmp/nr3d_eval_v10_negated_anchor_probe3_20260519_fd1a628/leaderboard_metrics.json \
+  --notes "Diagnostic 3-case probe after marked-positive negated-anchor prompt; recovers scene0222 but regresses scene0663 and scene0678, so the prompt change is negative." \
+  --db docs/benchmark/nr3d/runs.sqlite
+```
+
+Probe stability:
+
+- 3 / 3 samples completed.
+- 0 Tracebacks / logged Exceptions in the run log.
+- Pre-run TDD verification:
+  - RED: negated-anchor playbook contract test failed on all four VG variants.
+  - GREEN: `test_playbook_v9_consistency.py` + shared playbook tests passed
+    55 / 55.
+
+Probe metrics:
+
+| Metric | Value |
+|---|---:|
+| n | 3 |
+| classification_acc_filtered | 33.33 |
+| Easy | 50.00 |
+| Hard | 0.00 |
+| V-Dep | 0.00 |
+| V-Indep | 50.00 |
+
+Case outcomes vs `3b675f9`:
+
+| Sample | 3b675f9 selected | fd1a628 selected | Reading |
+|---|---:|---:|---|
+| `scannet/scene0222_00::20::35738` | 19 | 20 | Recovered. The agent now selects the pillow on the non-window bed. It still does not mark a window frame as cleanly as the earlier `dbd9adb` run, so this is a fragile prompt recovery. |
+| `scannet/scene0663_00::6::33306` | 6 | 33 | Regressed. The agent still resolves desk `#3` as closest to the window, but then accepts chair `#33` in a later frame and discounts `office chair` subtype candidates. |
+| `scannet/scene0678_00::21::1134` | 21 | 8 | Regressed. The outside-door case no longer preserves the previous recovered door `#21`. |
+
+Reading: negative. The marked-positive negated-anchor prompt recovered the
+intended negated-window sample but caused two regressions on the same small
+diagnostic slice. Do not keep this prompt wording as an active improvement; use
+the recorded run as evidence that negated-anchor handling needs either a
+narrower guard or a tool-level relation helper rather than more broad playbook
+prose.
