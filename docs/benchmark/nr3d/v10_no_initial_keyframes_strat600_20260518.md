@@ -181,3 +181,32 @@ on strat600. The most actionable trace findings are the relation-vocabulary
 gap in `compare_proposals_spatial` and the masked-category behavior of
 `select_by_text`; both are tool-contract issues exposed by the run, not process
 stability problems.
+
+## Failed-case hardening replay slice
+
+The follow-up hardening spec/plan uses a durable replay slice:
+
+- `docs/benchmark/nr3d/assets/v10_failed_case_audit40_sample_ids_20260518.json`
+
+Run after guard/tool-flow changes:
+
+```bash
+COMMIT=$(git rev-parse --short HEAD)
+tmux new-session -d -s nr3d_v10_hardening_audit40 \
+  "cd /Users/bytedance/project/3DVLMReasoning && \
+   PYTHONPATH=src .venv/bin/python -m evaluation.scripts.run_nr3d_vg_side_by_side \
+     --sample-ids docs/benchmark/nr3d/assets/v10_failed_case_audit40_sample_ids_20260518.json \
+     --data-root data/nr3d/scannet \
+     --pack-name pack_nr3d_v9_catalog_first \
+     --output-dir tmp/nr3d_eval_v10_hardening_audit40_${COMMIT} \
+     --workers 8 \
+     --sample-retries 2 \
+     --use-tool-answer-disagreement-gate \
+     --use-no-match-candidate-guard \
+     --use-evidence-frame-guard 2>&1 | tee /tmp/nr3d_v10_hardening_audit40_${COMMIT}.log"
+```
+
+Use this slice only as behavioral replay, not as a leaderboard claim. The file
+name keeps `audit40` because the audit was planned as 40 cases; the durable
+list contains 41 ids due to keeping positive recovery example
+`scene0699_00::26::40486` as a guardrail.
