@@ -113,17 +113,6 @@ def test_playbooks_document_nested_anchor_resolution_before_target_ranking(
     assert "then rank the target candidates against that resolved anchor" in normalized
 
 
-@pytest.mark.parametrize("path", [_PB, _PB_NO_TEXT, _SD, _SD_NO_TEXT])
-def test_playbooks_route_vertical_relations_to_spatial_compare(path: Path):
-    text = path.read_text()
-    normalized = " ".join(text.split())
-    assert "Vertical above/below/under relations" in normalized
-    assert "relation='below'" in normalized
-    assert "relation='above'" in normalized
-    assert "horizontal alignment" in normalized
-    assert "then verify the top-ranked candidate in a marked frame" in normalized
-
-
 def test_vg_playbook_mentions_ood_proposal_minus_one():
     text = _PB.read_text()
     assert "proposal_id" in text

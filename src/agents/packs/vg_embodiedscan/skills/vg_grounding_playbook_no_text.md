@@ -40,13 +40,7 @@ the target is genuinely absent from the catalog — OOD case).
    Allowed canonical relation values are: `closest_to`, `near`, `next_to`,
    `farthest_from`, `above`, `below`, `left_of`, `right_of`. Use
    `closest_to` for "closer/nearest" phrasing and `farthest_from` for
-   "farther/furthest" phrasing. Vertical above/below/under relations should
-   use this tool before finalizing: map "under", "right under", and
-   "beneath" to `relation='below'`; map "above", "over", and "on top of" to
-   `relation='above'`. The comparator uses the correct vertical side plus
-   horizontal alignment, so call it to rank candidates first, then verify the
-   top-ranked candidate in a marked frame with the anchor visible. For
-   unsupported relations like front/behind,
+   "farther/furthest" phrasing. For unsupported relations like front/behind,
    between, facing, across, or same-side, use marked frames / BEV evidence
    instead of inventing a relation string. The response includes a stable
    `evidence_id`; copy it into `submit_final(..., relation_evidence={"evidence_id": ...})`
