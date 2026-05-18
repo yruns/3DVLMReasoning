@@ -635,3 +635,118 @@ Metrics on this diagnostic subset:
 The run log contained no `prediction missing status`, Traceback, or Exception
 matches. Reading: this confirms the extractor failure bucket is fixed for the
 audited shape. This probe is still not a benchmark-grade accuracy claim.
+
+### Full strat600 rerun after guard/extractor fixes: a6f6077
+
+This is the standard canonical 600-case rerun after the target-category guard
+head-noun fix and NR3D proposal-only extractor fix. It keeps the v10 evidence
+contract: no initial keyframes, no bundle/runtime pending-image side channel,
+and first-person images only via active tool calls recorded in
+`tool_trace.image_metadata`. BEV remains the only non-first-person image seeded
+into the initial context.
+
+Run metadata:
+
+| Item | Value |
+|---|---|
+| Branch | `feat/remove-initial-keyframes` |
+| Head commit at launch | `a6f6077b7142e0d28918c44671dad1801e196c5e` |
+| Run-time code commit | `a6f6077b7142e0d28918c44671dad1801e196c5e` - no worktree drift |
+| Current branch note | Later test-only commit `f887917` was made after launch to ban pending-image channels in CI; it did not affect this run. |
+| Fold | `tmp/nr3d_artifacts/v9_3_strat600_sample_ids.json` |
+| Fold MD5 | `12a69d8d14a81519024bbe00d6334434` |
+| Output dir | `tmp/nr3d_eval_v10_no_gt_fixes_strat600_20260519_a6f6077/` |
+| Run log | `tmp/nr3d_eval_v10_no_gt_fixes_strat600_20260519_a6f6077/run.log` |
+| Leaderboard metrics | `tmp/nr3d_eval_v10_no_gt_fixes_strat600_20260519_a6f6077/leaderboard_metrics.json` |
+| Side-by-side JSON | `tmp/nr3d_eval_v10_no_gt_fixes_strat600_20260519_a6f6077/side_by_side.json` |
+| SQLite run id | `v10_no_gt_fixes_strat600_20260519` |
+| Workers | 20 |
+| Sample retries | 2 |
+| Guards | TADG + no-match + evidence-frame |
+| Eval exit status | `0` |
+| Metrics exit status | `0` |
+
+Commands:
+
+```bash
+PYTHONPATH=src PYTHONUNBUFFERED=1 .venv/bin/python -m evaluation.scripts.run_nr3d_vg_side_by_side \
+  --sample-ids tmp/nr3d_artifacts/v9_3_strat600_sample_ids.json \
+  --data-root data/nr3d/scannet \
+  --pack-name pack_nr3d_v9_catalog_first \
+  --output-dir tmp/nr3d_eval_v10_no_gt_fixes_strat600_20260519_a6f6077 \
+  --workers 20 \
+  --sample-retries 2 \
+  --use-tool-answer-disagreement-gate \
+  --use-no-match-candidate-guard \
+  --use-evidence-frame-guard
+
+PYTHONPATH=src .venv/bin/python -m evaluation.scripts.nr3d_leaderboard_metrics \
+  --side-by-side tmp/nr3d_eval_v10_no_gt_fixes_strat600_20260519_a6f6077/side_by_side.json \
+  --nr3d-data-root data/nr3d \
+  --phase8-data-root data/nr3d/scannet \
+  --sample-ids tmp/nr3d_artifacts/v9_3_strat600_sample_ids.json \
+  --output tmp/nr3d_eval_v10_no_gt_fixes_strat600_20260519_a6f6077/leaderboard_metrics.json \
+  --canonical-filter true
+
+PYTHONPATH=src .venv/bin/python scripts/ingest_nr3d_run.py \
+  --output-dir tmp/nr3d_eval_v10_no_gt_fixes_strat600_20260519_a6f6077 \
+  --run-id v10_no_gt_fixes_strat600_20260519 \
+  --branch feat/remove-initial-keyframes \
+  --commit a6f6077 \
+  --backend pack_v1 \
+  --judge-model none \
+  --leaderboard-metrics tmp/nr3d_eval_v10_no_gt_fixes_strat600_20260519_a6f6077/leaderboard_metrics.json \
+  --notes "Full canonical strat600 after target-category guard head-noun fix and NR3D proposal-only extractor fix; no GT inputs, standard guards."
+```
+
+Run stability:
+
+- 600 / 600 per-sample JSON files written.
+- 600 / 600 side-by-side rows written.
+- 597 / 600 final `status=completed`.
+- 3 / 600 final `status=failed`.
+- 0 Tracebacks / logged Exceptions.
+- 0 `prediction missing status` matches.
+- 0 ModelHub retries at attempt 2/5 or later.
+- 273 ModelHub retry lines at attempt 1/5, including one `status=403` retry.
+- Source/artifact scan found 0 occurrences of `pending_image_paths`,
+  `pending_image_metadata`, `vg_pending_images`, or `queue_pending`.
+
+Headline metrics:
+
+| Metric | cfee0ef tool-trace images | a6f6077 fixes full rerun | Delta |
+|---|---:|---:|---:|
+| Overall | 61.00 | **62.67** | +1.67 |
+| Easy | 67.93 | 71.03 | +3.10 |
+| Hard | 54.52 | 54.84 | +0.32 |
+| V-Dep | 52.13 | 53.55 | +1.42 |
+| V-Indep | 65.81 | 67.61 | +1.80 |
+| bbox Acc@0.25 | 61.00 | 62.67 | +1.67 |
+| bbox Acc@0.50 | 61.00 | 62.67 | +1.67 |
+| Mean IoU | n/a | 0.632 | n/a |
+
+Matched-sample churn vs `cfee0ef`:
+
+| Count | Value |
+|---|---:|
+| `cfee0ef` correct samples | 366 |
+| `a6f6077` correct samples | 376 |
+| Old misses recovered | 79 |
+| Old positives regressed | 69 |
+| Net correct delta | +10 |
+
+The 3 non-completed samples were:
+
+| Sample | Primary failure shape |
+|---|---|
+| `scannet/scene0490_00::13::36559` | Target-category guard still treats the anchor/viewpoint `white board` as target in a discourse query whose referent is the left chair. |
+| `scannet/scene0629_00::2::19124` | Target-category guard treats generic `object` as target in `The object is a fully closed door.` and blocks the evidence-backed door proposal. |
+| `scannet/scene0651_00::7::6342` | Unsupported `same side as` spatial semantics; agent resolves visually and submits `-1`, but target is a chair. |
+
+Reading: the guard/extractor fixes recover part of the `cfee0ef` regression
+without changing the no-GT evidence contract. The full rerun is +10 correct vs
+`cfee0ef`, and final failed statuses drop from 10 to 3. It is still below the
+original `220f128` no-initial-keyframes score (64.33 %) and below the honest
+v9.3 text-first baseline (66.67 %). The next improvement bucket remains
+guard/tool semantics, especially generic target nouns (`object`) and unsupported
+relations such as `same side as`, `behind`, `in_front_of`, and `across from`.
