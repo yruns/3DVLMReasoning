@@ -447,7 +447,7 @@ def test_target_category_guard_blocks_generic_chair_for_specific_office_chair_qu
 
 def test_target_category_guard_treats_desk_chair_as_chair_not_desk() -> None:
     rs = _runtime_with_categories(
-        "all black desk chair",
+        "Choose the all black desk chair.",
         [
             (3, "office chair"),
             (6, "desk"),

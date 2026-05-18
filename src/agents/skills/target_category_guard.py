@@ -66,7 +66,7 @@ _LEADING_HEAD_RE = re.compile(
 _WANT_HEAD_RE = re.compile(
     r"\b(?P<verb>want|select|choose|pick|find|looking\s+for|refer(?:ring)?\s+to)\s+"
     r"(?:the|a|an|this|that)?\s*"
-    r"(?P<label>[a-z][a-z0-9]*(?:\s+[a-z][a-z0-9]*){0,2})\b",
+    r"(?P<label>[a-z][a-z0-9]*(?:\s+[a-z][a-z0-9]*){0,5})\b",
     re.I,
 )
 _DEMONSTRATIVE_HEAD_RE = re.compile(
