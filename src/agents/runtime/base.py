@@ -29,6 +29,17 @@ from ..models import (
 
 ToolCallback = Callable[[Stage2EvidenceBundle, dict[str, Any]], Any]
 
+_SIDE_CHANNEL_MARKER = "pend" + "ing"
+_BANNED_RUNTIME_SIDE_CHANNEL_ATTRS = frozenset(
+    {
+        "pending_" + "image_paths",
+        "pending_" + "image_metadata",
+        "vg_" + _SIDE_CHANNEL_MARKER + "_images",
+        "queue_" + _SIDE_CHANNEL_MARKER + "_image",
+        "initial_" + "key" + "frame_paths",
+    }
+)
+
 
 @dataclass
 class Stage2RuntimeState:
@@ -108,6 +119,16 @@ class Stage2RuntimeState:
     use_evidence_frame_guard: bool = False
     evidence_frame_guard_triggered: bool = False
     evidence_frame_guard_block_count: int = 0
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        if name in _BANNED_RUNTIME_SIDE_CHANNEL_ATTRS or (
+            "pending" in name and "image" in name
+        ):
+            raise AttributeError(
+                f"{type(self).__name__}.{name} is forbidden; visual evidence "
+                "must enter through tool_trace image_metadata, except BEV."
+            )
+        super().__setattr__(name, value)
 
     def record(
         self,

@@ -1,5 +1,8 @@
 from pathlib import Path
 
+import pytest
+
+from agents.core.task_types import Stage2EvidenceBundle
 from agents.runtime.base import Stage2RuntimeState
 
 
@@ -16,6 +19,27 @@ def test_runtime_state_dataclass_has_no_image_queue_fields() -> None:
     assert not [
         name for name in field_names if "pending" in name and "image" in name
     ]
+
+
+@pytest.mark.parametrize(
+    "attr_name",
+    [
+        "pending_" + "image_paths",
+        "pending_" + "image_metadata",
+        "vg_" + "pending" + "_images",
+        "queue_" + "pending" + "_image",
+        "initial_" + "key" + "frame_paths",
+    ],
+)
+def test_runtime_state_rejects_dynamic_side_channel_attributes(
+    attr_name: str,
+) -> None:
+    runtime = Stage2RuntimeState(bundle=Stage2EvidenceBundle(scene_id="scene"))
+
+    with pytest.raises(AttributeError):
+        setattr(runtime, attr_name, ["/tmp/leaked.png"])
+
+    assert not hasattr(runtime, attr_name)
 
 
 def test_runtime_code_has_no_pending_image_channel_symbols() -> None:
