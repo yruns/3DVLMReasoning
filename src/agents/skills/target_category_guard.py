@@ -25,6 +25,14 @@ class TargetCategoryDecision:
 
 _LABEL_ALIASES: dict[str, tuple[str, ...]] = {
     "bookshelf": ("bookshelf", "bookcase", "book case", "book shelf", "shelf"),
+    "kitchen cabinet": (
+        "kitchen cabinet",
+        "kitchen cabinets",
+        "cabinet",
+        "cabinets",
+        "cupboard",
+        "cupboards",
+    ),
     "picture": (
         "picture",
         "painting",
@@ -35,6 +43,7 @@ _LABEL_ALIASES: dict[str, tuple[str, ...]] = {
         "art piece",
         "framed picture",
     ),
+    "refrigerator": ("refrigerator", "fridge"),
     "whiteboard": ("whiteboard", "white board"),
     "trash can": ("trash can", "trashcan"),
 }
@@ -279,6 +288,14 @@ def _leading_label_from_clause(clause: str) -> str | None:
         flags=re.I,
     )
     text = re.sub(r"^\s*(?:the|a|an|this|that)\s+", "", text, flags=re.I)
+    text = re.sub(
+        r"^\s*(?:top|upper|bottom|lower|middle|center|centre|front|back|rear)"
+        r"(?:\s+(?:left|right|middle|center|centre))?\s+of\s+"
+        r"(?:the|a|an|these|those)?\s*",
+        "",
+        text,
+        flags=re.I,
+    )
     if _CONTEXT_LEADING_RE.search(text):
         return None
     cue = _RELATION_CUE_RE.search(text)

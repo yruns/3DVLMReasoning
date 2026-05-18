@@ -289,6 +289,19 @@ def test_target_category_guard_skips_generic_object_for_is_a_category() -> None:
     assert decision.submitted_category == "door"
 
 
+def test_target_category_guard_reads_cabinet_head_with_positional_prefix() -> None:
+    rs = _runtime_with_categories(
+        "the top left of the cabinets near the fridge",
+        [(14, "kitchen cabinet"), (16, "refrigerator")],
+    )
+
+    decision = evaluate_target_category_guard(rs, {"proposal_id": 16})
+
+    assert decision.blocked is True
+    assert decision.expected_category == "kitchen cabinet"
+    assert decision.submitted_category == "refrigerator"
+
+
 def test_target_category_guard_ignores_orientation_wall_when_target_head_absent() -> None:
     rs = _runtime_with_categories(
         "When facing the wall of windows, the furthest on the right.",

@@ -693,6 +693,52 @@ def test_evidence_frame_guard_does_not_replace_target_with_non_target_category(
     assert rs.final_submission == {"answer": {"proposal_id": 5, "confidence": 0.7}}
 
 
+def test_evidence_frame_guard_filters_anchor_from_cabinet_left_alternatives(
+    tmp_path: Path,
+) -> None:
+    _register_vg_stub_pack(tmp_path)
+    rs = Stage2RuntimeState(
+        bundle=Stage2EvidenceBundle(
+            stage1_query="the top left of the cabinets near the fridge"
+        )
+    )
+    rs.task_type = Stage2TaskType.VISUAL_GROUNDING
+    rs.use_evidence_frame_guard = True
+    _record_category_candidates(rs, category="kitchen cabinet", proposal_ids=[15, 14, 11])
+    _record_view(
+        rs,
+        frame_id=81,
+        visible_ids=[16, 15, 14, 11],
+        categories=["refrigerator", "kitchen cabinets", "kitchen cabinet", "kitchen cabinet"],
+        left_to_right=[
+            "16:refrigerator@x=120.0",
+            "15:kitchen cabinets@x=260.0",
+            "14:kitchen cabinet@x=420.0",
+            "11:kitchen cabinet@x=580.0",
+        ],
+        boxes_2d={
+            16: [20, 100, 220, 700],
+            15: [230, 80, 330, 300],
+            14: [360, 80, 480, 300],
+            11: [520, 80, 640, 300],
+        },
+    )
+    _, _, submit_final = build_chassis_tools(rs)
+
+    response = submit_final.invoke(
+        {
+            "payload": {"proposal_id": 15, "confidence": 0.83},
+            "rationale": (
+                "Frame 81 shows proposal 15 as the top-left cabinet in the "
+                "cabinet group near the fridge."
+            ),
+            "evidence_refs": [],
+        }
+    )
+
+    assert response.startswith("submitted;")
+
+
 def test_evidence_frame_guard_does_not_force_target_leftmost_for_anchor_left_of_it(
     tmp_path: Path,
 ) -> None:
