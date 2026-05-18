@@ -1233,3 +1233,122 @@ freshly audited failures without introducing any GT evidence path. The strongest
 next buckets are candidate closure for ordinal/superlative same-category sets,
 role-bound relation evidence for monitor/keyboard and chair-facing queries, and
 noun-scoped EFG for anchor-side phrases like pillow/bed/headboard.
+
+### Candidate-closure 15-case probe: 06b8d58
+
+This probe follows the next 15-case subagent audit over failures from
+`v10_no_gt_fixes_strat600_20260519`. The audit groups were:
+
+- view-dependent side/front/back anchors;
+- ordinal / superlative / candidate-closure failures;
+- composite target-anchor relations.
+
+The common no-GT failure was premature finalization after seeing only part of a
+small same-category candidate set. Commit `06b8d58` adds an EFG sub-check: when
+the query has left/right, ordinal/superlative, or target-anchor relation cues
+and the same-category candidate set is small, `submit_final` is soft-blocked
+until every same-category candidate has appeared in marked evidence at least
+once. The guard uses only the proposal pool, query text, and the agent's own
+`mark_frame_with_bbox` trace; it does not use target ids or GT boxes.
+
+Run metadata:
+
+| Item | Value |
+|---|---|
+| Branch | `feat/remove-initial-keyframes` |
+| Head commit at launch | `06b8d58` |
+| Run-time code commit | `06b8d58` - no worktree drift |
+| Probe IDs | `docs/benchmark/nr3d/assets/v10_candidate_closure_probe15_sample_ids_20260519.json` |
+| Probe IDs MD5 | `8a9f5489e331631a2e10d13010effae5` |
+| Output dir | `tmp/nr3d_eval_v10_candidate_closure_probe15_20260519_06b8d58/` |
+| Run log | `tmp/nr3d_eval_v10_candidate_closure_probe15_20260519_06b8d58/run.log` |
+| Side-by-side JSON | `tmp/nr3d_eval_v10_candidate_closure_probe15_20260519_06b8d58/side_by_side.json` |
+| Side-by-side MD5 | `6377587d5c4145126c18ef03ef4f4549` |
+| Leaderboard metrics | `tmp/nr3d_eval_v10_candidate_closure_probe15_20260519_06b8d58/leaderboard_metrics.json` |
+| Leaderboard metrics MD5 | `c0f824f3b1bebae8aff9156f112dd99a` |
+| SQLite run id | `v10_candidate_closure_probe15_20260519` |
+| Workers | 15 |
+| Sample retries | 2 |
+| Guards | TADG + no-match + evidence-frame |
+
+Commands:
+
+```bash
+tmux new-session -d -s nr3d_candidate_closure_probe15_06b8d58 \
+  "cd /Users/bytedance/project/3DVLMReasoning && \
+   mkdir -p tmp/nr3d_eval_v10_candidate_closure_probe15_20260519_06b8d58 && \
+   PYTHONPATH=src PYTHONUNBUFFERED=1 .venv/bin/python -m evaluation.scripts.run_nr3d_vg_side_by_side \
+     --sample-ids docs/benchmark/nr3d/assets/v10_candidate_closure_probe15_sample_ids_20260519.json \
+     --data-root data/nr3d/scannet \
+     --pack-name pack_nr3d_v9_catalog_first \
+     --output-dir tmp/nr3d_eval_v10_candidate_closure_probe15_20260519_06b8d58 \
+     --workers 15 \
+     --sample-retries 2 \
+     --use-tool-answer-disagreement-gate \
+     --use-no-match-candidate-guard \
+     --use-evidence-frame-guard \
+     2>&1 | tee tmp/nr3d_eval_v10_candidate_closure_probe15_20260519_06b8d58/run.log"
+
+PYTHONPATH=src .venv/bin/python -m evaluation.scripts.nr3d_leaderboard_metrics \
+  --side-by-side tmp/nr3d_eval_v10_candidate_closure_probe15_20260519_06b8d58/side_by_side.json \
+  --nr3d-data-root data/nr3d \
+  --phase8-data-root data/nr3d/scannet \
+  --sample-ids docs/benchmark/nr3d/assets/v10_candidate_closure_probe15_sample_ids_20260519.json \
+  --output tmp/nr3d_eval_v10_candidate_closure_probe15_20260519_06b8d58/leaderboard_metrics.json \
+  --canonical-filter true
+
+PYTHONPATH=src .venv/bin/python scripts/ingest_nr3d_run.py \
+  --output-dir tmp/nr3d_eval_v10_candidate_closure_probe15_20260519_06b8d58 \
+  --run-id v10_candidate_closure_probe15_20260519 \
+  --branch feat/remove-initial-keyframes \
+  --commit 06b8d58 \
+  --backend pack_v1 \
+  --judge-model none \
+  --leaderboard-metrics tmp/nr3d_eval_v10_candidate_closure_probe15_20260519_06b8d58/leaderboard_metrics.json \
+  --notes "15-case probe after EFG same-category candidate-closure guard; no GT inputs, standard guards."
+```
+
+Probe stability:
+
+- 15 / 15 samples completed.
+- 0 missing `selected_object_id`.
+- 0 Tracebacks / logged Exceptions.
+- Candidate-closure EFG messages fired in 7 submit traces.
+
+Probe metrics:
+
+| Metric | Value |
+|---|---:|
+| n | 15 |
+| classification_acc_filtered | 33.33 |
+| Easy | 28.57 |
+| Hard | 37.50 |
+| V-Dep | 28.57 |
+| V-Indep | 37.50 |
+
+Case outcomes vs `v10_no_gt_fixes_strat600_20260519`:
+
+| Sample | a6f6077 selected | 06b8d58 selected | Reading |
+|---|---:|---:|---|
+| `scannet/scene0011_00::23::15020` | 24 | 23 | Recovered. Candidate-closure blocked the one-window answer until the other window candidate was marked. |
+| `scannet/scene0025_00::18::35283` | 19 | 18 | Recovered. The run kept the complete trash-can candidate comparison instead of side-frame drift. |
+| `scannet/scene0063_00::5::11741` | 4 | 5 | Recovered. Additional chair evidence prevented finalizing from a partial chair cluster under the missing-TV anchor. |
+| `scannet/scene0077_00::1::22194` | 2 | 1 | Recovered. The agent could override the weak `below` geometry after complete printer/window marked evidence. |
+| `scannet/scene0095_00::20::26800` | 24 | 20 | Recovered. Mouse candidate closure corrected the cross-view "second from top" ordering. |
+| `scannet/scene0011_00::20::28662` | 28 | 1 | Still wrong. Needs facing-normalized right/left over cabinet candidates; closure alone can still drift to a kitchen-cabinet alias. |
+| `scannet/scene0025_00::17::37165` | 38 | 38 | Still wrong. The file-cabinet query needs `end of desk` / `whiteboard behind it` relation support, not just closure. |
+| `scannet/scene0025_00::30::15602` | 34 | 34 | Still wrong. Keyboard attribute / in-front-of-chair relation remains unresolved; closure did not force the black keyboard candidate. |
+| `scannet/scene0030_00::0::23137` | 1 | 1 | Still wrong. Needs center/facing-away orientation support around chalkboard/table. |
+| `scannet/scene0030_00::25::23351` | 80 | 80 | Still wrong. Large book/book-row set exceeds the small-set closure threshold; needs row/shelf comparator. |
+| `scannet/scene0046_00::50::29027` | 18 | 18 | Still wrong. Closure fired, but anchor subtype "square green chair" still picked the wrong anchor relation. |
+| `scannet/scene0050_00::32::30122` | 9 | 9 | Still wrong. Closure fired but door/doors group relation still needs closest-to-group semantics. |
+| `scannet/scene0063_00::10::1029` | 9 | 9 | Still wrong. Closure fired but singular cabinet vs plural cabinet-run ranking remains unresolved. |
+| `scannet/scene0081_00::0::10619` | 7 | 7 | Still wrong. Closure fired, but couch-left from a facing frame still needs a better viewpoint/side tool. |
+| `scannet/scene0084_00::43::31587` | 39 | 34 | Still wrong. Closure fired but opposite-side-of-two-rails topology is unsupported. |
+
+Reading: diagnostic only. The candidate-closure guard is useful and no-GT: it
+recovers 5 / 15 failures from a fresh audited slice, with all samples completed.
+It is not enough for topology, anchor-subtype grounding, or large row/ordinal
+sets. The next practical tool-level targets are a small-set ordinal comparator
+(`top/bottom/second`) and a relation helper for group/anchor semantics such as
+`closest_to_group`, `opposite_side_of_group`, and facing-normalized side.
