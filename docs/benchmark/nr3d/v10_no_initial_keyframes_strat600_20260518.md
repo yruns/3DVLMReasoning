@@ -1984,3 +1984,115 @@ main VG playbooks and regresses unrelated cases on the same 15-case slice. Do
 not keep this wording active; preserve the run as evidence that the next route
 should be narrower, likely a guard/tool-level intervention for explicit
 above/below submissions rather than more general playbook prose.
+
+### Vertical relation TADG guard probe: 66c6218
+
+Commit `66c6218` moves the vertical-routing attempt from broad playbook prose
+into TADG: when the query explicitly asks for `under` / `below` / `beneath` /
+`above`, `submit_final` must bind matching `compare_proposals_spatial`
+relation evidence, or provide an override reason. This is still no-GT: the
+guard reads only the query text, submitted payload, and tool trace.
+
+Run metadata:
+
+| Item | Value |
+|---|---|
+| Branch | `feat/remove-initial-keyframes` |
+| Head commit at launch | `66c6218` |
+| Run-time code commit | `66c6218` - no worktree drift |
+| Probe IDs | `docs/benchmark/nr3d/assets/v10_candidate_closure_probe15_sample_ids_20260519.json` |
+| Probe IDs MD5 | `8a9f5489e331631a2e10d13010effae5` |
+| Output dir | `tmp/nr3d_eval_v10_vertical_tadg_probe15_20260519_66c6218/` |
+| Run log | `/tmp/nr3d_vertical_tadg_probe15_66c6218.log` |
+| Side-by-side JSON | `tmp/nr3d_eval_v10_vertical_tadg_probe15_20260519_66c6218/side_by_side.json` |
+| Side-by-side MD5 | `38ed9aa52d13bab057e6542ddd357e2c` |
+| Leaderboard metrics | `tmp/nr3d_eval_v10_vertical_tadg_probe15_20260519_66c6218/leaderboard_metrics.json` |
+| Leaderboard metrics MD5 | `c7bdcd4467e049babe67d632650fa87d` |
+| SQLite run id | `v10_vertical_tadg_probe15_20260519` |
+| Workers | 8 |
+| Sample retries | 0 |
+| Guards | TADG + no-match + evidence-frame |
+
+Commands:
+
+```bash
+tmux new-session -d -s nr3d-vertical-tadg-probe15-66c6218 \
+  "cd /Users/bytedance/project/3DVLMReasoning && bash -lc 'set -euo pipefail; \
+   export PYTHONPATH=src PYTHONUNBUFFERED=1; \
+   .venv/bin/python -m evaluation.scripts.run_nr3d_vg_side_by_side \
+     --sample-ids docs/benchmark/nr3d/assets/v10_candidate_closure_probe15_sample_ids_20260519.json \
+     --data-root data/nr3d/scannet \
+     --pack-name pack_nr3d_v9_catalog_first \
+     --output-dir tmp/nr3d_eval_v10_vertical_tadg_probe15_20260519_66c6218 \
+     --workers 8 \
+     --sample-retries 0 \
+     --use-tool-answer-disagreement-gate \
+     --use-no-match-candidate-guard \
+     --use-evidence-frame-guard \
+     2>&1 | tee /tmp/nr3d_vertical_tadg_probe15_66c6218.log; \
+   .venv/bin/python -m evaluation.scripts.nr3d_leaderboard_metrics \
+     --side-by-side tmp/nr3d_eval_v10_vertical_tadg_probe15_20260519_66c6218/side_by_side.json \
+     --nr3d-data-root data/nr3d \
+     --phase8-data-root data/nr3d/scannet \
+     --sample-ids docs/benchmark/nr3d/assets/v10_candidate_closure_probe15_sample_ids_20260519.json \
+     --output tmp/nr3d_eval_v10_vertical_tadg_probe15_20260519_66c6218/leaderboard_metrics.json \
+     --canonical-filter true \
+     2>&1 | tee -a /tmp/nr3d_vertical_tadg_probe15_66c6218.log'"
+
+PYTHONPATH=src .venv/bin/python scripts/ingest_nr3d_run.py \
+  --output-dir tmp/nr3d_eval_v10_vertical_tadg_probe15_20260519_66c6218 \
+  --run-id v10_vertical_tadg_probe15_20260519 \
+  --branch feat/remove-initial-keyframes \
+  --commit 66c6218 \
+  --backend pack_v1 \
+  --leaderboard-metrics tmp/nr3d_eval_v10_vertical_tadg_probe15_20260519_66c6218/leaderboard_metrics.json \
+  --notes "Diagnostic 15-case probe after TADG missing vertical relation evidence guard; no GT inputs; negative vs 54198ef." \
+  --db docs/benchmark/nr3d/runs.sqlite
+```
+
+Probe stability:
+
+- 15 / 15 samples completed.
+- 0 Tracebacks / logged Exceptions in the run log.
+- Pre-run TDD verification: targeted TADG tests passed 3 / 3; full TADG +
+  chassis tool tests passed 67 / 67; `ruff` and `git diff --check` passed.
+
+Probe metrics:
+
+| Metric | Value |
+|---|---:|
+| n | 15 |
+| classification_acc_filtered | 33.33 |
+| Easy | 28.57 |
+| Hard | 37.50 |
+| V-Dep | 42.86 |
+| V-Indep | 25.00 |
+
+Tool-routing evidence:
+
+- `TADG_MISSING_RELATION_EVIDENCE` fired in 2 submit traces:
+  `scene0063_00::5::11741` and `scene0077_00::1::22194`.
+- Across the 15 traces, relation calls were: `closest_to` x2, `next_to` x1,
+  `below` x2, `above` x0.
+- `scene0077_00::1::22194` was routed into
+  `compare_proposals_spatial(candidate_ids=[1, 2], anchor_id=3,
+  relation='below')`, which ranked `[1, 2]` and preserved the correct answer.
+- `scene0063_00::5::11741` was also routed into a `below` comparison but still
+  selected wrong proposal `4` instead of target `5`, showing that mandatory
+  relation evidence can lock in a wrong anchor/candidate interpretation.
+
+Case outcomes vs `54198ef`:
+
+| Sample | 54198ef selected | 66c6218 selected | Reading |
+|---|---:|---:|---|
+| `scannet/scene0077_00::1::22194` | 1 | 1 | Still correct, now with a TADG block followed by `below` relation evidence. |
+| `scannet/scene0063_00::5::11741` | 5 | 4 | Regressed. This is a vertical chair-under-TV query; the guard forces a compare call, but the resulting relation path picks the wrong chair. |
+| `scannet/scene0011_00::20::28662` | 20 | 1 | Regressed. Non-vertical cabinet right-side query; no missing-relation block, so the stricter guard gives no monotonic benefit on the slice. |
+| `scannet/scene0025_00::17::37165` | 17 | 38 | Regressed. File-cabinet/whiteboard relation regresses without being the targeted vertical case. |
+
+Reading: negative as a guard-level intervention. It demonstrates that a TADG
+block can force the desired tool call, but the current rule is not safe: the
+same-slice accuracy stays at 5 / 15, matching the negative broad-prompt probe
+and losing 3 cases vs the stable `54198ef` probe. Do not keep this guard active.
+Future work should make the relation tool itself easier to call correctly
+without forcing every explicit vertical final answer through a brittle block.
