@@ -368,9 +368,7 @@ def _last_matching_compare(
         ranked = payload.get("ranked_ids") or []
         if not isinstance(ranked, list) or not ranked:
             continue
-        evidence_id = payload.get("evidence_id") or tool_input.get("evidence_id")
         return {
-            "evidence_id": evidence_id if isinstance(evidence_id, str) else None,
             "relation": relation,
             "anchor_id": payload.get("anchor_id"),
             "candidate_ids": [
@@ -469,7 +467,6 @@ def _bound_compare(
     supporting = payload.get("supporting_frame_counts")
     contradicting = payload.get("contradicting_frame_counts")
     compare = {
-        "evidence_id": evidence_id,
         "relation": relation,
         "anchor_id": anchor_id,
         "candidate_ids": candidate_ids,
@@ -546,21 +543,22 @@ def _strict_override_rejection_message(
     )
 
 
-def _ambiguous_anchor_candidates(
-    runtime: Any,
-    compare: dict[str, Any],
-) -> list[int]:
+def _ambiguous_anchor_gap(runtime: Any, compare: dict[str, Any]) -> str | None:
+    relation = compare["relation"]
+    if relation not in {"left_of", "right_of", "closest_to", "farthest_from"}:
+        return None
     anchor_id = compare.get("anchor_id")
     if not isinstance(anchor_id, int):
-        return []
+        return None
     candidate_ids = set(compare.get("candidate_ids") or [])
     if not candidate_ids:
-        return []
+        return None
 
     trace = list(getattr(runtime, "tool_trace", []) or [])
     window = max(int(getattr(runtime, "tadg_window", 32)), 1)
     trace = trace[-window:]
 
+    anchor_candidates: list[int] = []
     for entry in reversed(trace):
         if getattr(entry, "tool_name", None) not in (
             "list_scene_proposals",
@@ -578,65 +576,17 @@ def _ambiguous_anchor_candidates(
         if anchor_id not in ids:
             continue
         if len(ids) <= 1:
-            return []
+            return None
         if set(ids) == candidate_ids:
             # This lookup is for the target category, not the anchor category.
             continue
-        return ids
-    return []
-
-
-def _compare_evidence_ids_supporting_submission(
-    runtime: Any,
-    compare: dict[str, Any],
-    submitted_pid: int,
-) -> list[str]:
-    relation = compare.get("relation")
-    candidate_ids = set(compare.get("candidate_ids") or [])
-    if not isinstance(relation, str) or not candidate_ids:
-        return []
-    evidence_ids: list[str] = []
-    for entry in list(getattr(runtime, "tool_trace", []) or []):
-        if getattr(entry, "tool_name", None) != "compare_proposals_spatial":
-            continue
-        tool_input = getattr(entry, "tool_input", {}) or {}
-        if not isinstance(tool_input, dict):
-            continue
-        if _canonical_compare_relation(tool_input.get("relation", "")) != relation:
-            continue
-        if set(tool_input.get("candidate_ids") or []) != candidate_ids:
-            continue
-        response_text = getattr(entry, "response_text", "") or ""
-        try:
-            payload = json.loads(response_text)
-        except (json.JSONDecodeError, TypeError):
-            continue
-        if not isinstance(payload, dict):
-            continue
-        ranked_ids = _int_list(payload.get("ranked_ids"))
-        if not ranked_ids or ranked_ids[0] != submitted_pid:
-            continue
-        evidence_id = payload.get("evidence_id") or tool_input.get("evidence_id")
-        if isinstance(evidence_id, str) and evidence_id not in evidence_ids:
-            evidence_ids.append(evidence_id)
-    return evidence_ids
-
-
-def _ambiguous_anchor_gap(runtime: Any, compare: dict[str, Any]) -> str | None:
-    relation = compare["relation"]
-    if relation not in {"left_of", "right_of", "closest_to", "farthest_from"}:
-        return None
-
-    anchor_candidates = _ambiguous_anchor_candidates(runtime, compare)
+        anchor_candidates = ids
+        break
 
     if len(anchor_candidates) <= 1:
         return None
 
-    candidate_ids = set(compare.get("candidate_ids") or [])
     tested_anchor_ids: set[int] = set()
-    trace = list(getattr(runtime, "tool_trace", []) or [])
-    window = max(int(getattr(runtime, "tadg_window", 32)), 1)
-    trace = trace[-window:]
     for entry in trace:
         if getattr(entry, "tool_name", None) != "compare_proposals_spatial":
             continue
@@ -766,30 +716,6 @@ def _should_reject_override(
                 f"frames), while the submitted proposal has only {submitted_support} "
                 "supporting "
                 "left/right frames for this anchor."
-            )
-
-    if relation in {"closest_to", "farthest_from"} and subcase == "rank_mismatch":
-        anchor_candidates = _ambiguous_anchor_candidates(runtime, compare)
-        if len(anchor_candidates) > 1:
-            supporting_evidence = _compare_evidence_ids_supporting_submission(
-                runtime,
-                compare,
-                submitted_pid,
-            )
-            support_text = ""
-            if supporting_evidence:
-                support_text = (
-                    " If a different anchor is intended, resubmit with "
-                    "`relation_evidence` bound to one of: "
-                    f"{', '.join(supporting_evidence)}."
-                )
-            return (
-                "The ambiguous anchor category has already been compared, so "
-                "a closest/farthest rank mismatch cannot be bypassed with a "
-                "plain visual override. Use the relation-ranked proposal for "
-                "the chosen anchor, or bind relation_evidence to the "
-                "compare_proposals_spatial call for a different resolved "
-                f"anchor.{support_text}"
             )
 
     return None

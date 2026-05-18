@@ -241,40 +241,6 @@ def test_tadg_blocks_superlative_submit_when_anchor_candidates_untested(
     assert "proposal 24" in decision.message
 
 
-def test_tadg_rejects_superlative_rank_override_when_anchor_category_is_ambiguous() -> None:
-    rs = _runtime(bundle=_bundle_with_query("the pillow farthest from the door"))
-    _record_category_lookup(rs, category="pillow", proposal_ids=[19, 20])
-    _record_category_lookup(rs, category="door", proposal_ids=[3, 24])
-    _record_compare(
-        rs,
-        relation="farthest_from",
-        anchor_id=3,
-        candidate_ids=[19, 20],
-        ranked_ids=[19, 20],
-    )
-    _record_compare(
-        rs,
-        relation="farthest_from",
-        anchor_id=24,
-        candidate_ids=[19, 20],
-        ranked_ids=[20, 19],
-    )
-
-    decision = evaluate_tadg(
-        rs,
-        {"proposal_id": 19, "confidence": 0.82},
-        tool_override_reason=(
-            "the door anchor is ambiguous, and proposal 19 looks farther "
-            "from the entrance in the marked frames"
-        ),
-    )
-
-    assert decision.blocked is True
-    assert decision.subcase == "rank_mismatch"
-    assert "ambiguous anchor category" in decision.message
-    assert "compare_proposals_spatial:0" in decision.message
-
-
 def test_tadg_ambiguous_anchor_ignores_mixed_current_list_scene_proposals_shape() -> None:
     rs = _runtime(bundle=_bundle_with_query("this chair is left of the keyboard"))
     rs.tool_trace.append(
