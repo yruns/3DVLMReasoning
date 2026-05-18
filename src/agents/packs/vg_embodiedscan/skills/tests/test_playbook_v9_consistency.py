@@ -113,6 +113,16 @@ def test_playbooks_document_nested_anchor_resolution_before_target_ranking(
     assert "then rank the target candidates against that resolved anchor" in normalized
 
 
+@pytest.mark.parametrize("path", [_PB, _PB_NO_TEXT, _SD, _SD_NO_TEXT])
+def test_playbooks_document_multi_anchor_spatial_comparison(path: Path):
+    text = path.read_text()
+    normalized = " ".join(text.split())
+    assert "compare_candidates_to_anchors" in normalized
+    assert "anchor_disagreement" in normalized
+    assert "closest/farthest/near/next_to" in normalized
+    assert "do not compare against only one anchor" in normalized
+
+
 def test_vg_playbook_mentions_ood_proposal_minus_one():
     text = _PB.read_text()
     assert "proposal_id" in text

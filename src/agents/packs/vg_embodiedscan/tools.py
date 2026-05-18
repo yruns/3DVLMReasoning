@@ -21,6 +21,12 @@ SPATIAL_RELATIONS = (
     "left_of",
     "right_of",
 )
+MULTI_ANCHOR_SPATIAL_RELATIONS = (
+    "closest_to",
+    "near",
+    "next_to",
+    "farthest_from",
+)
 _SPATIAL_RELATION_ALIASES = {
     "closer_to": "closest_to",
     "closest": "closest_to",
@@ -351,6 +357,81 @@ def _contradicting_frame_count(coview: dict[str, Any], relation: str) -> int:
     return 0
 
 
+def _score_candidates_against_anchor(
+    candidates: Sequence[Any],
+    anchor: Any,
+) -> list[tuple[int, float, float, float, float, dict[str, Any]]]:
+    import numpy as np
+
+    anchor_center = np.array(anchor.bbox_3d_9dof[:3], dtype=float)
+    scored = []
+    for proposal in candidates:
+        center = np.array(proposal.bbox_3d_9dof[:3], dtype=float)
+        delta = center - anchor_center
+        distance = float(np.linalg.norm(delta))
+        horizontal_distance = float(np.linalg.norm(delta[:2]))
+        vertical_offset = float(delta[2])
+        horizontal_offset = float(delta[0])
+        coview = _coviewed_horizontal_votes(proposal, anchor)
+        scored.append(
+            (
+                int(proposal.id),
+                distance,
+                horizontal_distance,
+                vertical_offset,
+                horizontal_offset,
+                coview,
+            )
+        )
+    return scored
+
+
+def _rank_spatial_scores(
+    scored: Sequence[tuple[int, float, float, float, float, dict[str, Any]]],
+    relation: str,
+) -> list[tuple[int, float, float, float, float, dict[str, Any]]]:
+    ranked = list(scored)
+    if relation == "closest_to":
+        ranked.sort(key=lambda x: x[1])
+    elif relation in ("near", "next_to"):
+        ranked.sort(key=lambda x: (x[2], x[1]))
+    elif relation == "farthest_from":
+        ranked.sort(key=lambda x: x[1], reverse=True)
+    elif relation == "above":
+        ranked.sort(key=lambda x: (x[3] <= 0.0, x[2], -x[3]))
+    elif relation == "below":
+        ranked.sort(key=lambda x: (x[3] >= 0.0, x[2], x[3]))
+    elif relation == "left_of":
+        ranked.sort(
+            key=lambda x: (
+                _left_right_bucket(x[5], direction="left"),
+                -int(x[5]["left_frame_count"]),
+                int(x[5]["right_frame_count"]),
+                (
+                    abs(float(x[5]["mean_2d_center_offset_x"]))
+                    if x[5]["mean_2d_center_offset_x"] is not None
+                    else float("inf")
+                ),
+                x[2],
+            )
+        )
+    else:  # right_of
+        ranked.sort(
+            key=lambda x: (
+                _left_right_bucket(x[5], direction="right"),
+                -int(x[5]["right_frame_count"]),
+                int(x[5]["left_frame_count"]),
+                (
+                    abs(float(x[5]["mean_2d_center_offset_x"]))
+                    if x[5]["mean_2d_center_offset_x"] is not None
+                    else float("inf")
+                ),
+                x[2],
+            )
+        )
+    return ranked
+
+
 def _left_right_bucket(coview: dict[str, Any], *, direction: str) -> int:
     """Sort confirmed relation first, unknown second, contradicted last."""
     relation = "left_of" if direction == "left" else "right_of"
@@ -485,8 +566,6 @@ def build_vg_tools(runtime: Any) -> list[BaseTool]:
             runtime.record("compare_proposals_spatial", request, err)
             return err
 
-        import numpy as np
-
         anchor = next((p for p in ctx.proposals if p.id == anchor_id), None)
         if anchor is None:
             err = f"ERROR: anchor_id={anchor_id} not in pool"
@@ -499,64 +578,10 @@ def build_vg_tools(runtime: Any) -> list[BaseTool]:
             runtime.record("compare_proposals_spatial", request, err)
             return err
 
-        anchor_center = np.array(anchor.bbox_3d_9dof[:3], dtype=float)
-        scored = []
-        for p in candidates:
-            center = np.array(p.bbox_3d_9dof[:3], dtype=float)
-            delta = center - anchor_center
-            distance = float(np.linalg.norm(delta))
-            horizontal_distance = float(np.linalg.norm(delta[:2]))
-            vertical_offset = float(delta[2])
-            horizontal_offset = float(delta[0])
-            coview = _coviewed_horizontal_votes(p, anchor)
-            scored.append(
-                (
-                    p.id,
-                    distance,
-                    horizontal_distance,
-                    vertical_offset,
-                    horizontal_offset,
-                    coview,
-                )
-            )
-        if relation == "closest_to":
-            scored.sort(key=lambda x: x[1])
-        elif relation in ("near", "next_to"):
-            scored.sort(key=lambda x: (x[2], x[1]))
-        elif relation == "farthest_from":
-            scored.sort(key=lambda x: x[1], reverse=True)
-        elif relation == "above":
-            scored.sort(key=lambda x: (x[3] <= 0.0, x[2], -x[3]))
-        elif relation == "below":
-            scored.sort(key=lambda x: (x[3] >= 0.0, x[2], x[3]))
-        elif relation == "left_of":
-            scored.sort(
-                key=lambda x: (
-                    _left_right_bucket(x[5], direction="left"),
-                    -int(x[5]["left_frame_count"]),
-                    int(x[5]["right_frame_count"]),
-                    (
-                        abs(float(x[5]["mean_2d_center_offset_x"]))
-                        if x[5]["mean_2d_center_offset_x"] is not None
-                        else float("inf")
-                    ),
-                    x[2],
-                )
-            )
-        else:  # right_of
-            scored.sort(
-                key=lambda x: (
-                    _left_right_bucket(x[5], direction="right"),
-                    -int(x[5]["right_frame_count"]),
-                    int(x[5]["left_frame_count"]),
-                    (
-                        abs(float(x[5]["mean_2d_center_offset_x"]))
-                        if x[5]["mean_2d_center_offset_x"] is not None
-                        else float("inf")
-                    ),
-                    x[2],
-                )
-            )
+        scored = _rank_spatial_scores(
+            _score_candidates_against_anchor(candidates, anchor),
+            relation,
+        )
         compare_index = sum(
             1
             for entry in list(getattr(runtime, "tool_trace", []) or [])
@@ -594,10 +619,115 @@ def build_vg_tools(runtime: Any) -> list[BaseTool]:
         runtime.record("compare_proposals_spatial", request, text)
         return text
 
+    @tool
+    def compare_candidates_to_anchors(
+        candidate_ids: list[int],
+        anchor_ids: list[int],
+        relation: str,
+    ) -> str:
+        """VG tool. Compare one candidate set against multiple plausible anchors."""
+        gate = _gate(runtime)
+        requested_relation = str(relation or "")
+        normalized_requested_relation = (
+            requested_relation.strip().lower().replace("-", "_").replace(" ", "_")
+        )
+        relation = _canonical_spatial_relation(requested_relation)
+        candidate_ids = _dedupe_ints(_coerce_int_list(candidate_ids))
+        anchor_ids = _dedupe_ints(_coerce_int_list(anchor_ids))
+        request = {
+            "candidate_ids": candidate_ids,
+            "anchor_ids": anchor_ids,
+            "relation": requested_relation,
+        }
+        if relation != normalized_requested_relation:
+            request["canonical_relation"] = relation
+        if gate is not None:
+            runtime.record("compare_candidates_to_anchors", request, gate)
+            return gate
+        if relation not in MULTI_ANCHOR_SPATIAL_RELATIONS:
+            err = (
+                f"ERROR: unsupported relation {relation!r}; allowed: "
+                + " | ".join(MULTI_ANCHOR_SPATIAL_RELATIONS)
+            )
+            runtime.record("compare_candidates_to_anchors", request, err)
+            return err
+        if not candidate_ids:
+            err = "ERROR: candidate_ids must contain at least one proposal id"
+            runtime.record("compare_candidates_to_anchors", request, err)
+            return err
+        if not anchor_ids:
+            err = "ERROR: anchor_ids must contain at least one proposal id"
+            runtime.record("compare_candidates_to_anchors", request, err)
+            return err
+
+        proposal_by_id = {int(p.id): p for p in ctx.proposals}
+        missing_candidates = sorted(
+            proposal_id
+            for proposal_id in candidate_ids
+            if proposal_id not in proposal_by_id
+        )
+        if missing_candidates:
+            err = f"ERROR: candidate ids not in pool: {missing_candidates}"
+            runtime.record("compare_candidates_to_anchors", request, err)
+            return err
+        missing_anchors = sorted(
+            proposal_id for proposal_id in anchor_ids if proposal_id not in proposal_by_id
+        )
+        if missing_anchors:
+            err = f"ERROR: anchor ids not in pool: {missing_anchors}"
+            runtime.record("compare_candidates_to_anchors", request, err)
+            return err
+
+        candidates = [proposal_by_id[proposal_id] for proposal_id in candidate_ids]
+        per_anchor: list[dict[str, Any]] = []
+        top1_by_anchor: dict[int, int] = {}
+        for anchor_id in anchor_ids:
+            anchor = proposal_by_id[anchor_id]
+            scored = _rank_spatial_scores(
+                _score_candidates_against_anchor(candidates, anchor),
+                relation,
+            )
+            ranked_ids = [pid for pid, _, _, _, _, _ in scored]
+            if ranked_ids:
+                top1_by_anchor[int(anchor_id)] = int(ranked_ids[0])
+            per_anchor.append(
+                {
+                    "anchor_id": int(anchor_id),
+                    "ranked_ids": ranked_ids,
+                    "distances": [d for _, d, _, _, _, _ in scored],
+                    "horizontal_distances": [d for _, _, d, _, _, _ in scored],
+                }
+            )
+
+        top1s = list(top1_by_anchor.values())
+        globally_consistent_top1 = top1s[0] if len(set(top1s)) == 1 else None
+        compare_index = sum(
+            1
+            for entry in list(getattr(runtime, "tool_trace", []) or [])
+            if getattr(entry, "tool_name", None) == "compare_candidates_to_anchors"
+        )
+        evidence_id = f"compare_candidates_to_anchors:{compare_index}"
+        payload = {
+            "evidence_id": evidence_id,
+            "candidate_ids": candidate_ids,
+            "anchor_ids": anchor_ids,
+            "relation": relation,
+            "requested_relation": requested_relation,
+            "per_anchor": per_anchor,
+            "top1_by_anchor": top1_by_anchor,
+            "anchor_disagreement": len(set(top1s)) > 1,
+            "globally_consistent_top1": globally_consistent_top1,
+        }
+        text = json.dumps(payload, ensure_ascii=False)
+        request["evidence_id"] = evidence_id
+        runtime.record("compare_candidates_to_anchors", request, text)
+        return text
+
     return [
         list_frame_proposals,
         inspect_proposal,
         compare_proposals_spatial,
+        compare_candidates_to_anchors,
     ]
 
 

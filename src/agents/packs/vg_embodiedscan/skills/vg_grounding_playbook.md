@@ -41,6 +41,12 @@ is genuinely absent from the catalog — OOD case).
    instead of inventing a relation string. The response includes a stable
    `evidence_id`; copy it into `submit_final(..., relation_evidence={"evidence_id": ...})`
    when the final answer relies on that comparison.
+   If the anchor category itself has more than one plausible proposal for a
+   closest/farthest/near/next_to relation, call
+   `compare_candidates_to_anchors(candidate_ids=[target ids], anchor_ids=[anchor ids], relation='<rel>')`.
+   Inspect each per-anchor ranking. If `anchor_disagreement` is true, first
+   resolve which anchor the expression means with marked visual evidence; do
+   not compare against only one anchor and final from that partial ranking.
 
 Unsupported semantic relations are visual/BEV workflows, not relation strings.
 Do not call `compare_proposals_spatial` with `same_side_as`, `between`,
@@ -98,6 +104,10 @@ subset, not across every same-category object in the frame.
   spatial disambiguation (TADG-relevant). Returns `evidence_id` plus ranked
   candidates; use that id as `relation_evidence` in `submit_final` to bind
   the final answer to the recorded comparison.
+- `compare_candidates_to_anchors(candidate_ids, anchor_ids, relation)` —
+  multi-anchor spatial check for closest/farthest/near/next_to relations.
+  Returns per-anchor rankings plus `anchor_disagreement`; use it before
+  finalizing when multiple same-category anchors are plausible.
 
 ## Guards (read this before submit)
 

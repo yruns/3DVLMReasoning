@@ -21,6 +21,13 @@ such as front/behind, between, facing, across, or same-side, do not invent
 a relation string. Fetch/mark frames that show the target and anchor, then
 judge the relation visually.
 
+For multi-anchor closest/farthest/near/next_to cases, use
+`compare_candidates_to_anchors(candidate_ids=[target ids], anchor_ids=[anchor ids], relation='<rel>')`.
+It returns per-anchor rankings plus `anchor_disagreement`. If the same target
+does not win for every plausible anchor, resolve the anchor identity with
+marked visual evidence first; do not compare against only one anchor and final
+from that partial ranking.
+
 Unsupported semantic relations are visual/BEV workflows, not relation strings.
 Do not call `compare_proposals_spatial` with `same_side_as`, `between`,
 `opposite`, `across_from`, `facing`, `in_front_of`, or `behind`. For those,

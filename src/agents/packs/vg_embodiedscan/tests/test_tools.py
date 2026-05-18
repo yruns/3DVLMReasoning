@@ -208,6 +208,73 @@ def test_compare_proposals_spatial_farthest_from(tmp_path: Path) -> None:
     assert payload["ranked_ids"] == [0, 1]
 
 
+def test_compare_candidates_to_anchors_reports_anchor_disagreement(
+    tmp_path: Path,
+) -> None:
+    rs = _runtime(tmp_path)
+    rs.skills_loaded.add("vg-grounding-playbook")
+    rs.task_ctx.proposals = [
+        Proposal(
+            id=19,
+            bbox_3d_9dof=[0, 0, 0, 1, 1, 1, 0, 0, 0],
+            category="pillow",
+            score=0.9,
+        ),
+        Proposal(
+            id=20,
+            bbox_3d_9dof=[10, 0, 0, 1, 1, 1, 0, 0, 0],
+            category="pillow",
+            score=0.8,
+        ),
+        Proposal(
+            id=3,
+            bbox_3d_9dof=[-1, 0, 0, 1, 1, 1, 0, 0, 0],
+            category="door",
+            score=0.7,
+        ),
+        Proposal(
+            id=24,
+            bbox_3d_9dof=[11, 0, 0, 1, 1, 1, 0, 0, 0],
+            category="door",
+            score=0.7,
+        ),
+    ]
+    tool = next(t for t in build_vg_tools(rs) if t.name == "compare_candidates_to_anchors")
+
+    payload = json.loads(
+        tool.invoke(
+            {
+                "candidate_ids": [19, 20],
+                "anchor_ids": [3, 24],
+                "relation": "farthest_from",
+            }
+        )
+    )
+
+    assert payload["evidence_id"] == "compare_candidates_to_anchors:0"
+    assert rs.tool_trace[-1].tool_input["evidence_id"] == payload["evidence_id"]
+    assert payload["candidate_ids"] == [19, 20]
+    assert payload["anchor_ids"] == [3, 24]
+    assert payload["relation"] == "farthest_from"
+    assert payload["per_anchor"] == [
+        {
+            "anchor_id": 3,
+            "ranked_ids": [20, 19],
+            "distances": [11.0, 1.0],
+            "horizontal_distances": [11.0, 1.0],
+        },
+        {
+            "anchor_id": 24,
+            "ranked_ids": [19, 20],
+            "distances": [11.0, 1.0],
+            "horizontal_distances": [11.0, 1.0],
+        },
+    ]
+    assert payload["top1_by_anchor"] == {"3": 20, "24": 19}
+    assert payload["anchor_disagreement"] is True
+    assert payload["globally_consistent_top1"] is None
+
+
 def test_compare_proposals_spatial_accepts_common_relation_aliases(
     tmp_path: Path,
 ) -> None:
