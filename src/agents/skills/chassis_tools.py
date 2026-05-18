@@ -22,6 +22,11 @@ from agents.skills.no_match_guard import (
     evaluate_no_match_guard,
     no_match_guard_record_fields,
 )
+from agents.skills.rationale_payload_guard import (
+    RationalePayloadDecision,
+    evaluate_rationale_payload_guard,
+    rationale_payload_guard_record_fields,
+)
 from agents.skills.registry import PACKS, skills_for
 from agents.skills.tadg import TADGDecision, evaluate_tadg, tadg_record_fields
 from agents.skills.target_category_guard import (
@@ -129,6 +134,9 @@ def build_chassis_tools(runtime: Any) -> tuple[BaseTool, BaseTool, BaseTool]:
                     **evidence_frame_guard_record_fields(
                         EvidenceFrameGuardDecision(blocked=False)
                     ),
+                    **rationale_payload_guard_record_fields(
+                        RationalePayloadDecision(blocked=False)
+                    ),
                 },
                 msg,
             )
@@ -165,6 +173,9 @@ def build_chassis_tools(runtime: Any) -> tuple[BaseTool, BaseTool, BaseTool]:
                     **evidence_frame_guard_record_fields(
                         EvidenceFrameGuardDecision(blocked=False)
                     ),
+                    **rationale_payload_guard_record_fields(
+                        RationalePayloadDecision(blocked=False)
+                    ),
                 },
                 target_category_decision.message,
             )
@@ -184,6 +195,10 @@ def build_chassis_tools(runtime: Any) -> tuple[BaseTool, BaseTool, BaseTool]:
             evidence_refs=evidence_refs or [],
             relation_evidence=relation_evidence,
         )
+        rationale_payload_decision = evaluate_rationale_payload_guard(
+            gate_payload,
+            rationale=rationale,
+        )
         if decision.blocked:
             runtime.record(
                 "submit_final",
@@ -197,6 +212,9 @@ def build_chassis_tools(runtime: Any) -> tuple[BaseTool, BaseTool, BaseTool]:
                     **tadg_record_fields(decision),
                     **no_match_guard_record_fields(no_match_decision),
                     **evidence_frame_guard_record_fields(evidence_frame_decision),
+                    **rationale_payload_guard_record_fields(
+                        rationale_payload_decision
+                    ),
                 },
                 f"TADG_BLOCK: {decision.message}",
             )
@@ -214,6 +232,9 @@ def build_chassis_tools(runtime: Any) -> tuple[BaseTool, BaseTool, BaseTool]:
                     **tadg_record_fields(decision),
                     **no_match_guard_record_fields(no_match_decision),
                     **evidence_frame_guard_record_fields(evidence_frame_decision),
+                    **rationale_payload_guard_record_fields(
+                        rationale_payload_decision
+                    ),
                 },
                 no_match_decision.message,
             )
@@ -231,10 +252,33 @@ def build_chassis_tools(runtime: Any) -> tuple[BaseTool, BaseTool, BaseTool]:
                     **tadg_record_fields(decision),
                     **no_match_guard_record_fields(no_match_decision),
                     **evidence_frame_guard_record_fields(evidence_frame_decision),
+                    **rationale_payload_guard_record_fields(
+                        rationale_payload_decision
+                    ),
                 },
                 evidence_frame_decision.message,
             )
             return evidence_frame_decision.message
+        if rationale_payload_decision.blocked:
+            runtime.record(
+                "submit_final",
+                {
+                    "payload": payload,
+                    "rationale": rationale,
+                    "evidence_refs": evidence_refs or [],
+                    "tool_override_reason": tool_override_reason,
+                    "relation_evidence": relation_evidence,
+                    **target_category_guard_record_fields(target_category_decision),
+                    **tadg_record_fields(decision),
+                    **no_match_guard_record_fields(no_match_decision),
+                    **evidence_frame_guard_record_fields(evidence_frame_decision),
+                    **rationale_payload_guard_record_fields(
+                        rationale_payload_decision
+                    ),
+                },
+                rationale_payload_decision.message,
+            )
+            return rationale_payload_decision.message
 
         pack = PACKS.get(runtime.task_type)
         if pack is None:
@@ -248,6 +292,9 @@ def build_chassis_tools(runtime: Any) -> tuple[BaseTool, BaseTool, BaseTool]:
                     **tadg_record_fields(decision),
                     **no_match_guard_record_fields(no_match_decision),
                     **evidence_frame_guard_record_fields(evidence_frame_decision),
+                    **rationale_payload_guard_record_fields(
+                        rationale_payload_decision
+                    ),
                 },
                 err,
             )
@@ -283,6 +330,9 @@ def build_chassis_tools(runtime: Any) -> tuple[BaseTool, BaseTool, BaseTool]:
                         **tadg_record_fields(decision),
                         **no_match_guard_record_fields(no_match_decision),
                         **evidence_frame_guard_record_fields(evidence_frame_decision),
+                        **rationale_payload_guard_record_fields(
+                            rationale_payload_decision
+                        ),
                     },
                     err,
                 )
@@ -304,6 +354,9 @@ def build_chassis_tools(runtime: Any) -> tuple[BaseTool, BaseTool, BaseTool]:
                     **tadg_record_fields(decision),
                     **no_match_guard_record_fields(no_match_decision),
                     **evidence_frame_guard_record_fields(evidence_frame_decision),
+                    **rationale_payload_guard_record_fields(
+                        rationale_payload_decision
+                    ),
                 },
                 err,
             )
@@ -339,6 +392,7 @@ def build_chassis_tools(runtime: Any) -> tuple[BaseTool, BaseTool, BaseTool]:
             **tadg_record_fields(decision),
             **no_match_guard_record_fields(no_match_decision),
             **evidence_frame_guard_record_fields(evidence_frame_decision),
+            **rationale_payload_guard_record_fields(rationale_payload_decision),
         }
         if tool_override_reason:
             record_payload["tool_override_reason"] = tool_override_reason

@@ -159,6 +159,178 @@ def test_submit_final_does_not_set_final_submission_on_no_pack(tmp_path: Path) -
     assert rs.final_submission is None
 
 
+def test_submit_final_blocks_when_rationale_rules_out_payload_id(
+    tmp_path: Path,
+) -> None:
+    _register_vg_pack(tmp_path)
+    rs = _runtime(Stage2TaskType.VISUAL_GROUNDING)
+    _, _, submit_final = build_chassis_tools(rs)
+
+    response = submit_final.invoke(
+        {
+            "payload": {"proposal_id": 31, "confidence": 0.94},
+            "rationale": (
+                "The newly provided first-person evidence shows door #31 directly "
+                "adjacent to the vending-machine area, so it is the door to exclude. "
+                "That rules out #31. Marked frame 114 verifies #21 is indeed a door. "
+                "Therefore the best match is #21."
+            ),
+            "evidence_refs": [],
+        }
+    )
+
+    assert response.startswith("RATIONALE_PAYLOAD_GUARD:")
+    assert "rules out submitted proposal #31" in response
+    assert rs.final_submission is None
+    assert rs.tool_trace[-1].tool_input["rationale_payload_guard_blocked"] is True
+    assert rs.tool_trace[-1].tool_input["rationale_payload_guard_final_ids"] == [21]
+
+
+def test_submit_final_blocks_when_rationale_names_different_final_id(
+    tmp_path: Path,
+) -> None:
+    _register_vg_pack(tmp_path)
+    rs = _runtime(Stage2TaskType.VISUAL_GROUNDING)
+    _, _, submit_final = build_chassis_tools(rs)
+
+    response = submit_final.invoke(
+        {
+            "payload": {"proposal_id": 31, "confidence": 0.91},
+            "rationale": (
+                "Marked frame 114 verifies #21 is the door in the outside corner. "
+                "Therefore the final answer is #21."
+            ),
+            "evidence_refs": [],
+        }
+    )
+
+    assert response.startswith("RATIONALE_PAYLOAD_GUARD:")
+    assert "names final proposal #21" in response
+    assert rs.final_submission is None
+
+
+def test_submit_final_extracts_best_match_for_clause_final_id(
+    tmp_path: Path,
+) -> None:
+    _register_vg_pack(tmp_path)
+    rs = _runtime(Stage2TaskType.VISUAL_GROUNDING)
+    _, _, submit_final = build_chassis_tools(rs)
+
+    response = submit_final.invoke(
+        {
+            "payload": {"proposal_id": 31, "confidence": 0.91},
+            "rationale": (
+                "Marked frame 114 verifies #21 is indeed a door. "
+                "Therefore the best match for the door in the corner is #21."
+            ),
+            "evidence_refs": [],
+        }
+    )
+
+    assert response.startswith("RATIONALE_PAYLOAD_GUARD:")
+    assert rs.tool_trace[-1].tool_input["rationale_payload_guard_final_ids"] == [21]
+
+
+def test_submit_final_allows_other_ids_when_payload_is_final_choice(
+    tmp_path: Path,
+) -> None:
+    _register_vg_pack(tmp_path)
+    rs = _runtime(Stage2TaskType.VISUAL_GROUNDING)
+    _, _, submit_final = build_chassis_tools(rs)
+
+    response = submit_final.invoke(
+        {
+            "payload": {"proposal_id": 31, "confidence": 0.88},
+            "rationale": (
+                "Compared #21 and #31. #21 is farther from the corner, so "
+                "proposal #31 is the best match."
+            ),
+            "evidence_refs": [],
+        }
+    )
+
+    assert "submitted" in response.lower()
+    assert rs.final_submission == {
+        "answer": {"proposal_id": 31, "confidence": 0.88}
+    }
+
+
+def test_submit_final_allows_quoted_query_negation_for_payload_id(
+    tmp_path: Path,
+) -> None:
+    _register_vg_pack(tmp_path)
+    rs = _runtime(Stage2TaskType.VISUAL_GROUNDING)
+    _, _, submit_final = build_chassis_tools(rs)
+
+    response = submit_final.invoke(
+        {
+            "payload": {"proposal_id": 6, "confidence": 0.88},
+            "rationale": (
+                "Choose proposal #6. Door #16 is the gray door with boxes in "
+                "front, so it is explicitly the one the query says not to choose. "
+                "Door #6 is the other door. Therefore the described door "
+                "'next to the big grey box, NOT the one with the cardboard box "
+                "in front of it' is proposal #6."
+            ),
+            "evidence_refs": [],
+        }
+    )
+
+    assert "submitted" in response.lower()
+    assert rs.final_submission == {"answer": {"proposal_id": 6, "confidence": 0.88}}
+
+
+def test_submit_final_allows_distractor_negation_in_same_rationale(
+    tmp_path: Path,
+) -> None:
+    _register_vg_pack(tmp_path)
+    rs = _runtime(Stage2TaskType.VISUAL_GROUNDING)
+    _, _, submit_final = build_chassis_tools(rs)
+
+    response = submit_final.invoke(
+        {
+            "payload": {"proposal_id": 28, "confidence": 0.84},
+            "rationale": (
+                "The correct target is proposal #28, not #27. In frames 47-49, "
+                "only #28 is visible, and those frames identify #28's location "
+                "but not the target state. In frames 63 and 64, #28 is upright "
+                "while #27 is mostly just a head."
+            ),
+            "evidence_refs": [],
+        }
+    )
+
+    assert "submitted" in response.lower()
+    assert rs.final_submission == {
+        "answer": {"proposal_id": 28, "confidence": 0.84}
+    }
+
+
+def test_submit_final_allows_rejected_distractors_that_reference_payload(
+    tmp_path: Path,
+) -> None:
+    _register_vg_pack(tmp_path)
+    rs = _runtime(Stage2TaskType.VISUAL_GROUNDING)
+    _, _, submit_final = build_chassis_tools(rs)
+
+    response = submit_final.invoke(
+        {
+            "payload": {"proposal_id": 20, "confidence": 0.86},
+            "rationale": (
+                "Thus #20 is the only mouse that is consistently the leftmost. "
+                "I rejected #24 because it is right of #20 in frame 10, and "
+                "rejected #27 because it is right of #20 in frame 49."
+            ),
+            "evidence_refs": [],
+        }
+    )
+
+    assert "submitted" in response.lower()
+    assert rs.final_submission == {
+        "answer": {"proposal_id": 20, "confidence": 0.86}
+    }
+
+
 def _ensure_vg_pack_registered() -> None:
     """Pull in the real VG_PACK; its `register()` runs on package import.
     Idempotent in case the autouse fixture cleared PACKS before this test."""
