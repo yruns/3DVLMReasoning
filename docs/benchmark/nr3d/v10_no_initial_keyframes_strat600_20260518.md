@@ -574,3 +574,64 @@ the exact failure pattern. Remaining high-impact buckets from the 15-case audit
 are missing-status result extraction, unsupported `behind` / `in_front_of`
 spatial relations, evidence-frame guard overreach, and candidate coverage before
 no-match.
+
+### Missing-status extractor recovery probe: e5617ac
+
+The same 15-case audit found four `cfee0ef` failures that were not visual
+grounding failures. The agent produced a direct structured VG response with a
+`proposal_id` and confidence, but the NR3D side-by-side runner only accepted
+`selected_object_id` + `bbox_3d` / `status`. The result was a synthetic
+`prediction missing status` failure and the side-by-side row lost the query and
+trace.
+
+Code change:
+
+- `179edcd` brings the NR3D pack-v1 extractor to parity with ScanRefer.
+- `extract_pack_v1_prediction()` now accepts `proposal_id` as a synonym for
+  `selected_object_id`.
+- When the payload lacks `bbox_3d`, it resolves the 9-DoF bbox from
+  `result.final_bundle.extra_metadata["vg_proposal_pool"]`.
+- If a bbox is resolved and `status` is absent, status is inferred as
+  `completed`.
+- This is an evaluation/output-normalization fix only; the agent still receives
+  no GT target id, GT bbox, target-visible seed frames, or metric information.
+
+Validation:
+
+| Item | Value |
+|---|---|
+| Branch | `feat/remove-initial-keyframes` |
+| Head commit at launch | `e5617ac1360363dbd5381a5dbaf5249cb867b44d` |
+| Run-time code commit | `e5617ac1360363dbd5381a5dbaf5249cb867b44d` - no worktree drift |
+| Sample ids | `docs/benchmark/nr3d/assets/v10_missing_status4_sample_ids_20260519.json` |
+| Output dir | `tmp/nr3d_eval_v10_missing_status4_20260519_e5617ac/` |
+| SQLite run id | `v10_missing_status4_20260519` |
+| Workers | 4 |
+| Sample retries | 2 |
+| Guards | TADG + no-match + evidence-frame |
+| Eval exit status | `0` |
+| Metrics exit status | `0` |
+
+Probe result:
+
+| Sample | `cfee0ef` failure shape | `e5617ac` status / selected | Query / trace preserved |
+|---|---|---|---|
+| `scannet/scene0144_00::17::37726` | missing status, no query/trace row | completed / `17` | yes / 14 tool records |
+| `scannet/scene0700_00::34::40232` | missing status, no query/trace row | completed / `34` | yes / 14 tool records |
+| `scannet/scene0019_00::19::19821` | missing status, no query/trace row | completed / `19` | yes / 13 tool records |
+| `scannet/scene0164_00::24::20371` | missing status, no query/trace row | completed / `24` | yes / 14 tool records |
+
+Metrics on this diagnostic subset:
+
+| Metric | Value |
+|---|---:|
+| n | 4 |
+| Overall | 100.00 |
+| Easy | 100.00 |
+| Hard | n/a |
+| V-Dep | 100.00 |
+| V-Indep | 100.00 |
+
+The run log contained no `prediction missing status`, Traceback, or Exception
+matches. Reading: this confirms the extractor failure bucket is fixed for the
+audited shape. This probe is still not a benchmark-grade accuracy claim.
