@@ -22,6 +22,10 @@ from agents.skills.no_match_guard import (
 )
 from agents.skills.registry import PACKS, skills_for
 from agents.skills.tadg import evaluate_tadg, tadg_record_fields
+from agents.skills.target_category_guard import (
+    evaluate_target_category_guard,
+    target_category_guard_record_fields,
+)
 
 
 def build_chassis_tools(runtime: Any) -> tuple[BaseTool, BaseTool, BaseTool]:
@@ -132,6 +136,21 @@ def build_chassis_tools(runtime: Any) -> tuple[BaseTool, BaseTool, BaseTool]:
             inner = payload.get("payload")
             if isinstance(inner, dict) and "proposal_id" in inner:
                 gate_payload = inner
+        target_category_decision = evaluate_target_category_guard(runtime, gate_payload)
+        if target_category_decision.blocked:
+            runtime.record(
+                "submit_final",
+                {
+                    "payload": payload,
+                    "rationale": rationale,
+                    "evidence_refs": evidence_refs or [],
+                    "tool_override_reason": tool_override_reason,
+                    **target_category_guard_record_fields(target_category_decision),
+                },
+                target_category_decision.message,
+            )
+            return target_category_decision.message
+
         decision = evaluate_tadg(
             runtime,
             gate_payload,
@@ -152,6 +171,7 @@ def build_chassis_tools(runtime: Any) -> tuple[BaseTool, BaseTool, BaseTool]:
                     "rationale": rationale,
                     "evidence_refs": evidence_refs or [],
                     "tool_override_reason": tool_override_reason,
+                    **target_category_guard_record_fields(target_category_decision),
                     **tadg_record_fields(decision),
                     **no_match_guard_record_fields(no_match_decision),
                     **evidence_frame_guard_record_fields(evidence_frame_decision),
@@ -167,6 +187,7 @@ def build_chassis_tools(runtime: Any) -> tuple[BaseTool, BaseTool, BaseTool]:
                     "rationale": rationale,
                     "evidence_refs": evidence_refs or [],
                     "tool_override_reason": tool_override_reason,
+                    **target_category_guard_record_fields(target_category_decision),
                     **tadg_record_fields(decision),
                     **no_match_guard_record_fields(no_match_decision),
                     **evidence_frame_guard_record_fields(evidence_frame_decision),
@@ -182,6 +203,7 @@ def build_chassis_tools(runtime: Any) -> tuple[BaseTool, BaseTool, BaseTool]:
                     "rationale": rationale,
                     "evidence_refs": evidence_refs or [],
                     "tool_override_reason": tool_override_reason,
+                    **target_category_guard_record_fields(target_category_decision),
                     **tadg_record_fields(decision),
                     **no_match_guard_record_fields(no_match_decision),
                     **evidence_frame_guard_record_fields(evidence_frame_decision),
@@ -193,7 +215,17 @@ def build_chassis_tools(runtime: Any) -> tuple[BaseTool, BaseTool, BaseTool]:
         pack = PACKS.get(runtime.task_type)
         if pack is None:
             err = f"ERROR: no pack registered for {runtime.task_type}; cannot submit_final"
-            runtime.record("submit_final", {"payload": payload}, err)
+            runtime.record(
+                "submit_final",
+                {
+                    "payload": payload,
+                    **target_category_guard_record_fields(target_category_decision),
+                    **tadg_record_fields(decision),
+                    **no_match_guard_record_fields(no_match_decision),
+                    **evidence_frame_guard_record_fields(evidence_frame_decision),
+                },
+                err,
+            )
             return err
 
         # Coerce raw dict payload into the pack's typed payload_model
@@ -217,7 +249,17 @@ def build_chassis_tools(runtime: Any) -> tuple[BaseTool, BaseTool, BaseTool]:
                     last_exc = exc
             else:
                 err = f"ERROR: submit_final payload schema mismatch: {last_exc}"
-                runtime.record("submit_final", {"payload": payload}, err)
+                runtime.record(
+                    "submit_final",
+                    {
+                        "payload": payload,
+                        **target_category_guard_record_fields(target_category_decision),
+                        **tadg_record_fields(decision),
+                        **no_match_guard_record_fields(no_match_decision),
+                        **evidence_frame_guard_record_fields(evidence_frame_decision),
+                    },
+                    err,
+                )
                 return err
         else:
             typed_payload = payload
@@ -227,7 +269,17 @@ def build_chassis_tools(runtime: Any) -> tuple[BaseTool, BaseTool, BaseTool]:
             adapted = pack.finalizer.adapter(validated, runtime)
         except (ValueError, TypeError, KeyError, ValidationError) as exc:
             err = f"ERROR: submit_final validation failed: {exc}"
-            runtime.record("submit_final", {"payload": payload}, err)
+            runtime.record(
+                "submit_final",
+                {
+                    "payload": payload,
+                    **target_category_guard_record_fields(target_category_decision),
+                    **tadg_record_fields(decision),
+                    **no_match_guard_record_fields(no_match_decision),
+                    **evidence_frame_guard_record_fields(evidence_frame_decision),
+                },
+                err,
+            )
             return err
 
         # Stash the resolved payload onto the runtime so build_agent's
@@ -255,6 +307,7 @@ def build_chassis_tools(runtime: Any) -> tuple[BaseTool, BaseTool, BaseTool]:
             "payload": payload,
             "rationale": rationale,
             "evidence_refs": evidence_refs or [],
+            **target_category_guard_record_fields(target_category_decision),
             **tadg_record_fields(decision),
             **no_match_guard_record_fields(no_match_decision),
             **evidence_frame_guard_record_fields(evidence_frame_decision),
