@@ -163,6 +163,71 @@ def test_target_category_guard_preserves_wall_target() -> None:
     assert decision.submitted_category == "wall"
 
 
+def test_target_category_guard_allows_shelf_after_context_wall_phrase() -> None:
+    rs = _runtime_with_categories(
+        "On the wall opposite to the clock face - the shelf on the left when facing these 3.",
+        [(18, "bookshelf"), (31, "wall"), (56, "clock")],
+    )
+
+    decision = evaluate_target_category_guard(rs, {"proposal_id": 18})
+
+    assert decision.blocked is False
+    assert decision.expected_category == "bookshelf"
+    assert decision.submitted_category == "bookshelf"
+
+
+def test_target_category_guard_blocks_wall_for_shelf_after_context_wall_phrase() -> None:
+    rs = _runtime_with_categories(
+        "On the wall opposite to the clock face - the shelf on the left when facing these 3.",
+        [(18, "bookshelf"), (31, "wall"), (56, "clock")],
+    )
+
+    decision = evaluate_target_category_guard(rs, {"proposal_id": 31})
+
+    assert decision.blocked is True
+    assert decision.expected_category == "bookshelf"
+    assert decision.submitted_category == "wall"
+
+
+def test_target_category_guard_ignores_orientation_wall_when_target_head_absent() -> None:
+    rs = _runtime_with_categories(
+        "When facing the wall of windows, the furthest on the right.",
+        [(29, "window"), (23, "wall")],
+    )
+
+    decision = evaluate_target_category_guard(rs, {"proposal_id": 29})
+
+    assert decision.blocked is False
+    assert decision.expected_category is None
+    assert decision.submitted_category == "window"
+
+
+def test_target_category_guard_prefers_this_cart_over_context_wall() -> None:
+    rs = _runtime_with_categories(
+        "There is a green wall right above this cart",
+        [(23, "cart"), (10, "wall")],
+    )
+
+    decision = evaluate_target_category_guard(rs, {"proposal_id": 23})
+
+    assert decision.blocked is False
+    assert decision.expected_category == "cart"
+    assert decision.submitted_category == "cart"
+
+
+def test_target_category_guard_blocks_wall_for_this_cart_query() -> None:
+    rs = _runtime_with_categories(
+        "There is a green wall right above this cart",
+        [(23, "cart"), (10, "wall")],
+    )
+
+    decision = evaluate_target_category_guard(rs, {"proposal_id": 10})
+
+    assert decision.blocked is True
+    assert decision.expected_category == "cart"
+    assert decision.submitted_category == "wall"
+
+
 def test_target_category_guard_explicit_target_overrides_later_context() -> None:
     rs = _runtime(
         "Staring at both beds from their foot, you want the bed on the right. "

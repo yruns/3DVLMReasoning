@@ -291,6 +291,47 @@ def test_evidence_frame_guard_blocks_spatial_rationale_when_anchor_missing_from_
     assert rs.final_submission is None
 
 
+def test_evidence_frame_guard_allows_nested_same_category_anchor_frame() -> None:
+    rs = Stage2RuntimeState(
+        bundle=Stage2EvidenceBundle(
+            stage1_query=(
+                "it is the office chair, next to the one in front of the "
+                "computer monitor."
+            )
+        )
+    )
+    rs.task_type = Stage2TaskType.VISUAL_GROUNDING
+    rs.use_evidence_frame_guard = True
+    _record_spatial_compare(
+        rs,
+        candidate_ids=[40, 41],
+        anchor_id=4,
+        relation="next_to",
+        ranked_ids=[40, 41],
+    )
+    _record_view(
+        rs,
+        frame_id=25,
+        visible_ids=[40, 41],
+        categories=["office chair", "office chair"],
+    )
+
+    decision = evaluate_evidence_frame_guard(
+        rs,
+        {"proposal_id": 41, "confidence": 0.93},
+        rationale=(
+            "Frame 25 shows proposal #41 next to proposal #40. Proposal #40 "
+            "is the one in front of the computer monitor, so #41 is the office "
+            "chair next to the one in front of the monitor."
+        ),
+        evidence_refs=[],
+    )
+
+    assert decision.blocked is False
+    assert decision.submitted_pid == 41
+    assert decision.cited_frame_ids == (25,)
+
+
 def test_evidence_frame_guard_prefers_bound_relation_evidence_over_latest_compare() -> None:
     rs = _runtime()
     evidence_id = _record_spatial_compare(

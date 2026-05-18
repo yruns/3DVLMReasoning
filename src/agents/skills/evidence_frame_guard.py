@@ -86,6 +86,12 @@ _RELATION_RATIONALE_PATTERNS = {
     "closest_to": re.compile(r"\b(?:closest\s+to|nearest\s+to)\b", re.I),
 }
 _PROXIMITY_RELATIONS = {"near", "next_to", "closest_to"}
+_NESTED_SAME_CATEGORY_ANCHOR_RE = re.compile(
+    r"\b(?:next\s+to|beside|adjacent\s+to)\s+"
+    r"(?:the\s+)?(?:one|[a-z][a-z0-9]*(?:\s+[a-z][a-z0-9]*){0,3})\s+"
+    r"(?:in\s+front\s+of|near|next\s+to|beside|adjacent\s+to|closest\s+to|nearest\s+to)\b",
+    re.I,
+)
 _LABEL_QUERY_ALIASES = {
     "bookshelf": ("bookshelf", "bookcase", "book case"),
     "whiteboard": ("whiteboard", "white board"),
@@ -606,6 +612,46 @@ def _spatial_compare_supports_submission(
     return bool(ranked_ids and ranked_ids[0] == submitted_pid)
 
 
+def _nested_same_category_anchor_visible(
+    runtime: Any,
+    *,
+    rationale: str,
+    spatial_compare: dict[str, Any],
+    submitted_pid: int,
+    submitted_visible_without_anchor: list[tuple[int, list[tuple[int, str]]]],
+) -> bool:
+    relation = spatial_compare.get("relation")
+    if relation not in _PROXIMITY_RELATIONS:
+        return False
+    bundle = getattr(runtime, "bundle", None)
+    query = str(getattr(bundle, "stage1_query", "") or "")
+    if not _NESTED_SAME_CATEGORY_ANCHOR_RE.search(f"{query}\n{rationale or ''}"):
+        return False
+    ranked_ids = spatial_compare.get("ranked_ids")
+    if not isinstance(ranked_ids, list):
+        return False
+    ranked_peer_ids = {
+        proposal_id
+        for proposal_id in ranked_ids
+        if isinstance(proposal_id, int) and proposal_id != submitted_pid
+    }
+    if not ranked_peer_ids:
+        return False
+
+    for _, pairs in submitted_visible_without_anchor:
+        labels = dict(pairs)
+        submitted_label = labels.get(submitted_pid, "")
+        if not submitted_label:
+            continue
+        for proposal_id, label in pairs:
+            if (
+                proposal_id in ranked_peer_ids
+                and _labels_compatible(submitted_label, label)
+            ):
+                return True
+    return False
+
+
 def _mark_evidence_frame_guard_triggered(runtime: Any) -> None:
     runtime.evidence_frame_guard_triggered = True
     runtime.evidence_frame_guard_block_count = (
@@ -768,6 +814,13 @@ def evaluate_evidence_frame_guard(
             and not _spatial_compare_supports_submission(
                 spatial_compare,
                 submitted_pid,
+            )
+            and not _nested_same_category_anchor_visible(
+                runtime,
+                rationale=rationale,
+                spatial_compare=spatial_compare,
+                submitted_pid=submitted_pid,
+                submitted_visible_without_anchor=submitted_visible_without_anchor,
             )
         ):
             _mark_evidence_frame_guard_triggered(runtime)

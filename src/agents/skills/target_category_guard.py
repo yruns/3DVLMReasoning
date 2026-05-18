@@ -24,7 +24,7 @@ class TargetCategoryDecision:
 
 
 _LABEL_ALIASES: dict[str, tuple[str, ...]] = {
-    "bookshelf": ("bookshelf", "bookcase", "book case"),
+    "bookshelf": ("bookshelf", "bookcase", "book case", "book shelf", "shelf"),
     "picture": (
         "picture",
         "painting",
@@ -47,6 +47,21 @@ _WANT_HEAD_RE = re.compile(
     r"\b(?:want|select|choose|pick|find|looking\s+for|refer(?:ring)?\s+to)\s+"
     r"(?:the|a|an|this|that)?\s*"
     r"(?P<label>[a-z][a-z0-9]*(?:\s+[a-z][a-z0-9]*){0,2})\b",
+    re.I,
+)
+_DEMONSTRATIVE_HEAD_RE = re.compile(
+    r"\b(?:this|that|these|those)\s+"
+    r"(?!is\b|are\b|one\b|ones\b)"
+    r"(?P<label>[a-z][a-z0-9]*(?:\s+[a-z][a-z0-9]*){0,2})\b",
+    re.I,
+)
+_CONTEXT_LEADING_RE = re.compile(
+    r"^(?:"
+    r"when\s+facing|facing|"
+    r"on|in|near|beside|next\s+to|adjacent\s+to|"
+    r"opposite(?:\s+to)?|left\s+of|right\s+of|"
+    r"to\s+the\s+(?:left|right|front|back)\s+of"
+    r")\b",
     re.I,
 )
 _RELATION_CUE_RE = re.compile(
@@ -188,7 +203,7 @@ def _mentioned_categories(text: str, categories: list[str]) -> list[str]:
 def _split_clauses(query: str) -> list[str]:
     return [
         clause.strip()
-        for clause in re.split(r"[.?!;]\s*|,\s+", query)
+        for clause in re.split(r"[.?!;]\s*|,\s+|\s+[-\u2013\u2014]\s+", query)
         if clause.strip()
     ]
 
@@ -226,6 +241,8 @@ def _leading_label_from_clause(clause: str) -> str | None:
         flags=re.I,
     )
     text = re.sub(r"^\s*(?:the|a|an|this|that)\s+", "", text, flags=re.I)
+    if _CONTEXT_LEADING_RE.search(text):
+        return None
     cue = _RELATION_CUE_RE.search(text)
     if cue is not None:
         text = text[: cue.start()].strip()
@@ -236,11 +253,26 @@ def _leading_label_from_clause(clause: str) -> str | None:
     return " ".join(words[:6])
 
 
+def _starts_with_context_phrase(clause: str) -> bool:
+    text = " ".join(str(clause).lower().split())
+    return bool(text and _CONTEXT_LEADING_RE.search(text))
+
+
 def _head_category_from_query(query: str, categories: list[str]) -> str | None:
     if not query or not categories:
         return None
 
     clauses = _split_clauses(query)
+    demonstrative_candidates: list[str] = []
+    for clause in clauses:
+        for target in _DEMONSTRATIVE_HEAD_RE.finditer(clause):
+            category = _match_label_to_category(target.group("label"), categories)
+            if category is not None:
+                demonstrative_candidates.append(category)
+    unique_demonstrative = _unique(demonstrative_candidates)
+    if unique_demonstrative:
+        return unique_demonstrative[0] if len(unique_demonstrative) == 1 else None
+
     explicit_found = False
     explicit_candidates: list[str] = []
     for clause in clauses:
@@ -257,6 +289,8 @@ def _head_category_from_query(query: str, categories: list[str]) -> str | None:
     head_candidates: list[str] = []
     for clause in clauses:
         label = _leading_label_from_clause(clause)
+        if label is None and _starts_with_context_phrase(clause):
+            continue
         if label is None:
             leading = _LEADING_HEAD_RE.search(clause)
             label = leading.group("label") if leading is not None else None
