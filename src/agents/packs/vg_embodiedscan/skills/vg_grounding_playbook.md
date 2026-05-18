@@ -38,6 +38,15 @@ is genuinely absent from the catalog — OOD case).
    instead of inventing a relation string. The response includes a stable
    `evidence_id`; copy it into `submit_final(..., relation_evidence={"evidence_id": ...})`
    when the final answer relies on that comparison.
+
+Unsupported semantic relations are visual/BEV workflows, not relation strings.
+Do not call `compare_proposals_spatial` with `same_side_as`, `between`,
+`opposite`, `across_from`, `facing`, `in_front_of`, or `behind`. For those,
+mark the target candidates and anchor(s), use BEV/3D positions for room-side or
+between/opposite checks, and cite the marked frames used for appearance.
+For negated relations like "not closer to X", first compare the positive
+relation to identify candidates to avoid, then choose among the remaining
+target-category candidates.
 5. **Submit** with `submit_final(payload={"proposal_id": <id>}, …)`. The
    evidence-frame guard requires that at least one `mark_frame_with_bbox`
    call covered the submitted proposal id.

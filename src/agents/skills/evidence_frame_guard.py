@@ -136,6 +136,20 @@ def _response_text(entry: Any) -> str:
     return str(getattr(entry, "response_text", "") or "")
 
 
+def _proposal_ids_from_list_scene_response(response: dict[str, Any]) -> list[int]:
+    raw_ids = response.get("proposal_ids")
+    if isinstance(raw_ids, list):
+        return [int(pid) for pid in raw_ids if isinstance(pid, int)]
+    rows = response.get("proposals")
+    if isinstance(rows, list):
+        ids: list[int] = []
+        for row in rows:
+            if isinstance(row, dict) and isinstance(row.get("proposal_id"), int):
+                ids.append(int(row["proposal_id"]))
+        return ids
+    return []
+
+
 def _parse_left_to_right(response: str) -> list[int]:
     order: list[int] = []
     for raw in _literal_list(_LEFT_TO_RIGHT_RE, response):
@@ -447,23 +461,9 @@ def _candidate_ids_for_submitted_pid(
             response = json.loads(_response_text(entry))
         except json.JSONDecodeError:
             continue
-        proposal_ids = response.get("proposal_ids")
-        if isinstance(proposal_ids, list):
-            candidate_ids = {
-                proposal_id
-                for proposal_id in proposal_ids
-                if isinstance(proposal_id, int)
-            }
-        else:
-            proposals = response.get("proposals")
-            if not isinstance(proposals, list):
-                continue
-            candidate_ids = {
-                proposal.get("proposal_id")
-                for proposal in proposals
-                if isinstance(proposal, dict)
-                and isinstance(proposal.get("proposal_id"), int)
-            }
+        if not isinstance(response, dict):
+            continue
+        candidate_ids = set(_proposal_ids_from_list_scene_response(response))
         if submitted_pid in candidate_ids:
             return candidate_ids
     return None

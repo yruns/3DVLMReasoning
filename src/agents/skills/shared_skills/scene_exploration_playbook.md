@@ -97,6 +97,12 @@ Anti-pattern: calling `view_bev` without args expecting to see
 every category labelled. The clean view is intentional —
 narrow the label set explicitly.
 
+Before finalizing an ordering, closest/farthest, size, or superlative query,
+make sure every plausible same-category candidate in a small candidate set has
+marked evidence or an explicit elimination reason. A selector returning frames
+for only one spatial cluster is not enough to eliminate unseen same-category
+candidates.
+
 ## Anti-patterns
 
 - Answering from BEV labels alone. BEV is a map, not ground truth.

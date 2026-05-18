@@ -66,6 +66,15 @@ def test_vg_playbooks_document_relation_evidence_binding(path: Path):
     assert "submit_final" in text
 
 
+@pytest.mark.parametrize("path", [_PB, _PB_NO_TEXT, _SD, _SD_NO_TEXT])
+def test_vg_playbooks_document_unsupported_semantic_relation_workflow(path: Path):
+    text = path.read_text()
+    assert "Unsupported semantic relations" in text
+    assert "same_side_as" in text
+    assert "between" in text
+    assert "Do not call `compare_proposals_spatial`" in text
+
+
 def test_vg_playbook_mentions_ood_proposal_minus_one():
     text = _PB.read_text()
     assert "proposal_id" in text

@@ -21,6 +21,15 @@ such as front/behind, between, facing, across, or same-side, do not invent
 a relation string. Fetch/mark frames that show the target and anchor, then
 judge the relation visually.
 
+Unsupported semantic relations are visual/BEV workflows, not relation strings.
+Do not call `compare_proposals_spatial` with `same_side_as`, `between`,
+`opposite`, `across_from`, `facing`, `in_front_of`, or `behind`. For those,
+mark the target candidates and anchor(s), use BEV/3D positions for room-side or
+between/opposite checks, and cite the marked frames used for appearance.
+For negated relations like "not closer to X", first compare the positive
+relation to identify candidates to avoid, then choose among the remaining
+target-category candidates.
+
 Use `select_by_region(region_type='bbox_3d')` to fetch frames that show both the
 anchor and the candidates simultaneously, or `select_by_proposal(ids=[#a, #b, #x],
 require_all=True)` when you want a single frame containing all three. If no

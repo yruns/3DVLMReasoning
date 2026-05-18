@@ -595,6 +595,40 @@ def test_tadg_blocks_override_when_compare_omits_same_category_candidates() -> N
     assert "proposal 5" in decision.message
 
 
+def test_tadg_candidate_coverage_reads_current_list_scene_proposals_shape() -> None:
+    rs = _runtime(bundle=_bundle_with_query("the chair nearest the whiteboard"))
+    rs.tool_trace.append(
+        Stage2ToolObservation(
+            tool_name="list_scene_proposals",
+            tool_input={"category": "chair"},
+            response_text=json.dumps(
+                {
+                    "count": 3,
+                    "proposals": [
+                        {"proposal_id": 19, "category": "chair"},
+                        {"proposal_id": 21, "category": "chair"},
+                        {"proposal_id": 22, "category": "chair"},
+                    ],
+                }
+            ),
+        )
+    )
+    _record_compare(
+        rs,
+        relation="closest_to",
+        anchor_id=2,
+        candidate_ids=[21],
+        ranked_ids=[21],
+    )
+
+    decision = evaluate_tadg(rs, {"proposal_id": 21, "confidence": 0.8})
+
+    assert decision.blocked is True
+    assert decision.subcase == "candidate_coverage_gap"
+    assert "proposal 19" in decision.message
+    assert "proposal 22" in decision.message
+
+
 def test_tadg_same_category_coverage_allows_anchor_excluded_from_candidates() -> None:
     rs = _runtime(bundle=_bundle_with_query("a black chair next to another same chair"))
     _record_category_lookup(rs, category="chair", proposal_ids=[0, 1, 2, 3, 5, 9])

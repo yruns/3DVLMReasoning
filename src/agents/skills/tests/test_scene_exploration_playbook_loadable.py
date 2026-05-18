@@ -68,6 +68,12 @@ def test_playbook_warns_against_anchor_hidden_categories():
     assert "hidden_categories=[]" in body
 
 
+def test_playbook_requires_same_category_candidate_coverage():
+    body = _PLAYBOOK_PATH.read_text()
+    assert "every plausible same-category candidate" in body
+    assert "marked evidence or an explicit elimination reason" in body
+
+
 def test_no_text_variant_exists_and_drops_select_by_text():
     """v9.2 catalog-first variant for the audit A/B test."""
     no_text_path = _PLAYBOOK_PATH.with_name("scene_exploration_playbook_no_text.md")

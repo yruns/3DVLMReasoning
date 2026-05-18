@@ -267,6 +267,20 @@ def _query_relation_set(runtime: Any) -> set[str]:
     return matched
 
 
+def _proposal_ids_from_list_scene_response(response: dict[str, Any]) -> list[int]:
+    raw_ids = response.get("proposal_ids")
+    if isinstance(raw_ids, list):
+        return [int(pid) for pid in raw_ids if isinstance(pid, int)]
+    rows = response.get("proposals")
+    if isinstance(rows, list):
+        ids: list[int] = []
+        for row in rows:
+            if isinstance(row, dict) and isinstance(row.get("proposal_id"), int):
+                ids.append(int(row["proposal_id"]))
+        return ids
+    return []
+
+
 def _last_matching_compare(
     runtime: Any,
     relevant_relations: set[str],
@@ -510,10 +524,11 @@ def _ambiguous_anchor_gap(runtime: Any, compare: dict[str, Any]) -> str | None:
             payload = json.loads(response_text)
         except (json.JSONDecodeError, TypeError):
             continue
-        proposal_ids = payload.get("proposal_ids") or []
-        if not isinstance(proposal_ids, list) or anchor_id not in proposal_ids:
+        if not isinstance(payload, dict):
             continue
-        ids = [int(pid) for pid in proposal_ids if isinstance(pid, int)]
+        ids = _proposal_ids_from_list_scene_response(payload)
+        if anchor_id not in ids:
+            continue
         if len(ids) <= 1:
             return None
         if set(ids) == candidate_ids:
@@ -581,10 +596,11 @@ def _candidate_coverage_gap(
             payload = json.loads(response_text)
         except (json.JSONDecodeError, TypeError):
             continue
-        proposal_ids = payload.get("proposal_ids") or []
-        if not isinstance(proposal_ids, list) or submitted_pid not in proposal_ids:
+        if not isinstance(payload, dict):
             continue
-        category_ids = [int(pid) for pid in proposal_ids if isinstance(pid, int)]
+        category_ids = _proposal_ids_from_list_scene_response(payload)
+        if submitted_pid not in category_ids:
+            continue
         if len(category_ids) > 12:
             return None
         anchor_id = compare.get("anchor_id")
