@@ -1766,3 +1766,110 @@ diagnostic slice. Do not keep this prompt wording as an active improvement; use
 the recorded run as evidence that negated-anchor handling needs either a
 narrower guard or a tool-level relation helper rather than more broad playbook
 prose.
+
+### Above/below alignment tool probe: 54198ef
+
+Commit `54198ef` changes `compare_proposals_spatial` for vertical relations:
+`above` / `below` now rank candidates on the correct vertical side first, then
+by horizontal center alignment, then by vertical magnitude. This addresses the
+audited failure pattern behind cases like "the printer right under the window",
+where a lower but laterally offset object can beat the object directly under the
+anchor if the tool sorts mostly by z distance.
+
+Run metadata:
+
+| Item | Value |
+|---|---|
+| Branch | `feat/remove-initial-keyframes` |
+| Head commit at launch | `54198ef` |
+| Run-time code commit | `54198ef` - no worktree drift |
+| Probe IDs | `docs/benchmark/nr3d/assets/v10_candidate_closure_probe15_sample_ids_20260519.json` |
+| Probe IDs MD5 | `8a9f5489e331631a2e10d13010effae5` |
+| Output dir | `tmp/nr3d_eval_v10_below_align_probe15_20260519_54198ef/` |
+| Run log | `/tmp/nr3d_below_align_probe15_54198ef.log` |
+| Side-by-side JSON | `tmp/nr3d_eval_v10_below_align_probe15_20260519_54198ef/side_by_side.json` |
+| Side-by-side MD5 | `b65964a4c506b846ef688248a65f7839` |
+| Leaderboard metrics | `tmp/nr3d_eval_v10_below_align_probe15_20260519_54198ef/leaderboard_metrics.json` |
+| Leaderboard metrics MD5 | `a5d0716dd1ccd241f927e4365719ee83` |
+| SQLite run id | `v10_below_align_probe15_20260519` |
+| Workers | 8 |
+| Sample retries | 0 |
+| Guards | TADG + no-match + evidence-frame + rationale/payload |
+
+Commands:
+
+```bash
+tmux new-session -d -s nr3d-below-align-probe15-54198ef \
+  "cd /Users/bytedance/project/3DVLMReasoning && bash -lc 'set -euo pipefail; \
+   export PYTHONPATH=src PYTHONUNBUFFERED=1; \
+   .venv/bin/python -m evaluation.scripts.run_nr3d_vg_side_by_side \
+     --sample-ids docs/benchmark/nr3d/assets/v10_candidate_closure_probe15_sample_ids_20260519.json \
+     --data-root data/nr3d/scannet \
+     --pack-name pack_nr3d_v9_catalog_first \
+     --output-dir tmp/nr3d_eval_v10_below_align_probe15_20260519_54198ef \
+     --workers 8 \
+     --sample-retries 0 \
+     --use-tool-answer-disagreement-gate \
+     --use-no-match-candidate-guard \
+     --use-evidence-frame-guard \
+     2>&1 | tee /tmp/nr3d_below_align_probe15_54198ef.log; \
+   .venv/bin/python -m evaluation.scripts.nr3d_leaderboard_metrics \
+     --side-by-side tmp/nr3d_eval_v10_below_align_probe15_20260519_54198ef/side_by_side.json \
+     --nr3d-data-root data/nr3d \
+     --phase8-data-root data/nr3d/scannet \
+     --sample-ids docs/benchmark/nr3d/assets/v10_candidate_closure_probe15_sample_ids_20260519.json \
+     --output tmp/nr3d_eval_v10_below_align_probe15_20260519_54198ef/leaderboard_metrics.json \
+     --canonical-filter true \
+     2>&1 | tee -a /tmp/nr3d_below_align_probe15_54198ef.log'"
+
+PYTHONPATH=src .venv/bin/python scripts/ingest_nr3d_run.py \
+  --output-dir tmp/nr3d_eval_v10_below_align_probe15_20260519_54198ef \
+  --run-id v10_below_align_probe15_20260519 \
+  --branch feat/remove-initial-keyframes \
+  --commit 54198ef \
+  --backend pack_v1 \
+  --leaderboard-metrics tmp/nr3d_eval_v10_below_align_probe15_20260519_54198ef/leaderboard_metrics.json \
+  --notes "Diagnostic 15-case probe after compare_proposals_spatial above/below horizontal-alignment ranking. Probe completes 15/15 and improves 5/15 -> 8/15 vs candidate-closure run, but traces do not exercise above/below compare_proposals_spatial, so live gain is not direct attribution." \
+  --db docs/benchmark/nr3d/runs.sqlite
+```
+
+Probe stability:
+
+- 15 / 15 samples completed.
+- 0 Tracebacks / logged Exceptions in the run log.
+- Pre-run deterministic verification:
+  - `test_compare_proposals_spatial_below_prefers_horizontal_alignment`
+    fails before the code change and passes after it.
+  - `test_compare_proposals_spatial_above_prefers_horizontal_alignment`
+    fails before the code change and passes after it.
+  - `PYTHONPATH=src .venv/bin/python -m pytest
+    src/agents/packs/vg_embodiedscan/tests/test_tools.py
+    src/agents/tests/test_tadg.py -q` passed 59 / 59.
+
+Probe metrics:
+
+| Metric | Value |
+|---|---:|
+| n | 15 |
+| classification_acc_filtered | 53.33 |
+| Easy | 57.14 |
+| Hard | 50.00 |
+| V-Dep | 71.43 |
+| V-Indep | 37.50 |
+
+Case outcomes:
+
+| Sample | a6f6077 selected | 06b8d58 selected | 54198ef selected | Reading |
+|---|---:|---:|---:|---|
+| `scannet/scene0011_00::20::28662` | 28 | 1 | 20 | Recovered vs both prior runs. Trace uses marked first-person cabinet views, not the changed vertical comparator. |
+| `scannet/scene0030_00::0::23137` | 1 | 1 | 0 | Recovered vs both prior runs. Trace resolves the longer chalkboard and chair alignment visually; no vertical comparator call. |
+| `scannet/scene0025_00::17::37165` | 38 | 38 | 17 | Recovered vs both prior runs. Trace compares file cabinets at desk ends visually; no vertical comparator call. |
+| `scannet/scene0077_00::1::22194` | 2 | 1 | 1 | Still recovered. This is the audited "right under window" case, but the live trace resolves it through marked RGB evidence and does not call `compare_proposals_spatial`. |
+
+Reading: the deterministic tool fix is valid and unit-covered, but this live
+probe should not be used as direct causal evidence for the tool change because
+none of the 15 traces called `compare_proposals_spatial` with `above` or
+`below`. Treat the 8 / 15 result as a no-regression diagnostic on the same
+failed-case slice. The next improvement target is prompt/skill routing: make
+the agent explicitly use `compare_proposals_spatial` for above / below / under
+candidate ranking before visual verification.
