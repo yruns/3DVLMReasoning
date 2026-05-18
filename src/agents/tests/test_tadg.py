@@ -211,6 +211,38 @@ def test_tadg_blocks_left_right_submit_when_anchor_candidates_untested() -> None
     assert "proposal 8" in decision.message
 
 
+def test_tadg_ambiguous_anchor_ignores_mixed_current_list_scene_proposals_shape() -> None:
+    rs = _runtime(bundle=_bundle_with_query("this chair is left of the keyboard"))
+    rs.tool_trace.append(
+        Stage2ToolObservation(
+            tool_name="list_scene_proposals",
+            tool_input={"region_bev": [0, 0, 10, 10]},
+            response_text=json.dumps(
+                {
+                    "count": 3,
+                    "proposals": [
+                        {"proposal_id": 8, "category": "keyboard"},
+                        {"proposal_id": 39, "category": "chair"},
+                        {"proposal_id": 50, "category": "table"},
+                    ],
+                }
+            ),
+        )
+    )
+    _record_compare(
+        rs,
+        relation="left_of",
+        anchor_id=8,
+        candidate_ids=[39],
+        ranked_ids=[39],
+    )
+
+    decision = evaluate_tadg(rs, {"proposal_id": 39, "confidence": 0.89})
+
+    assert decision.blocked is False
+    assert decision.subcase == ""
+
+
 def test_tadg_blocks_when_submitted_not_in_ranked() -> None:
     """S6 case: agent submits pid 19 not in the candidate set."""
     rs = _runtime()

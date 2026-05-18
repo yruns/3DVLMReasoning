@@ -297,29 +297,29 @@ def _explicit_lookup_category(entry: Any, payload: dict[str, Any]) -> str | None
     )
 
 
-def _same_category_ids_for_submitted_pid(
+def _same_category_ids_for_proposal_id(
     entry: Any,
     payload: dict[str, Any],
-    submitted_pid: int,
+    reference_pid: int,
 ) -> list[int]:
     rows = payload.get("proposals")
     if isinstance(rows, list):
         parsed_rows: list[tuple[int, str | None]] = []
-        submitted_category: str | None = None
+        reference_category: str | None = None
         for row in rows:
             if not isinstance(row, dict) or not isinstance(row.get("proposal_id"), int):
                 continue
             proposal_id = int(row["proposal_id"])
             category = _normalized_category(row.get("category"))
             parsed_rows.append((proposal_id, category))
-            if proposal_id == submitted_pid and category is not None:
-                submitted_category = category
-        if submitted_category is None:
+            if proposal_id == reference_pid and category is not None:
+                reference_category = category
+        if reference_category is None:
             return []
         return [
             proposal_id
             for proposal_id, category in parsed_rows
-            if category == submitted_category
+            if category == reference_category
         ]
 
     if _explicit_lookup_category(entry, payload) is None:
@@ -572,7 +572,7 @@ def _ambiguous_anchor_gap(runtime: Any, compare: dict[str, Any]) -> str | None:
             continue
         if not isinstance(payload, dict):
             continue
-        ids = _proposal_ids_from_list_scene_response(payload)
+        ids = _same_category_ids_for_proposal_id(entry, payload, anchor_id)
         if anchor_id not in ids:
             continue
         if len(ids) <= 1:
@@ -644,7 +644,7 @@ def _candidate_coverage_gap(
             continue
         if not isinstance(payload, dict):
             continue
-        category_ids = _same_category_ids_for_submitted_pid(
+        category_ids = _same_category_ids_for_proposal_id(
             entry,
             payload,
             submitted_pid,
