@@ -340,7 +340,8 @@ def _head_category_from_query(query: str, categories: list[str]) -> str | None:
 
     if explicit_found:
         unique_explicit = _unique(explicit_candidates)
-        return unique_explicit[0] if len(unique_explicit) == 1 else None
+        if unique_explicit:
+            return unique_explicit[0] if len(unique_explicit) == 1 else None
 
     generic_copular_candidates: list[str] = []
     for clause in clauses:

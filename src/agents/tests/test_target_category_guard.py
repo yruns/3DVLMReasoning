@@ -289,6 +289,21 @@ def test_target_category_guard_skips_generic_object_for_is_a_category() -> None:
     assert decision.submitted_category == "door"
 
 
+def test_target_category_guard_skips_generic_object_you_are_looking_for() -> None:
+    rs = _runtime_with_categories(
+        "The object you are looking for is a kitchen cabinet. The cabinet "
+        "you are looking for is directly over the stove and contains a white "
+        "microwave oven.",
+        [(8, "kitchen cabinets"), (13, "microwave")],
+    )
+
+    decision = evaluate_target_category_guard(rs, {"proposal_id": 13})
+
+    assert decision.blocked is True
+    assert decision.expected_category == "kitchen cabinet"
+    assert decision.submitted_category == "microwave"
+
+
 def test_target_category_guard_reads_cabinet_head_with_positional_prefix() -> None:
     rs = _runtime_with_categories(
         "the top left of the cabinets near the fridge",
