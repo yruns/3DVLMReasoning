@@ -499,6 +499,32 @@ def _latest_spatial_compare_for_submission(
     return None
 
 
+def _spatial_compare_from_relation_evidence(
+    relation_evidence: dict[str, Any] | None,
+    submitted_pid: int,
+) -> dict[str, Any] | None:
+    if not isinstance(relation_evidence, dict):
+        return None
+    candidate_ids = relation_evidence.get("candidate_ids")
+    if not isinstance(candidate_ids, list) or submitted_pid not in candidate_ids:
+        return None
+    anchor_id = relation_evidence.get("anchor_id")
+    relation = relation_evidence.get("relation")
+    ranked_ids = relation_evidence.get("ranked_ids")
+    if (
+        isinstance(anchor_id, bool)
+        or not isinstance(anchor_id, int)
+        or not isinstance(relation, str)
+        or not isinstance(ranked_ids, list)
+    ):
+        return None
+    return {
+        "anchor_id": anchor_id,
+        "relation": relation,
+        "ranked_ids": ranked_ids,
+    }
+
+
 def _rationale_mentions_relation(rationale: str, relation: str) -> bool:
     pattern = _RELATION_RATIONALE_PATTERNS.get(relation)
     return bool(pattern and pattern.search(rationale or ""))
@@ -570,6 +596,7 @@ def evaluate_evidence_frame_guard(
     *,
     rationale: str,
     evidence_refs: list[dict] | None = None,
+    relation_evidence: dict[str, Any] | None = None,
 ) -> EvidenceFrameGuardDecision:
     """Block final VG submissions inconsistent with cited marked frames."""
     if not bool(getattr(runtime, "use_evidence_frame_guard", False)):
@@ -589,7 +616,12 @@ def evaluate_evidence_frame_guard(
     submitted_visible = False
     submitted_visible_without_anchor: list[tuple[int, list[tuple[int, str]]]] = []
     submitted_visible_with_anchor = False
-    spatial_compare = _latest_spatial_compare_for_submission(runtime, submitted_pid)
+    spatial_compare = _spatial_compare_from_relation_evidence(
+        relation_evidence,
+        submitted_pid,
+    )
+    if spatial_compare is None:
+        spatial_compare = _latest_spatial_compare_for_submission(runtime, submitted_pid)
     direction = _desired_relative_direction(runtime, rationale)
     for frame_id in cited_frame_ids:
         frame_data = frame_map.get(frame_id)

@@ -90,6 +90,7 @@ def build_chassis_tools(runtime: Any) -> tuple[BaseTool, BaseTool, BaseTool]:
         rationale: str,
         evidence_refs: list[dict] | None = None,
         tool_override_reason: str | None = None,
+        relation_evidence: dict | None = None,
     ) -> str:
         """Submit the final task answer. Payload must match this task's
         FinalizerSpec.schema. The chassis validates payload + preconditions
@@ -118,6 +119,7 @@ def build_chassis_tools(runtime: Any) -> tuple[BaseTool, BaseTool, BaseTool]:
                     "rationale": rationale,
                     "evidence_refs": evidence_refs or [],
                     "tool_override_reason": tool_override_reason,
+                    "relation_evidence": relation_evidence,
                     "ignored_existing_final_submission": runtime.final_submission,
                     **target_category_guard_record_fields(
                         TargetCategoryDecision(blocked=False)
@@ -151,6 +153,7 @@ def build_chassis_tools(runtime: Any) -> tuple[BaseTool, BaseTool, BaseTool]:
                     "rationale": rationale,
                     "evidence_refs": evidence_refs or [],
                     "tool_override_reason": tool_override_reason,
+                    "relation_evidence": relation_evidence,
                     **target_category_guard_record_fields(target_category_decision),
                     **tadg_record_fields(TADGDecision(blocked=False)),
                     **no_match_guard_record_fields(NoMatchGuardDecision(blocked=False)),
@@ -166,6 +169,7 @@ def build_chassis_tools(runtime: Any) -> tuple[BaseTool, BaseTool, BaseTool]:
             runtime,
             gate_payload,
             tool_override_reason=tool_override_reason,
+            relation_evidence=relation_evidence,
         )
         no_match_decision = evaluate_no_match_guard(runtime, gate_payload)
         evidence_frame_decision = evaluate_evidence_frame_guard(
@@ -173,6 +177,7 @@ def build_chassis_tools(runtime: Any) -> tuple[BaseTool, BaseTool, BaseTool]:
             gate_payload,
             rationale=rationale,
             evidence_refs=evidence_refs or [],
+            relation_evidence=relation_evidence,
         )
         if decision.blocked:
             runtime.record(
@@ -182,6 +187,7 @@ def build_chassis_tools(runtime: Any) -> tuple[BaseTool, BaseTool, BaseTool]:
                     "rationale": rationale,
                     "evidence_refs": evidence_refs or [],
                     "tool_override_reason": tool_override_reason,
+                    "relation_evidence": relation_evidence,
                     **target_category_guard_record_fields(target_category_decision),
                     **tadg_record_fields(decision),
                     **no_match_guard_record_fields(no_match_decision),
@@ -198,6 +204,7 @@ def build_chassis_tools(runtime: Any) -> tuple[BaseTool, BaseTool, BaseTool]:
                     "rationale": rationale,
                     "evidence_refs": evidence_refs or [],
                     "tool_override_reason": tool_override_reason,
+                    "relation_evidence": relation_evidence,
                     **target_category_guard_record_fields(target_category_decision),
                     **tadg_record_fields(decision),
                     **no_match_guard_record_fields(no_match_decision),
@@ -214,6 +221,7 @@ def build_chassis_tools(runtime: Any) -> tuple[BaseTool, BaseTool, BaseTool]:
                     "rationale": rationale,
                     "evidence_refs": evidence_refs or [],
                     "tool_override_reason": tool_override_reason,
+                    "relation_evidence": relation_evidence,
                     **target_category_guard_record_fields(target_category_decision),
                     **tadg_record_fields(decision),
                     **no_match_guard_record_fields(no_match_decision),
@@ -230,6 +238,7 @@ def build_chassis_tools(runtime: Any) -> tuple[BaseTool, BaseTool, BaseTool]:
                 "submit_final",
                 {
                     "payload": payload,
+                    "relation_evidence": relation_evidence,
                     **target_category_guard_record_fields(target_category_decision),
                     **tadg_record_fields(decision),
                     **no_match_guard_record_fields(no_match_decision),
@@ -264,6 +273,7 @@ def build_chassis_tools(runtime: Any) -> tuple[BaseTool, BaseTool, BaseTool]:
                     "submit_final",
                     {
                         "payload": payload,
+                        "relation_evidence": relation_evidence,
                         **target_category_guard_record_fields(target_category_decision),
                         **tadg_record_fields(decision),
                         **no_match_guard_record_fields(no_match_decision),
@@ -284,6 +294,7 @@ def build_chassis_tools(runtime: Any) -> tuple[BaseTool, BaseTool, BaseTool]:
                 "submit_final",
                 {
                     "payload": payload,
+                    "relation_evidence": relation_evidence,
                     **target_category_guard_record_fields(target_category_decision),
                     **tadg_record_fields(decision),
                     **no_match_guard_record_fields(no_match_decision),
@@ -318,6 +329,7 @@ def build_chassis_tools(runtime: Any) -> tuple[BaseTool, BaseTool, BaseTool]:
             "payload": payload,
             "rationale": rationale,
             "evidence_refs": evidence_refs or [],
+            "relation_evidence": relation_evidence,
             **target_category_guard_record_fields(target_category_decision),
             **tadg_record_fields(decision),
             **no_match_guard_record_fields(no_match_decision),

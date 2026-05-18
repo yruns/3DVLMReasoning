@@ -324,6 +324,47 @@ def _last_matching_compare(
     return None
 
 
+def _int_list(value: Any) -> list[int] | None:
+    if not isinstance(value, list):
+        return None
+    ids: list[int] = []
+    for item in value:
+        if isinstance(item, bool) or not isinstance(item, int):
+            return None
+        ids.append(item)
+    return ids
+
+
+def _bound_compare(relation_evidence: dict[str, Any] | None) -> dict[str, Any] | None:
+    if not isinstance(relation_evidence, dict):
+        return None
+    relation_value = relation_evidence.get("relation")
+    if not isinstance(relation_value, str):
+        return None
+    relation = _canonical_compare_relation(relation_value)
+    if relation not in _SUPPORTED_TOOL_RELATIONS:
+        return None
+    anchor_id = relation_evidence.get("anchor_id")
+    if isinstance(anchor_id, bool) or not isinstance(anchor_id, int):
+        return None
+    candidate_ids = _int_list(relation_evidence.get("candidate_ids"))
+    ranked_ids = _int_list(relation_evidence.get("ranked_ids"))
+    if candidate_ids is None or ranked_ids is None or not ranked_ids:
+        return None
+    supporting = relation_evidence.get("supporting_frame_counts")
+    contradicting = relation_evidence.get("contradicting_frame_counts")
+    return {
+        "relation": relation,
+        "anchor_id": anchor_id,
+        "candidate_ids": candidate_ids,
+        "ranked_ids": ranked_ids,
+        "supporting_frame_counts": supporting if isinstance(supporting, list) else [],
+        "contradicting_frame_counts": (
+            contradicting if isinstance(contradicting, list) else []
+        ),
+    }
+
+
 def _rank_value(values: Any, ranked_ids: list[int], proposal_id: int) -> int:
     if proposal_id not in ranked_ids or not isinstance(values, list):
         return 0
@@ -623,6 +664,7 @@ def evaluate_tadg(
     payload: dict | Any,
     *,
     tool_override_reason: str | None = None,
+    relation_evidence: dict[str, Any] | None = None,
 ) -> TADGDecision:
     """Decide whether to allow or block a `submit_final` payload.
 
@@ -653,8 +695,12 @@ def evaluate_tadg(
         return TADGDecision(blocked=False)
     submitted_pid: int = submitted_pid_raw
 
-    relevant_relations = _query_relation_set(runtime)
-    compare = _last_matching_compare(runtime, relevant_relations)
+    compare = _bound_compare(relation_evidence)
+    if compare is not None:
+        relevant_relations = {compare["relation"]}
+    else:
+        relevant_relations = _query_relation_set(runtime)
+        compare = _last_matching_compare(runtime, relevant_relations)
     if compare is None:
         return TADGDecision(blocked=False)
 

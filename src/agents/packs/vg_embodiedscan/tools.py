@@ -557,7 +557,15 @@ def build_vg_tools(runtime: Any) -> list[BaseTool]:
                     x[2],
                 )
             )
+        compare_index = sum(
+            1
+            for entry in list(getattr(runtime, "tool_trace", []) or [])
+            if getattr(entry, "tool_name", None) == "compare_proposals_spatial"
+        )
+        evidence_id = f"compare_proposals_spatial:{compare_index}"
         payload = {
+            "evidence_id": evidence_id,
+            "candidate_ids": list(candidate_ids),
             "anchor_id": anchor_id,
             "relation": relation,
             "requested_relation": requested_relation,
@@ -582,6 +590,7 @@ def build_vg_tools(runtime: Any) -> list[BaseTool]:
             ],
         }
         text = json.dumps(payload, ensure_ascii=False)
+        request["evidence_id"] = evidence_id
         runtime.record("compare_proposals_spatial", request, text)
         return text
 

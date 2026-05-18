@@ -231,6 +231,57 @@ def test_tadg_blocks_anchor_self_pick() -> None:
     assert "anchor itself" in decision.message
 
 
+def test_tadg_uses_bound_relation_evidence_over_stale_latest_compare() -> None:
+    rs = _runtime(bundle=_bundle_with_query("the door nearest the small black chair"))
+    _record_compare(
+        rs,
+        relation="closest_to",
+        anchor_id=13,
+        candidate_ids=[5],
+        ranked_ids=[5],
+    )
+    _record_compare(
+        rs,
+        relation="closest_to",
+        anchor_id=37,
+        candidate_ids=[39, 5],
+        ranked_ids=[39, 5],
+    )
+
+    decision = evaluate_tadg(
+        rs,
+        {"proposal_id": 39, "confidence": 0.8},
+        relation_evidence={
+            "relation": "closest_to",
+            "anchor_id": 37,
+            "candidate_ids": [39, 5],
+            "ranked_ids": [39, 5],
+        },
+    )
+
+    assert decision.blocked is False
+
+
+def test_tadg_rejects_bound_anchor_self_without_forcing_rank1() -> None:
+    rs = _runtime(bundle=_bundle_with_query("trash can next to two red chairs"))
+
+    decision = evaluate_tadg(
+        rs,
+        {"proposal_id": 36, "confidence": 0.8},
+        relation_evidence={
+            "relation": "next_to",
+            "anchor_id": 36,
+            "candidate_ids": [39, 40, 41],
+            "ranked_ids": [39, 40, 41],
+        },
+    )
+
+    assert decision.blocked is True
+    assert decision.subcase == "anchor_self"
+    assert "target/anchor role" in decision.message
+    assert "Revise to proposal 39" not in decision.message
+
+
 def test_tadg_anchor_self_block_requests_role_repair_not_forced_top1() -> None:
     rs = _runtime(
         bundle=_bundle_with_query(

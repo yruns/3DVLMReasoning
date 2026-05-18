@@ -256,6 +256,46 @@ def test_evidence_frame_guard_blocks_spatial_rationale_when_anchor_missing_from_
     assert rs.final_submission is None
 
 
+def test_evidence_frame_guard_prefers_bound_relation_evidence_over_latest_compare() -> None:
+    rs = _runtime()
+    _record_spatial_compare(
+        rs,
+        candidate_ids=[8, 11],
+        anchor_id=7,
+        relation="left_of",
+        ranked_ids=[8, 11],
+    )
+    _record_spatial_compare(
+        rs,
+        candidate_ids=[8],
+        anchor_id=43,
+        relation="left_of",
+        ranked_ids=[8],
+    )
+    _record_view(
+        rs,
+        frame_id=57,
+        visible_ids=[8, 7],
+        categories=["dresser", "bed"],
+    )
+
+    decision = evaluate_evidence_frame_guard(
+        rs,
+        {"proposal_id": 8, "confidence": 0.8},
+        rationale="proposal 8 is left of the bed in frame 57",
+        evidence_refs=[{"frame_id": 57}],
+        relation_evidence={
+            "relation": "left_of",
+            "anchor_id": 7,
+            "candidate_ids": [8, 11],
+            "ranked_ids": [8, 11],
+        },
+    )
+
+    assert decision.blocked is False
+    assert decision.submitted_pid == 8
+
+
 def test_evidence_frame_guard_allows_near_relation_when_spatial_rank_supports_target(
     tmp_path: Path,
 ) -> None:

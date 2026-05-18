@@ -151,6 +151,21 @@ def test_compare_proposals_spatial_closest_to(tmp_path: Path) -> None:
     assert payload["ranked_ids"] == [1, 0]
 
 
+def test_compare_proposals_spatial_returns_stable_evidence_id(tmp_path: Path) -> None:
+    rs = _runtime(tmp_path)
+    rs.skills_loaded.add("vg-grounding-playbook")
+    tool = next(t for t in build_vg_tools(rs) if t.name == "compare_proposals_spatial")
+
+    payload = json.loads(
+        tool.invoke({"candidate_ids": [0, 2], "anchor_id": 1, "relation": "left_of"})
+    )
+
+    assert payload["evidence_id"].startswith("compare_proposals_spatial:")
+    assert payload["candidate_ids"] == [0, 2]
+    assert payload["anchor_id"] == 1
+    assert payload["relation"] == "left_of"
+
+
 def test_compare_proposals_spatial_farthest_from(tmp_path: Path) -> None:
     rs = _runtime(tmp_path)
     rs.skills_loaded.add("vg-grounding-playbook")
