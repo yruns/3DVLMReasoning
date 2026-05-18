@@ -545,7 +545,7 @@ def _strict_override_rejection_message(
 
 def _ambiguous_anchor_gap(runtime: Any, compare: dict[str, Any]) -> str | None:
     relation = compare["relation"]
-    if relation not in {"left_of", "right_of"}:
+    if relation not in {"left_of", "right_of", "closest_to", "farthest_from"}:
         return None
     anchor_id = compare.get("anchor_id")
     if not isinstance(anchor_id, int):

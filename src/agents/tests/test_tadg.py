@@ -211,6 +211,36 @@ def test_tadg_blocks_left_right_submit_when_anchor_candidates_untested() -> None
     assert "proposal 8" in decision.message
 
 
+@pytest.mark.parametrize(
+    ("query", "relation"),
+    [
+        ("the pillow farthest from the door", "farthest_from"),
+        ("the pillow closest to the door", "closest_to"),
+    ],
+)
+def test_tadg_blocks_superlative_submit_when_anchor_candidates_untested(
+    query: str,
+    relation: str,
+) -> None:
+    rs = _runtime(bundle=_bundle_with_query(query))
+    _record_category_lookup(rs, category="pillow", proposal_ids=[19, 20])
+    _record_category_lookup(rs, category="door", proposal_ids=[3, 24])
+    _record_compare(
+        rs,
+        relation=relation,
+        anchor_id=3,
+        candidate_ids=[19, 20],
+        ranked_ids=[19, 20],
+    )
+
+    decision = evaluate_tadg(rs, {"proposal_id": 19, "confidence": 0.82})
+
+    assert decision.blocked is True
+    assert decision.subcase == "ambiguous_anchor"
+    assert "ambiguous anchor" in decision.message
+    assert "proposal 24" in decision.message
+
+
 def test_tadg_ambiguous_anchor_ignores_mixed_current_list_scene_proposals_shape() -> None:
     rs = _runtime(bundle=_bundle_with_query("this chair is left of the keyboard"))
     rs.tool_trace.append(
