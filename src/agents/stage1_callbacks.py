@@ -50,20 +50,20 @@ def create_crop_callback(
         if not object_terms:
             return Stage2ToolResult(
                 response_text=(
-                    "request_crops requires object_terms (list of category / "
+                    "ERROR: request_crops requires object_terms (list of category / "
                     "label tokens). No crops generated."
                 ),
             )
-        # Defensive minimal behavior: surface a textual hint that crops were
-        # requested. Real crop rendering lives in the per-benchmark callbacks
-        # that wrap this and have access to the visibility index. v9 retains
-        # the textual entry point so VG / QA can call request_crops without
-        # the full machinery during tests.
+        # Defensive minimal behavior: fail loudly when this generic v9 callback
+        # is used without a concrete crop renderer. Returning a success-like
+        # acknowledgement would let the agent cite crop evidence that does not
+        # exist.
         del bundle
         return Stage2ToolResult(
             response_text=(
-                f"request_crops received object_terms={object_terms}; "
-                "concrete crop generation handled by per-benchmark wrapper."
+                "ERROR: request_crops concrete crop backend is not configured "
+                f"for object_terms={object_terms}. No crops generated; no crop "
+                "image evidence was added."
             ),
         )
 

@@ -105,6 +105,14 @@ def test_system_prompt_workflow_line_mentions_mark_for_verification():
     assert "verifying" in prompt or "verification" in prompt
 
 
+def test_system_prompt_describes_current_request_crops_contract():
+    rt = _runtime_default_cfg()
+    prompt = rt.build_system_prompt(_task())
+    assert "request_crops(frame_id, bbox_2d)" not in prompt
+    assert "request_crops(request_text" in prompt
+    assert "No crops generated" in prompt
+
+
 def test_system_prompt_mentions_scene_exploration_playbook_first():
     rt = _runtime_default_cfg()
     prompt = rt.build_system_prompt(_task())

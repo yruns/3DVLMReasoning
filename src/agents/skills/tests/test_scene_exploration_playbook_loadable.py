@@ -74,6 +74,19 @@ def test_playbook_requires_same_category_candidate_coverage():
     assert "marked evidence or an explicit elimination reason" in body
 
 
+def test_playbooks_describe_current_request_crops_contract():
+    paths = [
+        _PLAYBOOK_PATH,
+        _PLAYBOOK_PATH.with_name("scene_exploration_playbook_no_text.md"),
+    ]
+    for path in paths:
+        body = path.read_text()
+        assert "request_crops(frame_id, bbox_2d)" not in body
+        assert "request_crops(request_text" in body
+        assert "No crops generated" in body
+        assert "do not cite" in body
+
+
 def test_no_text_variant_exists_and_drops_select_by_text():
     """v9.2 catalog-first variant for the audit A/B test."""
     no_text_path = _PLAYBOOK_PATH.with_name("scene_exploration_playbook_no_text.md")

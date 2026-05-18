@@ -64,8 +64,11 @@ injected are listed with `already_seen=true` and not re-injected.
   named. Requires at least one of `labels` or `ids`. Use this when a
   selector returned a frame and you want to verify the chosen catalog
   entry against the actual pixels.
-- `request_crops(frame_id, bbox_2d)` — pixel zoom into a region of a
-  frame you have already seen.
+- `request_crops(request_text, frame_indices=[...], object_terms=[...])`
+  — optional pixel zoom for fine attributes. Only treat it as visual
+  evidence when it returns crop image outputs. If it returns `ERROR` or
+  `No crops generated`, do not cite it as evidence and rely on
+  `mark_frame_with_bbox` / selector frames instead.
 
 ## Catalog queries (text-only)
 
