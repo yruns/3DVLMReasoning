@@ -1,0 +1,1500 @@
+[
+  {
+    "sample_id": "scannet/scene0131_00::28::38181",
+    "previous_selected_object_id": 30,
+    "target_id": 28,
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0256_00::3::34091",
+    "previous_selected_object_id": 12,
+    "target_id": 3,
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0246_00::39::37886",
+    "previous_selected_object_id": 42,
+    "target_id": 39,
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0652_00::14::23421",
+    "previous_selected_object_id": 13,
+    "target_id": 14,
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0081_00::0::38576",
+    "previous_selected_object_id": 7,
+    "target_id": 0,
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0081_00::0::10619",
+    "previous_selected_object_id": 7,
+    "target_id": 0,
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0025_00::10::27015",
+    "previous_selected_object_id": 9,
+    "target_id": 10,
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0131_00::11::34054",
+    "previous_selected_object_id": 29,
+    "target_id": 11,
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0353_00::1::15915",
+    "previous_selected_object_id": 17,
+    "target_id": 1,
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0221_00::39::34411",
+    "previous_selected_object_id": 40,
+    "target_id": 39,
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0653_00::18::13315",
+    "previous_selected_object_id": 15,
+    "target_id": 18,
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0665_00::20::23463",
+    "previous_selected_object_id": 29,
+    "target_id": 20,
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0591_00::5::17135",
+    "previous_selected_object_id": 19,
+    "target_id": 5,
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0652_00::14::14555",
+    "previous_selected_object_id": 17,
+    "target_id": 14,
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0699_00::15::26656",
+    "previous_selected_object_id": 14,
+    "target_id": 15,
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0565_00::7::7026",
+    "previous_selected_object_id": 8,
+    "target_id": 7,
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0671_00::8::3162",
+    "previous_selected_object_id": 15,
+    "target_id": 8,
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0697_00::11::41021",
+    "previous_selected_object_id": 10,
+    "target_id": 11,
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0435_00::63::18300",
+    "previous_selected_object_id": 60,
+    "target_id": 63,
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0025_00::1::6057",
+    "previous_selected_object_id": 0,
+    "target_id": 1,
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0578_00::18::13314",
+    "previous_selected_object_id": 19,
+    "target_id": 18,
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0645_00::23::30697",
+    "previous_selected_object_id": 24,
+    "target_id": 23,
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0568_00::0::41395",
+    "previous_selected_object_id": 15,
+    "target_id": 0,
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0423_00::3::12539",
+    "previous_selected_object_id": 2,
+    "target_id": 3,
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0647_00::17::34181",
+    "previous_selected_object_id": 19,
+    "target_id": 17,
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0300_00::1::27215",
+    "previous_selected_object_id": 2,
+    "target_id": 1,
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0670_00::27::24249",
+    "previous_selected_object_id": 28,
+    "target_id": 27,
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0221_00::6::5444",
+    "previous_selected_object_id": 47,
+    "target_id": 6,
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0208_00::1::5894",
+    "previous_selected_object_id": 106,
+    "target_id": 1,
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0307_00::22::28551",
+    "previous_selected_object_id": 23,
+    "target_id": 22,
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0535_00::1::33634",
+    "previous_selected_object_id": 4,
+    "target_id": 1,
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0343_00::18::40951",
+    "previous_selected_object_id": 17,
+    "target_id": 18,
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0086_00::8::15904",
+    "previous_selected_object_id": 9,
+    "target_id": 8,
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0598_00::12::990",
+    "previous_selected_object_id": 9,
+    "target_id": 12,
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0231_00::45::38236",
+    "previous_selected_object_id": 20,
+    "target_id": 45,
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0193_00::13::28882",
+    "previous_selected_object_id": 2,
+    "target_id": 13,
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0095_00::23::37291",
+    "previous_selected_object_id": 25,
+    "target_id": 23,
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0565_00::4::9604",
+    "previous_selected_object_id": 5,
+    "target_id": 4,
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0278_00::10::1742",
+    "previous_selected_object_id": 11,
+    "target_id": 10,
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0435_00::21::13508",
+    "previous_selected_object_id": 13,
+    "target_id": 21,
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0222_00::13::738",
+    "previous_selected_object_id": 14,
+    "target_id": 13,
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0678_00::25::22524",
+    "previous_selected_object_id": 23,
+    "target_id": 25,
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0653_00::11::1381",
+    "previous_selected_object_id": 21,
+    "target_id": 11,
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0665_00::15::35040",
+    "previous_selected_object_id": 16,
+    "target_id": 15,
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0700_00::16::239",
+    "previous_selected_object_id": 17,
+    "target_id": 16,
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0664_00::24::39884",
+    "previous_selected_object_id": 15,
+    "target_id": 24,
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0591_00::6::38064",
+    "previous_selected_object_id": 4,
+    "target_id": 6,
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0412_00::28::27494",
+    "previous_selected_object_id": 4,
+    "target_id": 28,
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0187_00::10::17549",
+    "previous_selected_object_id": 8,
+    "target_id": 10,
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0187_00::1::6931",
+    "previous_selected_object_id": 14,
+    "target_id": 1,
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0208_00::106::14558",
+    "previous_selected_object_id": 3,
+    "target_id": 106,
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0329_00::33::13927",
+    "previous_selected_object_id": 32,
+    "target_id": 33,
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0608_00::29::573",
+    "previous_selected_object_id": 28,
+    "target_id": 29,
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0307_00::35::8382",
+    "previous_selected_object_id": 2,
+    "target_id": 35,
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0149_00::25::10119",
+    "previous_selected_object_id": 8,
+    "target_id": 25,
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0643_00::4::16161",
+    "previous_selected_object_id": 2,
+    "target_id": 4,
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0701_00::3::11390",
+    "previous_selected_object_id": 0,
+    "target_id": 3,
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0046_00::49::8988",
+    "previous_selected_object_id": 48,
+    "target_id": 49,
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0222_00::13::28131",
+    "previous_selected_object_id": 14,
+    "target_id": 13,
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0356_00::12::10817",
+    "previous_selected_object_id": 19,
+    "target_id": 12,
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0046_00::50::29027",
+    "previous_selected_object_id": 18,
+    "target_id": 50,
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0329_00::39::35152",
+    "previous_selected_object_id": 5,
+    "target_id": 39,
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0432_00::2::29554",
+    "previous_selected_object_id": 1,
+    "target_id": 2,
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0351_00::23::21887",
+    "previous_selected_object_id": 13,
+    "target_id": 23,
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0222_00::19::28576",
+    "previous_selected_object_id": 20,
+    "target_id": 19,
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0549_00::3::7602",
+    "previous_selected_object_id": 2,
+    "target_id": 3,
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0606_00::21::3157",
+    "previous_selected_object_id": 28,
+    "target_id": 21,
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0598_00::8::20626",
+    "previous_selected_object_id": 11,
+    "target_id": 8,
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0426_00::4::20580",
+    "previous_selected_object_id": 7,
+    "target_id": 4,
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0591_00::23::33573",
+    "previous_selected_object_id": 30,
+    "target_id": 23,
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0552_00::31::279",
+    "previous_selected_object_id": 30,
+    "target_id": 31,
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0025_00::30::15602",
+    "previous_selected_object_id": 34,
+    "target_id": 30,
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0357_00::0::36453",
+    "previous_selected_object_id": 10,
+    "target_id": 0,
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0338_00::18::25573",
+    "previous_selected_object_id": 19,
+    "target_id": 18,
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0187_00::8::34273",
+    "previous_selected_object_id": 5,
+    "target_id": 8,
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0030_00::25::23351",
+    "previous_selected_object_id": 79,
+    "target_id": 25,
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0423_00::3::23715",
+    "previous_selected_object_id": 1,
+    "target_id": 3,
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0671_00::16::37310",
+    "previous_selected_object_id": 22,
+    "target_id": 16,
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0645_00::57::34142",
+    "previous_selected_object_id": 58,
+    "target_id": 57,
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0616_00::13::2066",
+    "previous_selected_object_id": 10,
+    "target_id": 13,
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0629_00::14::17248",
+    "previous_selected_object_id": 25,
+    "target_id": 14,
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0196_00::4::14151",
+    "previous_selected_object_id": 1,
+    "target_id": 4,
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0353_00::5::27624",
+    "previous_selected_object_id": 29,
+    "target_id": 5,
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0606_00::21::18870",
+    "previous_selected_object_id": 28,
+    "target_id": 21,
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0558_00::1::38031",
+    "previous_selected_object_id": 2,
+    "target_id": 1,
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0458_00::9::15420",
+    "previous_selected_object_id": 10,
+    "target_id": 9,
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0011_00::23::15020",
+    "previous_selected_object_id": 28,
+    "target_id": 23,
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0221_00::13::4514",
+    "previous_selected_object_id": 26,
+    "target_id": 13,
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0084_00::6::7838",
+    "previous_selected_object_id": 8,
+    "target_id": 6,
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0084_00::6::30890",
+    "previous_selected_object_id": 7,
+    "target_id": 6,
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0685_00::16::37879",
+    "previous_selected_object_id": 17,
+    "target_id": 16,
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0644_00::49::33465",
+    "previous_selected_object_id": 46,
+    "target_id": 49,
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0565_00::23::30788",
+    "previous_selected_object_id": 10,
+    "target_id": 23,
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0651_00::7::6342",
+    "previous_selected_object_id": 10,
+    "target_id": 7,
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0208_00::2::12370",
+    "previous_selected_object_id": 9,
+    "target_id": 2,
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0169_00::26::10915",
+    "previous_selected_object_id": 12,
+    "target_id": 26,
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0030_00::23::28411",
+    "previous_selected_object_id": 25,
+    "target_id": 23,
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0618_00::27::25234",
+    "previous_selected_object_id": 26,
+    "target_id": 27,
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0423_00::4::38676",
+    "previous_selected_object_id": 2,
+    "target_id": 4,
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0081_00::5::26430",
+    "previous_selected_object_id": 8,
+    "target_id": 5,
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0665_00::19::10095",
+    "previous_selected_object_id": 18,
+    "target_id": 19,
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0653_00::39::3350",
+    "previous_selected_object_id": 0,
+    "target_id": 39,
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0462_00::6::40854",
+    "previous_selected_object_id": 16,
+    "target_id": 6,
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0496_00::29::10819",
+    "previous_selected_object_id": 14,
+    "target_id": 29,
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0249_00::36::39983",
+    "previous_selected_object_id": 23,
+    "target_id": 36,
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0343_00::16::35014",
+    "previous_selected_object_id": 15,
+    "target_id": 16,
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0553_00::10::5141",
+    "previous_selected_object_id": 8,
+    "target_id": 10,
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0343_00::17::37621",
+    "previous_selected_object_id": 18,
+    "target_id": 17,
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0025_00::17::37165",
+    "previous_selected_object_id": 38,
+    "target_id": 17,
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0704_00::10::7262",
+    "previous_selected_object_id": 22,
+    "target_id": 10,
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0064_00::3::23746",
+    "previous_selected_object_id": 2,
+    "target_id": 3,
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0690_00::13::34953",
+    "previous_selected_object_id": 14,
+    "target_id": 13,
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0164_00::10::38306",
+    "previous_selected_object_id": 13,
+    "target_id": 10,
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0329_00::5::23755",
+    "previous_selected_object_id": 23,
+    "target_id": 5,
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0046_00::50::24204",
+    "previous_selected_object_id": 52,
+    "target_id": 50,
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0426_00::7::20795",
+    "previous_selected_object_id": 4,
+    "target_id": 7,
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0307_00::25::35532",
+    "previous_selected_object_id": 23,
+    "target_id": 25,
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0648_00::10::34606",
+    "previous_selected_object_id": 9,
+    "target_id": 10,
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0696_00::21::29050",
+    "previous_selected_object_id": 32,
+    "target_id": 21,
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0574_00::5::13160",
+    "previous_selected_object_id": 13,
+    "target_id": 5,
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0231_00::16::3011",
+    "previous_selected_object_id": 20,
+    "target_id": 16,
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0568_00::20::8853",
+    "previous_selected_object_id": 19,
+    "target_id": 20,
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0149_00::21::1743",
+    "previous_selected_object_id": 9,
+    "target_id": 21,
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0249_00::23::30460",
+    "previous_selected_object_id": 27,
+    "target_id": 23,
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0643_00::38::11598",
+    "previous_selected_object_id": 39,
+    "target_id": 38,
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0351_00::22::23771",
+    "previous_selected_object_id": 13,
+    "target_id": 22,
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0651_00::9::29997",
+    "previous_selected_object_id": 8,
+    "target_id": 9,
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0629_00::30::28923",
+    "previous_selected_object_id": 31,
+    "target_id": 30,
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0187_00::6::10690",
+    "previous_selected_object_id": 9,
+    "target_id": 6,
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0648_00::22::216",
+    "previous_selected_object_id": 24,
+    "target_id": 22,
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0222_00::7::10110",
+    "previous_selected_object_id": 6,
+    "target_id": 7,
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0535_00::16::2859",
+    "previous_selected_object_id": 9,
+    "target_id": 16,
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0643_00::23::35796",
+    "previous_selected_object_id": 26,
+    "target_id": 23,
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0077_00::1::22194",
+    "previous_selected_object_id": 2,
+    "target_id": 1,
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0665_00::16::17557",
+    "previous_selected_object_id": 15,
+    "target_id": 16,
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0231_00::55::11667",
+    "previous_selected_object_id": 56,
+    "target_id": 55,
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0203_00::2::28746",
+    "previous_selected_object_id": 26,
+    "target_id": 2,
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0427_00::6::2399",
+    "previous_selected_object_id": 7,
+    "target_id": 6,
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0616_00::13::389",
+    "previous_selected_object_id": 10,
+    "target_id": 13,
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0251_00::14::24965",
+    "previous_selected_object_id": 15,
+    "target_id": 14,
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0208_00::1::20428",
+    "previous_selected_object_id": 106,
+    "target_id": 1,
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0565_00::12::15475",
+    "previous_selected_object_id": 13,
+    "target_id": 12,
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0378_00::38::30964",
+    "previous_selected_object_id": 37,
+    "target_id": 38,
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0207_00::3::22899",
+    "previous_selected_object_id": 45,
+    "target_id": 3,
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0645_00::46::40085",
+    "previous_selected_object_id": 50,
+    "target_id": 46,
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0169_00::12::11624",
+    "previous_selected_object_id": 9,
+    "target_id": 12,
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0257_00::34::4055",
+    "previous_selected_object_id": 6,
+    "target_id": 34,
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0500_00::25::13471",
+    "previous_selected_object_id": 23,
+    "target_id": 25,
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0643_00::23::27348",
+    "previous_selected_object_id": 38,
+    "target_id": 23,
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0084_00::7::21975",
+    "previous_selected_object_id": 3,
+    "target_id": 7,
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0647_00::8::3986",
+    "previous_selected_object_id": 13,
+    "target_id": 8,
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0608_00::9::17679",
+    "previous_selected_object_id": 8,
+    "target_id": 9,
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0643_00::12::40462",
+    "previous_selected_object_id": 31,
+    "target_id": 12,
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0084_00::45::2292",
+    "previous_selected_object_id": 43,
+    "target_id": 45,
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0616_00::7::34453",
+    "previous_selected_object_id": 8,
+    "target_id": 7,
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0084_00::6::33117",
+    "previous_selected_object_id": 8,
+    "target_id": 6,
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0378_00::41::26109",
+    "previous_selected_object_id": 40,
+    "target_id": 41,
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0208_00::17::21496",
+    "previous_selected_object_id": 16,
+    "target_id": 17,
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0565_00::13::4582",
+    "previous_selected_object_id": 15,
+    "target_id": 13,
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0328_00::27::36937",
+    "previous_selected_object_id": 28,
+    "target_id": 27,
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0697_00::7::28233",
+    "previous_selected_object_id": 6,
+    "target_id": 7,
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0670_00::30::37470",
+    "previous_selected_object_id": 26,
+    "target_id": 30,
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0678_00::8::10080",
+    "previous_selected_object_id": 31,
+    "target_id": 8,
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0598_00::5::33401",
+    "previous_selected_object_id": 13,
+    "target_id": 5,
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0149_00::10::40052",
+    "previous_selected_object_id": 9,
+    "target_id": 10,
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0025_00::0::19704",
+    "previous_selected_object_id": 1,
+    "target_id": 0,
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0690_00::14::34892",
+    "previous_selected_object_id": 10,
+    "target_id": 14,
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0077_00::13::6281",
+    "previous_selected_object_id": 8,
+    "target_id": 13,
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0549_00::7::17436",
+    "previous_selected_object_id": 6,
+    "target_id": 7,
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0095_00::24::19560",
+    "previous_selected_object_id": 20,
+    "target_id": 24,
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0025_00::26::38922",
+    "previous_selected_object_id": 1,
+    "target_id": 26,
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0549_00::11::3698",
+    "previous_selected_object_id": 9,
+    "target_id": 11,
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0490_00::13::36559",
+    "previous_selected_object_id": 6,
+    "target_id": 13,
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0690_00::17::19402",
+    "previous_selected_object_id": 16,
+    "target_id": 17,
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0030_00::18::30641",
+    "previous_selected_object_id": 19,
+    "target_id": 18,
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0356_00::12::38735",
+    "previous_selected_object_id": 19,
+    "target_id": 12,
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0648_00::22::18216",
+    "previous_selected_object_id": 23,
+    "target_id": 22,
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0356_00::23::23827",
+    "previous_selected_object_id": 19,
+    "target_id": 23,
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0389_00::23::20819",
+    "previous_selected_object_id": 22,
+    "target_id": 23,
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0329_00::32::4573",
+    "previous_selected_object_id": 33,
+    "target_id": 32,
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0598_00::9::25057",
+    "previous_selected_object_id": 21,
+    "target_id": 9,
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0356_00::23::9504",
+    "previous_selected_object_id": 19,
+    "target_id": 23,
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0644_00::38::1222",
+    "previous_selected_object_id": 41,
+    "target_id": 38,
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0655_00::19::31620",
+    "previous_selected_object_id": 21,
+    "target_id": 19,
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0196_00::3::16361",
+    "previous_selected_object_id": 1,
+    "target_id": 3,
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0644_00::43::2885",
+    "previous_selected_object_id": 44,
+    "target_id": 43,
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0474_00::38::186",
+    "previous_selected_object_id": 3,
+    "target_id": 38,
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0616_00::30::9497",
+    "previous_selected_object_id": 29,
+    "target_id": 30,
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0050_00::25::2985",
+    "previous_selected_object_id": 28,
+    "target_id": 25,
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0222_00::20::39339",
+    "previous_selected_object_id": 19,
+    "target_id": 20,
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0222_00::3::40465",
+    "previous_selected_object_id": 24,
+    "target_id": 3,
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0084_00::43::31587",
+    "previous_selected_object_id": 34,
+    "target_id": 43,
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0084_00::10::35174",
+    "previous_selected_object_id": 25,
+    "target_id": 10,
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0653_00::16::22998",
+    "previous_selected_object_id": 14,
+    "target_id": 16,
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0144_00::17::37726",
+    "previous_selected_object_id": 2,
+    "target_id": 17,
+    "is_easy": true,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0696_00::32::18327",
+    "previous_selected_object_id": 22,
+    "target_id": 32,
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0050_00::32::30122",
+    "previous_selected_object_id": 9,
+    "target_id": 32,
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0648_00::38::10961",
+    "previous_selected_object_id": 4,
+    "target_id": 38,
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0653_00::28::33567",
+    "previous_selected_object_id": 46,
+    "target_id": 28,
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0458_00::32::20575",
+    "previous_selected_object_id": 18,
+    "target_id": 32,
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0025_00::0::35915",
+    "previous_selected_object_id": 1,
+    "target_id": 0,
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0690_00::18::1576",
+    "previous_selected_object_id": 17,
+    "target_id": 18,
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0329_00::6::26630",
+    "previous_selected_object_id": 7,
+    "target_id": 6,
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0328_00::28::29802",
+    "previous_selected_object_id": 27,
+    "target_id": 28,
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0095_00::29::20881",
+    "previous_selected_object_id": 25,
+    "target_id": 29,
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0644_00::35::19090",
+    "previous_selected_object_id": 60,
+    "target_id": 35,
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0329_00::5::27218",
+    "previous_selected_object_id": 23,
+    "target_id": 5,
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0643_00::27::30955",
+    "previous_selected_object_id": 34,
+    "target_id": 27,
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0653_00::18::29686",
+    "previous_selected_object_id": 15,
+    "target_id": 18,
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0699_00::15::8385",
+    "previous_selected_object_id": 14,
+    "target_id": 15,
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0025_00::9::9511",
+    "previous_selected_object_id": 10,
+    "target_id": 9,
+    "is_easy": true,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0653_00::52::2767",
+    "previous_selected_object_id": 51,
+    "target_id": 52,
+    "is_easy": false,
+    "is_view_dep": true
+  },
+  {
+    "sample_id": "scannet/scene0652_00::17::37144",
+    "previous_selected_object_id": 11,
+    "target_id": 17,
+    "is_easy": false,
+    "is_view_dep": false
+  },
+  {
+    "sample_id": "scannet/scene0221_00::46::36120",
+    "previous_selected_object_id": 8,
+    "target_id": 46,
+    "is_easy": false,
+    "is_view_dep": true
+  }
+]
