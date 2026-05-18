@@ -145,7 +145,7 @@ def make_thumb(
     return str(out.relative_to(html_dir))
 
 
-# Patterns that v9 tools embed in their response_text when they queue an image.
+# Patterns that older traces embed in response_text when a tool produced an image.
 _PATH_HINTS = [
     # legacy RGB view mode: raw RGB path
     re.compile(r"frame_id=(?P<fid>\d+) rgb image at (?P<path>[^;\s]+)"),

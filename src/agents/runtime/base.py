@@ -36,7 +36,9 @@ class Stage2RuntimeState:
 
     bundle: Stage2EvidenceBundle
     tool_trace: list[Stage2ToolObservation] = field(default_factory=list)
-    evidence_updated: bool = False  # Signals new images need injection
+    # Tool calls set this when their trace observation includes image metadata.
+    # The runtime then scans `tool_trace`; it does not maintain an image queue.
+    evidence_updated: bool = False
     seen_image_paths: set[str] = field(
         default_factory=set
     )  # Track already-injected images
@@ -128,7 +130,7 @@ class Stage2RuntimeState:
             self.mark_evidence_updated()
 
     def mark_evidence_updated(self) -> None:
-        """Signal that the bundle was updated and new images may need injection."""
+        """Signal that tool-trace evidence should be scanned this turn."""
         self.evidence_updated = True
 
     def consume_evidence_update(self) -> bool:
