@@ -19,7 +19,10 @@ from agents.skills import (
     register_pack,
 )
 from agents.skills.chassis_tools import build_chassis_tools
-from agents.skills.evidence_frame_guard import evaluate_evidence_frame_guard
+from agents.skills.evidence_frame_guard import (
+    _cited_frame_ids,
+    evaluate_evidence_frame_guard,
+)
 
 
 @pytest.fixture(autouse=True)
@@ -667,6 +670,14 @@ def test_evidence_frame_guard_parses_plural_frame_citations(tmp_path: Path) -> N
         0,
         1,
     ]
+
+
+def test_cited_frame_ids_parses_oxford_comma_lists_and_dedupes_refs() -> None:
+    assert _cited_frame_ids("Frames 0, 1, and 2 show the target.", []) == [0, 1, 2]
+    assert _cited_frame_ids(
+        "Frames 0, 1, and 2 show the target.",
+        [{"frame_id": 1}, {"frame": 3}],
+    ) == [0, 1, 2, 3]
 
 
 def test_evidence_frame_guard_parses_frame_range_without_marked_evidence(

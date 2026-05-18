@@ -36,7 +36,7 @@ _BOXES_2D_RE = re.compile(r"boxes_2d=({[^}]*})")
 _FRAME_CITATION_RE = re.compile(r"\bframe(?:[_\s-]?id)?[_\s-]*(\d+)\b", re.I)
 _FRAME_RANGE_RE = re.compile(r"\bframes?\s+(\d+)\s*[-\u2013]\s*(\d+)\b", re.I)
 _FRAMES_LIST_RE = re.compile(
-    r"\bframes?\s+((?:\d+\s*(?:,|\band\b|&)?\s*){1,20})",
+    r"\bframes?\s+(\d+(?:\s*,\s*(?:and\s+)?\d+)*(?:\s*(?:and|&)\s*\d+)?)",
     re.I,
 )
 _LEFT_RELATION_RE = re.compile(r"\b(?:to\s+the\s+)?left\s+of\b|\bleft-hand\b", re.I)
