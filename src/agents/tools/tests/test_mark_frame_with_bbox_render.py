@@ -7,12 +7,12 @@ import numpy as np
 import pytest
 from PIL import Image
 
-from agents.catalog import SceneCatalog, SceneProposal, FrameView
+from agents.catalog import FrameView, SceneCatalog, SceneProposal
 from agents.runtime.base import Stage2RuntimeState
 from agents.tools.mark_frame_with_bbox import (
-    build_mark_frame_with_bbox_tool,
     BBOX_PALETTE,
     BLACK_OUTLINE_PAD,
+    build_mark_frame_with_bbox_tool,
 )
 
 
@@ -47,7 +47,6 @@ def tiny_runtime(tmp_path: Path) -> tuple[Stage2RuntimeState, Path]:
     bundle = SimpleNamespace(
         extra_metadata={
             "scene_catalog": catalog.model_dump(),
-            "vg_pending_images": [],
         }
     )
     rs = Stage2RuntimeState(bundle=bundle)
@@ -94,9 +93,12 @@ def test_render_has_black_outline_outside_colour_stroke(tiny_runtime):
     assert found_green_then_black, "expected a black outline outside the colour stroke"
 
 
-def test_image_is_queued_for_injection(tiny_runtime):
+def test_image_metadata_is_recorded_for_trace_injection(tiny_runtime):
     rs, _ = tiny_runtime
     tool = build_mark_frame_with_bbox_tool(rs)
     tool.invoke({"frame_id": 42, "ids": [4]})
-    pending = rs.bundle.extra_metadata["vg_pending_images"]
-    assert pending and pending[-1].endswith(".png")
+    assert rs.tool_trace[-1].image_metadata
+    assert rs.tool_trace[-1].image_metadata[-1]["image_path"].endswith(".png")
+    assert not any(
+        key.startswith("vg_" + "pending") for key in rs.bundle.extra_metadata
+    )

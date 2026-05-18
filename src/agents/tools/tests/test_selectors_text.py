@@ -87,7 +87,6 @@ def _runtime(tmp_path: Path, fids: list[int]) -> Stage2RuntimeState:
     bundle = SimpleNamespace(
         extra_metadata={
             "scene_catalog": catalog.model_dump(),
-            "vg_pending_images": [],
             "camera_trajectory_xy_yaw": {f: [float(f), float(f), 0.0] for f in fids},
         }
     )
@@ -98,7 +97,7 @@ def _runtime(tmp_path: Path, fids: list[int]) -> Stage2RuntimeState:
     return rs
 
 
-def test_select_by_text_returns_image_paths_and_queues_them(tmp_path: Path):
+def test_select_by_text_returns_image_paths_and_records_them(tmp_path: Path):
     rs = _runtime(tmp_path, fids=[1, 2, 3])
     tool = next(t for t in build_selector_tools(rs) if t.name == "select_by_text")
     raw = tool.invoke({"query": "wooden chair"})
@@ -108,8 +107,10 @@ def test_select_by_text_returns_image_paths_and_queues_them(tmp_path: Path):
         assert frame["frame_id"] == fid
         assert "image_path" in frame
         assert frame["already_seen"] is False
-    pending = rs.bundle.extra_metadata["vg_pending_images"]
-    assert len(pending) == 3
+    assert len(rs.tool_trace[-1].image_metadata) == 3
+    assert not any(
+        key.startswith("vg_" + "pending") for key in rs.bundle.extra_metadata
+    )
 
 
 def test_select_by_text_caps_k_at_3(tmp_path: Path):
@@ -131,8 +132,14 @@ def test_select_by_text_marks_already_seen(tmp_path: Path):
     by_fid = {f["frame_id"]: f for f in payload["frames"]}
     assert by_fid[1]["already_seen"] is True
     assert by_fid[2]["already_seen"] is False
-    pending = rs.bundle.extra_metadata["vg_pending_images"]
-    assert pending == [str(tmp_path / "frame_2.png")]
+    assert rs.tool_trace[-1].image_metadata == [
+        {
+            "image_path": str(tmp_path / "frame_2.png"),
+            "frame_id": 2,
+            "source_tool": "select_by_text",
+            "selected_because": "select_by_text(query='chair')",
+        }
+    ]
 
 
 def test_select_by_text_omitted_when_flag_disabled(tmp_path: Path):
@@ -210,9 +217,11 @@ def test_select_by_text_force_to_error_short_circuits_before_selector(
     # Fallback chain prose is included so the agent has a recovery hint.
     assert "scene-exploration-playbook" in raw
 
-    # No frames were queued (pending images list is unchanged).
-    pending = rs.bundle.extra_metadata["vg_pending_images"]
-    assert pending == []
+    # No tool images were returned.
+    assert rs.tool_trace[-1].image_metadata == []
+    assert not any(
+        key.startswith("vg_" + "pending") for key in rs.bundle.extra_metadata
+    )
 
 
 def test_select_by_text_force_to_error_records_into_tool_trace(tmp_path: Path):
@@ -283,10 +292,12 @@ def test_select_by_text_masked_retry_records_original_request(tmp_path: Path) ->
     rs = _runtime(tmp_path, fids=[1])
     selector = _LeakyThenOkTextFrameSelector([1])
     rs.text_frame_selector = selector
-    recorded: list[tuple[str, dict, str]] = []
-    rs.record = lambda name, request, response: recorded.append(  # type: ignore[method-assign]
-        (name, request, response)
-    )
+    recorded: list[tuple[str, dict, str, list[dict]]] = []
+
+    def _record(name, request, response, *, image_metadata=None):
+        recorded.append((name, request, response, list(image_metadata or [])))
+
+    rs.record = _record  # type: ignore[method-assign]
 
     tool = next(t for t in build_selector_tools(rs) if t.name == "select_by_text")
     raw = tool.invoke({"query": "picture on wall", "hidden_categories": ["wall"]})

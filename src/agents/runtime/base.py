@@ -108,7 +108,12 @@ class Stage2RuntimeState:
     evidence_frame_guard_block_count: int = 0
 
     def record(
-        self, tool_name: str, tool_input: dict[str, Any], response_text: str
+        self,
+        tool_name: str,
+        tool_input: dict[str, Any],
+        response_text: str,
+        *,
+        image_metadata: list[dict[str, Any]] | None = None,
     ) -> None:
         """Record a tool invocation in the trace."""
         self.tool_trace.append(
@@ -116,8 +121,11 @@ class Stage2RuntimeState:
                 tool_name=tool_name,
                 tool_input=tool_input,
                 response_text=response_text,
+                image_metadata=list(image_metadata or []),
             )
         )
+        if image_metadata:
+            self.mark_evidence_updated()
 
     def mark_evidence_updated(self) -> None:
         """Signal that the bundle was updated and new images may need injection."""
@@ -323,12 +331,17 @@ class BaseStage2Runtime(ABC):
             if isinstance(updated_bundle, Stage2EvidenceBundle):
                 payload = dict(result)
                 payload.pop("updated_bundle", None)
+                image_metadata = payload.pop("image_metadata", None)
                 return Stage2ToolResult(
                     response_text=json.dumps(payload, indent=2, ensure_ascii=False),
                     updated_bundle=updated_bundle,
+                    image_metadata=list(image_metadata or []),
                 )
+            payload = dict(result)
+            image_metadata = payload.pop("image_metadata", None)
             return Stage2ToolResult(
-                response_text=json.dumps(result, indent=2, ensure_ascii=False)
+                response_text=json.dumps(payload, indent=2, ensure_ascii=False),
+                image_metadata=list(image_metadata or []),
             )
         return Stage2ToolResult(response_text=str(result))
 

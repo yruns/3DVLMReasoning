@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from types import SimpleNamespace
 
-from agents.catalog import SceneCatalog, SceneProposal, FrameView
+from agents.catalog import FrameView, SceneCatalog, SceneProposal
 from agents.runtime.base import Stage2RuntimeState
 from agents.tools.mark_frame_with_bbox import build_mark_frame_with_bbox_tool
 
@@ -36,7 +36,6 @@ def _runtime(tmp_path: Path) -> Stage2RuntimeState:
     bundle = SimpleNamespace(
         extra_metadata={
             "scene_catalog": catalog.model_dump(),
-            "vg_pending_images": [],
         }
     )
     rs = Stage2RuntimeState(bundle=bundle)
@@ -49,14 +48,18 @@ def test_mark_frame_with_bbox_errors_when_no_filter(tmp_path: Path):
     rs = _runtime(tmp_path)
     tool = build_mark_frame_with_bbox_tool(rs)
     out = tool.invoke({"frame_id": 42})
-    assert out.startswith("ERROR: mark_frame_with_bbox requires at least one of {labels, ids}")
+    assert out.startswith(
+        "ERROR: mark_frame_with_bbox requires at least one of {labels, ids}"
+    )
 
 
 def test_mark_frame_with_bbox_errors_on_empty_lists(tmp_path: Path):
     rs = _runtime(tmp_path)
     tool = build_mark_frame_with_bbox_tool(rs)
     out = tool.invoke({"frame_id": 42, "labels": [], "ids": []})
-    assert out.startswith("ERROR: mark_frame_with_bbox requires at least one of {labels, ids}")
+    assert out.startswith(
+        "ERROR: mark_frame_with_bbox requires at least one of {labels, ids}"
+    )
 
 
 def test_mark_frame_with_bbox_errors_on_invalid_frame(tmp_path: Path):

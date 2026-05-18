@@ -4,10 +4,9 @@ import json
 from pathlib import Path
 from types import SimpleNamespace
 
-import pytest
 from PIL import Image
 
-from agents.catalog import SceneCatalog, SceneProposal, FrameView
+from agents.catalog import FrameView, SceneCatalog, SceneProposal
 from agents.runtime.base import Stage2RuntimeState
 from agents.tools.selectors import build_selector_tools
 
@@ -27,10 +26,18 @@ def _runtime(tmp_path: Path) -> Stage2RuntimeState:
                 position_3d=(0.0, 0.0, 0.0),
                 source="mask3d",
                 frame_views={
-                    10: FrameView(frame_id=10, raw_rgb_path=str(rgbs[10]), bbox_2d=(0, 0, 20, 20)),
-                    20: FrameView(frame_id=20, raw_rgb_path=str(rgbs[20]), bbox_2d=(0, 0, 20, 20)),
-                    30: FrameView(frame_id=30, raw_rgb_path=str(rgbs[30]), bbox_2d=(0, 0, 20, 20)),
-                    40: FrameView(frame_id=40, raw_rgb_path=str(rgbs[40]), bbox_2d=(0, 0, 20, 20)),
+                    10: FrameView(
+                        frame_id=10, raw_rgb_path=str(rgbs[10]), bbox_2d=(0, 0, 20, 20)
+                    ),
+                    20: FrameView(
+                        frame_id=20, raw_rgb_path=str(rgbs[20]), bbox_2d=(0, 0, 20, 20)
+                    ),
+                    30: FrameView(
+                        frame_id=30, raw_rgb_path=str(rgbs[30]), bbox_2d=(0, 0, 20, 20)
+                    ),
+                    40: FrameView(
+                        frame_id=40, raw_rgb_path=str(rgbs[40]), bbox_2d=(0, 0, 20, 20)
+                    ),
                 },
             ),
         ],
@@ -42,8 +49,9 @@ def _runtime(tmp_path: Path) -> Stage2RuntimeState:
     bundle = SimpleNamespace(
         extra_metadata={
             "scene_catalog": catalog.model_dump(),
-            "vg_pending_images": [],
-            "camera_trajectory_xy_yaw": {f: [float(f), 0.0, 0.0] for f in [10, 20, 30, 40]},
+            "camera_trajectory_xy_yaw": {
+                f: [float(f), 0.0, 0.0] for f in [10, 20, 30, 40]
+            },
         }
     )
     rs = Stage2RuntimeState(bundle=bundle)
@@ -60,8 +68,10 @@ def test_select_by_proposal_returns_3_frames_with_images(tmp_path: Path):
     assert len(payload["frames"]) == 3
     for frame in payload["frames"]:
         assert "image_path" in frame
-    pending = rs.bundle.extra_metadata["vg_pending_images"]
-    assert len(pending) == 3
+    assert len(rs.tool_trace[-1].image_metadata) == 3
+    assert not any(
+        key.startswith("vg_" + "pending") for key in rs.bundle.extra_metadata
+    )
 
 
 def test_select_by_proposal_respects_k_cap(tmp_path: Path):

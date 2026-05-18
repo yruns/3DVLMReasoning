@@ -146,7 +146,12 @@ class DeepAgentsStage2Runtime(BaseStage2Runtime):
                 if response_obj.updated_bundle is not None:
                     runtime.bundle = response_obj.updated_bundle
                     runtime.mark_evidence_updated()
-            runtime.record("request_crops", request, response_obj.response_text)
+            runtime.record(
+                "request_crops",
+                request,
+                response_obj.response_text,
+                image_metadata=response_obj.image_metadata,
+            )
             return response_obj.response_text
 
         tools = [
@@ -577,23 +582,21 @@ class DeepAgentsStage2Runtime(BaseStage2Runtime):
             HumanMessage with new images, or None if no new images
         """
         new_images: list[str] = []
-        # Drain explicit pending images. First-person frames only arrive here
-        # after the agent calls a selector, mark_frame_with_bbox, or
-        # request_crops; pack prep and bundle construction never inject RGB
-        # frames directly.
-        extra = runtime.bundle.extra_metadata or {}
-        pending = extra.get("vg_pending_images", [])
-        for marked_path in pending:
-            if (
-                marked_path not in runtime.seen_image_paths
-                and Path(marked_path).exists()
-            ):
-                new_images.append(marked_path)
-        if pending:
-            # Pop the queue so we don't re-inject on the next turn.
-            runtime.bundle = runtime.bundle.model_copy(
-                update={"extra_metadata": {**extra, "vg_pending_images": []}}
-            )
+        # First-person frames only arrive through tool observations. Pack prep
+        # and bundle construction never carry a side-channel image queue.
+        tool_image_metadata: list[dict[str, Any]] = []
+        tool_paths: set[str] = set()
+        for observation in runtime.tool_trace:
+            for item in observation.image_metadata:
+                if not isinstance(item, dict) or not item.get("image_path"):
+                    continue
+                image_path = str(item["image_path"])
+                tool_image_metadata.append({**item, "image_path": image_path})
+                if image_path in tool_paths or image_path in runtime.seen_image_paths:
+                    continue
+                if Path(image_path).exists():
+                    tool_paths.add(image_path)
+                    new_images.append(image_path)
 
         if (
             runtime.bundle.bev_image_path
@@ -613,9 +616,8 @@ class DeepAgentsStage2Runtime(BaseStage2Runtime):
             return None
 
         metadata_by_path: dict[str, Any] = {}
-        for item in extra.get("vg_pending_image_metadata", []) or []:
-            if isinstance(item, dict) and item.get("image_path"):
-                metadata_by_path[str(item["image_path"])] = item
+        for item in tool_image_metadata:
+            metadata_by_path[str(item["image_path"])] = item
 
         evidence_lines: list[str] = []
         for image_path in new_images:
@@ -798,7 +800,7 @@ class DeepAgentsStage2Runtime(BaseStage2Runtime):
                         runtime.final_submission = None
                         logger.info(
                             "[DeepAgentsStage2Runtime] turn {}: deferring submit_final "
-                            "until newly queued visual evidence is injected",
+                            "until newly tool-acquired visual evidence is injected",
                             turns_used,
                         )
                         continue

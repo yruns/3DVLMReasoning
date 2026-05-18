@@ -4,7 +4,6 @@ import json
 from pathlib import Path
 from types import SimpleNamespace
 
-import pytest
 from PIL import Image
 
 from agents.catalog import FrameView, SceneCatalog, SceneProposal
@@ -51,7 +50,6 @@ def _runtime(tmp_path: Path) -> Stage2RuntimeState:
     bundle = SimpleNamespace(
         extra_metadata={
             "scene_catalog": catalog.model_dump(),
-            "vg_pending_images": [],
             "camera_trajectory_xy_yaw": traj,
         }
     )
@@ -61,7 +59,9 @@ def _runtime(tmp_path: Path) -> Stage2RuntimeState:
     return rs
 
 
-def test_select_by_coverage_obj_iou_without_seen_returns_three_with_images(tmp_path: Path):
+def test_select_by_coverage_obj_iou_without_seen_returns_three_with_images(
+    tmp_path: Path,
+):
     rs = _runtime(tmp_path)
     tool = next(t for t in build_selector_tools(rs) if t.name == "select_by_coverage")
     raw = tool.invoke({"method": "obj_iou"})
@@ -70,10 +70,15 @@ def test_select_by_coverage_obj_iou_without_seen_returns_three_with_images(tmp_p
     assert {f["frame_id"] for f in payload["frames"]} == {10, 20, 30}
     for frame in payload["frames"]:
         assert frame.get("image_path")
-    assert len(rs.bundle.extra_metadata["vg_pending_images"]) == 3
+    assert len(rs.tool_trace[-1].image_metadata) == 3
+    assert not any(
+        key.startswith("vg_" + "pending") for key in rs.bundle.extra_metadata
+    )
 
 
-def test_select_by_coverage_pose_depth_excludes_seen_and_queues_images(tmp_path: Path):
+def test_select_by_coverage_pose_depth_excludes_seen_and_records_images(
+    tmp_path: Path,
+):
     rs = _runtime(tmp_path)
     tool = next(t for t in build_selector_tools(rs) if t.name == "select_by_coverage")
     raw = tool.invoke({"method": "pose_depth", "seen_frame_ids": [10]})
@@ -82,4 +87,7 @@ def test_select_by_coverage_pose_depth_excludes_seen_and_queues_images(tmp_path:
     assert 10 not in {f["frame_id"] for f in payload["frames"]}
     for frame in payload["frames"]:
         assert frame.get("image_path")
-    assert len(rs.bundle.extra_metadata["vg_pending_images"]) == 3
+    assert len(rs.tool_trace[-1].image_metadata) == 3
+    assert not any(
+        key.startswith("vg_" + "pending") for key in rs.bundle.extra_metadata
+    )

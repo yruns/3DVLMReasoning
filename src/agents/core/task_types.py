@@ -40,9 +40,9 @@ class Stage1HypothesisSummary(BaseModel):
 class Stage2EvidenceBundle(BaseModel):
     """Scene-context package passed into the Stage-2 agent.
 
-    First-person RGB frames are intentionally absent. Runtime tools queue
-    selected frames through ``extra_metadata["vg_pending_images"]`` so the
-    agent only sees frames it actively requested.
+    First-person RGB frames are intentionally absent. Runtime tools attach
+    selected-frame image metadata to their own tool observations so the agent
+    only sees frames it actively requested.
     """
 
     scene_id: str = ""

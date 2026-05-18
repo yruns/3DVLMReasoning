@@ -252,8 +252,7 @@ def _metadata_frame_count(bundle) -> int:
 
 
 def _tool_visual_count(bundle) -> int:
-    extra = bundle.extra_metadata or {}
-    return len(extra.get("vg_pending_image_metadata") or [])
+    return 0
 
 
 def serialize_stage2_result(

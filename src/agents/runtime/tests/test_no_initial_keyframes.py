@@ -6,6 +6,14 @@ from agents.runtime.base import Stage2RuntimeState
 from agents.runtime.deepagents_agent import DeepAgentsStage2Runtime
 
 
+def _legacy_image_channel_key(suffix: str = "images") -> str:
+    return "vg_" + "pending" + "_" + suffix
+
+
+def _assert_no_runtime_image_queue(runtime: Stage2RuntimeState) -> None:
+    assert not any("pending" in name and "image" in name for name in dir(runtime))
+
+
 def test_stage2_evidence_bundle_has_no_frame_seed_field() -> None:
     bundle = Stage2EvidenceBundle(scene_id="scene")
 
@@ -29,6 +37,7 @@ def test_runtime_state_has_no_initial_frame_snapshot() -> None:
 def test_initial_message_attaches_only_bev(tmp_path: Path) -> None:
     from PIL import Image
 
+    legacy_key = _legacy_image_channel_key()
     bev = tmp_path / "bev.png"
     rgb = tmp_path / "rgb.png"
     Image.new("RGB", (8, 8), "white").save(bev)
@@ -46,7 +55,7 @@ def test_initial_message_attaches_only_bev(tmp_path: Path) -> None:
                 "bev_image_path": str(bev),
                 "proposals": [],
             },
-            "vg_pending_images": [str(rgb)],
+            legacy_key: [str(rgb)],
         },
     )
     task = Stage2TaskSpec(
@@ -64,16 +73,19 @@ def test_initial_message_attaches_only_bev(tmp_path: Path) -> None:
     assert len(image_parts) == 1
     assert str(bev) in state.seen_image_paths
     assert str(rgb) not in state.seen_image_paths
+    assert legacy_key in state.bundle.extra_metadata
+    _assert_no_runtime_image_queue(state)
 
 
-def test_evidence_update_drains_pending_images_only(tmp_path: Path) -> None:
+def test_evidence_update_ignores_legacy_bundle_image_channel(tmp_path: Path) -> None:
     from PIL import Image
 
+    legacy_key = _legacy_image_channel_key()
     pending = tmp_path / "pending.png"
     Image.new("RGB", (8, 8), "blue").save(pending)
     bundle = Stage2EvidenceBundle(
         scene_id="scene",
-        extra_metadata={"vg_pending_images": [str(pending)]},
+        extra_metadata={legacy_key: [str(pending)]},
     )
     rt = DeepAgentsStage2Runtime(
         config=Stage2DeepAgentConfig(enable_stage1_text_retrieval=False)
@@ -82,6 +94,41 @@ def test_evidence_update_drains_pending_images_only(tmp_path: Path) -> None:
 
     message = rt.build_evidence_update_message(state)
 
+    assert message is None
+    assert str(pending) not in state.seen_image_paths
+    _assert_no_runtime_image_queue(state)
+    assert state.bundle.extra_metadata[legacy_key] == [str(pending)]
+
+
+def test_evidence_update_injects_tool_trace_images_only(tmp_path: Path) -> None:
+    from PIL import Image
+
+    pending = tmp_path / "pending.png"
+    Image.new("RGB", (8, 8), "blue").save(pending)
+    bundle = Stage2EvidenceBundle(scene_id="scene", extra_metadata={})
+    rt = DeepAgentsStage2Runtime(
+        config=Stage2DeepAgentConfig(enable_stage1_text_retrieval=False)
+    )
+    state = Stage2RuntimeState(bundle=bundle)
+    state.record(
+        "unit_tool",
+        {},
+        "returned an image",
+        image_metadata=[
+            {
+                "image_path": str(pending),
+                "frame_id": 1,
+                "source_tool": "unit_test",
+            }
+        ],
+    )
+
+    message = rt.build_evidence_update_message(state)
+
     assert message is not None
     assert str(pending) in state.seen_image_paths
-    assert state.bundle.extra_metadata["vg_pending_images"] == []
+    _assert_no_runtime_image_queue(state)
+    assert state.tool_trace[0].image_metadata[0]["image_path"] == str(pending)
+    assert not any(
+        key.startswith("vg_" + "pending") for key in state.bundle.extra_metadata
+    )

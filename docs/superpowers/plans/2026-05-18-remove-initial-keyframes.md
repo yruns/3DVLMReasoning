@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Remove every Stage-2 initial-keyframe data path so first-person frames enter the agent only through selector/mark/crop pending-image queues.
+**Goal:** Remove every Stage-2 initial-keyframe data path so first-person frames enter the agent only through selector/mark/crop tool-trace image metadata.
 
-**Architecture:** Delete `KeyframeEvidence` and `Stage2EvidenceBundle.keyframes` from the public model, then repair runtime/tools/runners around `extra_metadata["vg_pending_images"]` and frame metadata. Keep low-level `query_scene.keyframe_selector.KeyframeSelector` as the private implementation behind `select_by_text`, but expose it to Stage 2 as `text_frame_selector`.
+**Architecture:** Delete `KeyframeEvidence` and `Stage2EvidenceBundle.keyframes` from the public model, then repair runtime/tools/runners around `Stage2ToolObservation.image_metadata` and frame metadata. Keep low-level `query_scene.keyframe_selector.KeyframeSelector` as the private implementation behind `select_by_text`, but expose it to Stage 2 as `text_frame_selector`.
 
 **Tech Stack:** Python 3.12, Pydantic, DeepAgents/LangChain tools, pytest, ruff, `rg` omission scans.
 
@@ -75,7 +75,6 @@ def test_initial_message_attaches_only_bev(tmp_path: Path) -> None:
                 "bev_image_path": str(bev),
                 "proposals": [],
             },
-            "vg_pending_images": [str(rgb)],
         },
     )
     task = Stage2TaskSpec(
@@ -95,25 +94,28 @@ def test_initial_message_attaches_only_bev(tmp_path: Path) -> None:
     assert str(rgb) not in state.seen_image_paths
 
 
-def test_evidence_update_drains_pending_images_only(tmp_path: Path) -> None:
+def test_evidence_update_injects_tool_trace_images_only(tmp_path: Path) -> None:
     from PIL import Image
 
-    pending = tmp_path / "pending.png"
-    Image.new("RGB", (8, 8), "blue").save(pending)
-    bundle = Stage2EvidenceBundle(
-        scene_id="scene",
-        extra_metadata={"vg_pending_images": [str(pending)]},
-    )
+    image = tmp_path / "tool.png"
+    Image.new("RGB", (8, 8), "blue").save(image)
+    bundle = Stage2EvidenceBundle(scene_id="scene", extra_metadata={})
     rt = DeepAgentsStage2Runtime(
         config=Stage2DeepAgentConfig(enable_stage1_text_retrieval=False)
     )
     state = Stage2RuntimeState(bundle=bundle)
+    state.record(
+        "unit_tool",
+        {},
+        "returned an image",
+        image_metadata=[{"image_path": str(image), "source_tool": "unit_test"}],
+    )
 
     message = rt.build_evidence_update_message(state)
 
     assert message is not None
-    assert str(pending) in state.seen_image_paths
-    assert state.bundle.extra_metadata["vg_pending_images"] == []
+    assert str(image) in state.seen_image_paths
+    assert state.tool_trace[-1].image_metadata[0]["image_path"] == str(image)
 ```
 
 - [ ] **Step 2: Verify red**
@@ -128,7 +130,7 @@ Expected: failure because `keyframes`, `KeyframeEvidence`, `initial_keyframe_pat
 
 - [ ] **Step 3: Implement model/runtime cut**
 
-Delete `KeyframeEvidence`, remove `Stage2EvidenceBundle.keyframes`, remove public exports, remove restore flag, rename Stage-2 `keyframe_selector` fields/args to `text_frame_selector`, and rewrite `build_evidence_update_message()` to drain only `vg_pending_images`.
+Delete `KeyframeEvidence`, remove `Stage2EvidenceBundle.keyframes`, remove public exports, remove restore flag, rename Stage-2 `keyframe_selector` fields/args to `text_frame_selector`, and rewrite `build_evidence_update_message()` to scan only tool-trace image metadata.
 
 - [ ] **Step 4: Verify green**
 
@@ -140,7 +142,7 @@ PYTHONPATH=src .venv/bin/python -m pytest src/agents/runtime/tests/test_no_initi
 
 Expected: pass.
 
-### Task 2: Selector Queue Metadata And Crop Tool
+### Task 2: Selector Image Metadata And Crop Tool
 
 **Files:**
 - Modify: `src/agents/runtime/scene_runtime.py`
@@ -151,7 +153,7 @@ Expected: pass.
 
 - [ ] **Step 1: Write failing tests**
 
-Create tests that assert selector/mark helpers add `vg_pending_image_metadata` and that `CropBackend.process_requests()` returns crops in `vg_pending_images` without mutating `bundle.keyframes`.
+Create tests that assert selector/mark helpers add tool-trace image metadata and that `CropBackend.process_requests()` returns crop image metadata without mutating `bundle.keyframes`.
 
 - [ ] **Step 2: Verify red**
 
@@ -163,9 +165,9 @@ PYTHONPATH=src .venv/bin/python -m pytest src/agents/tools/tests/test_no_keyfram
 
 Expected: failure while crop code still reads `bundle.keyframes`.
 
-- [ ] **Step 3: Implement queue contract**
+- [ ] **Step 3: Implement image-metadata contract**
 
-Add a metadata-aware queue helper, update selectors and mark tool to pass source/frame metadata, and rewrite crop backend to resolve frame image paths from `vg_pending_image_metadata`, `seen_image_paths`, or catalog frame views instead of `bundle.keyframes`.
+Add a metadata helper, update selectors and mark tool to pass source/frame metadata, and rewrite crop backend to resolve frame image paths from scene catalog data and explicit frame maps instead of `bundle.keyframes`.
 
 - [ ] **Step 4: Verify green**
 

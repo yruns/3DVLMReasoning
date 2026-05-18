@@ -6,9 +6,9 @@ Hard-delete the initial-keyframe path from the Stage-2 runtime and all
 benchmark adapters. The agent must never receive first-person RGB frames from
 pack preparation, sample JSON, or bundle construction. The only runtime path
 for first-person evidence is active tool use: `select_by_*`,
-`mark_frame_with_bbox`, and `request_crops` queue images that are then injected
-on the next evidence-update turn. BEV remains allowed as non-first-person
-scene context through `bundle.bev_image_path` or `view_bev`.
+`mark_frame_with_bbox`, and `request_crops` return tool-trace image metadata
+that is then injected on the next evidence-update turn. BEV remains allowed as
+non-first-person scene context through `bundle.bev_image_path` or `view_bev`.
 
 This implements the v9 catalog-first contract that was already specified in
 `docs/superpowers/specs/2026-05-14-v9-catalog-first-scene-exploration-design.md`:
@@ -122,8 +122,8 @@ class Stage2EvidenceBundle(BaseModel):
 ```
 
 `KeyframeEvidence` is removed from the public agent model exports. New visual
-evidence is represented as pending image paths plus frame metadata in
-`extra_metadata`, not as typed keyframes in the bundle.
+evidence is represented as `image_metadata` on tool observations, not as typed
+keyframes or bundle-side image side channels.
 
 Stage-2 constructor/runtime naming must also move away from keyframe concepts:
 
@@ -135,11 +135,12 @@ Stage-2 constructor/runtime naming must also move away from keyframe concepts:
   names in agent config, runtime state, runner APIs, prompt text, or trace
   schemas.
 
-Required runtime image queues:
+Required runtime image metadata:
 
-- `extra_metadata["vg_pending_images"]`: paths queued by v9 tools.
-- `extra_metadata["vg_pending_image_metadata"]`: optional parallel metadata
-  records keyed by image path, frame id, source tool, and selected reason.
+- `Stage2ToolObservation.image_metadata`: list of records keyed by image path,
+  frame id, source tool, and selected reason.
+- `Stage2ToolResult.image_metadata`: callback return channel that is copied
+  into the runtime tool trace by `Stage2RuntimeState.record()`.
 
 The metadata key is additive and should be best-effort. Absence of metadata
 must not block image injection.
@@ -153,11 +154,11 @@ Initial agent message:
 
 Evidence update:
 
-- Drains only explicit pending queues (`vg_pending_images`) and optional BEV
-  re-injection requests.
+- Scans only tool-trace image metadata and optional BEV re-injection requests.
 - Does not iterate over `runtime.bundle.keyframes`.
 - Does not need `initial_keyframe_paths`, because there are no initial
   keyframes to filter.
+- Does not read or mutate bundle-side image side channels.
 - Removes `restore_stage1_seed_keyframe_drain`; the leak reproduction flag is
   deleted, not kept hidden.
 
@@ -208,10 +209,11 @@ Implementation detail:
 
 - Selectors may continue to return text payloads that include `frame_id`,
   `image_path`, visible proposal ids, camera pose, and reason.
-- If a selector should cause the frame image to be shown, it must queue the
-  path in `vg_pending_images`; it must not append to `bundle.keyframes`.
-- `request_crops` must return/update pending-image queues, not append
-  `KeyframeEvidence`.
+- If a selector should cause the frame image to be shown, it must return
+  trace-local image metadata through the tool observation; it must not append to
+  `bundle.keyframes`.
+- `request_crops` must return trace-local image metadata, not mutate bundle
+  image side channels or append `KeyframeEvidence`.
 
 ## Migration Plan
 
@@ -226,17 +228,17 @@ Implementation detail:
 5. Rename Stage-2 `keyframe_selector` constructor/runtime plumbing to
    `frame_selector` or `text_frame_selector`, preserving only the private
    low-level import of `query_scene.KeyframeSelector`.
-6. Rewrite `build_evidence_update_message()` so it only drains pending-image
-   queues.
+6. Rewrite `build_evidence_update_message()` so it only scans tool-trace image
+   metadata.
 7. Update runtime logs and prompts to avoid initial-keyframe terminology.
 
-### Phase 2: VG Pack And Selector Queue Contract
+### Phase 2: VG Pack And Selector Image-Metadata Contract
 
 1. Update `build_ctx_from_bundle()` to derive visible/viewed frames from
-   `seen_image_paths`, `vg_pending_image_metadata`, and scene catalog data,
-   not `bundle.keyframes`.
-2. Update selector tools to queue metadata consistently.
-3. Update `request_crops` to return pending-image updates without
+   `seen_image_paths` and scene catalog data, not `bundle.keyframes` or
+   bundle-side image side channels.
+2. Update selector tools to record image metadata consistently.
+3. Update `request_crops` to return tool image metadata without
    `KeyframeEvidence`.
 4. Delete or rewrite helper functions whose only job is formatting keyframe
    inventories.
@@ -320,12 +322,12 @@ Add or update tests proving:
 
 - Constructing `Stage2EvidenceBundle(...)` has no `keyframes` attribute.
 - Initial user message includes BEV only.
-- Evidence update injects images only from `vg_pending_images`.
+- Evidence update injects images only from tool-trace image metadata.
 - NR3D runner accepts sample JSON with no `keyframes`.
 - NR3D prep writes sample JSON with no `keyframes`.
 - No config flag can restore seed-keyframe drain.
-- `request_crops` and each selector queue images without mutating a bundle
-  keyframe list.
+- `request_crops` and each selector record tool images without mutating a
+  bundle keyframe list or bundle-side image side channels.
 
 ### Verification Commands
 
@@ -373,7 +375,8 @@ The feature is done when:
    keyframes.
 3. Current pack-prep code writes no sample-level keyframe fields.
 4. Current VG runners run from sample JSON that has no keyframes.
-5. Agent-visible first-person frames enter only through explicit tool queues.
+5. Agent-visible first-person frames enter only through explicit tool-trace
+   image metadata.
 6. Strict omission scans are documented in the implementation final response
    with any remaining matches explained as allowed exceptions.
 7. Focused and broad test commands above pass, or every remaining failure is

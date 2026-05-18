@@ -10,7 +10,7 @@ from typing import Any
 from langchain_core.tools import BaseTool, tool
 
 from agents.catalog import SceneCatalog
-from agents.runtime.scene_runtime import get_scene_catalog, queue_pending_image_if_new
+from agents.runtime.scene_runtime import get_scene_catalog, make_tool_image_ref_if_new
 from agents.tools.scene_perception import _gate
 
 
@@ -197,6 +197,7 @@ def build_selector_tools(runtime: Any) -> list[BaseTool]:
 
         catalog = get_scene_catalog(runtime)
         frames: list[dict] = []
+        image_metadata: list[dict] = []
         for fid in (result.keyframe_indices or [])[:capped]:
             base = _build_frame_payload(
                 runtime,
@@ -207,7 +208,7 @@ def build_selector_tools(runtime: Any) -> list[BaseTool]:
             )
             image_path = _resolve_raw_rgb_path(catalog, int(fid))
             base["image_path"] = str(image_path) if image_path else None
-            queued = queue_pending_image_if_new(
+            image_ref = make_tool_image_ref_if_new(
                 runtime,
                 base["image_path"] or "",
                 metadata={
@@ -216,7 +217,9 @@ def build_selector_tools(runtime: Any) -> list[BaseTool]:
                     "selected_because": base["selected_because"],
                 },
             )
-            base["already_seen"] = (not queued) and (
+            if image_ref is not None:
+                image_metadata.append(image_ref)
+            base["already_seen"] = (image_ref is None) and (
                 base["image_path"] in runtime.seen_image_paths
             )
             frames.append(base)
@@ -233,7 +236,7 @@ def build_selector_tools(runtime: Any) -> list[BaseTool]:
         if retry_metadata is not None:
             payload["masked_category_retry"] = retry_metadata
         text = json.dumps(payload, ensure_ascii=False)
-        runtime.record("select_by_text", request, text)
+        runtime.record("select_by_text", request, text, image_metadata=image_metadata)
         return text
 
     tools: list[BaseTool] = []
@@ -294,6 +297,7 @@ def build_selector_tools(runtime: Any) -> list[BaseTool]:
             ranked.sort(key=lambda item: (item[0], item[1]))
             chosen = [t[2] for t in ranked[:capped]]
         frames: list[dict] = []
+        image_metadata: list[dict] = []
         for fid in chosen:
             base = _build_frame_payload(
                 runtime,
@@ -306,7 +310,7 @@ def build_selector_tools(runtime: Any) -> list[BaseTool]:
             )
             image_path = _resolve_raw_rgb_path(catalog, int(fid))
             base["image_path"] = str(image_path) if image_path else None
-            queued = queue_pending_image_if_new(
+            image_ref = make_tool_image_ref_if_new(
                 runtime,
                 base["image_path"] or "",
                 metadata={
@@ -315,13 +319,20 @@ def build_selector_tools(runtime: Any) -> list[BaseTool]:
                     "selected_because": base["selected_because"],
                 },
             )
-            base["already_seen"] = (not queued) and (
+            if image_ref is not None:
+                image_metadata.append(image_ref)
+            base["already_seen"] = (image_ref is None) and (
                 base["image_path"] in runtime.seen_image_paths
             )
             frames.append(base)
         payload = {"hypothesis_summary": "", "frames": frames}
         text = json.dumps(payload, ensure_ascii=False)
-        runtime.record("select_by_frame_neighbor", request, text)
+        runtime.record(
+            "select_by_frame_neighbor",
+            request,
+            text,
+            image_metadata=image_metadata,
+        )
         return text
 
     tools.append(select_by_frame_neighbor)
@@ -369,6 +380,7 @@ def build_selector_tools(runtime: Any) -> list[BaseTool]:
             frames_set = set().union(*sets)
         chosen = sorted(int(f) for f in frames_set)[:capped]
         frames: list[dict] = []
+        image_metadata: list[dict] = []
         for fid in chosen:
             base = _build_frame_payload(
                 runtime,
@@ -381,7 +393,7 @@ def build_selector_tools(runtime: Any) -> list[BaseTool]:
             )
             image_path = _resolve_raw_rgb_path(catalog, int(fid))
             base["image_path"] = str(image_path) if image_path else None
-            queued = queue_pending_image_if_new(
+            image_ref = make_tool_image_ref_if_new(
                 runtime,
                 base["image_path"] or "",
                 metadata={
@@ -390,13 +402,17 @@ def build_selector_tools(runtime: Any) -> list[BaseTool]:
                     "selected_because": base["selected_because"],
                 },
             )
-            base["already_seen"] = (not queued) and (
+            if image_ref is not None:
+                image_metadata.append(image_ref)
+            base["already_seen"] = (image_ref is None) and (
                 base["image_path"] in runtime.seen_image_paths
             )
             frames.append(base)
         payload = {"hypothesis_summary": "", "frames": frames}
         text = json.dumps(payload, ensure_ascii=False)
-        runtime.record("select_by_proposal", request, text)
+        runtime.record(
+            "select_by_proposal", request, text, image_metadata=image_metadata
+        )
         return text
 
     tools.append(select_by_proposal)
@@ -465,6 +481,7 @@ def build_selector_tools(runtime: Any) -> list[BaseTool]:
                     chosen_set.add(int(fid))
             chosen = sorted(chosen_set)[:capped]
         frames: list[dict] = []
+        image_metadata: list[dict] = []
         for fid in chosen:
             base = _build_frame_payload(
                 runtime,
@@ -475,7 +492,7 @@ def build_selector_tools(runtime: Any) -> list[BaseTool]:
             )
             image_path = _resolve_raw_rgb_path(catalog, int(fid))
             base["image_path"] = str(image_path) if image_path else None
-            queued = queue_pending_image_if_new(
+            image_ref = make_tool_image_ref_if_new(
                 runtime,
                 base["image_path"] or "",
                 metadata={
@@ -484,13 +501,15 @@ def build_selector_tools(runtime: Any) -> list[BaseTool]:
                     "selected_because": base["selected_because"],
                 },
             )
-            base["already_seen"] = (not queued) and (
+            if image_ref is not None:
+                image_metadata.append(image_ref)
+            base["already_seen"] = (image_ref is None) and (
                 base["image_path"] in runtime.seen_image_paths
             )
             frames.append(base)
         payload = {"hypothesis_summary": "", "frames": frames}
         text = json.dumps(payload, ensure_ascii=False)
-        runtime.record("select_by_region", request, text)
+        runtime.record("select_by_region", request, text, image_metadata=image_metadata)
         return text
 
     tools.append(select_by_region)
@@ -592,6 +611,7 @@ def build_selector_tools(runtime: Any) -> list[BaseTool]:
                     unseen.sort(key=lambda f: (dist(f), f))
                     chosen = unseen[:capped]
         frames: list[dict] = []
+        image_metadata: list[dict] = []
         for fid in chosen:
             base = _build_frame_payload(
                 runtime,
@@ -602,7 +622,7 @@ def build_selector_tools(runtime: Any) -> list[BaseTool]:
             )
             image_path = _resolve_raw_rgb_path(catalog, int(fid))
             base["image_path"] = str(image_path) if image_path else None
-            queued = queue_pending_image_if_new(
+            image_ref = make_tool_image_ref_if_new(
                 runtime,
                 base["image_path"] or "",
                 metadata={
@@ -611,13 +631,17 @@ def build_selector_tools(runtime: Any) -> list[BaseTool]:
                     "selected_because": base["selected_because"],
                 },
             )
-            base["already_seen"] = (not queued) and (
+            if image_ref is not None:
+                image_metadata.append(image_ref)
+            base["already_seen"] = (image_ref is None) and (
                 base["image_path"] in runtime.seen_image_paths
             )
             frames.append(base)
         payload = {"hypothesis_summary": "", "frames": frames}
         text = json.dumps(payload, ensure_ascii=False)
-        runtime.record("select_by_coverage", request, text)
+        runtime.record(
+            "select_by_coverage", request, text, image_metadata=image_metadata
+        )
         return text
 
     tools.append(select_by_coverage)

@@ -11,14 +11,16 @@ from typing import Any
 
 from langchain_core.tools import BaseTool, tool
 
-from agents.runtime.scene_runtime import get_scene_catalog, queue_pending_image
+from agents.runtime.scene_runtime import get_scene_catalog, make_tool_image_ref
 
 SCENE_EXPLORATION_SKILL = "scene-exploration-playbook"
 
 
 def _gate(runtime: Any) -> str | None:
     if SCENE_EXPLORATION_SKILL not in runtime.skills_loaded:
-        return f"ERROR: load_skill({SCENE_EXPLORATION_SKILL!r}) before calling this tool."
+        return (
+            f"ERROR: load_skill({SCENE_EXPLORATION_SKILL!r}) before calling this tool."
+        )
     return None
 
 
@@ -27,7 +29,9 @@ def _in_bev_box(position_3d: tuple[float, float, float], box: list[float]) -> bo
     return xmin <= position_3d[0] <= xmax and ymin <= position_3d[1] <= ymax
 
 
-def _render_highlighted_bev(catalog, highlight_ids: list[int], output_path: Path) -> Path:
+def _render_highlighted_bev(
+    catalog, highlight_ids: list[int], output_path: Path
+) -> Path:
     """Render a highlight overlay using the SAME perspective view params as the base BEV.
 
     Reads the persisted ``view_params`` sidecar (``*.view.json``) that
@@ -101,9 +105,9 @@ def _resolve_highlight_ids(
     if categories:
         norm_to_proposals: dict[str, list[int]] = {}
         for p in catalog.proposals:
-            norm_to_proposals.setdefault(
-                str(p.category).strip().lower(), []
-            ).append(int(p.proposal_id))
+            norm_to_proposals.setdefault(str(p.category).strip().lower(), []).append(
+                int(p.proposal_id)
+            )
         for raw in categories:
             key = str(raw).strip().lower()
             if not key:
@@ -151,10 +155,19 @@ def build_scene_perception_tools(runtime: Any) -> list[BaseTool]:
             return gate
         catalog = get_scene_catalog(runtime)
         resolved_ids, missing_cats = _resolve_highlight_ids(
-            catalog, highlight, categories,
+            catalog,
+            highlight,
+            categories,
         )
         if not resolved_ids:
-            queue_pending_image(runtime, catalog.bev_image_path)
+            image_ref = make_tool_image_ref(
+                runtime,
+                catalog.bev_image_path,
+                metadata={
+                    "source_tool": "view_bev",
+                    "selected_because": "default BEV view",
+                },
+            )
             suffix = ""
             if missing_cats:
                 suffix = (
@@ -167,7 +180,7 @@ def build_scene_perception_tools(runtime: Any) -> list[BaseTool]:
                 f"default view (mesh + trajectory + small dots, no text labels"
                 f"{suffix})"
             )
-            runtime.record("view_bev", request, text)
+            runtime.record("view_bev", request, text, image_metadata=[image_ref])
             return text
         cache_dir = Path(catalog.bev_image_path).parent / "highlights"
         cache_dir.mkdir(parents=True, exist_ok=True)
@@ -181,16 +194,21 @@ def build_scene_perception_tools(runtime: Any) -> list[BaseTool]:
         )
         if not out_path.exists():
             _render_highlighted_bev(catalog, resolved_ids, out_path)
-        queue_pending_image(runtime, str(out_path))
+        image_ref = make_tool_image_ref(
+            runtime,
+            str(out_path),
+            metadata={
+                "source_tool": "view_bev",
+                "selected_because": f"highlight={resolved_ids}",
+            },
+        )
         parts = [f"bev image at {out_path}", f"highlight={resolved_ids}"]
         if categories:
             parts.append(f"resolved_from_categories={list(categories)!r}")
         if missing_cats:
-            parts.append(
-                f"categories_with_no_matches={missing_cats!r}"
-            )
+            parts.append(f"categories_with_no_matches={missing_cats!r}")
         text = "; ".join(parts)
-        runtime.record("view_bev", request, text)
+        runtime.record("view_bev", request, text, image_metadata=[image_ref])
         return text
 
     @tool
@@ -215,7 +233,9 @@ def build_scene_perception_tools(runtime: Any) -> list[BaseTool]:
                 err = "ERROR: region_bev must be [xmin, ymin, xmax, ymax]"
                 runtime.record("list_scene_proposals", request, err)
                 return err
-            proposals = [p for p in proposals if _in_bev_box(p.position_3d, list(region_bev))]
+            proposals = [
+                p for p in proposals if _in_bev_box(p.position_3d, list(region_bev))
+            ]
         if limit is not None and limit >= 0:
             proposals = proposals[:limit]
         payload = {
@@ -255,7 +275,9 @@ def build_scene_perception_tools(runtime: Any) -> list[BaseTool]:
             "proposal_id": proposal.proposal_id,
             "category": proposal.category,
             "position_3d": list(proposal.position_3d),
-            "bbox_3d_9dof": list(proposal.bbox_3d_9dof) if proposal.bbox_3d_9dof else None,
+            "bbox_3d_9dof": (
+                list(proposal.bbox_3d_9dof) if proposal.bbox_3d_9dof else None
+            ),
             "frames_appeared": sorted(proposal.frame_views.keys()),
             "source": proposal.source,
         }

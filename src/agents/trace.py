@@ -25,19 +25,24 @@ from .models import (
 
 
 def _active_visual_paths(bundle: Stage2EvidenceBundle) -> list[str]:
-    """Return BEV plus visual evidence queued by active tools."""
+    """Return initial visual paths from the evidence bundle."""
     paths: list[str] = []
     if bundle.bev_image_path:
         paths.append(bundle.bev_image_path)
+    return _unique_paths(paths)
 
-    extra = bundle.extra_metadata or {}
-    for path in extra.get("vg_pending_images") or []:
-        if path:
-            paths.append(str(path))
-    for row in extra.get("vg_pending_image_metadata") or []:
-        if isinstance(row, dict) and row.get("image_path"):
-            paths.append(str(row["image_path"]))
 
+def _tool_visual_paths(result: Stage2AgentResult) -> list[str]:
+    """Return visual paths emitted by active tool observations."""
+    paths: list[str] = []
+    for observation in result.tool_trace:
+        for row in observation.image_metadata:
+            if isinstance(row, dict) and row.get("image_path"):
+                paths.append(str(row["image_path"]))
+    return _unique_paths(paths)
+
+
+def _unique_paths(paths: list[str]) -> list[str]:
     seen: set[str] = set()
     unique: list[str] = []
     for path in paths:
@@ -780,6 +785,7 @@ def save_trace_report(
             input_images=[
                 TraceImageRef(path=path, role="visual")
                 for path in _active_visual_paths(initial_bundle)
+                + _tool_visual_paths(result)
             ],
             tool_calls=[
                 TraceToolCall(

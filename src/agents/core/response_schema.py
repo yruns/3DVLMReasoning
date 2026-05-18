@@ -27,6 +27,7 @@ class Stage2ToolObservation(BaseModel):
     tool_name: str
     tool_input: dict[str, Any] = Field(default_factory=dict)
     response_text: str = ""
+    image_metadata: list[dict[str, Any]] = Field(default_factory=list)
 
 
 class Stage2ToolResult(BaseModel):
@@ -34,6 +35,7 @@ class Stage2ToolResult(BaseModel):
 
     response_text: str
     updated_bundle: "Stage2EvidenceBundle | None" = None
+    image_metadata: list[dict[str, Any]] = Field(default_factory=list)
 
 
 class Stage2StructuredResponse(BaseModel):

@@ -61,14 +61,6 @@ def sample_bundle(test_image_path):
         scene_id="test_scene",
         extra_metadata={
             "vg_frame_image_paths": {0: test_image_path},
-            "vg_pending_image_metadata": [
-                {
-                    "image_path": test_image_path,
-                    "frame_id": 0,
-                    "source_tool": "select_by_text",
-                    "selected_because": "test selected frame",
-                }
-            ],
         },
         object_context={"summary": "test objects"},
     )
@@ -302,7 +294,10 @@ class TestProcessRequests:
 
         assert len(results) == 2
         assert all(r.success for r in results)
-        assert len(updated_bundle.extra_metadata["vg_pending_images"]) == 2
+        assert not any(
+            key.startswith("vg_" + "pending") for key in updated_bundle.extra_metadata
+        )
+        assert len(backend.crop_image_metadata(results)) == 2
 
     def test_max_crops_limit(self, sample_bundle, temp_output_dir):
         """Test that max_crops config is respected."""
@@ -321,16 +316,19 @@ class TestProcessRequests:
         results, _ = backend.process_requests(requests, sample_bundle)
         assert len(results) == 2
 
-    def test_bundle_updated_with_crop_metadata(self, backend, sample_bundle):
-        """Test that new crops get proper metadata in bundle."""
+    def test_crop_results_produce_trace_image_metadata(self, backend, sample_bundle):
+        """Test that new crops get proper trace-local metadata."""
         request = CropRequest(
             frame_idx=0,
             bbox=BBox2D(x1=50, y1=50, x2=150, y2=150),
             note="object detail",
         )
-        _, updated_bundle = backend.process_requests([request], sample_bundle)
+        results, updated_bundle = backend.process_requests([request], sample_bundle)
 
-        crop_meta = updated_bundle.extra_metadata["vg_pending_image_metadata"][-1]
+        assert not any(
+            key.startswith("vg_" + "pending") for key in updated_bundle.extra_metadata
+        )
+        crop_meta = backend.crop_image_metadata(results)[-1]
         assert crop_meta["source_tool"] == "request_crops"
         assert crop_meta["frame_id"] == 0
         assert "object detail" in crop_meta["selected_because"]
@@ -355,7 +353,10 @@ class TestProcessRequests:
 
         assert len(successful) == 1
         assert len(failed) == 1
-        assert len(updated_bundle.extra_metadata["vg_pending_images"]) == 1
+        assert not any(
+            key.startswith("vg_" + "pending") for key in updated_bundle.extra_metadata
+        )
+        assert len(backend.crop_image_metadata(results)) == 1
 
 
 # ============================================================================
@@ -457,8 +458,10 @@ class TestCreateCallback:
         assert isinstance(result, Stage2ToolResult)
         assert result.response_text
 
-    def test_callback_returns_updated_bundle(self, temp_output_dir, sample_bundle):
-        """Test callback returns updated bundle on success."""
+    def test_callback_returns_trace_image_metadata(
+        self, temp_output_dir, sample_bundle
+    ):
+        """Test callback returns trace image metadata on success."""
 
         def resolver(scene_id, frame_idx, obj_term):
             return BBox2D(x1=50, y1=50, x2=150, y2=150)
@@ -477,7 +480,11 @@ class TestCreateCallback:
         result = callback(sample_bundle, request)
 
         assert result.updated_bundle is not None
-        assert len(result.updated_bundle.extra_metadata["vg_pending_images"]) == 1
+        assert not any(
+            key.startswith("vg_" + "pending")
+            for key in result.updated_bundle.extra_metadata
+        )
+        assert len(result.image_metadata) == 1
 
 
 # ============================================================================

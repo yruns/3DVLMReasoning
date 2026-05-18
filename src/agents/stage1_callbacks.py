@@ -12,7 +12,6 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any
 
-
 from .models import (
     Stage2EvidenceBundle,
     Stage2ToolResult,
@@ -39,7 +38,7 @@ def create_crop_callback(
     For each matched object visible in selected frames:
     1. Expands the bbox by crop_scale (default 2x)
     2. Draws red bounding boxes for ALL visible objects in the crop region
-    3. Queues the annotated crop as tool-acquired visual evidence
+    3. Returns the annotated crop as tool-acquired visual evidence
     """
     del text_frame_selector, scene_id, crop_scale
 

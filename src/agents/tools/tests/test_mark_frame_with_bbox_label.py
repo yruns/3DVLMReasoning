@@ -15,7 +15,9 @@ from agents.tools.mark_frame_with_bbox import (
 )
 
 
-def _runtime_with_one_box(tmp_path: Path, bbox: tuple[int, int, int, int]) -> Stage2RuntimeState:
+def _runtime_with_one_box(
+    tmp_path: Path, bbox: tuple[int, int, int, int]
+) -> Stage2RuntimeState:
     rgb_path = tmp_path / "frame_42.png"
     Image.new("RGB", (400, 300), (200, 200, 200)).save(rgb_path)
     bev_path = tmp_path / "bev.png"
@@ -29,9 +31,7 @@ def _runtime_with_one_box(tmp_path: Path, bbox: tuple[int, int, int, int]) -> St
                 position_3d=(0.0, 0.0, 0.0),
                 source="mask3d",
                 frame_views={
-                    42: FrameView(
-                        frame_id=42, raw_rgb_path=str(rgb_path), bbox_2d=bbox
-                    )
+                    42: FrameView(frame_id=42, raw_rgb_path=str(rgb_path), bbox_2d=bbox)
                 },
             ),
         ],
@@ -40,9 +40,7 @@ def _runtime_with_one_box(tmp_path: Path, bbox: tuple[int, int, int, int]) -> St
         valid_frame_ids=[42],
         bev_image_path=str(bev_path),
     )
-    bundle = SimpleNamespace(
-        extra_metadata={"scene_catalog": catalog.model_dump(), "vg_pending_images": []}
-    )
+    bundle = SimpleNamespace(extra_metadata={"scene_catalog": catalog.model_dump()})
     rs = Stage2RuntimeState(bundle=bundle)
     rs.seen_image_paths = set()
     rs.skills_loaded = {"scene-exploration-playbook"}
@@ -167,9 +165,9 @@ def test_text_color_picked_by_luminance_for_each_palette_color():
     expected = {
         (34, 197, 94): (255, 255, 255),  # green → white
         (239, 68, 68): (255, 255, 255),  # red   → white
-        (59, 130, 246): (255, 255, 255), # blue  → white
-        (234, 179, 8): (0, 0, 0),        # yellow→ black
-        (168, 85, 247): (255, 255, 255), # purple→ white
+        (59, 130, 246): (255, 255, 255),  # blue  → white
+        (234, 179, 8): (0, 0, 0),  # yellow→ black
+        (168, 85, 247): (255, 255, 255),  # purple→ white
     }
     for bg in BBOX_PALETTE:
         assert _label_text_color_for_bg(bg) == expected[bg]

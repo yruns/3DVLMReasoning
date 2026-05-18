@@ -4,7 +4,6 @@ import json
 from pathlib import Path
 from types import SimpleNamespace
 
-import pytest
 from PIL import Image
 
 from agents.catalog import FrameView, SceneCatalog, SceneProposal
@@ -19,7 +18,12 @@ def _runtime_bev(tmp_path: Path) -> Stage2RuntimeState:
     rgbs = {f: tmp_path / f"frame_{f}.png" for f in fids}
     for r in rgbs.values():
         Image.new("RGB", (320, 240), (200, 200, 200)).save(r)
-    traj = {10: [1.0, 1.0, 0.0], 20: [2.0, 2.0, 0.0], 30: [3.0, 3.0, 0.0], 40: [4.0, 4.0, 0.0]}
+    traj = {
+        10: [1.0, 1.0, 0.0],
+        20: [2.0, 2.0, 0.0],
+        30: [3.0, 3.0, 0.0],
+        40: [4.0, 4.0, 0.0],
+    }
     catalog = SceneCatalog(
         scene_id="s",
         proposals=[
@@ -44,7 +48,6 @@ def _runtime_bev(tmp_path: Path) -> Stage2RuntimeState:
     bundle = SimpleNamespace(
         extra_metadata={
             "scene_catalog": catalog.model_dump(),
-            "vg_pending_images": [],
             "camera_trajectory_xy_yaw": traj,
         }
     )
@@ -85,7 +88,6 @@ def _runtime_bbox(tmp_path: Path) -> Stage2RuntimeState:
     bundle = SimpleNamespace(
         extra_metadata={
             "scene_catalog": catalog.model_dump(),
-            "vg_pending_images": [],
             "camera_trajectory_xy_yaw": {f: [float(f), 0.0, 0.0] for f in fids},
         }
     )
@@ -103,7 +105,10 @@ def test_select_by_region_bev_2d_returns_three_frames_with_images(tmp_path: Path
     assert len(payload["frames"]) == 3
     for frame in payload["frames"]:
         assert frame.get("image_path")
-    assert len(rs.bundle.extra_metadata["vg_pending_images"]) == 3
+    assert len(rs.tool_trace[-1].image_metadata) == 3
+    assert not any(
+        key.startswith("vg_" + "pending") for key in rs.bundle.extra_metadata
+    )
 
 
 def test_select_by_region_bbox_3d_returns_three_frames_with_images(tmp_path: Path):
@@ -116,4 +121,7 @@ def test_select_by_region_bbox_3d_returns_three_frames_with_images(tmp_path: Pat
     assert len(payload["frames"]) == 3
     for frame in payload["frames"]:
         assert frame.get("image_path")
-    assert len(rs.bundle.extra_metadata["vg_pending_images"]) == 3
+    assert len(rs.tool_trace[-1].image_metadata) == 3
+    assert not any(
+        key.startswith("vg_" + "pending") for key in rs.bundle.extra_metadata
+    )

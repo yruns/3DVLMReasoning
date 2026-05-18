@@ -11,7 +11,7 @@ import numpy as np
 from langchain_core.tools import BaseTool, tool
 
 from agents.catalog import SceneProposal
-from agents.runtime.scene_runtime import get_scene_catalog, queue_pending_image
+from agents.runtime.scene_runtime import get_scene_catalog, make_tool_image_ref
 from agents.tools.scene_perception import _gate
 
 BBOX_PALETTE: list[tuple[int, int, int]] = [
@@ -282,7 +282,7 @@ def build_mark_frame_with_bbox_tool(runtime: Any) -> BaseTool:
         )
         out_path = cache_dir / f"frame_{int(frame_id)}_ids_{ids_token}.png"
         Image.fromarray(img).save(out_path, format="PNG")
-        queue_pending_image(
+        image_ref = make_tool_image_ref(
             runtime,
             str(out_path),
             metadata={
@@ -317,7 +317,12 @@ def build_mark_frame_with_bbox_tool(runtime: Any) -> BaseTool:
             f"left_to_right={left_to_right}; "
             f"boxes_2d={boxes_2d}"
         )
-        runtime.record("mark_frame_with_bbox", request, body)
+        runtime.record(
+            "mark_frame_with_bbox",
+            request,
+            body,
+            image_metadata=[image_ref],
+        )
         return body
 
     return mark_frame_with_bbox

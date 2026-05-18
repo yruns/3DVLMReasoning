@@ -225,7 +225,7 @@ class Stage2DeepResearchAgent:
                         runtime.final_submission = None
                         logger.info(
                             "[Stage2DeepResearchAgent] turn {}: deferring submit_final "
-                            "until newly queued visual evidence is injected",
+                            "until newly tool-acquired visual evidence is injected",
                             turns_used,
                         )
                         continue

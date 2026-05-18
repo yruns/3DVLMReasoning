@@ -4,7 +4,6 @@ import json
 from pathlib import Path
 from types import SimpleNamespace
 
-import pytest
 from PIL import Image
 
 from agents.catalog import FrameView, SceneCatalog, SceneProposal
@@ -20,7 +19,8 @@ def _runtime(tmp_path: Path) -> Stage2RuntimeState:
     for r in rgbs.values():
         Image.new("RGB", (320, 240), (200, 200, 200)).save(r)
     fw = {
-        f: FrameView(frame_id=f, raw_rgb_path=str(rgbs[f]), bbox_2d=(0, 0, 20, 20)) for f in fids
+        f: FrameView(frame_id=f, raw_rgb_path=str(rgbs[f]), bbox_2d=(0, 0, 20, 20))
+        for f in fids
     }
     catalog = SceneCatalog(
         scene_id="s",
@@ -41,7 +41,6 @@ def _runtime(tmp_path: Path) -> Stage2RuntimeState:
     bundle = SimpleNamespace(
         extra_metadata={
             "scene_catalog": catalog.model_dump(),
-            "vg_pending_images": [],
             "camera_trajectory_xy_yaw": {f: [float(f), 0.0, 0.0] for f in fids},
         }
     )
@@ -51,21 +50,29 @@ def _runtime(tmp_path: Path) -> Stage2RuntimeState:
     return rs
 
 
-def test_select_by_frame_neighbor_temporal_returns_three_frames_with_images(tmp_path: Path):
+def test_select_by_frame_neighbor_temporal_returns_three_frames_with_images(
+    tmp_path: Path,
+):
     rs = _runtime(tmp_path)
-    tool = next(t for t in build_selector_tools(rs) if t.name == "select_by_frame_neighbor")
+    tool = next(
+        t for t in build_selector_tools(rs) if t.name == "select_by_frame_neighbor"
+    )
     raw = tool.invoke({"anchor_frame_id": 20, "mode": "temporal"})
     payload = json.loads(raw)
     assert len(payload["frames"]) == 3
     for frame in payload["frames"]:
         assert "image_path" in frame
-    pending = rs.bundle.extra_metadata["vg_pending_images"]
-    assert len(pending) == 3
+    assert len(rs.tool_trace[-1].image_metadata) == 3
+    assert not any(
+        key.startswith("vg_" + "pending") for key in rs.bundle.extra_metadata
+    )
 
 
 def test_select_by_frame_neighbor_respects_k_cap_viewpoint_diverse(tmp_path: Path):
     rs = _runtime(tmp_path)
-    tool = next(t for t in build_selector_tools(rs) if t.name == "select_by_frame_neighbor")
+    tool = next(
+        t for t in build_selector_tools(rs) if t.name == "select_by_frame_neighbor"
+    )
     raw = tool.invoke({"anchor_frame_id": 20, "mode": "viewpoint_diverse", "k": 5})
     payload = json.loads(raw)
     assert len(payload["frames"]) == 3

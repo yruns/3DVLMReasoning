@@ -19,15 +19,21 @@ def _runtime(tmp_path: Path) -> Stage2RuntimeState:
     catalog = SceneCatalog(
         scene_id="s",
         proposals=[
-            SceneProposal(proposal_id=0, category="chair", position_3d=(0, 0, 0), source="mask3d"),
-            SceneProposal(proposal_id=1, category="table", position_3d=(1, 1, 0), source="mask3d"),
+            SceneProposal(
+                proposal_id=0, category="chair", position_3d=(0, 0, 0), source="mask3d"
+            ),
+            SceneProposal(
+                proposal_id=1, category="table", position_3d=(1, 1, 0), source="mask3d"
+            ),
         ],
         total_frames=1,
         frame_id_range=(0, 0),
         valid_frame_ids=[0],
         bev_image_path=str(bev),
     )
-    bundle = Stage2EvidenceBundle(extra_metadata={"scene_catalog": catalog.model_dump()})
+    bundle = Stage2EvidenceBundle(
+        extra_metadata={"scene_catalog": catalog.model_dump()}
+    )
     rs = Stage2RuntimeState(bundle=bundle)
     rs.task_type = Stage2TaskType.VISUAL_GROUNDING
     rs.skills_loaded.add(PRIMARY_SKILL)
@@ -45,12 +51,18 @@ def test_view_bev_default_returns_catalog_path(tmp_path: Path):
     # v9.3: response advertises the no-text default; previous versions used
     # "highlight=ALL" wording that conflated default with "label everything".
     assert "no text labels" in response or "default view" in response
-    pending = rs.bundle.extra_metadata["vg_pending_images"]
-    assert pending == [str(tmp_path / "bev.png")]
+    assert rs.tool_trace[-1].image_metadata[0]["image_path"] == str(
+        tmp_path / "bev.png"
+    )
+    assert not any(
+        key.startswith("vg_" + "pending") for key in rs.bundle.extra_metadata
+    )
     assert rs.evidence_updated is True
 
 
-def test_view_bev_highlight_renders_subset(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+def test_view_bev_highlight_renders_subset(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
     rs = _runtime(tmp_path)
     captured: dict = {}
 
@@ -69,13 +81,14 @@ def test_view_bev_highlight_renders_subset(tmp_path: Path, monkeypatch: pytest.M
     tool = next(t for t in build_scene_perception_tools(rs) if t.name == "view_bev")
     resp = tool.invoke({"highlight": [1]})
     assert captured["highlight_ids"] == [1]
-    pending = rs.bundle.extra_metadata["vg_pending_images"]
-    assert pending and pending[-1].endswith(".png")
+    assert rs.tool_trace[-1].image_metadata
+    assert rs.tool_trace[-1].image_metadata[-1]["image_path"].endswith(".png")
     assert "highlight=[1]" in resp
 
 
 def test_view_bev_highlight_cache_filename_includes_renderer_version(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ):
     """v9.3 cache-busting: the cached highlight PNG filename embeds the
     renderer version tag so any future change to ``_overlay_proposal_labels``
@@ -131,9 +144,9 @@ def test_view_bev_categories_resolves_proposals(
     tool = next(t for t in build_scene_perception_tools(rs) if t.name == "view_bev")
     # Two proposals exist in the catalog: chair (#0), table (#1).
     resp = tool.invoke({"categories": ["chair"]})
-    assert captured["highlight_ids"] == [0], (
-        "categories=['chair'] should resolve to proposal_id=0 only"
-    )
+    assert captured["highlight_ids"] == [
+        0
+    ], "categories=['chair'] should resolve to proposal_id=0 only"
     assert "resolved_from_categories=['chair']" in resp
 
 
@@ -175,9 +188,10 @@ def test_view_bev_categories_with_unknown_category_warns(tmp_path: Path):
     resp = tool.invoke({"categories": ["unicorn"]})
     assert "no matches" in resp.lower()
     assert "unicorn" in resp
-    pending = rs.bundle.extra_metadata["vg_pending_images"]
     # Returns the base BEV path because nothing was actually highlighted.
-    assert pending == [str(tmp_path / "bev.png")]
+    assert rs.tool_trace[-1].image_metadata[0]["image_path"] == str(
+        tmp_path / "bev.png"
+    )
 
 
 def test_view_bev_categories_case_insensitive(
@@ -270,8 +284,7 @@ def test_highlight_label_aligns_with_base_bev_via_view_params(tmp_path: Path):
     ]
     diff_from_grey = np.abs(patch.astype(int) - 200).sum(axis=-1)
     assert (diff_from_grey > 30).any(), (
-        f"expected a marker near projected (u, v) = "
-        f"({u_expected}, {v_expected})"
+        f"expected a marker near projected (u, v) = " f"({u_expected}, {v_expected})"
     )
 
 

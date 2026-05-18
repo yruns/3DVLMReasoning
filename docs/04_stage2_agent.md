@@ -39,7 +39,7 @@ Stage2DeepResearchAgent.run(task, bundle)
 
 Three exit conditions, in priority order:
 1. **Structured completion** — agent emits `COMPLETED` or `FAILED`.
-2. **Evidence injection** — a selector / crop / mark tool queued new images in `vg_pending_images`; `build_evidence_update_message` injects only those tool-acquired images, then the loop continues.
+2. **Evidence injection** — a selector / crop / mark tool returns image metadata in its tool observation; `build_evidence_update_message` injects only those tool-acquired images, then the loop continues.
 3. **Nudge** — agent reported `INSUFFICIENT_EVIDENCE` or `NEEDS_MORE_EVIDENCE` and turns remain; a follow-up message urges tool use (`_build_evidence_nudge`, line 355; injected at line 644).
 
 Post-loop, `apply_uncertainty_stopping` (`runtime/base.py:415-490`) may downgrade a `COMPLETED` response with sub-threshold confidence to `INSUFFICIENT_EVIDENCE` when the loop cannot acquire more evidence.
@@ -51,11 +51,11 @@ All tools are registered in `build_runtime_tools` (`deepagents_agent.py:84-249`)
 | Tool group | Tools | Side-effect |
 |---|---|---|
 | Scene/catalog reads | `view_bev`, `list_scene_proposals`, `list_frame_proposals`, `inspect_proposal`, `retrieve_object_context` | read-only except `view_bev` image display |
-| Active frame selection | `select_by_text`, `select_by_proposal`, `select_by_frame_neighbor`, `select_by_region`, `select_by_coverage` | queues selected first-person RGB paths into `vg_pending_images` |
-| Active image refinement | `mark_frame_with_bbox`, `request_crops` | queues annotated frames or crops into `vg_pending_images` |
+| Active frame selection | `select_by_text`, `select_by_proposal`, `select_by_frame_neighbor`, `select_by_region`, `select_by_coverage` | records selected first-person RGB paths in tool-trace image metadata |
+| Active image refinement | `mark_frame_with_bbox`, `request_crops` | records annotated frames or crops in tool-trace image metadata |
 | Finalization / VG reasoning | `submit_final`, `compare_proposals_spatial` | records final payload or read-only ranking |
 
-Design principle: **every write-side tool marks `evidence_updated`, every read-side tool does not**. The loop depends on this distinction to decide whether to inject an evidence-update message.
+Design principle: **every tool that returns new visual evidence marks `evidence_updated`, every read-side tool does not**. The loop depends on this distinction to decide whether to inject an evidence-update message.
 
 ## 4.4 Evidence bundle + state
 

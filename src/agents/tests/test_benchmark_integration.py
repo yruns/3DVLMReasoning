@@ -588,12 +588,17 @@ class TestCrossBenchmarkPipeline(unittest.TestCase):
         def mock_crop_callback(bundle, request):
             crop_invoked[0] = True
             new_bundle = bundle.model_copy(deep=True)
-            extra = dict(new_bundle.extra_metadata or {})
-            pending = list(extra.get("vg_pending_images") or [])
-            pending.append("/mock/crop.jpg")
-            extra["vg_pending_images"] = pending
-            new_bundle.extra_metadata = extra
-            return {"response": "Crop generated", "updated_bundle": new_bundle}
+            return {
+                "response": "Crop generated",
+                "updated_bundle": new_bundle,
+                "image_metadata": [
+                    {
+                        "image_path": "/mock/crop.jpg",
+                        "frame_id": 0,
+                        "source_tool": "request_crops",
+                    }
+                ],
+            }
 
         agent = Stage2DeepResearchAgent(
             config=Stage2DeepAgentConfig(
@@ -620,7 +625,13 @@ class TestCrossBenchmarkPipeline(unittest.TestCase):
         )
 
         self.assertTrue(crop_invoked[0])
-        self.assertEqual(len(runtime.bundle.extra_metadata["vg_pending_images"]), 1)
+        self.assertFalse(
+            any(
+                key.startswith("vg_" + "pending")
+                for key in runtime.bundle.extra_metadata
+            )
+        )
+        self.assertEqual(len(runtime.tool_trace[-1].image_metadata), 1)
         self.assertTrue(runtime.evidence_updated)
 
 

@@ -6,7 +6,7 @@ import numpy as np
 
 from agents.core.task_types import Stage2EvidenceBundle
 from agents.runtime.base import Stage2RuntimeState
-from agents.runtime.scene_runtime import queue_pending_image_if_new
+from agents.runtime.scene_runtime import make_tool_image_ref_if_new
 from agents.tools.request_crops import (
     BBox2D,
     CropBackend,
@@ -15,7 +15,11 @@ from agents.tools.request_crops import (
 )
 
 
-def test_queue_pending_image_records_metadata(tmp_path: Path) -> None:
+def _assert_no_legacy_image_channel(extra_metadata: dict) -> None:
+    assert not any(key.startswith("vg_" + "pending") for key in extra_metadata)
+
+
+def test_make_tool_image_ref_records_metadata(tmp_path: Path) -> None:
     image_path = tmp_path / "frame.png"
     image_path.write_bytes(b"not-used")
     runtime = SimpleNamespace(
@@ -24,7 +28,7 @@ def test_queue_pending_image_records_metadata(tmp_path: Path) -> None:
         mark_evidence_updated=lambda: None,
     )
 
-    queued = queue_pending_image_if_new(
+    image_ref = make_tool_image_ref_if_new(
         runtime,
         str(image_path),
         metadata={
@@ -34,20 +38,16 @@ def test_queue_pending_image_records_metadata(tmp_path: Path) -> None:
         },
     )
 
-    assert queued is True
-    extra = runtime.bundle.extra_metadata
-    assert extra["vg_pending_images"] == [str(image_path)]
-    assert extra["vg_pending_image_metadata"] == [
-        {
-            "image_path": str(image_path),
-            "frame_id": 10,
-            "source_tool": "select_by_text",
-            "selected_because": "unit-test",
-        }
-    ]
+    assert image_ref == {
+        "image_path": str(image_path),
+        "frame_id": 10,
+        "source_tool": "select_by_text",
+        "selected_because": "unit-test",
+    }
+    _assert_no_legacy_image_channel(runtime.bundle.extra_metadata)
 
 
-def test_crop_backend_queues_crops_without_keyframe_field(tmp_path: Path) -> None:
+def test_crop_backend_records_crops_without_keyframe_field(tmp_path: Path) -> None:
     image_path = tmp_path / "frame_7.jpg"
     img = np.zeros((80, 80, 3), dtype=np.uint8)
     img[20:60, 20:60] = [255, 0, 0]
@@ -56,7 +56,7 @@ def test_crop_backend_queues_crops_without_keyframe_field(tmp_path: Path) -> Non
     bundle = Stage2EvidenceBundle(
         scene_id="scene",
         extra_metadata={
-            "vg_pending_image_metadata": [
+            "stage1_selected_frames": [
                 {
                     "image_path": str(image_path),
                     "frame_id": 7,
@@ -75,10 +75,9 @@ def test_crop_backend_queues_crops_without_keyframe_field(tmp_path: Path) -> Non
     assert len(results) == 1
     assert results[0].success is True
     assert not hasattr(updated, "key" + "frames")
-    pending = updated.extra_metadata["vg_pending_images"]
-    assert len(pending) == 1
-    assert Path(pending[0]).exists()
-    crop_meta = updated.extra_metadata["vg_pending_image_metadata"][-1]
+    _assert_no_legacy_image_channel(updated.extra_metadata)
+    crop_meta = backend.crop_image_metadata(results)[0]
+    assert Path(crop_meta["image_path"]).exists()
     assert crop_meta["source_tool"] == "request_crops"
     assert crop_meta["frame_id"] == 7
 
@@ -92,7 +91,7 @@ def test_runtime_state_has_no_keyframes_after_crop(tmp_path: Path) -> None:
         bundle=Stage2EvidenceBundle(
             scene_id="scene",
             extra_metadata={
-                "vg_pending_image_metadata": [
+                "stage1_selected_frames": [
                     {"image_path": str(image_path), "frame_id": 3}
                 ]
             },
@@ -106,4 +105,4 @@ def test_runtime_state_has_no_keyframes_after_crop(tmp_path: Path) -> None:
     )
 
     assert not hasattr(state.bundle, "key" + "frames")
-    assert len(state.bundle.extra_metadata["vg_pending_images"]) == 1
+    _assert_no_legacy_image_channel(state.bundle.extra_metadata)

@@ -4,7 +4,7 @@ This module provides the real crop extraction capability for the Stage-2 VLM age
 It supports:
 1. Cropping objects from selected first-person frames using 2D bounding boxes
 2. Multiple crop requests in a single call
-3. Queueing cropped images through bundle.extra_metadata["vg_pending_images"]
+3. Returning cropped image metadata to the active tool trace
 
 Design rationale (Academic alignment):
 - Supports "adaptive evidence acquisition" by letting the agent request focused
@@ -135,9 +135,9 @@ class CropBackend:
     """Backend for extracting object crops from selected frames.
 
     This backend implements the real crop extraction capability:
-    1. Reads frame images from metadata queued by selector tools
+    1. Reads frame images from frame metadata and the scene catalog
     2. Crops regions based on provided bounding boxes or object terms
-    3. Saves crops to disk and queues them for the next evidence update
+    3. Saves crops to disk and returns trace image metadata
 
     Usage:
         backend = CropBackend()
@@ -208,8 +208,7 @@ class CropBackend:
                     except (TypeError, ValueError):
                         continue
 
-        metadata_rows = list(extra.get("vg_pending_image_metadata") or [])
-        metadata_rows.extend(extra.get("stage1_selected_frames") or [])
+        metadata_rows = list(extra.get("stage1_selected_frames") or [])
         metadata_rows.extend(extra.get("benchmark_frames") or [])
         for row in metadata_rows:
             if not isinstance(row, dict):
@@ -428,16 +427,20 @@ class CropBackend:
             result = self.process_crop_request(request, bundle)
             results.append(result)
 
-        # Create updated bundle with new crops
+        # Keep the evidence bundle immutable with respect to tool-produced images.
+        # Crops are returned as tool trace image metadata by handle_tool_request().
         updated_bundle = bundle.model_copy(deep=True)
-        extra = dict(updated_bundle.extra_metadata or {})
-        pending = list(extra.get("vg_pending_images") or [])
-        metadata_rows = list(extra.get("vg_pending_image_metadata") or [])
+
+        return results, updated_bundle
+
+    @staticmethod
+    def crop_image_metadata(results: list[CropResult]) -> list[dict[str, Any]]:
+        """Return trace-local image metadata for successful crop results."""
+        rows: list[dict[str, Any]] = []
         for result in results:
             if not result.success or not result.crop_path:
                 continue
-            pending.append(result.crop_path)
-            metadata_rows.append(
+            rows.append(
                 {
                     "image_path": result.crop_path,
                     "frame_id": int(result.original_frame_idx),
@@ -446,11 +449,7 @@ class CropBackend:
                     "selected_because": result.note or "crop request",
                 }
             )
-        extra["vg_pending_images"] = pending
-        extra["vg_pending_image_metadata"] = metadata_rows
-        updated_bundle.extra_metadata = extra
-
-        return results, updated_bundle
+        return rows
 
     def handle_tool_request(
         self,
@@ -510,11 +509,12 @@ class CropBackend:
             for r in failed:
                 response_lines.append(f"  - Frame {r.original_frame_idx}: {r.error}")
 
-        response_lines.append(f"\nQueued crop images: {len(successful)}")
+        response_lines.append(f"\nTool image outputs: {len(successful)}")
 
         return Stage2ToolResult(
             response_text="\n".join(response_lines),
             updated_bundle=updated_bundle if successful else None,
+            image_metadata=self.crop_image_metadata(results),
         )
 
     def _parse_agent_request(

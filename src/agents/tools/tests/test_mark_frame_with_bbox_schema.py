@@ -26,14 +26,22 @@ def rs_with_two(tmp_path: Path) -> Stage2RuntimeState:
                 category="chair",
                 position_3d=(0.0, 0.0, 0.0),
                 source="mask3d",
-                frame_views={42: FrameView(frame_id=42, raw_rgb_path=str(rgb), bbox_2d=(20, 50, 120, 150))},
+                frame_views={
+                    42: FrameView(
+                        frame_id=42, raw_rgb_path=str(rgb), bbox_2d=(20, 50, 120, 150)
+                    )
+                },
             ),
             SceneProposal(
                 proposal_id=7,
                 category="table",
                 position_3d=(1.0, 0.0, 0.0),
                 source="mask3d",
-                frame_views={42: FrameView(frame_id=42, raw_rgb_path=str(rgb), bbox_2d=(220, 50, 320, 150))},
+                frame_views={
+                    42: FrameView(
+                        frame_id=42, raw_rgb_path=str(rgb), bbox_2d=(220, 50, 320, 150)
+                    )
+                },
             ),
         ],
         total_frames=100,
@@ -41,9 +49,7 @@ def rs_with_two(tmp_path: Path) -> Stage2RuntimeState:
         valid_frame_ids=[42],
         bev_image_path=str(bev),
     )
-    bundle = SimpleNamespace(
-        extra_metadata={"scene_catalog": catalog.model_dump(), "vg_pending_images": []}
-    )
+    bundle = SimpleNamespace(extra_metadata={"scene_catalog": catalog.model_dump()})
     rs = Stage2RuntimeState(bundle=bundle)
     rs.seen_image_paths = set()
     rs.skills_loaded = {"scene-exploration-playbook"}

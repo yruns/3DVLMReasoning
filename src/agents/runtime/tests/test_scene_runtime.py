@@ -5,7 +5,7 @@ from agents.core.task_types import Stage2EvidenceBundle
 from agents.runtime.base import Stage2RuntimeState
 from agents.runtime.scene_runtime import (
     get_scene_catalog,
-    queue_pending_image,
+    make_tool_image_ref,
 )
 
 
@@ -18,7 +18,11 @@ def _catalog() -> SceneCatalog:
                 category="chair",
                 position_3d=(0, 0, 0),
                 source="mask3d",
-                frame_views={10: FrameView(frame_id=10, bbox_2d=(0, 0, 10, 10), raw_rgb_path="r.png")},
+                frame_views={
+                    10: FrameView(
+                        frame_id=10, bbox_2d=(0, 0, 10, 10), raw_rgb_path="r.png"
+                    )
+                },
             )
         ],
         total_frames=1,
@@ -56,13 +60,17 @@ def test_get_scene_catalog_missing_errors():
         get_scene_catalog(rs)
 
 
-def test_queue_pending_image_appends_and_marks_updated(tmp_path):
-    bundle = Stage2EvidenceBundle(extra_metadata={"scene_catalog": _catalog().model_dump()})
+def test_make_tool_image_ref_returns_metadata_without_runtime_queue(tmp_path):
+    bundle = Stage2EvidenceBundle(
+        extra_metadata={"scene_catalog": _catalog().model_dump()}
+    )
     rs = Stage2RuntimeState(bundle=bundle)
-    queue_pending_image(rs, str(tmp_path / "x.png"))
-    queue_pending_image(rs, str(tmp_path / "y.png"))
-    assert rs.bundle.extra_metadata["vg_pending_images"] == [
-        str(tmp_path / "x.png"),
-        str(tmp_path / "y.png"),
-    ]
-    assert rs.evidence_updated is True
+    first = make_tool_image_ref(rs, str(tmp_path / "x.png"))
+    second = make_tool_image_ref(rs, str(tmp_path / "y.png"))
+    assert first == {"image_path": str(tmp_path / "x.png")}
+    assert second == {"image_path": str(tmp_path / "y.png")}
+    assert not any("pending" in name and "image" in name for name in dir(rs))
+    assert not any(
+        key.startswith("vg_" + "pending") for key in rs.bundle.extra_metadata
+    )
+    assert rs.evidence_updated is False

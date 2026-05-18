@@ -1,7 +1,7 @@
 """Runtime helpers for v9 catalog-first scene exploration tools.
 
-Hydrates SceneCatalog on demand from bundle.extra_metadata, and exposes
-queue_pending_image() so every image-injecting tool uses a single code path.
+Hydrates SceneCatalog on demand from bundle.extra_metadata, and exposes helpers
+that create trace-local image metadata for images produced by active tools.
 """
 
 from __future__ import annotations
@@ -35,48 +35,32 @@ def get_scene_catalog(runtime: Any) -> SceneCatalog:
     return catalog
 
 
-def queue_pending_image(
+def make_tool_image_ref(
     runtime: Any,
     image_path: str,
     *,
     metadata: dict[str, Any] | None = None,
-) -> None:
-    """Append an image to the pending queue and mark evidence updated."""
-    extra = dict(runtime.bundle.extra_metadata or {})
-    pending = list(extra.get("vg_pending_images") or [])
+) -> dict[str, Any]:
+    """Return trace metadata for a tool-produced image."""
     path = str(image_path)
-    pending.append(path)
-    extra["vg_pending_images"] = pending
+    row = {"image_path": path}
     if metadata is not None:
-        metadata_rows = list(extra.get("vg_pending_image_metadata") or [])
-        row = {"image_path": path, **dict(metadata)}
-        metadata_rows.append(row)
-        extra["vg_pending_image_metadata"] = metadata_rows
-    runtime.bundle.extra_metadata = extra
-    runtime.mark_evidence_updated()
+        row.update(dict(metadata))
+    return row
 
 
-def queue_pending_image_if_new(
+def make_tool_image_ref_if_new(
     runtime: Any,
     path: str,
     *,
     metadata: dict[str, Any] | None = None,
-) -> bool:
-    """Queue `path` for the next evidence update only if it has not already been seen.
-
-    Returns True if the image was queued (caller should mark `already_seen=False`),
-    False if it was a no-op (caller should mark `already_seen=True`). Empty paths
-    are silently skipped (returns False).
-    """
+) -> dict[str, Any] | None:
+    """Return trace metadata only if `path` has not already been seen."""
     if not path:
-        return False
+        return None
     if path in runtime.seen_image_paths:
-        return False
-    pending = set((runtime.bundle.extra_metadata or {}).get("vg_pending_images") or [])
-    if path in pending:
-        return False
-    queue_pending_image(runtime, path, metadata=metadata)
-    return True
+        return None
+    return make_tool_image_ref(runtime, path, metadata=metadata)
 
 
-__all__ = ["get_scene_catalog", "queue_pending_image", "queue_pending_image_if_new"]
+__all__ = ["get_scene_catalog", "make_tool_image_ref", "make_tool_image_ref_if_new"]

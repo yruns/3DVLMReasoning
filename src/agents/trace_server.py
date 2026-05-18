@@ -43,19 +43,24 @@ from .models import (
 
 
 def _collect_visual_paths(bundle: Stage2EvidenceBundle) -> list[str]:
-    """Collect images explicitly visible or queued by active tools."""
+    """Collect initial images explicitly visible from the bundle."""
     paths: list[str] = []
     if bundle.bev_image_path:
         paths.append(bundle.bev_image_path)
+    return _unique_paths(paths)
 
-    extra = bundle.extra_metadata or {}
-    for path in extra.get("vg_pending_images") or []:
-        if path:
-            paths.append(str(path))
-    for row in extra.get("vg_pending_image_metadata") or []:
-        if isinstance(row, dict) and row.get("image_path"):
-            paths.append(str(row["image_path"]))
 
+def _collect_tool_visual_paths(result: Stage2AgentResult) -> list[str]:
+    """Collect images emitted by active tool observations."""
+    paths: list[str] = []
+    for observation in result.tool_trace:
+        for row in observation.image_metadata:
+            if isinstance(row, dict) and row.get("image_path"):
+                paths.append(str(row["image_path"]))
+    return _unique_paths(paths)
+
+
+def _unique_paths(paths: list[str]) -> list[str]:
     seen: set[str] = set()
     unique: list[str] = []
     for path in paths:
@@ -432,8 +437,10 @@ class TracingAgent:
             # Update trace with results
             end_time = time.time()
 
-            # Collect all visual paths from final bundle.
+            # Collect initial bundle visuals plus tool-emitted visuals.
             final_paths = _collect_visual_paths(result.final_bundle)
+            final_paths.extend(_collect_tool_visual_paths(result))
+            final_paths = _unique_paths(final_paths)
 
             self.db.update_trace(
                 trace_id,
