@@ -2781,6 +2781,131 @@ Trace reading:
 
 Reading: positive diagnostic. This is not benchmark-grade, but it shows the
 TADG binding rule converts two prior final failures plus six wrong completed
-cases into correct answers without GT inputs on this audited slice. Launch a
-standard strat600 rerun from a clean commit before treating the change as an
-active row.
+cases into correct answers without GT inputs on this audited slice. The
+standard strat600 follow-up is recorded below.
+
+### Full strat600 rerun after multi-anchor TADG binding: a3ff7f1
+
+Standard strat600 rerun after making `compare_candidates_to_anchors`
+first-class TADG evidence and blocking unresolved multi-anchor relation
+evidence. This is a no-GT runtime: GT is used only by the post-hoc leaderboard
+script. First-person images still enter only through tool calls recorded on
+`Stage2ToolObservation.image_metadata`; BEV remains the only non-tool image in
+the initial context.
+
+Run metadata:
+
+| Field | Value |
+|---|---|
+| Branch | `feat/remove-initial-keyframes` |
+| Head / run-time commit | `a3ff7f1` (no worktree drift; runtime code change from `99dffcc`) |
+| Sample IDs | `tmp/nr3d_artifacts/v9_3_strat600_sample_ids.json` |
+| Output dir | `tmp/nr3d_eval_v10_multi_anchor_tadg_strat600_20260519_a3ff7f1/` |
+| Run log | `/tmp/nr3d_multi_anchor_tadg600_a3ff7f1.log` |
+| SQLite run id | `v10_multi_anchor_tadg_strat600_20260519` |
+| Workers | 20 |
+| Sample retries | 0 |
+| Guards | TADG + no-match + evidence-frame |
+
+Artifact checksums:
+
+| Artifact | MD5 |
+|---|---|
+| `side_by_side.json` | `f7d172f8b46e85d8fef0f0e07c211421` |
+| `leaderboard_metrics.json` | `ba70c58429ef9dd46269481327a323d5` |
+
+Representative command:
+
+```bash
+tmux new-session -d -s nr3d-tadg-anchor600-a3ff7f1 \
+  "cd /Users/bytedance/project/3DVLMReasoning && bash -lc 'set -euo pipefail; \
+   export PYTHONPATH=src PYTHONUNBUFFERED=1; \
+   .venv/bin/python -m evaluation.scripts.run_nr3d_vg_side_by_side \
+     --sample-ids tmp/nr3d_artifacts/v9_3_strat600_sample_ids.json \
+     --data-root data/nr3d/scannet \
+     --pack-name pack_nr3d_v9_catalog_first \
+     --output-dir tmp/nr3d_eval_v10_multi_anchor_tadg_strat600_20260519_a3ff7f1 \
+     --workers 20 \
+     --sample-retries 0 \
+     --use-tool-answer-disagreement-gate \
+     --use-no-match-candidate-guard \
+     --use-evidence-frame-guard \
+     2>&1 | tee /tmp/nr3d_multi_anchor_tadg600_a3ff7f1.log; \
+   .venv/bin/python -m evaluation.scripts.nr3d_leaderboard_metrics \
+     --side-by-side tmp/nr3d_eval_v10_multi_anchor_tadg_strat600_20260519_a3ff7f1/side_by_side.json \
+     --nr3d-data-root data/nr3d \
+     --phase8-data-root data/nr3d/scannet \
+     --sample-ids tmp/nr3d_artifacts/v9_3_strat600_sample_ids.json \
+     --output tmp/nr3d_eval_v10_multi_anchor_tadg_strat600_20260519_a3ff7f1/leaderboard_metrics.json \
+     --canonical-filter true \
+     2>&1 | tee -a /tmp/nr3d_multi_anchor_tadg600_a3ff7f1.log'"
+
+PYTHONPATH=src .venv/bin/python scripts/ingest_nr3d_run.py \
+  --output-dir tmp/nr3d_eval_v10_multi_anchor_tadg_strat600_20260519_a3ff7f1 \
+  --run-id v10_multi_anchor_tadg_strat600_20260519 \
+  --branch feat/remove-initial-keyframes \
+  --commit a3ff7f1 \
+  --backend pack_v1 \
+  --leaderboard-metrics tmp/nr3d_eval_v10_multi_anchor_tadg_strat600_20260519_a3ff7f1/leaderboard_metrics.json \
+  --notes "Standard strat600 rerun after TADG learned compare_candidates_to_anchors evidence and blocks unresolved anchor_disagreement; no initial keyframes or pending-image side channel." \
+  --db docs/benchmark/nr3d/runs.sqlite
+```
+
+Metrics:
+
+| Variant | Commit | Overall | Easy | Hard | V-Dep | V-Ind | Statuses |
+|---|---|---:|---:|---:|---:|---:|---|
+| No-initial-keyframes baseline | `220f128` | 64.33 | 72.41 | 56.77 | 53.55 | 70.18 | 600 completed |
+| Tool-trace image metadata | `cfee0ef` | 61.00 | 67.93 | 54.52 | 52.13 | 65.81 | 590 completed, 10 failed |
+| Guard/extractor fixes | `a6f6077` | 62.67 | 71.03 | 54.84 | 53.55 | 67.61 | 597 completed, 3 failed |
+| Multi-anchor tool + routing | `b671243` | 70.00 | 78.28 | 62.26 | 58.77 | 76.09 | 598 completed, 2 failed |
+| Multi-anchor TADG binding | `a3ff7f1` | **72.00** | **82.41** | **62.26** | **62.56** | **77.12** | 600 completed |
+
+SQLite case deltas:
+
+| Baseline | Recovered | Regressed | Net correct |
+|---|---:|---:|---:|
+| `cfee0ef` tool-trace image metadata | 109 | 43 | +66 |
+| `220f128` no-initial-keyframes baseline | 102 | 56 | +46 |
+| `a6f6077` guard/extractor fixes | 95 | 39 | +56 |
+| `b671243` multi-anchor tool + routing | 64 | 52 | +12 |
+
+Trace/tool usage:
+
+- Final side-by-side contains 600 rows and all 600 final statuses are
+  `completed`. The run log contains two intermediate
+  `completed at turn 6 with status=failed` messages, but neither survives as a
+  final sample status.
+- `compare_candidates_to_anchors` was called 84 times in 78 unique cases.
+- Relations in the multi-anchor calls: `closest_to` 45, `next_to` 22,
+  `farthest_from` 9, `near` 3, plus 5 non-primary relation calls
+  (`right_of`, `left_of`, `above`, `below`).
+- `TADG_MULTI_ANCHOR_UNRESOLVED` appeared in 21 final traces. This is the
+  intended active guard path; the run still completed all samples.
+- Three calls still passed overlapping candidate and anchor ids:
+  `scene0149_00::25::10119`, `scene0343_00::16::35014`, and
+  `scene0696_00::0::28948`. This remains the next tool-level fix target.
+- Top tool calls: `mark_frame_with_bbox` 1891, `inspect_proposal` 1860,
+  `select_by_proposal` 1634, `load_skill` 1610, `submit_final` 1589,
+  `view_bev` 698, `compare_proposals_spatial` 192, `select_by_text` 184.
+
+Runtime/log observations:
+
+- Eval and metrics both exited successfully; `side_by_side.json` and
+  `leaderboard_metrics.json` were generated.
+- The log contains many retryable ModelHub 429 messages at attempt 1/5, but no
+  traceback, no exception, and no retry escalation to attempt 2/5 or higher in
+  the monitored scans.
+- Source scan over `src/` and `scripts/` still finds no runtime pending-image
+  side-channel tokens except the explicit no-pending-image contract test
+  function names. Artifact/log scan over this run found zero occurrences of
+  `pending_image_paths`, `vg_pending_images`, `pending_image_metadata`,
+  `queue_pending`, or `pending_image`.
+
+Reading: this is the strongest fair v10 strat600 row so far: +2.00 pp Overall
+over `b671243`, with the biggest movement on Easy (+4.13 pp) and V-Dep (+3.79
+pp). The change does not improve Hard over `b671243`, and the 52 regressions
+show the guard is still not universally beneficial. The next no-GT work should
+be narrower: reject or warn on `candidate_ids` intersecting `anchor_ids` in
+`compare_candidates_to_anchors`, then audit the 52 regressions before broadening
+any prompt rule.
