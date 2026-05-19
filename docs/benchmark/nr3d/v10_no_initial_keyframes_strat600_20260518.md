@@ -2552,5 +2552,133 @@ Reading: positive diagnostic. The active code keeps the no-initial-keyframes /
 no pending-image contract and improves this audited slice from 5 / 15 to
 9 / 15 without regressing any `71510a0` correct case. Because several recovered
 cases did not call the new tool, the gain is partly prompt/skill routing rather
-than tool mechanics alone. A full strat600 rerun is required before claiming a
-general accuracy improvement.
+than tool mechanics alone. The standard strat600 follow-up is recorded below.
+
+### Full strat600 rerun after multi-anchor tool: b671243
+
+Standard strat600 rerun after adding `compare_candidates_to_anchors` and
+multi-anchor playbook routing. This is a no-GT runtime: GT is used only by the
+post-hoc leaderboard script. First-person images still enter only through
+tool-trace `image_metadata`; BEV remains the only non-tool image in the initial
+context.
+
+Run metadata:
+
+| Field | Value |
+|---|---|
+| Branch | `feat/remove-initial-keyframes` |
+| Head / run-time commit | `b671243` (no worktree drift) |
+| Sample IDs | `tmp/nr3d_artifacts/v9_3_strat600_sample_ids.json` |
+| Output dir | `tmp/nr3d_eval_v10_multi_anchor_strat600_20260519_b671243/` |
+| Run log | `/tmp/nr3d_multi_anchor600_b671243.log` |
+| SQLite run id | `v10_multi_anchor_strat600_20260519` |
+| Workers | 20 |
+| Sample retries | 0 |
+| Guards | TADG + no-match + evidence-frame |
+
+Artifact checksums:
+
+| Artifact | MD5 |
+|---|---|
+| `side_by_side.json` | `f0c72d135a9a6c9c8ff2582144ac75e7` |
+| `leaderboard_metrics.json` | `815045f8f138cacdd276743cec870f49` |
+
+Representative command:
+
+```bash
+tmux new-session -d -s nr3d-multi-anchor600-b671243 \
+  "cd /Users/bytedance/project/3DVLMReasoning && bash -lc 'set -euo pipefail; \
+   export PYTHONPATH=src PYTHONUNBUFFERED=1; \
+   .venv/bin/python -m evaluation.scripts.run_nr3d_vg_side_by_side \
+     --sample-ids tmp/nr3d_artifacts/v9_3_strat600_sample_ids.json \
+     --data-root data/nr3d/scannet \
+     --pack-name pack_nr3d_v9_catalog_first \
+     --output-dir tmp/nr3d_eval_v10_multi_anchor_strat600_20260519_b671243 \
+     --workers 20 \
+     --sample-retries 0 \
+     --use-tool-answer-disagreement-gate \
+     --use-no-match-candidate-guard \
+     --use-evidence-frame-guard \
+     2>&1 | tee /tmp/nr3d_multi_anchor600_b671243.log; \
+   .venv/bin/python -m evaluation.scripts.nr3d_leaderboard_metrics \
+     --side-by-side tmp/nr3d_eval_v10_multi_anchor_strat600_20260519_b671243/side_by_side.json \
+     --nr3d-data-root data/nr3d \
+     --phase8-data-root data/nr3d/scannet \
+     --sample-ids tmp/nr3d_artifacts/v9_3_strat600_sample_ids.json \
+     --output tmp/nr3d_eval_v10_multi_anchor_strat600_20260519_b671243/leaderboard_metrics.json \
+     --canonical-filter true \
+     2>&1 | tee -a /tmp/nr3d_multi_anchor600_b671243.log'"
+
+PYTHONPATH=src .venv/bin/python scripts/ingest_nr3d_run.py \
+  --output-dir tmp/nr3d_eval_v10_multi_anchor_strat600_20260519_b671243 \
+  --run-id v10_multi_anchor_strat600_20260519 \
+  --branch feat/remove-initial-keyframes \
+  --commit b671243 \
+  --backend pack_v1 \
+  --leaderboard-metrics tmp/nr3d_eval_v10_multi_anchor_strat600_20260519_b671243/leaderboard_metrics.json \
+  --notes "Standard strat600 rerun after compare_candidates_to_anchors multi-anchor tool and playbook routing; no initial keyframes or pending-image side channel." \
+  --db docs/benchmark/nr3d/runs.sqlite
+```
+
+Metrics:
+
+| Variant | Commit | Overall | Easy | Hard | V-Dep | V-Ind | Statuses |
+|---|---|---:|---:|---:|---:|---:|---|
+| No-initial-keyframes baseline | `220f128` | 64.33 | 72.41 | 56.77 | 53.55 | 70.18 | 600 completed |
+| Tool-trace image metadata | `cfee0ef` | 61.00 | 67.93 | 54.52 | 52.13 | 65.81 | 590 completed, 10 failed |
+| Guard/extractor fixes | `a6f6077` | 62.67 | 71.03 | 54.84 | 53.55 | 67.61 | 597 completed, 3 failed |
+| Multi-anchor tool + routing | `b671243` | **70.00** | **78.28** | **62.26** | **58.77** | **76.09** | 598 completed, 2 failed |
+
+SQLite case deltas:
+
+| Baseline | Recovered | Regressed | Net correct |
+|---|---:|---:|---:|
+| `cfee0ef` tool-trace image metadata | 104 | 50 | +54 |
+| `220f128` no-initial-keyframes baseline | 93 | 59 | +34 |
+| `a6f6077` guard/extractor fixes | 98 | 54 | +44 |
+
+Trace/tool usage:
+
+- `compare_candidates_to_anchors` was called 83 times in 78 unique cases.
+  Those 78 cases scored 50 correct / 28 wrong.
+- Relations in the new tool calls: `closest_to` 40, `next_to` 24,
+  `farthest_from` 11, `near` 4, plus 4 failed/invalid responses.
+- `anchor_disagreement=true` appeared in 37 calls. This is useful signal, but
+  not yet always consumed correctly by the finalizer.
+- One case passed overlapping candidate and anchor ids into the new tool:
+  `scene0678_00::32::22598` with overlap `[23,25,26,32]`. Follow-up should
+  fail loud or explicitly flag `candidate_ids ∩ anchor_ids`.
+- Top tool calls: `inspect_proposal` 1879, `mark_frame_with_bbox` 1875,
+  `select_by_proposal` 1664, `submit_final` 1586, `load_skill` 1480,
+  `view_bev` 706, `select_by_text` 176.
+
+Runtime failures / log observations:
+
+- Two final sample statuses are `failed`:
+  `scene0086_00::14::37595` ("the can closest to the toilet") and
+  `scene0338_00::15::37749` ("the upper cabinets").
+- The log contains one `[QueryParser] All 4 keys exhausted` event. It did not
+  abort the run; the final side-by-side artifact still contains all 600 rows.
+- No traceback was observed in the run log.
+
+No pending-image side-channel check:
+
+- Source scan over `src/` and `scripts/`, excluding the explicit contract test,
+  found zero occurrences of `pending_image_paths`, `vg_pending_images`,
+  `pending_image_metadata`, `queue_pending`, or `pending_image`.
+- Artifact scan over
+  `tmp/nr3d_eval_v10_multi_anchor_strat600_20260519_b671243/` found zero
+  occurrences of `pending_image_paths`, `vg_pending_images`,
+  `pending_image_metadata`, or `queue_pending`.
+- The runtime log line `injecting N new images into context` comes from
+  `Stage2RuntimeState.tool_trace[*].image_metadata` plus the initial BEV path;
+  it is not backed by `state.pending_image_paths` or bundle
+  `vg_pending_images`.
+
+Reading: this is a meaningful standard-fold gain. It still sits below the
+known leaky v9.4-D upper bound, but it is above every fair v10 strat600 row so
+far and above the v9.3 text-first baseline by +3.33 pp. The next improvement
+target is not another broad prompt; the trace points to two narrow fixes:
+reject/flag candidate-anchor self-overlap in `compare_candidates_to_anchors`,
+and teach TADG/finalization to treat unresolved `anchor_disagreement` as
+insufficient relation evidence for closest/farthest/near/next_to finals.
