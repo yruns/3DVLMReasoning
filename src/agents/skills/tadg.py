@@ -345,7 +345,7 @@ def _last_matching_compare(
         window = len(trace)
     for entry in reversed(trace[-window:]):
         name = getattr(entry, "tool_name", None)
-        if name != "compare_proposals_spatial":
+        if name not in {"compare_proposals_spatial", "compare_candidates_to_anchors"}:
             continue
         tool_input = getattr(entry, "tool_input", {}) or {}
         requested_relation = _canonical_compare_relation(tool_input.get("relation", ""))
@@ -355,6 +355,22 @@ def _last_matching_compare(
         except (json.JSONDecodeError, TypeError):
             continue
         if not isinstance(payload, dict):
+            continue
+        if name == "compare_candidates_to_anchors":
+            relation = _canonical_compare_relation(
+                payload.get("relation") or requested_relation
+            )
+            if relation not in relevant_relations:
+                continue
+            evidence_id = payload.get("evidence_id")
+            if not isinstance(evidence_id, str) or not evidence_id:
+                continue
+            compare = _bound_multi_anchor_compare(
+                {"evidence_id": evidence_id},
+                payload,
+            )
+            if compare is not None:
+                return compare
             continue
         if "ranked_ids" not in payload:
             # Earlier entries may be error strings (still recorded with
@@ -400,7 +416,10 @@ def _recorded_compare_payload(
     evidence_id: str,
 ) -> dict[str, Any] | None:
     for entry in list(getattr(runtime, "tool_trace", []) or []):
-        if getattr(entry, "tool_name", None) != "compare_proposals_spatial":
+        if getattr(entry, "tool_name", None) not in {
+            "compare_proposals_spatial",
+            "compare_candidates_to_anchors",
+        }:
             continue
         tool_input = getattr(entry, "tool_input", {}) or {}
         if not isinstance(tool_input, dict) or tool_input.get("evidence_id") != evidence_id:
@@ -414,6 +433,132 @@ def _recorded_compare_payload(
             return None
         return payload
     return None
+
+
+def _multi_anchor_relation_field_matches(
+    relation_evidence: dict[str, Any],
+    *,
+    payload: dict[str, Any],
+    relation: str,
+    candidate_ids: list[int],
+    anchor_ids: list[int],
+) -> bool:
+    for field, value in relation_evidence.items():
+        if field == "evidence_id":
+            continue
+        if field == "relation":
+            if not isinstance(value, str) or _canonical_compare_relation(value) != relation:
+                return False
+            continue
+        if field == "candidate_ids":
+            if _int_list(value) != candidate_ids:
+                return False
+            continue
+        if field == "anchor_ids":
+            if _int_list(value) != anchor_ids:
+                return False
+            continue
+        if field in {"anchor_id", "resolved_anchor_id"}:
+            if isinstance(value, bool) or not isinstance(value, int):
+                return False
+            if value not in anchor_ids:
+                return False
+            continue
+        if payload.get(field) != value:
+            return False
+    return True
+
+
+def _bound_multi_anchor_compare(
+    relation_evidence: dict[str, Any],
+    payload: dict[str, Any],
+) -> dict[str, Any] | None:
+    relation_value = payload.get("relation")
+    if not isinstance(relation_value, str):
+        return None
+    relation = _canonical_compare_relation(relation_value)
+    if relation not in {"closest_to", "near", "next_to", "farthest_from"}:
+        return None
+    candidate_ids = _int_list(payload.get("candidate_ids"))
+    anchor_ids = _int_list(payload.get("anchor_ids"))
+    per_anchor = payload.get("per_anchor")
+    if (
+        candidate_ids is None
+        or not candidate_ids
+        or anchor_ids is None
+        or not anchor_ids
+        or not isinstance(per_anchor, list)
+    ):
+        return None
+
+    ranked_by_anchor: dict[int, list[int]] = {}
+    for item in per_anchor:
+        if not isinstance(item, dict):
+            return None
+        anchor_id = item.get("anchor_id")
+        if isinstance(anchor_id, bool) or not isinstance(anchor_id, int):
+            return None
+        ranked_ids = _int_list(item.get("ranked_ids"))
+        if (
+            ranked_ids is None
+            or not ranked_ids
+            or not set(ranked_ids).issubset(set(candidate_ids))
+        ):
+            return None
+        ranked_by_anchor[anchor_id] = ranked_ids
+    if set(ranked_by_anchor) != set(anchor_ids):
+        return None
+
+    if not _multi_anchor_relation_field_matches(
+        relation_evidence,
+        payload=payload,
+        relation=relation,
+        candidate_ids=candidate_ids,
+        anchor_ids=anchor_ids,
+    ):
+        return None
+
+    anchor_disagreement = bool(payload.get("anchor_disagreement"))
+    resolved_anchor = relation_evidence.get("anchor_id")
+    if resolved_anchor is None:
+        resolved_anchor = relation_evidence.get("resolved_anchor_id")
+    if isinstance(resolved_anchor, bool):
+        return None
+    if isinstance(resolved_anchor, int):
+        ranked_ids = ranked_by_anchor.get(resolved_anchor)
+        if ranked_ids is None:
+            return None
+        return {
+            "relation": relation,
+            "anchor_id": resolved_anchor,
+            "candidate_ids": candidate_ids,
+            "ranked_ids": ranked_ids,
+            "anchor_disagreement": anchor_disagreement,
+            "source_tool": "compare_candidates_to_anchors",
+        }
+
+    top1s = [ranked_ids[0] for ranked_ids in ranked_by_anchor.values()]
+    if anchor_disagreement or len(set(top1s)) > 1:
+        return {
+            "relation": relation,
+            "anchor_id": None,
+            "candidate_ids": candidate_ids,
+            "ranked_ids": [],
+            "anchor_ids": anchor_ids,
+            "anchor_disagreement": True,
+            "unresolved_multi_anchor": True,
+            "source_tool": "compare_candidates_to_anchors",
+        }
+
+    first_anchor_id = anchor_ids[0]
+    return {
+        "relation": relation,
+        "anchor_id": first_anchor_id,
+        "candidate_ids": candidate_ids,
+        "ranked_ids": ranked_by_anchor[first_anchor_id],
+        "anchor_disagreement": False,
+        "source_tool": "compare_candidates_to_anchors",
+    }
 
 
 def _field_matches_bound_evidence(
@@ -446,6 +591,8 @@ def _bound_compare(
     payload = _recorded_compare_payload(runtime, evidence_id)
     if payload is None:
         return None
+    if isinstance(payload.get("per_anchor"), list):
+        return _bound_multi_anchor_compare(relation_evidence, payload)
     relation_value = payload.get("relation")
     if not isinstance(relation_value, str):
         return None
@@ -831,6 +978,27 @@ def evaluate_tadg(
         compare = _last_matching_compare(runtime, relevant_relations)
     if compare is None:
         return TADGDecision(blocked=False)
+
+    if compare.get("unresolved_multi_anchor"):
+        runtime.tadg_triggered = True
+        anchor_ids = compare.get("anchor_ids") or []
+        anchor_text = ", ".join(f"proposal {pid}" for pid in anchor_ids[:8])
+        message = (
+            "TADG_MULTI_ANCHOR_UNRESOLVED: relation_evidence points to "
+            "compare_candidates_to_anchors with anchor_disagreement=true, but "
+            "no resolved anchor_id was bound to the final answer. First resolve "
+            f"which anchor is meant among: {anchor_text}. Then resubmit with "
+            "`relation_evidence={\"evidence_id\": ..., \"anchor_id\": <resolved "
+            "anchor proposal>}` or run a single-anchor compare for that anchor."
+        )
+        return TADGDecision(
+            blocked=True,
+            message=message,
+            submitted_pid=submitted_pid,
+            relation=compare.get("relation"),
+            ranked_ids=(),
+            subcase="unresolved_multi_anchor",
+        )
 
     ranked_ids = compare["ranked_ids"]
     if not ranked_ids:

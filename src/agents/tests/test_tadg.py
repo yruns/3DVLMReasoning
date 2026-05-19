@@ -106,6 +106,65 @@ def _record_compare(
     return evidence_id
 
 
+def _record_multi_anchor_compare(
+    rs: Stage2RuntimeState,
+    *,
+    relation: str,
+    candidate_ids: list[int],
+    top1_by_anchor: dict[int, int],
+    ranked_by_anchor: dict[int, list[int]] | None = None,
+    evidence_id: str | None = None,
+) -> str:
+    if evidence_id is None:
+        compare_index = sum(
+            1
+            for entry in rs.tool_trace
+            if entry.tool_name == "compare_candidates_to_anchors"
+        )
+        evidence_id = f"compare_candidates_to_anchors:{compare_index}"
+    anchor_ids = list(top1_by_anchor)
+    ranked_by_anchor = ranked_by_anchor or {
+        anchor_id: [top1, *[pid for pid in candidate_ids if pid != top1]]
+        for anchor_id, top1 in top1_by_anchor.items()
+    }
+    payload = {
+        "evidence_id": evidence_id,
+        "candidate_ids": candidate_ids,
+        "anchor_ids": anchor_ids,
+        "relation": relation,
+        "requested_relation": relation,
+        "per_anchor": [
+            {
+                "anchor_id": anchor_id,
+                "ranked_ids": ranked_by_anchor[anchor_id],
+                "distances": list(range(len(ranked_by_anchor[anchor_id]))),
+                "horizontal_distances": list(range(len(ranked_by_anchor[anchor_id]))),
+            }
+            for anchor_id in anchor_ids
+        ],
+        "top1_by_anchor": {str(k): v for k, v in top1_by_anchor.items()},
+        "anchor_disagreement": len(set(top1_by_anchor.values())) > 1,
+        "globally_consistent_top1": (
+            next(iter(top1_by_anchor.values()))
+            if len(set(top1_by_anchor.values())) == 1
+            else None
+        ),
+    }
+    rs.tool_trace.append(
+        Stage2ToolObservation(
+            tool_name="compare_candidates_to_anchors",
+            tool_input={
+                "candidate_ids": candidate_ids,
+                "anchor_ids": anchor_ids,
+                "relation": relation,
+                "evidence_id": evidence_id,
+            },
+            response_text=json.dumps(payload),
+        )
+    )
+    return evidence_id
+
+
 def _record_category_lookup(
     rs: Stage2RuntimeState,
     *,
@@ -329,6 +388,83 @@ def test_tadg_uses_bound_relation_evidence_over_stale_latest_compare() -> None:
     )
 
     assert decision.blocked is False
+
+
+def test_tadg_blocks_unresolved_multi_anchor_relation_evidence() -> None:
+    rs = _runtime(bundle=_bundle_with_query("the monitor beside the desk"))
+    evidence_id = _record_multi_anchor_compare(
+        rs,
+        relation="next_to",
+        candidate_ids=[3, 5],
+        top1_by_anchor={12: 3, 13: 5},
+    )
+
+    decision = evaluate_tadg(
+        rs,
+        {"proposal_id": 5, "confidence": 0.84},
+        relation_evidence={"evidence_id": evidence_id},
+    )
+
+    assert decision.blocked is True
+    assert decision.subcase == "unresolved_multi_anchor"
+    assert "anchor_disagreement" in decision.message
+
+
+def test_tadg_blocks_latest_unresolved_multi_anchor_without_bound_evidence() -> None:
+    rs = _runtime(bundle=_bundle_with_query("the monitor beside the desk"))
+    _record_multi_anchor_compare(
+        rs,
+        relation="next_to",
+        candidate_ids=[3, 5],
+        top1_by_anchor={12: 3, 13: 5},
+    )
+
+    decision = evaluate_tadg(
+        rs,
+        {"proposal_id": 5, "confidence": 0.84},
+    )
+
+    assert decision.blocked is True
+    assert decision.subcase == "unresolved_multi_anchor"
+    assert "anchor_disagreement" in decision.message
+
+
+def test_tadg_accepts_resolved_multi_anchor_relation_evidence() -> None:
+    rs = _runtime(bundle=_bundle_with_query("the monitor beside the desk"))
+    evidence_id = _record_multi_anchor_compare(
+        rs,
+        relation="next_to",
+        candidate_ids=[3, 5],
+        top1_by_anchor={12: 3, 13: 5},
+    )
+
+    decision = evaluate_tadg(
+        rs,
+        {"proposal_id": 5, "confidence": 0.84},
+        relation_evidence={"evidence_id": evidence_id, "anchor_id": 13},
+    )
+
+    assert decision.blocked is False
+
+
+def test_tadg_blocks_resolved_multi_anchor_rank_mismatch() -> None:
+    rs = _runtime(bundle=_bundle_with_query("the monitor beside the desk"))
+    evidence_id = _record_multi_anchor_compare(
+        rs,
+        relation="next_to",
+        candidate_ids=[3, 5],
+        top1_by_anchor={12: 3, 13: 5},
+    )
+
+    decision = evaluate_tadg(
+        rs,
+        {"proposal_id": 3, "confidence": 0.84},
+        relation_evidence={"evidence_id": evidence_id, "anchor_id": 13},
+    )
+
+    assert decision.blocked is True
+    assert decision.top1_pid == 5
+    assert decision.subcase == "rank_mismatch"
 
 
 def test_tadg_rejects_bound_anchor_self_without_forcing_rank1() -> None:
