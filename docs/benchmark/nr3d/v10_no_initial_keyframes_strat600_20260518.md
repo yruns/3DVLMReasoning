@@ -2681,4 +2681,106 @@ far and above the v9.3 text-first baseline by +3.33 pp. The next improvement
 target is not another broad prompt; the trace points to two narrow fixes:
 reject/flag candidate-anchor self-overlap in `compare_candidates_to_anchors`,
 and teach TADG/finalization to treat unresolved `anchor_disagreement` as
-insufficient relation evidence for closest/farthest/near/next_to finals.
+insufficient relation evidence for closest/farthest/near/next_to finals. The
+latter is probed in the next section.
+
+### Multi-anchor TADG binding probe: 99dffcc
+
+Diagnostic probe on 15 failed cases from the `b671243` standard strat600 run.
+The code change is no-GT: `compare_candidates_to_anchors` evidence is now
+first-class TADG evidence. If that tool reports `anchor_disagreement=true`,
+TADG blocks final answers unless the final binds a resolved anchor through
+`relation_evidence={"evidence_id": ..., "anchor_id": ...}` or uses a
+single-anchor `compare_proposals_spatial` call.
+
+Run metadata:
+
+| Field | Value |
+|---|---|
+| Branch | `feat/remove-initial-keyframes` |
+| Head / run-time commit | `99dffcc` (no worktree drift) |
+| Sample IDs | `docs/benchmark/nr3d/assets/v10_multi_anchor_tadg15_sample_ids_20260519.json` |
+| Output dir | `tmp/nr3d_eval_v10_multi_anchor_tadg15_20260519_99dffcc/` |
+| Run log | `/tmp/nr3d_multi_anchor_tadg15_99dffcc.log` |
+| SQLite run id | `v10_multi_anchor_tadg15_20260519` |
+| Workers | 15 |
+| Sample retries | 0 |
+| Guards | TADG + no-match + evidence-frame |
+
+Artifact checksums:
+
+| Artifact | MD5 |
+|---|---|
+| `side_by_side.json` | `23e866093ea816c75e022e8ff8fb5b54` |
+| `leaderboard_metrics.json` | `0c8311292c0086646e72a43a6faf41be` |
+
+Representative command:
+
+```bash
+tmux new-session -d -s nr3d-multi-anchor-tadg15-99dffcc \
+  "cd /Users/bytedance/project/3DVLMReasoning && bash -lc 'set -euo pipefail; \
+   export PYTHONPATH=src PYTHONUNBUFFERED=1; \
+   .venv/bin/python -m evaluation.scripts.run_nr3d_vg_side_by_side \
+     --sample-ids docs/benchmark/nr3d/assets/v10_multi_anchor_tadg15_sample_ids_20260519.json \
+     --data-root data/nr3d/scannet \
+     --pack-name pack_nr3d_v9_catalog_first \
+     --output-dir tmp/nr3d_eval_v10_multi_anchor_tadg15_20260519_99dffcc \
+     --workers 15 \
+     --sample-retries 0 \
+     --use-tool-answer-disagreement-gate \
+     --use-no-match-candidate-guard \
+     --use-evidence-frame-guard \
+     2>&1 | tee /tmp/nr3d_multi_anchor_tadg15_99dffcc.log; \
+   .venv/bin/python -m evaluation.scripts.nr3d_leaderboard_metrics \
+     --side-by-side tmp/nr3d_eval_v10_multi_anchor_tadg15_20260519_99dffcc/side_by_side.json \
+     --nr3d-data-root data/nr3d \
+     --phase8-data-root data/nr3d/scannet \
+     --sample-ids docs/benchmark/nr3d/assets/v10_multi_anchor_tadg15_sample_ids_20260519.json \
+     --output tmp/nr3d_eval_v10_multi_anchor_tadg15_20260519_99dffcc/leaderboard_metrics.json \
+     --canonical-filter true \
+     2>&1 | tee -a /tmp/nr3d_multi_anchor_tadg15_99dffcc.log'"
+
+PYTHONPATH=src .venv/bin/python scripts/ingest_nr3d_run.py \
+  --output-dir tmp/nr3d_eval_v10_multi_anchor_tadg15_20260519_99dffcc \
+  --run-id v10_multi_anchor_tadg15_20260519 \
+  --branch feat/remove-initial-keyframes \
+  --commit 99dffcc \
+  --backend pack_v1 \
+  --leaderboard-metrics tmp/nr3d_eval_v10_multi_anchor_tadg15_20260519_99dffcc/leaderboard_metrics.json \
+  --notes "Diagnostic 15-case probe after TADG learned compare_candidates_to_anchors evidence and blocks unresolved anchor_disagreement; no GT runtime inputs." \
+  --db docs/benchmark/nr3d/runs.sqlite
+```
+
+Probe metrics:
+
+| Variant | Commit | Overall | Easy | Hard | V-Dep | V-Ind | Statuses |
+|---|---|---:|---:|---:|---:|---:|---|
+| Multi-anchor strat600 failures | `b671243` subset | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 13 completed, 2 failed |
+| Multi-anchor TADG binding | `99dffcc` | **53.33** | **66.67** | **44.44** | **25.00** | **63.64** | 15 completed |
+
+Case deltas vs `b671243` on the same 15 cases:
+
+| Recovered | Still wrong |
+|---|---|
+| `scene0086_00::14::37595`, `scene0338_00::15::37749`, `scene0565_00::4::9604`, `scene0643_00::26::21245`, `scene0329_00::5::23755`, `scene0427_00::6::2399`, `scene0389_00::3::14425`, `scene0249_00::32::23442` | `scene0187_00::10::17549`, `scene0153_00::18::27180`, `scene0665_00::19::10095`, `scene0149_00::21::1743`, `scene0651_00::9::29997`, `scene0025_00::26::38922`, `scene0648_00::22::18216` |
+
+Trace reading:
+
+- `compare_candidates_to_anchors` was called 9 times across the 15 cases.
+- `TADG_MULTI_ANCHOR_UNRESOLVED` fired in 9 cases. All 9 traces continued
+  after the block; none ended in a final failed status.
+- Most agents recovered by running `compare_proposals_spatial` for a resolved
+  single anchor after the block. This confirms the guard message is actionable.
+- Three misses (`scene0187`, `scene0665`, `scene0648`) still resolved to a
+  plausible but wrong anchor/candidate after the block, so the remaining issue
+  is not only evidence binding; it is anchor identity and candidate closure.
+- Source scan over `src/` and `scripts/` still finds no runtime pending-image
+  side-channel tokens. The only `pending_image` source hits are contract-test
+  function names; the test body intentionally builds banned token strings via
+  joins and scans all other Python files.
+
+Reading: positive diagnostic. This is not benchmark-grade, but it shows the
+TADG binding rule converts two prior final failures plus six wrong completed
+cases into correct answers without GT inputs on this audited slice. Launch a
+standard strat600 rerun from a clean commit before treating the change as an
+active row.
