@@ -2909,3 +2909,102 @@ show the guard is still not universally beneficial. The next no-GT work should
 be narrower: reject or warn on `candidate_ids` intersecting `anchor_ids` in
 `compare_candidates_to_anchors`, then audit the 52 regressions before broadening
 any prompt rule.
+
+### High-worker reproduction of multi-anchor TADG binding: a3ff7f1 / workers=30
+
+Reproduction run requested to test whether the `a3ff7f1` best row remains stable
+with higher parallelism. Runtime code is still `a3ff7f1`; the current branch tip
+also contains documentation-only commits. This run completed cleanly but did not
+reproduce the 72.00 row.
+
+Run metadata:
+
+| Field | Value |
+|---|---|
+| Branch | `best/v10-multi-anchor-tadg-72-a3ff7f1` |
+| Head commit at launch | `a3ff7f1` |
+| Run-time code commit | `a3ff7f1` (no code drift; doc commits applied after evaluation) |
+| Sample IDs | `tmp/nr3d_artifacts/v9_3_strat600_sample_ids.json` |
+| Output dir | `tmp/nr3d_eval_v10_multi_anchor_tadg_strat600_repro_w30_20260520_a3ff7f1/` |
+| Run log | `/tmp/nr3d_multi_anchor_tadg600_repro_w30_a3ff7f1.log` |
+| SQLite run id | `REPRO_20260520_v10_multi_anchor_tadg_strat600_20260519_w30` |
+| Workers | 30 |
+| Sample retries | 0 |
+| Extra env | `MODELHUB_AK_WEIGHTS=1,1,1` |
+| Guards | TADG + no-match + evidence-frame |
+
+Artifact checksums:
+
+| Artifact | MD5 |
+|---|---|
+| `side_by_side.json` | `5cad262562dd5eb7f26e44ccde1c1558` |
+| `leaderboard_metrics.json` | `ddea6326bfacc5060d1b4eabaf26a7e4` |
+
+Representative command:
+
+```bash
+tmux new-session -d -s nr3d-tadg-anchor600-repro-w30-a3ff7f1 \
+  "cd /Users/bytedance/project/3DVLMReasoning && bash -lc 'set -euo pipefail; \
+   export PYTHONPATH=src PYTHONUNBUFFERED=1 MODELHUB_AK_WEIGHTS=1,1,1; \
+   .venv/bin/python -m evaluation.scripts.run_nr3d_vg_side_by_side \
+     --sample-ids tmp/nr3d_artifacts/v9_3_strat600_sample_ids.json \
+     --data-root data/nr3d/scannet \
+     --pack-name pack_nr3d_v9_catalog_first \
+     --output-dir tmp/nr3d_eval_v10_multi_anchor_tadg_strat600_repro_w30_20260520_a3ff7f1 \
+     --workers 30 \
+     --sample-retries 0 \
+     --use-tool-answer-disagreement-gate \
+     --use-no-match-candidate-guard \
+     --use-evidence-frame-guard \
+     2>&1 | tee /tmp/nr3d_multi_anchor_tadg600_repro_w30_a3ff7f1.log; \
+   .venv/bin/python -m evaluation.scripts.nr3d_leaderboard_metrics \
+     --side-by-side tmp/nr3d_eval_v10_multi_anchor_tadg_strat600_repro_w30_20260520_a3ff7f1/side_by_side.json \
+     --nr3d-data-root data/nr3d \
+     --phase8-data-root data/nr3d/scannet \
+     --sample-ids tmp/nr3d_artifacts/v9_3_strat600_sample_ids.json \
+     --output tmp/nr3d_eval_v10_multi_anchor_tadg_strat600_repro_w30_20260520_a3ff7f1/leaderboard_metrics.json \
+     --canonical-filter true \
+     2>&1 | tee -a /tmp/nr3d_multi_anchor_tadg600_repro_w30_a3ff7f1.log'"
+
+PYTHONPATH=src .venv/bin/python scripts/ingest_nr3d_run.py \
+  --output-dir tmp/nr3d_eval_v10_multi_anchor_tadg_strat600_repro_w30_20260520_a3ff7f1 \
+  --run-id REPRO_20260520_v10_multi_anchor_tadg_strat600_20260519_w30 \
+  --branch best/v10-multi-anchor-tadg-72-a3ff7f1 \
+  --commit a3ff7f1 \
+  --backend pack_v1 \
+  --leaderboard-metrics tmp/nr3d_eval_v10_multi_anchor_tadg_strat600_repro_w30_20260520_a3ff7f1/leaderboard_metrics.json \
+  --notes "High-worker workers=30 reproduction of v10_multi_anchor_tadg_strat600_20260519 at runtime commit a3ff7f1; completed 600/600 but scored 70.00 vs original 72.00, with 2724 retryable 429, 19 retryable 403, 15 attempt2 and no fatal errors." \
+  --db docs/benchmark/nr3d/runs.sqlite
+```
+
+Metrics:
+
+| Variant | Commit | Workers | Overall | Easy | Hard | V-Dep | V-Ind | Statuses |
+|---|---|---:|---:|---:|---:|---:|---:|---|
+| Original multi-anchor TADG binding | `a3ff7f1` | 20 | **72.00** | **82.41** | **62.26** | **62.56** | **77.12** | 600 completed |
+| High-worker reproduction | `a3ff7f1` | 30 | 70.00 | 78.62 | 61.94 | 61.61 | 74.55 | 600 completed |
+
+Matched-case delta vs original `v10_multi_anchor_tadg_strat600_20260519`:
+
+| Old correct -> new wrong | Old wrong -> new correct | Net correct |
+|---:|---:|---:|
+| 61 | 49 | -12 |
+
+Runtime/log observations:
+
+- Eval and metrics both exited successfully; `side_by_side.json` and
+  `leaderboard_metrics.json` were generated.
+- Final side-by-side contains 600 rows and all 600 final statuses are
+  `completed`.
+- The run log contains 2724 retryable 429 messages, 19 retryable 403 messages,
+  and 15 `attempt 2/5` messages. There were no `attempt 3/5` or higher retries,
+  no `RateLimitError`, no traceback, and no final failed sample status.
+- One parser validation warning includes the word `failed`, but it is an
+  intermediate parser-pool retry and does not survive as a sample failure.
+
+Reading: higher workers are operationally viable here, but they increase
+ModelHub throttling substantially and did not reproduce the original 72.00 row.
+Treat 72.00 as the best observed `a3ff7f1` strat600 score and this run as a
+negative high-concurrency reproduction. For a stable reproduction attempt, prefer
+the original workers=20 recipe before drawing conclusions about algorithmic
+regression.
