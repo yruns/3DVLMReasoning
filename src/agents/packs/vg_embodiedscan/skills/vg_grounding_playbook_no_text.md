@@ -23,7 +23,9 @@ the target is genuinely absent from the catalog — OOD case).
    for "chair" can refer to an `office chair`, `desk chair`, `lounge chair`,
    or `armchair`; do not reject a subtype label when relation/visual evidence
    matches the referring expression. For anchor-bearing queries ("next to the
-   kitchen counter") also identify the anchor's `#id`s.
+   kitchen counter") also identify the anchor's `#id`s. If the task message
+   includes `Proposal notes:`, use those compact enriched notes for initial
+   shortlisting, but still verify visually before submit.
 2. **Fetch first-person evidence** with
    `select_by_proposal(proposal_ids=[candidate ids], require_all=False, k=3)`.
    For queries with no obvious catalog handle (e.g. "the table in the
@@ -97,6 +99,11 @@ subset, not across every same-category object in the frame.
   evidence_frame_guard).
 - `list_frame_proposals(frame_id)`, `list_scene_proposals(...)`,
   `inspect_proposal(id)` — text-only catalog queries.
+- `inspect_proposal(id)` returns proposal metadata plus the full enriched
+  object description when available (`description / location / nearby_objects /
+  color / usability`). Call it when compact notes or category labels are not
+  enough to resolve visual attributes, functional clues, or nearby-object
+  context.
 - `view_bev(highlight=[ids])` — re-render BEV with text labels only on those proposals.
 - `view_bev(categories=["chair", "table"])` — text-label proposals whose
   category matches (case-insensitive exact). Default `view_bev()` is

@@ -1,4 +1,5 @@
 """Adapter: feasibility-module artifacts -> vg_proposal_pool dict."""
+
 from __future__ import annotations
 
 import json
@@ -25,8 +26,18 @@ def test_build_vg_proposal_pool_with_visibility(tmp_path: Path) -> None:
     _write_proposals_json(
         proposals_path,
         [
-            {"bbox_3d": [0,0,0,1,1,1,0,0,0], "score": 0.9, "label": "chair", "metadata": {"class_id": 2}},
-            {"bbox_3d": [3,0,0,1,1,1,0,0,0], "score": 0.7, "label": "desk", "metadata": {"class_id": 10}},
+            {
+                "bbox_3d": [0, 0, 0, 1, 1, 1, 0, 0, 0],
+                "score": 0.9,
+                "label": "chair",
+                "metadata": {"class_id": 2},
+            },
+            {
+                "bbox_3d": [3, 0, 0, 1, 1, 1, 0, 0, 0],
+                "score": 0.7,
+                "label": "desk",
+                "metadata": {"class_id": 10},
+            },
         ],
     )
     annotated = tmp_path / "ann"
@@ -64,6 +75,16 @@ def test_build_vg_proposal_pool_preserves_cvra_frame_views(tmp_path: Path) -> No
                 "bbox_3d": [0, 0, 0, 1, 1, 1, 0, 0, 0],
                 "score": 0.9,
                 "label": "mat",
+                "enriched_category": "floor mat",
+                "compact_note": "small dark floor mat near the doorway",
+                "enrichment": {
+                    "category": "floor mat",
+                    "description": "A small dark rectangular floor mat.",
+                    "location": "Near the doorway.",
+                    "nearby_objects": ["door"],
+                    "color": "dark gray",
+                    "usability": "Used for wiping shoes.",
+                },
                 "frame_views": {
                     "61": {
                         "proposal_id": 7,
@@ -89,6 +110,9 @@ def test_build_vg_proposal_pool_preserves_cvra_frame_views(tmp_path: Path) -> No
 
     proposal = pool["proposals"][0]
     assert proposal["id"] == 7
+    assert proposal["enriched_category"] == "floor mat"
+    assert proposal["compact_note"] == "small dark floor mat near the doorway"
+    assert proposal["enrichment"]["usability"] == "Used for wiping shoes."
     assert proposal["frame_views"] == {
         "61": {
             "proposal_id": 7,
@@ -100,7 +124,9 @@ def test_build_vg_proposal_pool_preserves_cvra_frame_views(tmp_path: Path) -> No
     }
 
 
-def test_build_vg_proposal_pool_raises_on_missing_top_level_proposals(tmp_path: Path) -> None:
+def test_build_vg_proposal_pool_raises_on_missing_top_level_proposals(
+    tmp_path: Path,
+) -> None:
     proposals_path = tmp_path / "props.json"
     proposals_path.write_text(json.dumps({}), encoding="utf-8")
     annotated = tmp_path / "ann"
@@ -135,7 +161,7 @@ def test_build_vg_proposal_pool_raises_on_missing_per_item_key(tmp_path: Path) -
     proposals_path = tmp_path / "props.json"
     _write_proposals_json(
         proposals_path,
-        [{"bbox_3d": [0]*9, "score": 0.5}],  # missing 'label'
+        [{"bbox_3d": [0] * 9, "score": 0.5}],  # missing 'label'
     )
     annotated = tmp_path / "ann"
     annotated.mkdir()

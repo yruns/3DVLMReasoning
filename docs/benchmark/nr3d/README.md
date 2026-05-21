@@ -12,7 +12,9 @@ the current human-facing index.
 > honest depth-aware NR3D "best" on this codebase is now **v10
 > multi-anchor TADG at 72.00 % on the strat600 fold**. A 2026-05-20
 > high-worker reproduction at `workers=30` completed cleanly but scored
-> 70.00 %, so use the original workers=20 recipe for stable reproduction. The older v9.3
+> 70.00 %, and a 2026-05-21 `workers=20` reproduction from the current best
+> branch scored 69.17 %. Treat 72.00 as best observed, not yet deterministic.
+> The older v9.3
 > text-first row at 66.67 % remains the clean baseline closest to public
 > UniVLG SOTA (65.2 %). The post-mortem consolidates
 > the 6 investigation sub-docs into one narrative and gives the
@@ -105,10 +107,11 @@ archive: +5.33 pp over the v9.3 text-first baseline and +6.80 pp over the
 public UniVLG headline, with **zero initial-keyframe or pending-image side
 channel**. It should still be treated as a strat600 result, not a FULL 7805
 claim; strat600 → FULL bias is bounded at ±0.19 pp on the v9.1_fix reference,
-±2.3 pp 90 %-band on a fresh agent. A 2026-05-20 high-worker reproduction of
-the same runtime commit completed 600 / 600 at **70.00 %**, so cite the 72.00
-row as best observed and keep the lower reproduction as a concurrency/stability
-caveat.
+±2.3 pp 90 %-band on a fresh agent. Two later reproductions of the same code
+family did not recover 72.00: `workers=30` on 2026-05-20 scored **70.00 %**,
+and `workers=20` on 2026-05-21 scored **69.17 %** with 294 retryable 403s and
+56 retryable 429s. Cite 72.00 as the best observed fair row and keep the lower
+reproductions as stability caveats.
 
 Latest spec-cleanup run:
 [v10_no_initial_keyframes_strat600_20260518.md](v10_no_initial_keyframes_strat600_20260518.md)
@@ -121,9 +124,9 @@ through `tool_trace.image_metadata`; it produced 600 side-by-side rows, 590
 completed statuses, 10 final failed statuses, 0 tracebacks, and **61.00 %**
 Overall. Later standard follow-ups add a no-GT multi-anchor spatial comparison
 tool (`b671243`, **70.00 %**) and TADG binding for unresolved multi-anchor
-evidence (`a3ff7f1`, **72.00 %**). The `workers=30` reproduction of `a3ff7f1`
-completed cleanly but returned **70.00 %**, so use the original workers=20 row
-for the best observed result.
+evidence (`a3ff7f1`, **72.00 %**). Later reproductions on the best branch
+returned **70.00 %** at `workers=30` and **69.17 %** at `workers=20`, so use
+the original row as the best observed result rather than a deterministic score.
 
 **Previously claimed depth-aware best** (`v9_1_fix_FULL_REPRO_20260516` =
 82.95 %) was **invalidated on 2026-05-17** as an information leak: the 5
@@ -312,6 +315,7 @@ Previous best depth-aware random100 pilot:
 | [v10_multi_anchor_tadg15_20260519](v10_no_initial_keyframes_strat600_20260518.md#multi-anchor-tadg-binding-probe-99dffcc) | 2026-05-19 | `feat/remove-initial-keyframes` / `99dffcc` | Overall **53.33** on n=15 | 15Q diagnostic probe | Not benchmark-grade. Teaches TADG to bind `compare_candidates_to_anchors` evidence and block unresolved `anchor_disagreement`. On 15 failed cases from `b671243`, completes 15 / 15 and recovers 8 / 15; `TADG_MULTI_ANCHOR_UNRESOLVED` fires in 9 traces and every blocked trace continues. |
 | [v10_multi_anchor_tadg_strat600_20260519](v10_no_initial_keyframes_strat600_20260518.md#full-strat600-rerun-after-multi-anchor-tadg-binding-a3ff7f1) | 2026-05-19 | `feat/remove-initial-keyframes` / launch+runtime `a3ff7f1` | Overall **72.00** / Easy **82.41** / Hard **62.26** / V-Dep **62.56** / V-Indep **77.12** | 600Q strat600 (standard guards, no GT inputs) | Standard rerun after TADG learned `compare_candidates_to_anchors` evidence and blocks unresolved `anchor_disagreement`. Eval + metrics exit 0; 600 side-by-side rows; 600 completed. +12 correct vs `b671243`, +56 vs `a6f6077`, +46 vs `220f128`. Source/artifact scans found no pending-image side-channel keys. |
 | [REPRO_20260520_v10_multi_anchor_tadg_strat600_20260519_w30](v10_no_initial_keyframes_strat600_20260518.md#high-worker-reproduction-of-multi-anchor-tadg-binding-a3ff7f1--workers30) | 2026-05-20 | `best/v10-multi-anchor-tadg-72-a3ff7f1` / runtime `a3ff7f1` | Overall **70.00** / Easy **78.62** / Hard **61.94** / V-Dep **61.61** / V-Indep **74.55** | 600Q strat600 high-worker reproduction | Negative reproduction of the 72.00 row with `workers=30` and `MODELHUB_AK_WEIGHTS=1,1,1`. Eval + metrics exit 0; 600 side-by-side rows; 600 completed; 49 recoveries and 61 regressions vs the original run. Log shows 2724 retryable 429s, 19 retryable 403s, 15 attempt-2 retries, and no fatal errors. |
+| [REPRO_20260521_v10_multi_anchor_tadg_strat600_20260519_w20](v10_no_initial_keyframes_strat600_20260518.md#workers20-reproduction-of-multi-anchor-tadg-binding-7203e18) | 2026-05-21 | `best/v10-multi-anchor-tadg-72-a3ff7f1` / runtime `7203e18` (docs-only drift from `a3ff7f1`) | Overall **69.17** / Easy **79.31** / Hard **59.68** / V-Dep **62.56** / V-Indep **72.75** | 600Q strat600 workers=20 reproduction | Negative reproduction of the 72.00 row using the original worker count. Eval + metrics exit 0; 600 side-by-side rows; 598 completed / 2 failed; 45 recoveries and 62 regressions vs the original run. Log shows 294 retryable 403s, 56 retryable 429s, 35 attempt-2, 6 attempt-3, 1 attempt-4, and no traceback. |
 
 ## Protocol Summary
 

@@ -58,6 +58,9 @@ injected are listed with `already_seen=true` and not re-injected.
 - `list_scene_proposals(category=?, region_bev=?, limit=?)` — scene-wide.
 - `list_frame_proposals(frame_id)` — what's visible in one frame.
 - `inspect_proposal(proposal_id)` — proposal metadata + frames_appeared.
+  When available, it also returns the full enriched object description
+  (`description`, `location`, `nearby_objects`, `color`, `usability`);
+  call it when compact proposal notes or category labels are not enough.
 
 ## BEV inspection
 

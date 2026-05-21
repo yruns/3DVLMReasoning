@@ -88,6 +88,19 @@ def test_playbooks_describe_current_request_crops_contract():
         assert "do not cite" in body
 
 
+def test_playbooks_document_inspect_proposal_enrichment():
+    paths = [
+        _PLAYBOOK_PATH,
+        _PLAYBOOK_PATH.with_name("scene_exploration_playbook_no_text.md"),
+    ]
+    for path in paths:
+        body = path.read_text()
+        assert "inspect_proposal(proposal_id)" in body
+        assert "full enriched object description" in body
+        assert "nearby_objects" in body
+        assert "compact proposal notes" in body
+
+
 def test_no_text_variant_exists_and_drops_select_by_text():
     """v9.2 catalog-first variant for the audit A/B test."""
     no_text_path = _PLAYBOOK_PATH.with_name("scene_exploration_playbook_no_text.md")
@@ -154,7 +167,10 @@ def test_vg_playbooks_treat_generic_category_as_subtype_compatible():
         for s in skills_for(Stage2TaskType.VISUAL_GROUNDING)
         if s.name == "vg-grounding-playbook"
     )
-    for path in (spec.body_path, spec.body_path.with_name("vg_grounding_playbook_no_text.md")):
+    for path in (
+        spec.body_path,
+        spec.body_path.with_name("vg_grounding_playbook_no_text.md"),
+    ):
         body = path.read_text()
         assert "Generic category words include subtype labels" in body
         assert "office chair" in body

@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-import re
 import json
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 import numpy as np
 
@@ -31,6 +31,9 @@ class Proposal:
     category: str
     score: float
     frame_views: dict[int, ProposalFrameView] = field(default_factory=dict)
+    enriched_category: str | None = None
+    compact_note: str | None = None
+    enrichment: dict[str, Any] | None = None
 
 
 @dataclass
@@ -198,6 +201,9 @@ def build_ctx_from_bundle(bundle: Stage2EvidenceBundle) -> VgEmbodiedScanCtx:
                     p.get("frame_views"),
                     proposal_id=int(p["id"]),
                 ),
+                enriched_category=p.get("enriched_category"),
+                compact_note=p.get("compact_note"),
+                enrichment=p.get("enrichment"),
             )
         )
 

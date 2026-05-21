@@ -77,6 +77,9 @@ def from_vg_proposal_pool(
                 bbox_3d_9dof=bbox9,
                 frame_views=_frame_views_from_raw(raw.get("frame_views")),
                 source=source,
+                enriched_category=raw.get("enriched_category"),
+                compact_note=raw.get("compact_note"),
+                enrichment=raw.get("enrichment"),
             )
         )
 
@@ -195,9 +198,7 @@ def from_gt_embodiedscan(
     if not valid_frame_ids:
         raise ValueError("from_gt_embodiedscan: valid_frame_ids must be non-empty")
     instances = es_annotations.get("instances") or []
-    obj_to_frames = _invert_view_to_objects(
-        es_annotations.get("view_to_objects") or {}
-    )
+    obj_to_frames = _invert_view_to_objects(es_annotations.get("view_to_objects") or {})
     proposals: list[SceneProposal] = []
     for inst in instances:
         obj_id = int(inst.get("bbox_id") or inst["id"])

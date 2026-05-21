@@ -11,6 +11,7 @@ Inputs:
   in that frame (must match the ids produced by this builder)
 - axis_align_matrix: 4x4 numpy array or None
 """
+
 from __future__ import annotations
 
 import json
@@ -56,6 +57,9 @@ def build_vg_proposal_pool(
             "category": str(p["label"]),
             "score": float(p["score"]),
         }
+        for optional_key in ("enriched_category", "compact_note", "enrichment"):
+            if optional_key in p:
+                proposal_out[optional_key] = p[optional_key]
         if "frame_views" in p:
             proposal_out["frame_views"] = p["frame_views"]
         proposals_out.append(proposal_out)

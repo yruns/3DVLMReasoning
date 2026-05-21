@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -26,9 +26,14 @@ class SceneProposal(BaseModel):
     proposal_id: int
     category: str
     position_3d: tuple[float, float, float]
-    bbox_3d_9dof: tuple[float, float, float, float, float, float, float, float, float] | None = None
+    bbox_3d_9dof: (
+        tuple[float, float, float, float, float, float, float, float, float] | None
+    ) = None
     frame_views: dict[int, FrameView] = Field(default_factory=dict)
     source: Literal["mask3d", "vdetr", "gt", "conceptgraph"]
+    enriched_category: str | None = None
+    compact_note: str | None = None
+    enrichment: dict[str, Any] | None = None
 
 
 class SceneCatalog(BaseModel):

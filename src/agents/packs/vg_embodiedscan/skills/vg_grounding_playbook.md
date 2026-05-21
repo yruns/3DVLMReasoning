@@ -13,7 +13,9 @@ is genuinely absent from the catalog — OOD case).
    `chair` proposals). Generic category words include subtype labels: a query
    for "chair" can refer to an `office chair`, `desk chair`, `lounge chair`,
    or `armchair`; do not reject a subtype label when relation/visual evidence
-   matches the referring expression.
+   matches the referring expression. If the task message includes
+   `Proposal notes:`, use those compact enriched notes for initial
+   shortlisting, but still verify visually before submit.
 2. **First move (audit-informed)** — pick one:
    - If the BEV shows the candidate categories clearly and the query
      references a relation / direction ("the chair on the right",
@@ -96,6 +98,11 @@ subset, not across every same-category object in the frame.
   evidence_frame_guard).
 - `list_frame_proposals(frame_id)`, `list_scene_proposals(...)`,
   `inspect_proposal(id)` — text-only catalog queries.
+- `inspect_proposal(id)` returns proposal metadata plus the full enriched
+  object description when available (`description / location / nearby_objects /
+  color / usability`). Call it when compact notes or category labels are not
+  enough to resolve visual attributes, functional clues, or nearby-object
+  context.
 - `view_bev(highlight=[ids])` — re-render BEV with text labels only on those proposals.
 - `view_bev(categories=["chair", "table"])` — text-label proposals whose
   category matches (case-insensitive exact). Default `view_bev()` is

@@ -1,4 +1,5 @@
 """VgEmbodiedScanCtx + proposal_pool adapter."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -31,13 +32,28 @@ def test_build_ctx_from_bundle_minimal(tmp_path: Path) -> None:
             "vg_proposal_pool": {
                 "source": "vdetr",
                 "proposals": [
-                    {"id": 1, "bbox_3d_9dof": [0]*9, "category": "chair", "score": 0.5},
-                    {"id": 2, "bbox_3d_9dof": [1]*9, "category": "desk", "score": 0.8},
+                    {
+                        "id": 1,
+                        "bbox_3d_9dof": [0] * 9,
+                        "category": "chair",
+                        "score": 0.5,
+                    },
+                    {
+                        "id": 2,
+                        "bbox_3d_9dof": [1] * 9,
+                        "category": "desk",
+                        "score": 0.8,
+                    },
                 ],
                 "frame_index": {10: [1, 2], 11: [2]},
                 "proposal_index": {1: [10], 2: [10, 11]},
                 "annotated_image_dir": str(annotated),
-                "axis_align_matrix": [[1,0,0,0],[0,1,0,0],[0,0,1,0],[0,0,0,1]],
+                "axis_align_matrix": [
+                    [1, 0, 0, 0],
+                    [0, 1, 0, 0],
+                    [0, 0, 1, 0],
+                    [0, 0, 0, 1],
+                ],
             }
         }
     )
@@ -49,6 +65,45 @@ def test_build_ctx_from_bundle_minimal(tmp_path: Path) -> None:
     assert ctx.proposal_index[2] == [10, 11]
     assert ctx.annotated_image_dir == annotated
     assert ctx.axis_align_matrix.shape == (4, 4)
+
+
+def test_build_ctx_preserves_enrichment_fields(tmp_path: Path) -> None:
+    annotated = tmp_path / "ann"
+    annotated.mkdir()
+    bundle = Stage2EvidenceBundle(
+        extra_metadata={
+            "vg_proposal_pool": {
+                "source": "gt",
+                "proposals": [
+                    {
+                        "id": 25,
+                        "bbox_3d_9dof": [0] * 9,
+                        "category": "cabinet",
+                        "score": 0.9,
+                        "enriched_category": "mini-fridge/cabinet",
+                        "compact_note": "white cube covered by yellow cloth",
+                        "enrichment": {
+                            "category": "mini-fridge",
+                            "description": "A compact white mini-fridge.",
+                            "location": "Near a door.",
+                            "nearby_objects": ["door"],
+                            "color": "white",
+                            "usability": "Stores cold items.",
+                        },
+                    }
+                ],
+                "frame_index": {},
+                "proposal_index": {},
+                "annotated_image_dir": str(annotated),
+            }
+        }
+    )
+    ctx = build_ctx_from_bundle(bundle)
+    proposal = ctx.proposals[0]
+    assert proposal.category == "cabinet"
+    assert proposal.enriched_category == "mini-fridge/cabinet"
+    assert proposal.compact_note == "white cube covered by yellow cloth"
+    assert proposal.enrichment["description"] == "A compact white mini-fridge."
 
 
 def test_build_ctx_rejects_unknown_source(tmp_path: Path) -> None:
@@ -90,7 +145,7 @@ def _pool_minus(tmp_path: Path, drop: str) -> dict:
     pool = {
         "source": "vdetr",
         "proposals": [
-            {"id": 1, "bbox_3d_9dof": [0]*9, "category": "chair", "score": 0.5},
+            {"id": 1, "bbox_3d_9dof": [0] * 9, "category": "chair", "score": 0.5},
         ],
         "frame_index": {10: [1]},
         "proposal_index": {1: [10]},
@@ -132,7 +187,7 @@ def test_build_ctx_raises_on_per_proposal_missing_id(tmp_path: Path) -> None:
             "vg_proposal_pool": {
                 "source": "vdetr",
                 "proposals": [
-                    {"bbox_3d_9dof": [0]*9, "category": "chair", "score": 0.5},
+                    {"bbox_3d_9dof": [0] * 9, "category": "chair", "score": 0.5},
                 ],
                 "frame_index": {},
                 "proposal_index": {},
@@ -152,7 +207,12 @@ def test_build_ctx_raises_on_bbox_wrong_length(tmp_path: Path) -> None:
             "vg_proposal_pool": {
                 "source": "vdetr",
                 "proposals": [
-                    {"id": 1, "bbox_3d_9dof": [0]*5, "category": "chair", "score": 0.5},
+                    {
+                        "id": 1,
+                        "bbox_3d_9dof": [0] * 5,
+                        "category": "chair",
+                        "score": 0.5,
+                    },
                 ],
                 "frame_index": {},
                 "proposal_index": {},

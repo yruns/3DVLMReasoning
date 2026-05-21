@@ -3008,3 +3008,115 @@ Treat 72.00 as the best observed `a3ff7f1` strat600 score and this run as a
 negative high-concurrency reproduction. For a stable reproduction attempt, prefer
 the original workers=20 recipe before drawing conclusions about algorithmic
 regression.
+
+### Workers=20 reproduction of multi-anchor TADG binding: 7203e18
+
+Reproduction run requested on 2026-05-21 to test whether the best observed
+72.00 row is stable under the original `workers=20` recipe. The current branch
+tip is `7203e18`, but `a3ff7f1..7203e18` contains only NR3D documentation and
+SQLite updates, so the runtime code path is effectively the original TADG
+binding implementation.
+
+Run metadata:
+
+| Field | Value |
+|---|---|
+| Branch | `best/v10-multi-anchor-tadg-72-a3ff7f1` |
+| Head commit at launch | `7203e18` |
+| Run-time code commit | `7203e18` (no worktree drift; docs-only descendants after original `a3ff7f1`) |
+| Sample IDs | `tmp/nr3d_artifacts/v9_3_strat600_sample_ids.json` |
+| Output dir | `tmp/nr3d_eval_v10_multi_anchor_tadg_strat600_repro_w20_20260521_7203e18/` |
+| Run log | `/tmp/nr3d_multi_anchor_tadg600_repro_w20_20260521_7203e18.log` |
+| SQLite run id | `REPRO_20260521_v10_multi_anchor_tadg_strat600_20260519_w20` |
+| Workers | 20 |
+| Sample retries | 0 |
+| Guards | TADG + no-match + evidence-frame |
+
+Artifact checksums:
+
+| Artifact | MD5 |
+|---|---|
+| `side_by_side.json` | `d4f2ac2c56d60a1aaeeb5c3224436c8a` |
+| `leaderboard_metrics.json` | `7cfc9f9580674441cc1b8e587361fb69` |
+
+Representative command:
+
+```bash
+tmux new-session -d -s nr3d-tadg600-repro-w20-20260521 \
+  "cd /Users/bytedance/project/3DVLMReasoning && bash -lc 'set -euo pipefail; \
+   export PYTHONPATH=src PYTHONUNBUFFERED=1; \
+   .venv/bin/python -m evaluation.scripts.run_nr3d_vg_side_by_side \
+     --sample-ids tmp/nr3d_artifacts/v9_3_strat600_sample_ids.json \
+     --data-root data/nr3d/scannet \
+     --pack-name pack_nr3d_v9_catalog_first \
+     --output-dir tmp/nr3d_eval_v10_multi_anchor_tadg_strat600_repro_w20_20260521_7203e18 \
+     --workers 20 \
+     --sample-retries 0 \
+     --use-tool-answer-disagreement-gate \
+     --use-no-match-candidate-guard \
+     --use-evidence-frame-guard \
+     2>&1 | tee /tmp/nr3d_multi_anchor_tadg600_repro_w20_20260521_7203e18.log; \
+   .venv/bin/python -m evaluation.scripts.nr3d_leaderboard_metrics \
+     --side-by-side tmp/nr3d_eval_v10_multi_anchor_tadg_strat600_repro_w20_20260521_7203e18/side_by_side.json \
+     --nr3d-data-root data/nr3d \
+     --phase8-data-root data/nr3d/scannet \
+     --sample-ids tmp/nr3d_artifacts/v9_3_strat600_sample_ids.json \
+     --output tmp/nr3d_eval_v10_multi_anchor_tadg_strat600_repro_w20_20260521_7203e18/leaderboard_metrics.json \
+     --canonical-filter true \
+     2>&1 | tee -a /tmp/nr3d_multi_anchor_tadg600_repro_w20_20260521_7203e18.log'"
+
+PYTHONPATH=src .venv/bin/python scripts/ingest_nr3d_run.py \
+  --output-dir tmp/nr3d_eval_v10_multi_anchor_tadg_strat600_repro_w20_20260521_7203e18 \
+  --run-id REPRO_20260521_v10_multi_anchor_tadg_strat600_20260519_w20 \
+  --branch best/v10-multi-anchor-tadg-72-a3ff7f1 \
+  --commit 7203e18 \
+  --backend pack_v1 \
+  --leaderboard-metrics tmp/nr3d_eval_v10_multi_anchor_tadg_strat600_repro_w20_20260521_7203e18/leaderboard_metrics.json \
+  --notes "Workers=20 reproduction of v10_multi_anchor_tadg_strat600_20260519 from current best branch HEAD 7203e18; completed 600 checkpoints with 598 completed statuses and scored 69.17 vs original 72.00; observed 294 retryable 403, 56 retryable 429, attempt3=6, attempt4=1, no traceback." \
+  --db docs/benchmark/nr3d/runs.sqlite
+```
+
+Metrics:
+
+| Variant | Commit | Workers | Overall | Easy | Hard | V-Dep | V-Ind | Statuses |
+|---|---|---:|---:|---:|---:|---:|---:|---|
+| Original multi-anchor TADG binding | `a3ff7f1` | 20 | **72.00** | **82.41** | **62.26** | **62.56** | **77.12** | 600 completed |
+| High-worker reproduction | `a3ff7f1` | 30 | 70.00 | 78.62 | 61.94 | 61.61 | 74.55 | 600 completed |
+| Workers=20 reproduction | `7203e18` | 20 | 69.17 | 79.31 | 59.68 | 62.56 | 72.75 | 598 completed, 2 failed |
+
+Matched-case delta vs original `v10_multi_anchor_tadg_strat600_20260519`:
+
+| Old correct -> new wrong | Old wrong -> new correct | Net correct |
+|---:|---:|---:|
+| 62 | 45 | -17 |
+
+SQLite reproduction query:
+
+```sql
+select
+  run_id,
+  n,
+  round(classification_acc_full * 100, 2) as overall,
+  round(acc_easy * 100, 2) as easy,
+  round(acc_hard * 100, 2) as hard,
+  round(acc_view_dep * 100, 2) as view_dep,
+  round(acc_view_indep * 100, 2) as view_indep
+from runs
+where run_id = 'REPRO_20260521_v10_multi_anchor_tadg_strat600_20260519_w20';
+```
+
+Runtime/log observations:
+
+- Eval and metrics both exited successfully; `side_by_side.json` and
+  `leaderboard_metrics.json` were generated.
+- Final side-by-side contains 600 rows: 598 `completed`, 2 `failed`.
+- The run log contains 294 retryable 403 messages, 56 retryable 429 messages,
+  35 `attempt 2/5`, 6 `attempt 3/5`, 1 `attempt 4/5`, 0 `attempt 5/5`, and no
+  traceback.
+- This was not a deterministic reproduction of the best row: score dropped
+  from 72.00 to 69.17, net -17 correct on the matched 600-case fold.
+
+Reading: the original 72.00 row remains the best observed fair strat600 result,
+but two independent reproductions now sit at 70.00 and 69.17. Treat 72.00 as a
+best-observed point estimate with runtime/model-serving stability caveats, not
+as a guaranteed deterministic result from the branch.

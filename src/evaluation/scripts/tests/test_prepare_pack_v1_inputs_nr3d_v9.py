@@ -55,12 +55,37 @@ def _write_traj(scene_dir: Path) -> None:
     )
 
 
+def _write_enrichment(scene_dir: Path) -> None:
+    cg = scene_dir / "conceptgraph"
+    cg.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "format_version": "enriched_objects_v1",
+        "objects": [
+            {
+                "obj_id": 0,
+                "status": "success",
+                "original_label": "chair",
+                "enrichment": {
+                    "category": "office chair",
+                    "description": "A black wheeled office chair with a padded seat.",
+                    "location": "Near the desk and wall.",
+                    "nearby_objects": ["desk", "wall"],
+                    "color": "black",
+                    "usability": "Provides seating for working at the desk.",
+                },
+            }
+        ],
+    }
+    (cg / "enriched_objects.json").write_text(json.dumps(payload), encoding="utf-8")
+
+
 def test_write_v9_scene_artifacts_emits_catalog_and_trajectory(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ):
     scene_dir = tmp_path / "scene0000_00"
     _write_dummy_proposals(scene_dir)
     _write_traj(scene_dir)
+    _write_enrichment(scene_dir)
 
     captured: dict = {}
 
@@ -93,6 +118,11 @@ def test_write_v9_scene_artifacts_emits_catalog_and_trajectory(
     assert catalog["scene_category"] == "kitchen"
     assert catalog["bev_image_path"].endswith(".png")
     assert "valid_frame_ids" in catalog
+    proposal = catalog["proposals"][0]
+    assert proposal["category"] == "chair"
+    assert proposal["enriched_category"] == "office chair"
+    assert "black wheeled office chair" in proposal["compact_note"]
+    assert proposal["enrichment"]["location"] == "Near the desk and wall."
     traj = json.loads(Path(paths["camera_trajectory_path"]).read_text())
     assert "0" in traj or 0 in traj
     assert captured["scene_id"] == "scene0000_00"

@@ -25,6 +25,16 @@ def _fixture_pool() -> dict:
                 "bbox_3d_9dof": [1.2, 1.4, 0.5, 0.6, 0.6, 0.6, 0.0, 0.0, 0.0],
                 "category": "table",
                 "score": 0.88,
+                "enriched_category": "desk",
+                "compact_note": "beige desk near an open doorway; usable as a work surface",
+                "enrichment": {
+                    "category": "desk",
+                    "description": "A beige desk with a telephone on top.",
+                    "location": "Near an open doorway.",
+                    "nearby_objects": ["door", "telephone"],
+                    "color": "beige",
+                    "usability": "Provides a flat surface for work or storage.",
+                },
                 "frame_views": [
                     {
                         "frame_id": 10,
@@ -96,6 +106,25 @@ def test_from_vg_proposal_pool_normalizes_frame_views():
     assert v10.bbox_2d == (80, 30, 140, 80)
     assert v10.raw_rgb_path == "raw/000010-rgb.png"
     assert v10.visibility_weight is None
+
+
+def test_from_vg_proposal_pool_preserves_enrichment_fields():
+    catalog = from_vg_proposal_pool(
+        pool=_fixture_pool(),
+        scene_id="s",
+        bev_image_path="b.png",
+        scene_category=None,
+        axis_align_matrix=None,
+        valid_frame_ids=[10, 20],
+    )
+    table = next(p for p in catalog.proposals if p.proposal_id == 1)
+    assert table.category == "table"
+    assert table.enriched_category == "desk"
+    assert (
+        table.compact_note
+        == "beige desk near an open doorway; usable as a work surface"
+    )
+    assert table.enrichment["description"] == "A beige desk with a telephone on top."
 
 
 def test_from_vg_proposal_pool_passes_through_axis_align_matrix():

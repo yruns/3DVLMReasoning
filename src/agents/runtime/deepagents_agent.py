@@ -243,6 +243,21 @@ class DeepAgentsStage2Runtime(BaseStage2Runtime):
                 ids_str = ", ".join(f"#{pid}" for pid in sorted(by_cat[cat]))
                 cat_lines.append(f"  {cat.ljust(max_cat_len)} : [{ids_str}]")
         cat_block = "\n".join(cat_lines) if cat_lines else "  (catalog is empty)"
+        note_lines: list[str] = []
+        for proposal in sorted(catalog.proposals, key=lambda p: p.proposal_id):
+            if not proposal.compact_note and not proposal.enriched_category:
+                continue
+            enriched = (
+                f"; enriched: {proposal.enriched_category}"
+                if proposal.enriched_category
+                else ""
+            )
+            note = f"; {proposal.compact_note}" if proposal.compact_note else ""
+            note_lines.append(
+                f"  #{proposal.proposal_id} {proposal.category}{enriched}{note}"
+            )
+        notes_block = "\n".join(note_lines)
+        notes_section = f"Proposal notes:\n{notes_block}\n\n" if notes_block else ""
         source = catalog.proposals[0].source if catalog.proposals else "n/a"
 
         prompt = (
@@ -260,6 +275,7 @@ class DeepAgentsStage2Runtime(BaseStage2Runtime):
             f"(frame_id range: {list(catalog.frame_id_range)})\n"
             f"Proposal pool: {len(catalog.proposals)} items, source={source}\n\n"
             f"Proposals by category:\n{cat_block}\n\n"
+            f"{notes_section}"
             "## BEV image (attached above)\n"
             "- mesh-based top-down render with camera trajectory\n"
             "- each proposal labeled `#id category` at its 3D center\n"

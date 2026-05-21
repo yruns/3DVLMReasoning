@@ -45,6 +45,34 @@ def test_scene_proposal_with_views_and_9dof():
     assert len(p.bbox_3d_9dof) == 9
 
 
+def test_scene_proposal_keeps_enrichment_fields():
+    p = SceneProposal(
+        proposal_id=25,
+        category="cabinet",
+        enriched_category="mini-fridge/cabinet",
+        compact_note=(
+            "small white cube covered by yellow-pattern cloth, near door/radiator; "
+            "top used as storage surface"
+        ),
+        enrichment={
+            "category": "mini-fridge",
+            "description": "A small white cube-shaped mini-fridge.",
+            "location": "Near the door and radiator.",
+            "nearby_objects": ["door", "radiator"],
+            "color": "white",
+            "usability": "Used for refrigerating items and as a storage surface.",
+        },
+        position_3d=(1.0, 2.0, 0.5),
+        source="gt",
+    )
+
+    reloaded = SceneProposal(**p.model_dump())
+    assert reloaded.category == "cabinet"
+    assert reloaded.enriched_category == "mini-fridge/cabinet"
+    assert reloaded.compact_note.startswith("small white cube")
+    assert reloaded.enrichment["nearby_objects"] == ["door", "radiator"]
+
+
 def test_scene_catalog_roundtrip():
     proposals = [
         SceneProposal(
@@ -88,9 +116,15 @@ def test_scene_catalog_roundtrip():
 
 def test_scene_catalog_proposals_by_category_groups_ids():
     proposals = [
-        SceneProposal(proposal_id=0, category="chair", position_3d=(0, 0, 0), source="mask3d"),
-        SceneProposal(proposal_id=1, category="chair", position_3d=(1, 0, 0), source="mask3d"),
-        SceneProposal(proposal_id=2, category="table", position_3d=(2, 0, 0), source="mask3d"),
+        SceneProposal(
+            proposal_id=0, category="chair", position_3d=(0, 0, 0), source="mask3d"
+        ),
+        SceneProposal(
+            proposal_id=1, category="chair", position_3d=(1, 0, 0), source="mask3d"
+        ),
+        SceneProposal(
+            proposal_id=2, category="table", position_3d=(2, 0, 0), source="mask3d"
+        ),
     ]
     catalog = SceneCatalog(
         scene_id="s",

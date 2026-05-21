@@ -51,6 +51,15 @@ def test_vg_playbook_lists_v9_1_tools():
         assert tool in text, f"{tool} missing from vg_grounding_playbook"
 
 
+@pytest.mark.parametrize("path", [_PB, _PB_NO_TEXT])
+def test_vg_playbooks_document_inspect_proposal_enrichment(path: Path):
+    text = path.read_text()
+    normalized = " ".join(text.split())
+    assert "inspect_proposal(id)" in normalized
+    assert "full enriched object description" in normalized
+    assert "description / location / nearby_objects / color / usability" in normalized
+
+
 def test_vg_playbook_first_move_is_select_by_text():
     text = _PB.read_text()
     assert text.count("select_by_text") >= 2

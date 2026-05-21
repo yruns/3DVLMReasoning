@@ -238,17 +238,22 @@ def build_scene_perception_tools(runtime: Any) -> list[BaseTool]:
             ]
         if limit is not None and limit >= 0:
             proposals = proposals[:limit]
+        rows = []
+        for p in proposals:
+            row = {
+                "proposal_id": p.proposal_id,
+                "category": p.category,
+                "position_3d": list(p.position_3d),
+                "frame_count": len(p.frame_views),
+            }
+            if p.enriched_category is not None:
+                row["enriched_category"] = p.enriched_category
+            if p.compact_note is not None:
+                row["compact_note"] = p.compact_note
+            rows.append(row)
         payload = {
             "count": len(proposals),
-            "proposals": [
-                {
-                    "proposal_id": p.proposal_id,
-                    "category": p.category,
-                    "position_3d": list(p.position_3d),
-                    "frame_count": len(p.frame_views),
-                }
-                for p in proposals
-            ],
+            "proposals": rows,
         }
         text = json.dumps(payload, ensure_ascii=False)
         runtime.record("list_scene_proposals", request, text)
@@ -281,6 +286,12 @@ def build_scene_perception_tools(runtime: Any) -> list[BaseTool]:
             "frames_appeared": sorted(proposal.frame_views.keys()),
             "source": proposal.source,
         }
+        if proposal.enriched_category is not None:
+            payload["enriched_category"] = proposal.enriched_category
+        if proposal.compact_note is not None:
+            payload["compact_note"] = proposal.compact_note
+        if proposal.enrichment is not None:
+            payload["enrichment"] = proposal.enrichment
         text = json.dumps(payload, ensure_ascii=False)
         runtime.record("inspect_proposal", request, text)
         return text

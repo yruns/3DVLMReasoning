@@ -532,6 +532,12 @@ def build_vg_tools(runtime: Any) -> list[BaseTool]:
             "frames_appeared": ctx.proposal_index.get(proposal_id, []),
             "source": ctx.proposal_pool_source,
         }
+        if proposal.enriched_category is not None:
+            payload["enriched_category"] = proposal.enriched_category
+        if proposal.compact_note is not None:
+            payload["compact_note"] = proposal.compact_note
+        if proposal.enrichment is not None:
+            payload["enrichment"] = proposal.enrichment
         text = json.dumps(payload, ensure_ascii=False)
         runtime.record("inspect_proposal", {"proposal_id": proposal_id}, text)
         return text
@@ -645,9 +651,8 @@ def build_vg_tools(runtime: Any) -> list[BaseTool]:
             runtime.record("compare_candidates_to_anchors", request, gate)
             return gate
         if relation not in MULTI_ANCHOR_SPATIAL_RELATIONS:
-            err = (
-                f"ERROR: unsupported relation {relation!r}; allowed: "
-                + " | ".join(MULTI_ANCHOR_SPATIAL_RELATIONS)
+            err = f"ERROR: unsupported relation {relation!r}; allowed: " + " | ".join(
+                MULTI_ANCHOR_SPATIAL_RELATIONS
             )
             runtime.record("compare_candidates_to_anchors", request, err)
             return err
@@ -671,7 +676,9 @@ def build_vg_tools(runtime: Any) -> list[BaseTool]:
             runtime.record("compare_candidates_to_anchors", request, err)
             return err
         missing_anchors = sorted(
-            proposal_id for proposal_id in anchor_ids if proposal_id not in proposal_by_id
+            proposal_id
+            for proposal_id in anchor_ids
+            if proposal_id not in proposal_by_id
         )
         if missing_anchors:
             err = f"ERROR: anchor ids not in pool: {missing_anchors}"

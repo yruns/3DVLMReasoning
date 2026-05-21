@@ -7,6 +7,7 @@ import gc
 import json
 import math
 import pickle
+import textwrap
 from collections import Counter, OrderedDict
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -130,6 +131,16 @@ def parse_args() -> argparse.Namespace:
             "sample results do not fail because a cache was absent."
         ),
     )
+    parser.add_argument(
+        "--require-enrichment",
+        action="store_true",
+        default=False,
+        help=(
+            "Fail if conceptgraph/enriched_objects.json is missing. Use this "
+            "for enriched NR3D packs where proposal notes are part of the "
+            "benchmark contract."
+        ),
+    )
     return parser.parse_args()
 
 
@@ -143,6 +154,7 @@ def prepare_pack_v1_inputs_nr3d(
     nr3d_root: Path | None = None,
     max_scene_artifact_cache_size: int = 1,
     ensure_lightweight_cache: bool = False,
+    require_enrichment: bool = False,
 ) -> list[Path]:
     requests = load_sample_requests(sample_ids_path)
     if max_samples is not None:
@@ -181,6 +193,7 @@ def prepare_pack_v1_inputs_nr3d(
                 data_root=data_root,
                 pack_name=pack_name,
                 ensure_lightweight_cache=ensure_lightweight_cache,
+                require_enrichment=require_enrichment,
             )
             evict_lru_cache(scene_artifacts, max_scene_artifact_cache_size)
         else:
@@ -299,6 +312,7 @@ def prepare_scene_artifacts(
     data_root: Path,
     pack_name: str = "pack_nr3d_v1",
     ensure_lightweight_cache: bool = False,
+    require_enrichment: bool = False,
 ) -> SceneArtifacts:
     scene_root = data_root / scene_id
     objects = load_phase8_objects(
@@ -307,6 +321,13 @@ def prepare_scene_artifacts(
         prefer_lightweight=False,
     )
     proposals = build_proposals_from_phase8_objects(objects=objects, scene_id=scene_id)
+    apply_enrichment_to_proposals(
+        proposals,
+        load_enrichment_by_object_id(
+            scene_root / "conceptgraph" / "enriched_objects.json",
+            required=require_enrichment,
+        ),
+    )
     if not proposals:
         raise ValueError(f"scene has no Phase 8 objects: {scene_id}")
     visibility = load_phase8_visibility_index(scene_root)
@@ -444,6 +465,106 @@ def build_proposals_from_phase8_objects(
             }
         )
     return proposals
+
+
+def load_enrichment_by_object_id(
+    path: Path,
+    *,
+    required: bool = False,
+) -> dict[int, dict[str, Any]]:
+    if not path.exists():
+        if not required:
+            return {}
+        raise FileNotFoundError(
+            f"Missing NR3D object enrichment: {path}. "
+            "Run `python -m src.scripts.enrich_objects` for this scene before "
+            "preparing an enriched NR3D pack."
+        )
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    objects = payload.get("objects")
+    if not isinstance(objects, list):
+        raise ValueError(f"{path} must contain an objects list")
+    out: dict[int, dict[str, Any]] = {}
+    for row in objects:
+        if not isinstance(row, dict) or row.get("status") != "success":
+            continue
+        obj_id = row.get("obj_id")
+        enrichment = row.get("enrichment")
+        if obj_id is None or not isinstance(enrichment, dict):
+            continue
+        out[int(obj_id)] = enrichment
+    return out
+
+
+def apply_enrichment_to_proposals(
+    proposals: list[dict[str, Any]],
+    enrichment_by_id: dict[int, dict[str, Any]],
+) -> None:
+    for proposal in proposals:
+        raw_proposal_id = proposal.get("id", proposal.get("proposal_id"))
+        if raw_proposal_id is None:
+            raise ValueError(f"proposal is missing id/proposal_id: {proposal}")
+        proposal_id = int(raw_proposal_id)
+        enrichment = enrichment_by_id.get(proposal_id)
+        if enrichment is None:
+            continue
+        label = str(proposal.get("label") or proposal.get("category") or "").strip()
+        enriched_category = _merged_enriched_category(
+            base_category=label,
+            raw_enriched_category=enrichment.get("category"),
+        )
+        if enriched_category:
+            proposal["enriched_category"] = enriched_category
+        compact_note = _compact_enrichment_note(enrichment)
+        if compact_note:
+            proposal["compact_note"] = compact_note
+        proposal["enrichment"] = enrichment
+
+
+def _merged_enriched_category(
+    *,
+    base_category: str,
+    raw_enriched_category: Any,
+) -> str | None:
+    enriched = _clean_text(raw_enriched_category)
+    base = _clean_text(base_category)
+    if not enriched:
+        return None
+    if not base:
+        return enriched
+    enriched_norm = enriched.lower()
+    base_norm = base.lower()
+    if enriched_norm == base_norm:
+        return enriched
+    if base_norm in enriched_norm or enriched_norm in base_norm:
+        return enriched
+    return f"{enriched}/{base}"
+
+
+def _compact_enrichment_note(enrichment: dict[str, Any], max_chars: int = 260) -> str:
+    parts = [
+        _first_sentence(enrichment.get("description")),
+        _first_sentence(enrichment.get("location")),
+        _first_sentence(enrichment.get("usability")),
+    ]
+    text = " ".join(part for part in parts if part)
+    return textwrap.shorten(text, width=max_chars, placeholder="...") if text else ""
+
+
+def _first_sentence(value: Any) -> str:
+    text = _clean_text(value)
+    if not text:
+        return ""
+    for marker in (". ", "? ", "! "):
+        if marker in text:
+            return text.split(marker, 1)[0].strip() + marker.strip()
+    return text
+
+
+def _clean_text(value: Any) -> str:
+    if not isinstance(value, str):
+        return ""
+    return " ".join(value.strip().split())
 
 
 def write_sample_artifact(
@@ -813,6 +934,12 @@ def write_v9_scene_artifacts(
     traj_out_path = pack_dir / "camera_trajectory.json"
 
     raw_pool = json.loads(proposals_jsonl.read_text())
+    apply_enrichment_to_proposals(
+        raw_pool.get("proposals", []) or [],
+        load_enrichment_by_object_id(
+            scene_dir / "conceptgraph" / "enriched_objects.json"
+        ),
+    )
     raw_pool.setdefault("source", "mask3d")
     raw_pool.setdefault("frame_index", {})
     raw_pool.setdefault("proposal_index", {})
@@ -866,6 +993,7 @@ def main() -> None:
         nr3d_root=args.nr3d_root,
         max_scene_artifact_cache_size=args.max_scene_artifact_cache_size,
         ensure_lightweight_cache=args.ensure_lightweight_cache,
+        require_enrichment=args.require_enrichment,
     )
     print(
         f"wrote {len(written)} sample artifacts under "

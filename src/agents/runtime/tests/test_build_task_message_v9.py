@@ -30,7 +30,14 @@ def _catalog(scene_id: str = "scannet/scene0123_45") -> SceneCatalog:
                 proposal_id=5, category="chair", position_3d=(1, 0, 0), source="mask3d"
             ),
             SceneProposal(
-                proposal_id=8, category="table", position_3d=(2, 0, 0), source="mask3d"
+                proposal_id=8,
+                category="table",
+                enriched_category="desk",
+                compact_note=(
+                    "beige desk near an open doorway; usable as a work surface"
+                ),
+                position_3d=(2, 0, 0),
+                source="mask3d",
             ),
             SceneProposal(
                 proposal_id=11, category="lamp", position_3d=(-1, 0, 0), source="mask3d"
@@ -96,6 +103,26 @@ def test_build_user_message_cat_b_inventory(tmp_path: Path):
     assert "chair" in text and "#4" in text and "#5" in text
     assert "table" in text and "#8" in text
     assert "lamp" in text and "#11" in text
+
+
+def test_build_user_message_renders_compact_enriched_notes(tmp_path: Path):
+    rt = DeepAgentsStage2Runtime(
+        config=Stage2DeepAgentConfig(enable_stage1_text_retrieval=False)
+    )
+    rs = Stage2RuntimeState(bundle=_bundle(tmp_path))
+    task = Stage2TaskSpec(
+        user_query="the table close to the door",
+        task_type=Stage2TaskType.VISUAL_GROUNDING,
+        plan_mode=Stage2PlanMode.BRIEF,
+        max_reasoning_turns=4,
+    )
+    text = rt.build_user_message(task, rs).content[0]["text"]
+    assert "Proposal notes:" in text
+    assert (
+        "#8 table; enriched: desk; beige desk near an open doorway; "
+        "usable as a work surface"
+    ) in text
+    assert "#4 chair;" not in text
 
 
 def test_build_user_message_qa_uses_mark_frame_note(tmp_path: Path):

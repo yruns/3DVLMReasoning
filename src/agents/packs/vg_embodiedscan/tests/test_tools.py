@@ -52,6 +52,16 @@ def _runtime(tmp_path: Path) -> Stage2RuntimeState:
                 bbox_3d_9dof=[1] * 9,
                 category="desk",
                 score=0.8,
+                enriched_category="work desk",
+                compact_note="light desk near a doorway; usable as a work surface",
+                enrichment={
+                    "category": "work desk",
+                    "description": "A light desk with objects on top.",
+                    "location": "Near a doorway.",
+                    "nearby_objects": ["door", "chair"],
+                    "color": "light wood",
+                    "usability": "Provides a work surface.",
+                },
                 frame_views={
                     10: ProposalFrameView(
                         proposal_id=1,
@@ -110,6 +120,12 @@ def test_inspect_proposal_returns_metadata_and_frames(tmp_path: Path) -> None:
     assert payload["score"] == 0.8
     assert payload["frames_appeared"] == [10, 11]
     assert payload["bbox_3d_9dof"] == [1] * 9
+    assert payload["enriched_category"] == "work desk"
+    assert (
+        payload["compact_note"] == "light desk near a doorway; usable as a work surface"
+    )
+    assert payload["enrichment"]["description"] == "A light desk with objects on top."
+    assert payload["enrichment"]["nearby_objects"] == ["door", "chair"]
 
 
 def test_inspect_proposal_unknown_id_errors(tmp_path: Path) -> None:
@@ -239,7 +255,9 @@ def test_compare_candidates_to_anchors_reports_anchor_disagreement(
             score=0.7,
         ),
     ]
-    tool = next(t for t in build_vg_tools(rs) if t.name == "compare_candidates_to_anchors")
+    tool = next(
+        t for t in build_vg_tools(rs) if t.name == "compare_candidates_to_anchors"
+    )
 
     payload = json.loads(
         tool.invoke(
@@ -397,10 +415,16 @@ def test_compare_proposals_spatial_below_prefers_horizontal_alignment(
     rs.skills_loaded.add("vg-grounding-playbook")
     rs.task_ctx.proposals = [
         Proposal(
-            id=0, bbox_3d_9dof=[0, 0, -2, 1, 1, 1, 0, 0, 0], category="printer", score=0.9
+            id=0,
+            bbox_3d_9dof=[0, 0, -2, 1, 1, 1, 0, 0, 0],
+            category="printer",
+            score=0.9,
         ),
         Proposal(
-            id=1, bbox_3d_9dof=[5, 0, -3, 1, 1, 1, 0, 0, 0], category="printer", score=0.9
+            id=1,
+            bbox_3d_9dof=[5, 0, -3, 1, 1, 1, 0, 0, 0],
+            category="printer",
+            score=0.9,
         ),
         Proposal(
             id=2,
@@ -431,10 +455,16 @@ def test_compare_proposals_spatial_above_prefers_horizontal_alignment(
     rs.skills_loaded.add("vg-grounding-playbook")
     rs.task_ctx.proposals = [
         Proposal(
-            id=0, bbox_3d_9dof=[0, 0, 2, 1, 1, 1, 0, 0, 0], category="cabinet", score=0.9
+            id=0,
+            bbox_3d_9dof=[0, 0, 2, 1, 1, 1, 0, 0, 0],
+            category="cabinet",
+            score=0.9,
         ),
         Proposal(
-            id=1, bbox_3d_9dof=[5, 0, 3, 1, 1, 1, 0, 0, 0], category="cabinet", score=0.9
+            id=1,
+            bbox_3d_9dof=[5, 0, 3, 1, 1, 1, 0, 0, 0],
+            category="cabinet",
+            score=0.9,
         ),
         Proposal(
             id=2,
