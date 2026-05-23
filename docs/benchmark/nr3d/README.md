@@ -9,13 +9,14 @@ the current human-facing index.
 > The `v9.1_fix FULL` row at 82.95 % was invalidated on 2026-05-17 as a
 > GT-target-visible information leak (5 seed keyframes silently injected
 > per evidence-update turn at commit `d5f40ba`, fixed in `8ebf701`). The
-> honest depth-aware NR3D "best" on this codebase is now **v10
-> multi-anchor TADG at 72.00 % on the strat600 fold**. A 2026-05-21
-> proposal-enrichment run on the same fold scored 71.33 %, recovering most of
-> the lower reproduction gap but not setting a new best. A 2026-05-20
+> honest depth-aware NR3D "best" on this codebase is now **v11
+> proposal enrichment FULL at 72.26 % on the canonical filtered 7805-query
+> slice**. The preceding v11 strat600 pilot scored 71.33 %, recovering most of
+> the lower reproduction gap but not setting a new pilot-fold best. A 2026-05-20
 > high-worker reproduction at `workers=30` completed cleanly but scored
 > 70.00 %, and a 2026-05-21 `workers=20` reproduction from the current best
-> branch scored 69.17 %. Treat 72.00 as best observed, not yet deterministic.
+> branch scored 69.17 %. Treat 72.26 as the current best full-set result, with
+> the high-worker rows as stability caveats.
 > The older v9.3
 > text-first row at 66.67 % remains the clean baseline closest to public
 > UniVLG SOTA (65.2 %). The post-mortem consolidates
@@ -42,6 +43,7 @@ the current human-facing index.
 | [v10 multi-anchor strat600](v10_no_initial_keyframes_strat600_20260518.md#full-strat600-rerun-after-multi-anchor-tool-b671243) | **Standard canonical strat600 rerun.** Launch/runtime HEAD `b671243` adds `compare_candidates_to_anchors` and multi-anchor playbook routing. Overall **70.00 %** (Easy 78.28 / Hard 62.26 / V-Dep 58.77 / V-Indep 76.09), 598 completed and 2 final failed statuses. +44 correct vs `a6f6077`, +34 vs `220f128`, +54 vs `cfee0ef`. Source/artifact scan found no pending-image side-channel keys; next narrow fixes are candidate/anchor overlap rejection and unresolved `anchor_disagreement` finalization. |
 | [v10 multi-anchor TADG strat600](v10_no_initial_keyframes_strat600_20260518.md#full-strat600-rerun-after-multi-anchor-tadg-binding-a3ff7f1) | **Standard canonical strat600 rerun.** Launch/runtime HEAD `a3ff7f1` makes `compare_candidates_to_anchors` first-class TADG evidence and blocks unresolved `anchor_disagreement`. Overall **72.00 %** (Easy 82.41 / Hard 62.26 / V-Dep 62.56 / V-Indep 77.12), 600 completed. +12 correct vs `b671243`; high-worker reproduction with `workers=30` completed but scored 70.00 %. |
 | [v11 proposal enrichment strat600](v11_enrichment_strat600_20260521.md) | **Standard canonical strat600 rerun with enriched proposal notes.** Launch/runtime HEAD `793cb57` adds compact enrichment to initial `Proposal notes:` and full enrichment to `inspect_proposal`. Overall **71.33 %** (Easy 79.66 / Hard 63.55 / V-Dep 61.61 / V-Indep 76.61), 600 completed. Not a new best, but above the recent 70.00 / 69.17 reproductions of the same family. |
+| [v11 proposal enrichment FULL](v11_enrichment_full_20260523.md) | **Full 8584-utterance rerun with enriched proposal notes on all NR3D scenes.** Launch/runtime HEAD `63dc417`; final metrics regenerated after deleting/rerunning API-error sentinels. Filtered Overall **72.26 %** (Easy 81.74 / Hard 63.39 / V-Dep 62.46 / V-Indep 77.60), 8492 completed and 92 final failed statuses, 0 checkpoint error fields. Current best valid full-set row. |
 | [v10 guard target-semantics probe](v10_no_initial_keyframes_strat600_20260518.md#guard-target-semantics-probe-2f9afe4) | **Diagnostic probe, not a leaderboard row.** HEAD `2f9afe4` fixes shell-head category parsing (`object is a/an X`) and prevents EFG from deriving left/right target constraints from rationale-only wording. Two audited cases: `closer to TV` recovers from wrong `#3` to target `#2` (IoU 1.0); `fully closed door` no longer hits the guard deadlock but still chooses the wrong door proposal (`#0` vs target `#2`). |
 | [v10 cabinet-anchor target probe](v10_no_initial_keyframes_strat600_20260518.md#cabinet-anchor-target-probe-6cb6844) | **Diagnostic probe, not a leaderboard row.** HEAD `6cb6844` fixes cabinet aliases and positional cabinet-head extraction so refrigerator anchors are not accepted as cabinet targets. Two audited cases: kitchen cabinet over/with microwave recovers from wrong `#4` to target `#8` (IoU 1.0); top-left cabinet no longer selects the fridge anchor but still chooses neighboring cabinet `#15` instead of target `#14`. Follow-up HEAD `c94f5e1` adds unit-only coverage for generic `object you are looking for is X` complements. |
 | [v10 view-dependent side-evidence probe](v10_no_initial_keyframes_strat600_20260518.md#view-dependent-side-evidence-probe-23f68de) | **Diagnostic probe, not a leaderboard row.** HEAD `23f68de` tightens the shared and VG playbooks for view-dependent left/right: use same marked viewer/anchor frame, prefer `require_all=True` for small candidate sets, and do not combine screen-left/right from different camera viewpoints. On 15 newly audited failures, 5 recover: mice-left, table-facing chair-right, two-closest armchair-right, monitor-keyboard, and nested table relation. Remaining buckets are role-bound composite relation evidence, noun-scoped EFG, target-category operative-clause parsing, and ordinal/superlative candidate closure. |
@@ -90,34 +92,29 @@ the current human-facing index.
 
 ## Current Result Status
 
-**Headline honest depth-aware result on the canonical strat600 fold** (calibrated within
-±0.19 pp of FULL 7805 on the v9.1_fix reference, ±2.3 pp 90 %-band Overall):
+**Headline honest depth-aware result on the canonical filtered full set**:
 
-**v10 multi-anchor TADG 72.00 %** — see
-[v10_no_initial_keyframes_strat600_20260518.md#full-strat600-rerun-after-multi-anchor-tadg-binding-a3ff7f1](v10_no_initial_keyframes_strat600_20260518.md#full-strat600-rerun-after-multi-anchor-tadg-binding-a3ff7f1).
-Runtime HEAD `a3ff7f1`, workers=20, no initial keyframes, no pending-image side channel.
+**v11 proposal enrichment FULL 72.26 %** — see
+[v11_enrichment_full_20260523.md](v11_enrichment_full_20260523.md).
+Runtime HEAD `63dc417`, no initial keyframes, no pending-image side channel,
+full-scene proposal enrichment available through initial notes and
+`inspect_proposal`.
 
-| Metric | v10 multi-anchor TADG (cite this for fair v10) | v9.3 text-first baseline | UniVLG (public SOTA) | Delta v10 vs UniVLG |
+| Metric | v11 enrichment FULL (cite this for fair full set) | v10 multi-anchor TADG strat600 | UniVLG (public SOTA) | Delta v11 vs UniVLG |
 |---|---:|---:|---:|---:|
-| Overall   | **72.00** | 66.67 | 65.2 | **+6.80** |
-| Easy      | **82.41** | 73.45 | 73.3 | **+9.11** |
-| Hard      | **62.26** | 60.32 | 57.0 | **+5.26** |
-| V-Dep     | **62.56** | 54.98 | 55.1 | **+7.46** |
-| V-Indep   | **77.12** | 73.01 | 69.9 | **+7.22** |
+| Overall   | **72.26** | 72.00 | 65.2 | **+7.06** |
+| Easy      | 81.74 | **82.41** | 73.3 | **+8.44** |
+| Hard      | **63.39** | 62.26 | 57.0 | **+6.39** |
+| V-Dep     | 62.46 | **62.56** | 55.1 | **+7.36** |
+| V-Indep   | **77.60** | 77.12 | 69.9 | **+7.70** |
 
-The v10 multi-anchor TADG row is the current best fair strat600 result in this
-archive: +5.33 pp over the v9.3 text-first baseline and +6.80 pp over the
-public UniVLG headline, with **zero initial-keyframe or pending-image side
-channel**. It should still be treated as a strat600 result, not a FULL 7805
-claim; strat600 → FULL bias is bounded at ±0.19 pp on the v9.1_fix reference,
-±2.3 pp 90 %-band on a fresh agent. Two later reproductions of the same code
-family did not recover 72.00: `workers=30` on 2026-05-20 scored **70.00 %**,
-and `workers=20` on 2026-05-21 scored **69.17 %** with 294 retryable 403s and
-56 retryable 429s. A later proposal-enrichment run at `793cb57` scored
-**71.33 %** with 600 / 600 completed, suggesting enrichment helps stabilize
-the branch but does not supersede the 72.00 best observed row. Cite 72.00 as
-the best observed fair row and keep the lower reproductions as stability
-caveats.
+The v11 full row is the current best fair result in this archive: +7.06 pp over
+the public UniVLG headline, with **zero initial-keyframe or pending-image side
+channel** and 0 final checkpoint `error` fields. The v10 multi-anchor TADG
+72.00 % strat600 row remains the best pilot-fold row; the v11 strat600 pilot at
+71.33 % was slightly lower, while the full fold lands at 72.26 %. Keep the
+high-worker reproduction caveat: transient ModelHub/API failures must be
+deleted and rerun before accepting final metrics.
 
 Latest spec-cleanup run:
 [v10_no_initial_keyframes_strat600_20260518.md](v10_no_initial_keyframes_strat600_20260518.md)
@@ -322,6 +319,8 @@ Previous best depth-aware random100 pilot:
 | [v10_multi_anchor_tadg_strat600_20260519](v10_no_initial_keyframes_strat600_20260518.md#full-strat600-rerun-after-multi-anchor-tadg-binding-a3ff7f1) | 2026-05-19 | `feat/remove-initial-keyframes` / launch+runtime `a3ff7f1` | Overall **72.00** / Easy **82.41** / Hard **62.26** / V-Dep **62.56** / V-Indep **77.12** | 600Q strat600 (standard guards, no GT inputs) | Standard rerun after TADG learned `compare_candidates_to_anchors` evidence and blocks unresolved `anchor_disagreement`. Eval + metrics exit 0; 600 side-by-side rows; 600 completed. +12 correct vs `b671243`, +56 vs `a6f6077`, +46 vs `220f128`. Source/artifact scans found no pending-image side-channel keys. |
 | [REPRO_20260520_v10_multi_anchor_tadg_strat600_20260519_w30](v10_no_initial_keyframes_strat600_20260518.md#high-worker-reproduction-of-multi-anchor-tadg-binding-a3ff7f1--workers30) | 2026-05-20 | `best/v10-multi-anchor-tadg-72-a3ff7f1` / runtime `a3ff7f1` | Overall **70.00** / Easy **78.62** / Hard **61.94** / V-Dep **61.61** / V-Indep **74.55** | 600Q strat600 high-worker reproduction | Negative reproduction of the 72.00 row with `workers=30` and `MODELHUB_AK_WEIGHTS=1,1,1`. Eval + metrics exit 0; 600 side-by-side rows; 600 completed; 49 recoveries and 61 regressions vs the original run. Log shows 2724 retryable 429s, 19 retryable 403s, 15 attempt-2 retries, and no fatal errors. |
 | [REPRO_20260521_v10_multi_anchor_tadg_strat600_20260519_w20](v10_no_initial_keyframes_strat600_20260518.md#workers20-reproduction-of-multi-anchor-tadg-binding-7203e18) | 2026-05-21 | `best/v10-multi-anchor-tadg-72-a3ff7f1` / runtime `7203e18` (docs-only drift from `a3ff7f1`) | Overall **69.17** / Easy **79.31** / Hard **59.68** / V-Dep **62.56** / V-Indep **72.75** | 600Q strat600 workers=20 reproduction | Negative reproduction of the 72.00 row using the original worker count. Eval + metrics exit 0; 600 side-by-side rows; 598 completed / 2 failed; 45 recoveries and 62 regressions vs the original run. Log shows 294 retryable 403s, 56 retryable 429s, 35 attempt-2, 6 attempt-3, 1 attempt-4, and no traceback. |
+| [v11_enrichment_strat600_20260521](v11_enrichment_strat600_20260521.md) | 2026-05-21 | `best/v10-multi-anchor-tadg-72-a3ff7f1` / launch+runtime `793cb57` | Overall **71.33** / Easy **79.66** / Hard **63.55** / V-Dep **61.61** / V-Indep **76.61** | 600Q strat600 with proposal enrichment | Standard rerun after adding compact enrichment to initial proposal notes and full enrichment to `inspect_proposal`. Eval + metrics exit 0; 600 side-by-side rows; 600 completed. Stabilization-positive but not a new strat600 best. |
+| [v11_enrichment_full_20260523](v11_enrichment_full_20260523.md) | 2026-05-23 | `best/v10-multi-anchor-tadg-72-a3ff7f1` / launch+runtime `63dc417` | Overall **72.26** / Easy **81.74** / Hard **63.39** / V-Dep **62.46** / V-Indep **77.60** | 8584Q full / 7805Q filtered with proposal enrichment | Current best valid full-set row. Eval + metrics regenerated after deleting/rerunning API-error sentinels; final 8584 side-by-side rows, 8492 completed / 92 final failed statuses, and 0 checkpoint error fields. |
 
 ## Protocol Summary
 

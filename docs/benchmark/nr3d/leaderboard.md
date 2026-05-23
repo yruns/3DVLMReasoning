@@ -12,16 +12,19 @@ papers also report Acc@0.25 / Acc@0.5 in a separate detection-mode track.
 | 3D-VisTA | classification | 64.2 | 72.1 | 56.7 | 61.5 | 65.1 | leaderboard |
 | MiKASA | classification | 64.4 | 69.7 | 59.4 | 65.4 | 64.0 | leaderboard |
 | UniVLG | classification | 65.2 | 73.3 | 57.0 | 55.1 | 69.9 | leaderboard 2026 |
-| **Ours (v10 multi-anchor TADG, depth-aware, fair)** | classification, strat600 calibrated fold | **72.00** | **82.41** | 62.26 | **62.56** | **77.12** | [v10_no_initial_keyframes_strat600_20260518.md](v10_no_initial_keyframes_strat600_20260518.md#full-strat600-rerun-after-multi-anchor-tadg-binding-a3ff7f1) |
+| **Ours (v11 proposal enrichment FULL, depth-aware, fair)** | classification, full 8584 / canonical filtered 7805 | **72.26** | 81.74 | **63.39** | 62.46 | **77.60** | [v11_enrichment_full_20260523.md](v11_enrichment_full_20260523.md) |
+| Ours (v10 multi-anchor TADG, depth-aware, fair) | classification, strat600 calibrated fold | 72.00 | **82.41** | 62.26 | **62.56** | 77.12 | [v10_no_initial_keyframes_strat600_20260518.md](v10_no_initial_keyframes_strat600_20260518.md#full-strat600-rerun-after-multi-anchor-tadg-binding-a3ff7f1) |
 | Ours (v11 proposal enrichment, depth-aware, fair) | classification, strat600 calibrated fold | 71.33 | 79.66 | **63.55** | 61.61 | 76.61 | [v11_enrichment_strat600_20260521.md](v11_enrichment_strat600_20260521.md) |
 | **Ours (v9.3 text-first, depth-aware, fair)** | classification, strat600 calibrated fold (≈ FULL ±0.19 pp on v9.1_fix reference) | **66.67** | 73.45 | **60.32** | 54.98 | **73.01** | [v9_3_strat600_20260517.md](v9_3_strat600_20260517.md) — see also [v9_4_gt_leak_postmortem_20260518.md](v9_4_gt_leak_postmortem_20260518.md) |
 | Ours (v9.1_fix FULL, **invalidated**) | classification, GT-target-visible RGB seed keyframes silently injected (seed-drain leak at `d5f40ba`, fixed in `8ebf701`) | 82.95 | 88.36 | 77.88 | 78.23 | 85.51 | [v9_1_fix_FULL_REPRO_20260516.md](v9_1_fix_FULL_REPRO_20260516.md) — see [v9_4_gt_leak_postmortem_20260518.md](v9_4_gt_leak_postmortem_20260518.md) |
 | Ours (v5.1, zero-shot RGB+VLM, invalidated) | classification, projection-only visibility index | 68.48 | 78.43 | 59.18 | 57.38 | 74.53 | [v5p1_failed_rerun_full_20260513.md](v5p1_failed_rerun_full_20260513.md) |
 | Ours (v3, zero-shot RGB+VLM, invalidated) | classification, GT-target-visible but projection-only visibility index | 80.79 | 86.06 | 75.87 | 72.46 | 85.34 | [v3_referit3d_track_20260501.md](v3_referit3d_track_20260501.md) |
 
-The **v10 multi-anchor TADG 72.00 %** row is the best observed valid
-depth-aware strat600 result in this archive; v11 proposal enrichment scored
-71.33 % on the same fold and is a stabilization-positive but not new-best run.
+The **v11 proposal enrichment FULL 72.26 %** row is the best observed valid
+depth-aware full-set result in this archive. The v10 multi-anchor TADG 72.00 %
+row remains the best observed valid strat600 pilot, while v11 proposal
+enrichment scored 71.33 % on that smaller fold before reaching 72.26 % on the
+full filtered set.
 The strat600 fold is calibrated to within ±0.19 pp of the canonical FULL 7805
 on the v9.1_fix reference; bootstrap 90 %-band on Overall is ±2.3 pp.
 
