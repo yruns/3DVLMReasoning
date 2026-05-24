@@ -345,6 +345,96 @@ class TestQueryParserHypothesisOutput(unittest.TestCase):
         self.assertIn("pillow", categories)
         self.assertIn("throw_pillow", categories)
 
+    def test_actual_parser_prompt_includes_viewpoint_contract(self):
+        """The selector's parser path must prompt for viewpoint-aware fields."""
+        parser = QueryParser(
+            llm_model="gemini-test",
+            scene_categories=["cabinet", "door", "loveseat", "window"],
+        )
+
+        prompt = parser._build_prompt(
+            "Facing the door, the cabinet on the right by the love seat"
+        )
+
+        self.assertIn("ViewpointContext", prompt)
+        self.assertIn("reference_frame", prompt)
+        self.assertIn("viewpoint_context_id", prompt)
+        self.assertIn("execution_policy", prompt)
+        self.assertIn('"viewer"', prompt)
+        self.assertIn('"rank_only"', prompt)
+        self.assertIn("Facing the door", prompt)
+
+    def test_actual_parser_dynamic_schema_preserves_viewpoint_fields(self):
+        """Structured-output schema must retain viewpoint fields before core validation."""
+        parser = QueryParser(
+            llm_model="non-gemini-test",
+            scene_categories=["cabinet", "door", "loveseat"],
+        )
+        schema = parser._build_dynamic_schema()
+
+        result = schema.model_validate(
+            {
+                "format_version": "hypothesis_output_v1",
+                "parse_mode": "single",
+                "hypotheses": [
+                    {
+                        "kind": "direct",
+                        "rank": 1,
+                        "grounding_query": {
+                            "raw_query": "Facing the door, the cabinet on the right",
+                            "root": {
+                                "categories": ["cabinet"],
+                                "attributes": [],
+                                "spatial_constraints": [
+                                    {
+                                        "relation": "right_of",
+                                        "anchors": [
+                                            {
+                                                "categories": ["door"],
+                                                "attributes": [],
+                                                "spatial_constraints": [],
+                                                "select_constraint": None,
+                                            }
+                                        ],
+                                        "reference_frame": "viewer",
+                                        "viewpoint_context_id": "vp_facing_door",
+                                        "execution_policy": "soft",
+                                    }
+                                ],
+                                "select_constraint": None,
+                            },
+                            "expect_unique": True,
+                            "viewpoint_contexts": [
+                                {
+                                    "id": "vp_facing_door",
+                                    "kind": "facing_anchor",
+                                    "facing_anchor": {
+                                        "categories": ["door"],
+                                        "attributes": [],
+                                        "spatial_constraints": [],
+                                        "select_constraint": None,
+                                    },
+                                    "raw_phrase": "Facing the door",
+                                    "confidence": "explicit",
+                                }
+                            ],
+                        },
+                        "lexical_hints": ["facing", "door", "right"],
+                    }
+                ],
+            }
+        )
+        dumped = result.model_dump()
+        grounding_query = dumped["hypotheses"][0]["grounding_query"]
+        constraint = grounding_query["root"]["spatial_constraints"][0]
+
+        self.assertEqual(constraint["reference_frame"], "viewer")
+        self.assertEqual(constraint["viewpoint_context_id"], "vp_facing_door")
+        self.assertEqual(constraint["execution_policy"], "soft")
+        self.assertEqual(
+            grounding_query["viewpoint_contexts"][0]["id"], "vp_facing_door"
+        )
+
     def test_hypothesis_output_validation(self):
         """Test that HypothesisOutputV1 validation rules are enforced."""
         from query_scene.core import (

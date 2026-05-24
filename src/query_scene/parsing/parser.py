@@ -173,8 +173,20 @@ class QueryParser:
         query_node_ref = ForwardRef("QueryNodeDynamic")
         spatial_constraint_ref = ForwardRef("SpatialConstraintDynamic")
         select_constraint_ref = ForwardRef("SelectConstraintDynamic")
+        viewpoint_context_ref = ForwardRef("ViewpointContextDynamic")
         grounding_query_ref = ForwardRef("GroundingQueryDynamic")
         query_hypothesis_ref = ForwardRef("QueryHypothesisDynamic")
+
+        ReferenceFrameLiteral = Literal["world", "viewer", "object_local", "ambiguous"]
+        ExecutionPolicyLiteral = Literal["hard", "soft", "rank_only"]
+        ViewpointKindLiteral = Literal[
+            "facing_anchor",
+            "facing_anchor_set",
+            "entering_from",
+            "standing_at",
+            "object_local",
+        ]
+        ConfidenceLiteral = Literal["explicit", "inferred", "ambiguous"]
 
         QueryNodeDynamic = create_model(
             "QueryNodeDynamic",
@@ -192,6 +204,9 @@ class QueryParser:
             "SpatialConstraintDynamic",
             relation=(str, Field(...)),
             anchors=(list[query_node_ref], Field(...)),
+            reference_frame=(ReferenceFrameLiteral, "world"),
+            viewpoint_context_id=(str | None, None),
+            execution_policy=(ExecutionPolicyLiteral, "hard"),
         )
 
         SelectConstraintDynamic = create_model(
@@ -201,6 +216,20 @@ class QueryParser:
             order=(str, Field(...)),
             reference=(query_node_ref | None, None),
             position=(int | None, None),
+            reference_frame=(ReferenceFrameLiteral, "world"),
+            viewpoint_context_id=(str | None, None),
+            execution_policy=(ExecutionPolicyLiteral, "hard"),
+        )
+
+        ViewpointContextDynamic = create_model(
+            "ViewpointContextDynamic",
+            id=(str, Field(..., min_length=1)),
+            kind=(ViewpointKindLiteral, Field(...)),
+            facing_anchor=(query_node_ref | None, None),
+            origin_anchor=(query_node_ref | None, None),
+            subject_anchor=(query_node_ref | None, None),
+            raw_phrase=(str, ""),
+            confidence=(ConfidenceLiteral, "explicit"),
         )
 
         GroundingQueryDynamic = create_model(
@@ -208,6 +237,10 @@ class QueryParser:
             raw_query=(str, Field(...)),
             root=(QueryNodeDynamic, Field(...)),
             expect_unique=(bool, Field(...)),
+            viewpoint_contexts=(
+                list[viewpoint_context_ref],
+                Field(default_factory=list),
+            ),
         )
 
         # Hypothesis kind enum
@@ -236,12 +269,14 @@ class QueryParser:
             "QueryNodeDynamic": QueryNodeDynamic,
             "SpatialConstraintDynamic": SpatialConstraintDynamic,
             "SelectConstraintDynamic": SelectConstraintDynamic,
+            "ViewpointContextDynamic": ViewpointContextDynamic,
             "GroundingQueryDynamic": GroundingQueryDynamic,
             "QueryHypothesisDynamic": QueryHypothesisDynamic,
         }
         QueryNodeDynamic.model_rebuild(_types_namespace=types_namespace)
         SpatialConstraintDynamic.model_rebuild(_types_namespace=types_namespace)
         SelectConstraintDynamic.model_rebuild(_types_namespace=types_namespace)
+        ViewpointContextDynamic.model_rebuild(_types_namespace=types_namespace)
         GroundingQueryDynamic.model_rebuild(_types_namespace=types_namespace)
         QueryHypothesisDynamic.model_rebuild(_types_namespace=types_namespace)
         HypothesisOutputV1Dynamic.model_rebuild(_types_namespace=types_namespace)
