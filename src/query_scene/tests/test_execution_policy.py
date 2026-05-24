@@ -293,6 +293,30 @@ class TestNormalizeViewpointPolicies(unittest.TestCase):
         self.assertEqual(sc.reference_frame, ReferenceFrame.WORLD)
         self.assertEqual(sc.execution_policy, ExecutionPolicy.HARD)
 
+    def test_world_distance_select_constraint_not_touched(self) -> None:
+        selector = self._make_selector()
+        sel = SelectConstraint(
+            constraint_type="superlative",
+            metric="distance",
+            order="min",
+            reference=QueryNode(categories=["door"], node_id="sel_ref"),
+            position=None,
+        )
+        gq = GroundingQuery(
+            raw_query="cabinet closest to the door",
+            root=QueryNode(
+                categories=["cabinet"],
+                select_constraint=sel,
+                node_id="root",
+            ),
+            expect_unique=True,
+        )
+        out = selector._normalize_viewpoint_policies(gq)
+        out_sel = out.root.select_constraint
+        self.assertIsNotNone(out_sel)
+        self.assertEqual(out_sel.reference_frame, ReferenceFrame.WORLD)
+        self.assertEqual(out_sel.execution_policy, ExecutionPolicy.HARD)
+
     def test_viewer_with_resolved_context_not_touched(self) -> None:
         selector = self._make_selector()
         ctx = ViewpointContext(

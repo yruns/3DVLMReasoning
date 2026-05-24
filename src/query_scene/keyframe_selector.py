@@ -57,6 +57,8 @@ from .core import (
     QueryHypothesis,
     QueryNode,
     ReferenceFrame,
+    SelectConstraint,
+    SpatialConstraint,
 )
 from .lightweight_conceptgraph import load_conceptgraph_objects
 from .parsing import QueryParser
@@ -2271,8 +2273,19 @@ class KeyframeSelector:
                 ungrounded_context_ids.add(vc.id)
 
         for _node, constraint in gq.iter_constraints():
-            relation_norm = constraint.relation.lower().replace(" ", "_")
-            is_directional = relation_norm in DIRECTIONAL_RELATIONS
+            if isinstance(constraint, SpatialConstraint):
+                relation_norm = constraint.relation.lower().replace(" ", "_")
+                is_directional = relation_norm in DIRECTIONAL_RELATIONS
+            elif isinstance(constraint, SelectConstraint):
+                metric_norm = constraint.metric.lower().replace(" ", "_")
+                is_directional = metric_norm in {
+                    "x_position",
+                    "x",
+                    "y_position",
+                    "y",
+                }
+            else:
+                is_directional = False
 
             # Pass 1: world-frame directional without context -> ambiguous/rank_only
             if (
