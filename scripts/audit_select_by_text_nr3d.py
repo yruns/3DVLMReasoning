@@ -119,6 +119,13 @@ def parse_args() -> argparse.Namespace:
         "Default False (text-only parsing, what the agent uses).",
     )
     parser.add_argument(
+        "--viewpoint-aware",
+        action="store_true",
+        help="If set, pass viewpoint_aware=True to select_keyframes_v2 so "
+        "viewpoint contexts, viewer-frame execution, and rank-only policy "
+        "normalization are enabled.",
+    )
+    parser.add_argument(
         "--resume",
         action="store_true",
         help="If --output already exists, keep its per-sample entries and "
@@ -334,6 +341,7 @@ def main() -> int:
                 k=max_k,
                 hidden_categories=[],
                 use_visual_context=bool(args.use_visual_context),
+                viewpoint_aware=bool(args.viewpoint_aware),
             )
             elapsed = time.time() - t0
             pred_frames = [int(v) for v in (result.keyframe_indices or [])]
@@ -388,6 +396,7 @@ def _write_output(
             "llm_model": args.llm_model,
             "k_values": k_values,
             "use_visual_context": bool(args.use_visual_context),
+            "viewpoint_aware": bool(args.viewpoint_aware),
         },
         "wall_clock_s": round(time.time() - t_start, 1),
         "summary": summary,
