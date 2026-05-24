@@ -71,6 +71,7 @@ diagnostics, not final object-grounding accuracy.
 | [v13 viewpoint-aware coverage](v13_select_by_text_viewpoint_aware_strat600_coverage_20260524.md) | 600 strat | 69.00 | 69.67 | 17.83 | `viewpoint_aware=True`; gain mostly from ambiguous directional `rank_only` demotion. |
 | [v14 viewpoint-prompt smoke50](v14_select_by_text_viewpoint_prompt_smoke50_20260524.md) | 50 smoke | 66.00 | 61.11 | 20.00 | Active parser now emits viewpoint contexts: 7 / 18 view-dependent samples, 8 viewer-frame constraints/selectors. |
 | [v15 viewpoint-prompt strat600](v15_select_by_text_viewpoint_prompt_strat600_coverage_20260524.md) | 600 strat | 69.17 | 73.93 | 17.67 | Active parser emits viewpoint contexts on 98 / 600 samples; overall flat vs v13 but View-Dep improves +4.27 pp. |
+| [v16 bbox-spatial strat600](v16_select_by_text_bbox_spatial_strat600_coverage_20260524.md) | 600 strat | 71.17 | 70.14 | 13.50 | Bbox-aware spatial checker + hard quick-filter fallthrough; empty frames 106 -> 81 vs v15, with View-Indep +5.14 pp and View-Dep -3.79 pp. |
 
 | Run | Setup | Fold | Overall | Easy | Hard | View-dep | View-indep | Notes |
 |---|---|---:|---:|---:|---:|---:|---:|---|
