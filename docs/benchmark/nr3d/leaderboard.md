@@ -59,6 +59,18 @@ and should not be mixed with this classification table. See
 These rows use fixed internal subsets and are tracked for ablation/debugging
 only. They must not be quoted as public NR3D leaderboard results.
 
+### Tool Coverage Audits
+
+These rows measure whether raw-query `select_by_text(..., k=3)` keyframes
+contain at least one GT-target-visible frame. They are selector coverage
+diagnostics, not final object-grounding accuracy.
+
+| Run | Fold | hit@3 | View-dep hit@3 | Empty frames | Notes |
+|---|---:|---:|---:|---:|---|
+| [v11 select_by_text coverage](v11_select_by_text_strat600_coverage_20260524.md) | 600 strat | 62.17 | 50.71 | 25.17 | Production-equivalent text-only selector call. |
+| [v13 viewpoint-aware coverage](v13_select_by_text_viewpoint_aware_strat600_coverage_20260524.md) | 600 strat | 69.00 | 69.67 | 17.83 | `viewpoint_aware=True`; gain mostly from ambiguous directional `rank_only` demotion. |
+| [v14 viewpoint-prompt smoke50](v14_select_by_text_viewpoint_prompt_smoke50_20260524.md) | 50 smoke | 66.00 | 61.11 | 20.00 | Active parser now emits viewpoint contexts: 7 / 18 view-dependent samples, 8 viewer-frame constraints/selectors. |
+
 | Run | Setup | Fold | Overall | Easy | Hard | View-dep | View-indep | Notes |
 |---|---|---:|---:|---:|---:|---:|---:|---|
 | Same-fold v1/v3 baseline | GT-visible keyframes + GT-pool classification | 100 | 80.00 | 85.37 | 76.27 | 61.76 | 89.39 | Invalidated: projection-only visibility source. |
