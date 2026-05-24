@@ -66,7 +66,7 @@ import argparse
 import json
 import pickle
 import time
-from collections import OrderedDict
+from collections import Counter, OrderedDict
 from pathlib import Path
 from typing import Any
 
@@ -260,6 +260,55 @@ def compute_metrics(
     return out
 
 
+def summarize_hypothesis_viewpoint_stats(hypothesis_output: dict[str, Any]) -> dict[str, Any]:
+    """Collect compact viewpoint-policy stats from a HypothesisOutputV1 dump."""
+    frame_counts: Counter[str] = Counter()
+    policy_counts: Counter[str] = Counter()
+    context_count = 0
+
+    def visit_node(node: dict[str, Any] | None) -> None:
+        if not isinstance(node, dict):
+            return
+        for constraint in node.get("spatial_constraints") or []:
+            if not isinstance(constraint, dict):
+                continue
+            frame = constraint.get("reference_frame")
+            if isinstance(frame, str):
+                frame_counts[frame] += 1
+            policy = constraint.get("execution_policy")
+            if isinstance(policy, str):
+                policy_counts[policy] += 1
+            for anchor in constraint.get("anchors") or []:
+                visit_node(anchor)
+
+        select_constraint = node.get("select_constraint")
+        if isinstance(select_constraint, dict):
+            frame = select_constraint.get("reference_frame")
+            if isinstance(frame, str):
+                frame_counts[frame] += 1
+            policy = select_constraint.get("execution_policy")
+            if isinstance(policy, str):
+                policy_counts[policy] += 1
+            visit_node(select_constraint.get("reference"))
+
+    for hypothesis in hypothesis_output.get("hypotheses") or []:
+        if not isinstance(hypothesis, dict):
+            continue
+        grounding_query = hypothesis.get("grounding_query")
+        if not isinstance(grounding_query, dict):
+            continue
+        contexts = grounding_query.get("viewpoint_contexts") or []
+        if isinstance(contexts, list):
+            context_count += len(contexts)
+        visit_node(grounding_query.get("root"))
+
+    return {
+        "viewpoint_context_count": context_count,
+        "reference_frame_counts": dict(sorted(frame_counts.items())),
+        "execution_policy_counts": dict(sorted(policy_counts.items())),
+    }
+
+
 def main() -> int:
     args = parse_args()
     k_values = sorted({int(v) for v in args.k.split(",") if v.strip()})
@@ -353,6 +402,7 @@ def main() -> int:
             sample_out["parse_status"] = metadata.get("status", "ok")
             sample_out["parse_mode"] = hyp.get("parse_mode")
             sample_out["hypothesis_count"] = len(hyp.get("hypotheses") or [])
+            sample_out.update(summarize_hypothesis_viewpoint_stats(hyp))
             metrics = compute_metrics(pred_frames, gt_frames, k_values)
             sample_out.update(metrics)
             print(
@@ -459,6 +509,17 @@ def summarize(samples_out: list[dict[str, Any]], k_values: list[int]) -> dict[st
     cov = [s["gt_coverage"] for s in measurable if s.get("gt_coverage") is not None]
     if cov:
         out["mean_gt_coverage"] = round(sum(cov) / len(cov), 4)
+    valid_samples = [s for s in samples_out if "error" not in s]
+    out["n_with_viewpoint_contexts"] = sum(
+        1 for s in valid_samples if int(s.get("viewpoint_context_count") or 0) > 0
+    )
+    frame_counts: Counter[str] = Counter()
+    policy_counts: Counter[str] = Counter()
+    for sample in valid_samples:
+        frame_counts.update(sample.get("reference_frame_counts") or {})
+        policy_counts.update(sample.get("execution_policy_counts") or {})
+    out["reference_frame_counts"] = dict(sorted(frame_counts.items()))
+    out["execution_policy_counts"] = dict(sorted(policy_counts.items()))
     return out
 
 
