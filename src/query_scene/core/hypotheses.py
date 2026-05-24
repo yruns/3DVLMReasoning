@@ -246,6 +246,102 @@ SUPPORTED_RELATIONS = [r.value for r in SpatialRelation]
 SUPPORTED_RELATIONS_STR = ", ".join(SUPPORTED_RELATIONS)
 
 
+# Relations whose semantics depend on the speaker / observer / object frame.
+# When the parser routes one of these into a non-world reference_frame, the
+# executor MUST honour the configured execution_policy (see ExecutionPolicy).
+DIRECTIONAL_RELATIONS: frozenset[str] = frozenset(
+    {
+        SpatialRelation.LEFT_OF.value,
+        SpatialRelation.RIGHT_OF.value,
+        SpatialRelation.IN_FRONT_OF.value,
+        SpatialRelation.BEHIND.value,
+    }
+)
+
+
+class ReferenceFrame(str, Enum):
+    """Reference frame in which a spatial / select constraint is evaluated.
+
+    Defaults to WORLD which reproduces the pre-viewpoint global X/Y/Z
+    semantics. VIEWER and OBJECT_LOCAL require a viewpoint context id.
+    AMBIGUOUS is set by the parser-normalize layer when a directional
+    relation is detected without an explicit observer cue, so the executor
+    can route it to a non-filtering policy without inventing a viewer pose.
+    """
+
+    WORLD = "world"
+    VIEWER = "viewer"
+    OBJECT_LOCAL = "object_local"
+    AMBIGUOUS = "ambiguous"
+
+
+class ViewpointKind(str, Enum):
+    """Linguistic frame of a viewpoint context.
+
+    - FACING_ANCHOR / FACING_ANCHOR_SET: "facing the X", "facing the windows"
+    - ENTERING_FROM: "entering from the door"
+    - STANDING_AT: "standing at the foot of the bed"
+    - OBJECT_LOCAL: object_A facing object_B (no human observer involved)
+    """
+
+    FACING_ANCHOR = "facing_anchor"
+    FACING_ANCHOR_SET = "facing_anchor_set"
+    ENTERING_FROM = "entering_from"
+    STANDING_AT = "standing_at"
+    OBJECT_LOCAL = "object_local"
+
+
+class ExecutionPolicy(str, Enum):
+    """How the executor treats a failing constraint.
+
+    - HARD: legacy behavior; if filter empties the candidates, return []
+    - SOFT: keep all candidates, multiply per-candidate score by satisfaction
+    - RANK_ONLY: never filter; record per-candidate score in metadata as
+      ``soft_match_score`` for downstream rerankers (e.g. joint_coverage)
+    """
+
+    HARD = "hard"
+    SOFT = "soft"
+    RANK_ONLY = "rank_only"
+
+
+class ViewpointContext(BaseModel):
+    """A named viewpoint description referenced by spatial / select constraints.
+
+    Anchors are full QueryNode objects so the executor can resolve them with
+    the same category-expansion / multilabel index logic as any other anchor.
+    Exactly one of ``facing_anchor``, ``origin_anchor`` and ``subject_anchor``
+    should be populated for a well-formed context, but no hard pydantic check
+    is enforced - the parser-normalize layer downgrades unresolved contexts
+    to a non-filtering policy rather than refusing to validate.
+    """
+
+    id: str = Field(
+        ..., min_length=1, description="Unique id referenced by *_context_id fields"
+    )
+    kind: ViewpointKind = Field(..., description="Linguistic frame this context represents")
+    facing_anchor: QueryNode | None = Field(
+        default=None,
+        description="Anchor for FACING_ANCHOR / FACING_ANCHOR_SET kinds",
+    )
+    origin_anchor: QueryNode | None = Field(
+        default=None,
+        description="Anchor for ENTERING_FROM / STANDING_AT kinds",
+    )
+    subject_anchor: QueryNode | None = Field(
+        default=None,
+        description="Subject object for OBJECT_LOCAL kind (e.g. armchair in 'armchair facing couch')",
+    )
+    raw_phrase: str = Field(
+        default="",
+        description="Original natural-language fragment, for trace / debug only",
+    )
+    confidence: Literal["explicit", "inferred", "ambiguous"] = Field(
+        default="explicit",
+        description="explicit = literal cue in query; inferred = parser deduced; ambiguous = parser undecided",
+    )
+
+
 class QueryNode(BaseModel):
 
     categories: list[str] = Field(
@@ -311,6 +407,23 @@ class SpatialConstraint(BaseModel):
 
     anchors: list[QueryNode] = Field(
         ..., description="Reference objects. Usually 1, can be 2 for 'between'"
+    )
+
+    reference_frame: ReferenceFrame = Field(
+        default=ReferenceFrame.WORLD,
+        description="Frame in which this relation is evaluated. Default world reproduces legacy behavior.",
+    )
+
+    viewpoint_context_id: str | None = Field(
+        default=None,
+        description="Id of a ViewpointContext on the enclosing GroundingQuery. Required when "
+        "reference_frame is VIEWER or OBJECT_LOCAL with a subject anchor.",
+    )
+
+    execution_policy: ExecutionPolicy = Field(
+        default=ExecutionPolicy.HARD,
+        description="How a failing constraint is handled. HARD = legacy filter-to-empty; "
+        "SOFT keeps candidates with scaled score; RANK_ONLY records score in metadata.",
     )
 
     model_config = {
@@ -385,6 +498,23 @@ class SelectConstraint(BaseModel):
         description="Position for ordinal selection: 1=first, 2=second, etc.",
     )
 
+    reference_frame: ReferenceFrame = Field(
+        default=ReferenceFrame.WORLD,
+        description="Frame in which the metric axis is evaluated. Default world reproduces "
+        "legacy semantics (x_position = global X, etc.).",
+    )
+
+    viewpoint_context_id: str | None = Field(
+        default=None,
+        description="Id of a ViewpointContext on the enclosing GroundingQuery. Required when "
+        "reference_frame is VIEWER or OBJECT_LOCAL.",
+    )
+
+    execution_policy: ExecutionPolicy = Field(
+        default=ExecutionPolicy.HARD,
+        description="How a failing selection is handled. HARD reproduces legacy behavior.",
+    )
+
     @model_validator(mode="after")
     def validate_constraint(self) -> SelectConstraint:
         """Validate that ordinal constraints have position set."""
@@ -437,6 +567,12 @@ class GroundingQuery(BaseModel):
         description="True for 'the X' (expect single result), False for 'X' or 'Xs'",
     )
 
+    viewpoint_contexts: list[ViewpointContext] = Field(
+        default_factory=list,
+        description="Viewpoint contexts referenced by constraints in this query. Empty list "
+        "preserves legacy world-frame behavior.",
+    )
+
     model_config = {
         "json_schema_extra": {
             "examples": [
@@ -456,13 +592,16 @@ class GroundingQuery(BaseModel):
 
     def get_all_categories(self) -> list[str]:
         """Extract all object categories mentioned in the query."""
-        categories = []
+        categories: list[str] = []
         self._collect_categories(self.root, categories)
+        for vc in self.viewpoint_contexts:
+            for anchor in (vc.facing_anchor, vc.origin_anchor, vc.subject_anchor):
+                if anchor is not None:
+                    self._collect_categories(anchor, categories)
         return categories
 
     def _collect_categories(self, node: QueryNode, categories: list[str]) -> None:
         """Recursively collect categories from a node."""
-        # Extend with all categories from this node
         categories.extend(node.categories)
 
         for constraint in node.spatial_constraints:
@@ -471,6 +610,51 @@ class GroundingQuery(BaseModel):
 
         if node.select_constraint and node.select_constraint.reference:
             self._collect_categories(node.select_constraint.reference, categories)
+
+    def iter_constraints(
+        self,
+    ) -> Iterable[tuple[QueryNode, SpatialConstraint | SelectConstraint]]:
+        """Yield every constraint paired with its owning node (for executor / linters)."""
+        stack: list[QueryNode] = [self.root]
+        while stack:
+            node = stack.pop()
+            for sc in node.spatial_constraints:
+                yield node, sc
+                for anchor in sc.anchors:
+                    stack.append(anchor)
+            if node.select_constraint is not None:
+                yield node, node.select_constraint
+                if node.select_constraint.reference is not None:
+                    stack.append(node.select_constraint.reference)
+
+    @model_validator(mode="after")
+    def validate_viewpoint_context_references(self) -> GroundingQuery:
+        """Every viewpoint_context_id referenced by a constraint must resolve.
+
+        Also requires that VIEWER / OBJECT_LOCAL reference_frame come with a
+        non-null viewpoint_context_id. AMBIGUOUS / WORLD allow null.
+        """
+        known_ids = {vc.id for vc in self.viewpoint_contexts}
+        if len({vc.id for vc in self.viewpoint_contexts}) != len(self.viewpoint_contexts):
+            raise ValueError("viewpoint_contexts must have unique ids")
+
+        non_world_frames = {ReferenceFrame.VIEWER, ReferenceFrame.OBJECT_LOCAL}
+
+        for _node, constraint in self.iter_constraints():
+            frame = constraint.reference_frame
+            ctx_id = constraint.viewpoint_context_id
+
+            if ctx_id is not None and ctx_id not in known_ids:
+                raise ValueError(
+                    f"viewpoint_context_id {ctx_id!r} is not declared in viewpoint_contexts"
+                )
+
+            if frame in non_world_frames and ctx_id is None:
+                raise ValueError(
+                    f"reference_frame={frame.value} requires a viewpoint_context_id"
+                )
+
+        return self
 
 
 class HypothesisKind(str, Enum):
@@ -579,6 +763,7 @@ class HypothesisOutputV1(BaseModel):
 QueryNode.model_rebuild()
 SpatialConstraint.model_rebuild()
 SelectConstraint.model_rebuild()
+ViewpointContext.model_rebuild()
 GroundingQuery.model_rebuild()
 QueryHypothesis.model_rebuild()
 HypothesisOutputV1.model_rebuild()

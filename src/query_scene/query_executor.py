@@ -25,14 +25,29 @@ import numpy as np
 from loguru import logger
 
 from .core import (
+    DIRECTIONAL_RELATIONS,
     ConstraintType,
+    ExecutionPolicy,
     GroundingQuery,
     QueryNode,
+    ReferenceFrame,
     SelectConstraint,
     SpatialConstraint,
+    ViewpointContext,
 )
 from .quick_filters import AttributeFilter, QuickFilters
 from .retrieval.spatial_checker import SpatialRelationChecker
+from .viewpoint_geometry import (
+    ViewerPose,
+    resolve_viewer_pose,
+    viewer_frame_axis_value,
+    viewer_frame_relation_score,
+)
+
+# Score floor for SOFT policy when no satisfaction is found. Multiplying by
+# this value keeps a candidate alive (does not zero it out) while still
+# letting properly-satisfying constraints dominate the ranking.
+SOFT_POLICY_SCORE_FLOOR: float = 1e-3
 
 if TYPE_CHECKING:
     from .retrieval import SceneObject
@@ -89,6 +104,7 @@ class QueryExecutor:
         clip_features: np.ndarray | None = None,
         clip_encoder: Any | None = None,
         use_quick_filters: bool = True,
+        camera_poses: list[np.ndarray] | None = None,
     ):
         """
         Initialize the query executor.
@@ -99,12 +115,21 @@ class QueryExecutor:
             clip_features: Optional pre-computed CLIP features for objects
             clip_encoder: Optional CLIP text encoder for semantic matching
             use_quick_filters: Whether to use quick filters for pre-filtering
+            camera_poses: Optional list of 4x4 world_T_cam matrices used by
+                viewer-frame resolution to pick the most-aligned frame for
+                a ``FACING_ANCHOR`` viewpoint context. When None, viewer-pose
+                resolution falls back to the geometric room-centroid heuristic.
         """
         self.objects = objects
         self.relation_checker = relation_checker or SpatialRelationChecker()
         self.clip_features = clip_features
         self.clip_encoder = clip_encoder
         self.use_quick_filters = use_quick_filters
+        self.camera_poses = camera_poses or []
+
+        # Set per-query in execute(); read by _resolve_viewer_pose_for_constraint.
+        self._viewpoint_contexts: dict[str, ViewpointContext] = {}
+        self._viewer_pose_cache: dict[str, ViewerPose | None] = {}
 
         # Quick filters for fast pre-filtering
         self._quick_filters = QuickFilters() if use_quick_filters else None
@@ -152,6 +177,125 @@ class QueryExecutor:
             return np.asarray(obj.centroid, dtype=np.float32)
         return np.zeros(3, dtype=np.float32)
 
+    @staticmethod
+    def _neutral_select_for_policy(
+        candidates: list[SceneObject],
+        scores: dict[int, float],
+        policy: ExecutionPolicy,
+    ) -> tuple[list[SceneObject], dict[int, float]]:
+        """Apply a SelectConstraint policy with zero metric evidence.
+
+        Used when a viewer-frame select metric (e.g. x_position in viewer
+        frame) cannot be evaluated because the pose did not resolve. As
+        with ``_neutral_evidence_for_policy``, we refuse to substitute
+        world coordinates for viewer coordinates - that would silently
+        change the meaning of the parsed select.
+
+        - HARD: return empty (no selection possible).
+        - SOFT / RANK_ONLY: keep all candidates with their incoming
+          multiplicative score unchanged (no metric reranking).
+        """
+        if policy == ExecutionPolicy.HARD:
+            return [], {}
+        kept_scores = {c.obj_id: scores.get(c.obj_id, 1.0) for c in candidates}
+        return list(candidates), kept_scores
+
+    @staticmethod
+    def _neutral_evidence_for_policy(
+        candidates: list[SceneObject],
+        policy: ExecutionPolicy,
+    ) -> tuple[list[SceneObject], dict[int, float], dict[int, float]]:
+        """Apply ``policy`` with zero geometric evidence.
+
+        Used when a viewer-frame spatial constraint requested a pose that
+        could not be resolved. We must NOT fall back to world-frame
+        evaluation (that would silently fabricate evidence), so the executor
+        instead applies the policy as if no candidate satisfies any anchor:
+
+        - HARD: return empty (no fabricated matches).
+        - SOFT: keep all candidates with the SOFT score floor so downstream
+          ranking still sees them, but with the lowest possible score.
+        - RANK_ONLY: keep all candidates with mult=1.0 and soft=0.0 so the
+          joint-coverage tie-breaker still sees them but the directional
+          relation contributes nothing.
+        """
+        if policy == ExecutionPolicy.HARD:
+            return [], {}, {}
+        if policy == ExecutionPolicy.SOFT:
+            return (
+                list(candidates),
+                {c.obj_id: SOFT_POLICY_SCORE_FLOOR for c in candidates},
+                {c.obj_id: 0.0 for c in candidates},
+            )
+        # RANK_ONLY
+        return (
+            list(candidates),
+            {c.obj_id: 1.0 for c in candidates},
+            {c.obj_id: 0.0 for c in candidates},
+        )
+
+    def _resolve_viewer_pose_for_constraint(
+        self, constraint: SpatialConstraint | SelectConstraint
+    ) -> ViewerPose | None:
+        """Look up (and cache) the ViewerPose for a viewer-frame constraint.
+
+        Returns None when:
+        - constraint.reference_frame != VIEWER (caller's responsibility to check first)
+        - viewpoint_context_id not set or unknown to this query
+        - facing/origin anchor objects do not resolve to scene objects
+        - trajectory mode in ``resolve_viewer_pose`` cannot pick an aligned
+          frame (no camera_poses, all degenerate, or none face the anchor).
+          The executor explicitly passes ``allow_geometric_fallback=False``
+          so the geometric room-centroid synthesis is DISABLED on this path -
+          there is no silent fabrication of a viewer pose.
+
+        On None, the executor MUST apply the constraint's declared policy
+        via ``_neutral_evidence_for_policy`` / ``_neutral_select_for_policy``
+        (HARD -> empty; SOFT / RANK_ONLY keep all with neutral scores).
+        World-frame fallthrough is forbidden.
+        """
+        ctx_id = constraint.viewpoint_context_id
+        if not ctx_id:
+            return None
+        if ctx_id in self._viewer_pose_cache:
+            return self._viewer_pose_cache[ctx_id]
+
+        ctx = self._viewpoint_contexts.get(ctx_id)
+        if ctx is None:
+            self._viewer_pose_cache[ctx_id] = None
+            return None
+
+        # Prefer facing_anchor; fall back to origin/subject for other kinds.
+        anchor_node = ctx.facing_anchor or ctx.origin_anchor or ctx.subject_anchor
+        if anchor_node is None:
+            self._viewer_pose_cache[ctx_id] = None
+            return None
+
+        anchor_result = self._execute_node(anchor_node)
+        if not anchor_result.matched_objects:
+            self._viewer_pose_cache[ctx_id] = None
+            return None
+
+        all_centroids = None
+        if self.objects:
+            all_centroids = np.stack([self._get_centroid(o) for o in self.objects])
+
+        # Strict no-fallback: refuse to synthesize a viewer pose when the
+        # camera trajectory is missing or degenerate. The executor MUST NOT
+        # invoke the geometric fallback path inside resolve_viewer_pose -
+        # the caller already accepted that responsibility upstream (either
+        # by loading a trajectory or by accepting None and downgrading to
+        # the constraint's declared execution policy via
+        # _neutral_evidence_for_policy / _neutral_select_for_policy).
+        pose = resolve_viewer_pose(
+            anchor_result.matched_objects,
+            all_object_centroids=all_centroids,
+            camera_poses=self.camera_poses if self.camera_poses else None,
+            allow_geometric_fallback=False,
+        )
+        self._viewer_pose_cache[ctx_id] = pose
+        return pose
+
     def execute(self, query: GroundingQuery) -> ExecutionResult:
         """
         Execute a grounding query.
@@ -164,8 +308,10 @@ class QueryExecutor:
         """
         logger.info(f"[QueryExecutor] Executing query: '{query.raw_query}'")
 
-        # Clear cache for new query
+        # Clear caches for new query
         self._cache.clear()
+        self._viewpoint_contexts = {vc.id: vc for vc in query.viewpoint_contexts}
+        self._viewer_pose_cache = {}
 
         # Execute from root
         result = self._execute_node(query.root)
@@ -233,18 +379,26 @@ class QueryExecutor:
 
         # Step 3: Apply spatial constraints (AND logic)
         scores = {obj.obj_id: 1.0 for obj in candidates}
+        soft_match_scores: dict[int, dict[str, float]] = {}
 
-        for constraint in node.spatial_constraints:
-            candidates, constraint_scores = self._apply_spatial_constraint(
-                candidates, constraint
+        for sc_idx, constraint in enumerate(node.spatial_constraints):
+            candidates, constraint_scores, constraint_soft = (
+                self._apply_spatial_constraint(candidates, constraint)
             )
-            # Combine scores
+            # Combine multiplicative scores
             for obj_id, score in constraint_scores.items():
                 if obj_id in scores:
                     scores[obj_id] *= score
 
+            # Aggregate soft satisfaction per constraint for read-only consumers
+            if constraint_soft:
+                key = f"sc{sc_idx}:{constraint.relation}:{constraint.execution_policy.value}"
+                for obj_id, soft_score in constraint_soft.items():
+                    soft_match_scores.setdefault(obj_id, {})[key] = soft_score
+
             logger.debug(
-                f"[QueryExecutor] After '{constraint.relation}' constraint: "
+                f"[QueryExecutor] After '{constraint.relation}' constraint "
+                f"(policy={constraint.execution_policy.value}): "
                 f"{len(candidates)} candidates"
             )
 
@@ -260,14 +414,18 @@ class QueryExecutor:
                 f"[QueryExecutor] After select constraint: {len(candidates)} candidates"
             )
 
+        metadata: dict[str, Any] = {
+            "categories": node.categories,
+            "category": node.category,
+        }
+        if soft_match_scores:
+            metadata["soft_match_scores"] = soft_match_scores
+
         result = ExecutionResult(
             node_id=node.node_id,
             matched_objects=candidates,
             scores=scores,
-            metadata={
-                "categories": node.categories,
-                "category": node.category,
-            },  # Keep category for backward compatibility
+            metadata=metadata,
         )
 
         if node.node_id:
@@ -432,7 +590,7 @@ class QueryExecutor:
         self,
         candidates: list[SceneObject],
         constraint: SpatialConstraint,
-    ) -> tuple[list[SceneObject], dict[int, float]]:
+    ) -> tuple[list[SceneObject], dict[int, float], dict[int, float]]:
         """
         Apply a spatial constraint to filter candidates.
 
@@ -440,13 +598,24 @@ class QueryExecutor:
         1. Quick filter: Fast pre-filtering using simple coordinate comparisons
         2. Full check: Accurate spatial relation checking for remaining candidates
 
-        Args:
-            candidates: Current candidate objects
-            constraint: Spatial constraint to apply
+        The behavior of a failing constraint is governed by
+        ``constraint.execution_policy``:
+
+        - HARD: legacy filter-on-fail. If every candidate fails, returns ``[], {}, {}``.
+        - SOFT: keep all candidates. Multiplicative scores are scaled by the
+          satisfaction score (with a floor of SOFT_POLICY_SCORE_FLOOR for
+          unsatisfied candidates) so downstream ranking still discriminates.
+        - RANK_ONLY: keep all candidates with multiplicative score unchanged.
+          Per-candidate satisfaction is written into the third return value
+          (soft_match_scores) for read-only consumers like joint_coverage.
 
         Returns:
-            Tuple of (filtered candidates, scores dict)
+            Tuple of (candidates_out, multiplicative_scores, soft_match_scores)
         """
+        # Default behavior reproduced even on legacy callers that build a
+        # SpatialConstraint without the new fields - pydantic supplies HARD/world.
+        policy = constraint.execution_policy
+
         # Execute anchor nodes to get reference objects
         anchor_objects = []
         for anchor_node in constraint.anchors:
@@ -465,14 +634,22 @@ class QueryExecutor:
 
         if not anchor_objects:
             logger.warning(
-                f"[QueryExecutor] No anchor objects found for relation '{constraint.relation}'. "
-                "Returning empty — spatial constraint cannot be evaluated without anchors."
+                f"[QueryExecutor] No anchor objects found for relation "
+                f"'{constraint.relation}' (policy={policy.value}). "
+                "Spatial constraint cannot be evaluated geometrically."
             )
-            return [], {}
+            if policy == ExecutionPolicy.HARD:
+                return [], {}, {}
+            # SOFT / RANK_ONLY: no information to filter on, keep everything.
+            scores = {c.obj_id: 1.0 for c in candidates}
+            return list(candidates), scores, {}
 
-        # Phase 1: Quick filter (if available)
+        # Phase 1: Quick filter (if available). Only run for HARD policy - SOFT
+        # and RANK_ONLY must never reduce the candidate pool here.
         pre_filtered = candidates
-        if self._quick_filters and self._quick_filters.has_filter(constraint.relation):
+        if policy == ExecutionPolicy.HARD and (
+            self._quick_filters and self._quick_filters.has_filter(constraint.relation)
+        ):
             pre_filtered = self._quick_filters.filter_candidates(
                 candidates, anchor_objects, constraint.relation
             )
@@ -486,18 +663,51 @@ class QueryExecutor:
                     f"[QueryExecutor] Quick filter '{constraint.relation}' eliminated all "
                     f"{len(candidates)} candidates. Returning empty — no spatial match."
                 )
-                return [], {}
+                return [], {}, {}
 
-        # Phase 2: Full spatial relation check
-        filtered = []
-        scores = {}
+        # Phase 2: Full spatial relation check. Viewer-frame branch when the
+        # constraint asks for it AND the pose resolves; otherwise use the
+        # world-frame SpatialRelationChecker. Critical: when viewer is
+        # requested but pose cannot resolve, we do NOT fall back to the
+        # world-frame relation checker - that would silently fabricate
+        # world-frame evidence. Instead we apply the declared policy with
+        # neutral evidence (HARD = empty, SOFT/RANK_ONLY = keep candidates).
+        wants_viewer_frame = (
+            constraint.reference_frame == ReferenceFrame.VIEWER
+            and constraint.relation.lower().replace(" ", "_") in DIRECTIONAL_RELATIONS
+        )
+        viewer_pose: ViewerPose | None = None
+        if wants_viewer_frame:
+            viewer_pose = self._resolve_viewer_pose_for_constraint(constraint)
+            if viewer_pose is None:
+                logger.warning(
+                    f"[QueryExecutor] viewer-frame requested for relation "
+                    f"'{constraint.relation}' but pose unresolved (policy={policy.value}); "
+                    "applying declared policy with neutral evidence (no world-frame fallback)."
+                )
+                return self._neutral_evidence_for_policy(pre_filtered, policy)
+
+        satisfied_set: set[int] = set()
+        sat_scores: dict[int, float] = {}
 
         for cand in pre_filtered:
             best_score = 0.0
             satisfies_any = False
 
-            # For "between", we need to pass both anchors
-            if constraint.relation.lower() == "between" and len(anchor_objects) >= 2:
+            if wants_viewer_frame and viewer_pose is not None:
+                cand_centroid = self._get_centroid(cand)
+                for anchor in anchor_objects:
+                    score = viewer_frame_relation_score(
+                        constraint.relation,
+                        cand_centroid,
+                        self._get_centroid(anchor),
+                        viewer_pose,
+                    )
+                    if score > 0:
+                        satisfies_any = True
+                        best_score = max(best_score, score)
+            elif constraint.relation.lower() == "between" and len(anchor_objects) >= 2:
+                # For "between", we need to pass both anchors
                 result = self.relation_checker.check(
                     cand, anchor_objects[:2], constraint.relation
                 )
@@ -515,10 +725,25 @@ class QueryExecutor:
                         best_score = max(best_score, result.score)
 
             if satisfies_any:
-                filtered.append(cand)
-                scores[cand.obj_id] = best_score
+                satisfied_set.add(cand.obj_id)
+                sat_scores[cand.obj_id] = best_score
 
-        return filtered, scores
+        if policy == ExecutionPolicy.HARD:
+            filtered = [c for c in pre_filtered if c.obj_id in satisfied_set]
+            return filtered, dict(sat_scores), {}
+
+        if policy == ExecutionPolicy.SOFT:
+            out_scores: dict[int, float] = {}
+            for c in pre_filtered:
+                s = sat_scores.get(c.obj_id, 0.0)
+                out_scores[c.obj_id] = s if s > 0 else SOFT_POLICY_SCORE_FLOOR
+            return list(pre_filtered), out_scores, dict(sat_scores)
+
+        # RANK_ONLY: keep all candidates, multiplicative score untouched (1.0),
+        # surface satisfaction in soft_match_scores for downstream rerankers.
+        keep_scores: dict[int, float] = {c.obj_id: 1.0 for c in pre_filtered}
+        soft_scores = {c.obj_id: sat_scores.get(c.obj_id, 0.0) for c in pre_filtered}
+        return list(pre_filtered), keep_scores, soft_scores
 
     def _apply_select_constraint(
         self,
@@ -529,21 +754,32 @@ class QueryExecutor:
         """
         Apply a select constraint (superlative/ordinal).
 
+        Honours ``constraint.execution_policy``:
+        - HARD (default): legacy behavior, collapses to the chosen candidate.
+        - SOFT: keep all candidates but rerank scores by metric so the chosen
+          candidate has the highest score and others remain present.
+        - RANK_ONLY: keep all candidates and scores unchanged, but record the
+          metric ordering in the candidate scores by ordinal rank (so a
+          downstream consumer that picks argmax(scores) still gets the
+          select-favored candidate).
+
         Args:
             candidates: Current candidate objects
             scores: Current scores
             constraint: Select constraint to apply
 
         Returns:
-            Tuple of (selected candidates, updated scores)
+            Tuple of (candidates, updated scores)
         """
         if not candidates:
             return [], {}
 
+        policy = constraint.execution_policy
+
         if constraint.constraint_type == ConstraintType.SUPERLATIVE:
-            return self._apply_superlative(candidates, scores, constraint)
+            return self._apply_superlative(candidates, scores, constraint, policy)
         elif constraint.constraint_type == ConstraintType.ORDINAL:
-            return self._apply_ordinal(candidates, scores, constraint)
+            return self._apply_ordinal(candidates, scores, constraint, policy)
         elif constraint.constraint_type == ConstraintType.COMPARATIVE:
             return self._apply_comparative(candidates, scores, constraint)
         else:
@@ -554,10 +790,34 @@ class QueryExecutor:
         candidates: list[SceneObject],
         scores: dict[int, float],
         constraint: SelectConstraint,
+        policy: ExecutionPolicy = ExecutionPolicy.HARD,
     ) -> tuple[list[SceneObject], dict[int, float]]:
         """Apply superlative constraint (nearest, largest, etc.)."""
         metric = constraint.metric.lower()
         order = constraint.order.lower()
+
+        # Viewer-frame projection: x_position becomes signed projection onto
+        # the viewer's right axis. If the constraint requests viewer frame
+        # but the pose cannot be resolved, we MUST NOT silently fall through
+        # to world x/y - that would fabricate evidence the parser explicitly
+        # said is not in world frame. Apply the declared policy with neutral
+        # evidence instead.
+        viewer_pose: ViewerPose | None = None
+        wants_viewer_select = (
+            constraint.reference_frame == ReferenceFrame.VIEWER
+            and metric in ("x_position", "x", "y_position", "y")
+        )
+        if wants_viewer_select:
+            viewer_pose = self._resolve_viewer_pose_for_constraint(constraint)
+            if viewer_pose is None:
+                logger.warning(
+                    f"[QueryExecutor] viewer-frame select '{metric}' requested "
+                    f"but pose unresolved (policy={policy.value}); applying "
+                    "declared policy with neutral evidence (no world-frame fallback)."
+                )
+                return self._neutral_select_for_policy(
+                    candidates, scores, policy
+                )
 
         # Get reference objects if needed
         ref_objects = []
@@ -609,11 +869,17 @@ class QueryExecutor:
 
             elif metric in ["x_position", "x"]:
                 pos = self._get_centroid(cand)
-                values.append(pos[0])
+                if viewer_pose is not None:
+                    values.append(viewer_frame_axis_value(pos, viewer_pose, "right"))
+                else:
+                    values.append(pos[0])
 
             elif metric in ["y_position", "y"]:
                 pos = self._get_centroid(cand)
-                values.append(pos[1])
+                if viewer_pose is not None:
+                    values.append(viewer_frame_axis_value(pos, viewer_pose, "forward"))
+                else:
+                    values.append(pos[1])
 
             else:
                 # Default: use existing score
@@ -627,22 +893,41 @@ class QueryExecutor:
         else:  # max
             indexed.sort(key=lambda x: x[1], reverse=True)
 
-        # Return only the best
-        best_cand, best_value = indexed[0]
-        new_scores = {best_cand.obj_id: 1.0}
+        if policy == ExecutionPolicy.HARD:
+            best_cand, best_value = indexed[0]
+            new_scores = {best_cand.obj_id: 1.0}
+            logger.debug(
+                f"[QueryExecutor] Superlative '{order} {metric}': "
+                f"selected {self._get_category(best_cand)} with value {best_value:.3f}"
+            )
+            return [best_cand], new_scores
 
+        # SOFT / RANK_ONLY: keep all candidates, but rerank by metric so the
+        # best candidate has the highest score. Use a monotonically decreasing
+        # ramp; for SOFT this multiplies into existing scores, for RANK_ONLY
+        # it replaces them but does not drop candidates.
+        n = len(indexed)
+        new_scores = dict(scores) if policy == ExecutionPolicy.SOFT else {}
+        ordered_candidates = [c for c, _ in indexed]
+        for rank, (c, _v) in enumerate(indexed):
+            rank_score = max(SOFT_POLICY_SCORE_FLOOR, 1.0 - (rank / max(1, n)))
+            if policy == ExecutionPolicy.SOFT:
+                base = new_scores.get(c.obj_id, 1.0)
+                new_scores[c.obj_id] = base * rank_score
+            else:
+                new_scores[c.obj_id] = rank_score
         logger.debug(
-            f"[QueryExecutor] Superlative '{order} {metric}': "
-            f"selected {self._get_category(best_cand)} with value {best_value:.3f}"
+            f"[QueryExecutor] Superlative '{order} {metric}' (policy={policy.value}): "
+            f"kept {n} candidates, top={self._get_category(ordered_candidates[0])}"
         )
-
-        return [best_cand], new_scores
+        return ordered_candidates, new_scores
 
     def _apply_ordinal(
         self,
         candidates: list[SceneObject],
         scores: dict[int, float],
         constraint: SelectConstraint,
+        policy: ExecutionPolicy = ExecutionPolicy.HARD,
     ) -> tuple[list[SceneObject], dict[int, float]]:
         """Apply ordinal constraint (first, second, etc.)."""
         if constraint.position is None:
@@ -652,12 +937,38 @@ class QueryExecutor:
         metric = constraint.metric.lower()
         order = constraint.order.lower()
 
-        # Sort candidates by metric
+        # Viewer-frame x/y: same no-world-fabrication rule as
+        # _apply_superlative. When the pose resolves, the sort key MUST use
+        # viewer-frame projection; if the pose does not resolve, we apply
+        # the declared policy with neutral evidence rather than silently
+        # falling back to world x/y.
+        viewer_pose: ViewerPose | None = None
+        wants_viewer_axis = (
+            constraint.reference_frame == ReferenceFrame.VIEWER
+            and metric in ("x_position", "x", "y_position", "y")
+        )
+        if wants_viewer_axis:
+            viewer_pose = self._resolve_viewer_pose_for_constraint(constraint)
+            if viewer_pose is None:
+                logger.warning(
+                    f"[QueryExecutor] viewer-frame ordinal '{metric}' requested "
+                    f"but pose unresolved (policy={policy.value}); applying "
+                    "declared policy with neutral evidence (no world-frame fallback)."
+                )
+                return self._neutral_select_for_policy(candidates, scores, policy)
+
+        # Sort candidates by metric. When viewer-frame is requested AND the
+        # pose resolved, x_position / y_position become signed projections
+        # onto the viewer-right / viewer-forward axes (mirrors superlative).
         def get_value(cand):
             pos = self._get_centroid(cand)
             if metric in ["x_position", "x"]:
+                if viewer_pose is not None:
+                    return viewer_frame_axis_value(pos, viewer_pose, "right")
                 return pos[0]
             elif metric in ["y_position", "y"]:
+                if viewer_pose is not None:
+                    return viewer_frame_axis_value(pos, viewer_pose, "forward")
                 return pos[1]
             elif metric == "height":
                 return pos[2]
@@ -689,10 +1000,25 @@ class QueryExecutor:
                 f"[QueryExecutor] Ordinal position {position} out of range "
                 f"(have {len(sorted_candidates)} candidates)"
             )
-            return [], {}
+            if policy == ExecutionPolicy.HARD:
+                return [], {}
+            return list(candidates), dict(scores)
 
-        selected = sorted_candidates[position - 1]
-        return [selected], {selected.obj_id: 1.0}
+        if policy == ExecutionPolicy.HARD:
+            selected = sorted_candidates[position - 1]
+            return [selected], {selected.obj_id: 1.0}
+
+        n = len(sorted_candidates)
+        new_scores = dict(scores) if policy == ExecutionPolicy.SOFT else {}
+        for rank, c in enumerate(sorted_candidates):
+            distance = abs(rank - (position - 1))
+            rank_score = max(SOFT_POLICY_SCORE_FLOOR, 1.0 - distance / max(1, n))
+            if policy == ExecutionPolicy.SOFT:
+                base = new_scores.get(c.obj_id, 1.0)
+                new_scores[c.obj_id] = base * rank_score
+            else:
+                new_scores[c.obj_id] = rank_score
+        return sorted_candidates, new_scores
 
     def _apply_comparative(
         self,

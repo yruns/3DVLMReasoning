@@ -80,6 +80,80 @@
         },
         "expect_unique": {
           "type": "boolean"
+        },
+        "viewpoint_contexts": {
+          "type": "array",
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/viewpoint_context"
+          }
+        }
+      }
+    },
+    "viewpoint_context": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "kind"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "facing_anchor",
+            "facing_anchor_set",
+            "entering_from",
+            "standing_at",
+            "object_local"
+          ]
+        },
+        "facing_anchor": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/query_node"
+            }
+          ]
+        },
+        "origin_anchor": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/query_node"
+            }
+          ]
+        },
+        "subject_anchor": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/query_node"
+            }
+          ]
+        },
+        "raw_phrase": {
+          "type": "string",
+          "default": ""
+        },
+        "confidence": {
+          "type": "string",
+          "enum": [
+            "explicit",
+            "inferred",
+            "ambiguous"
+          ],
+          "default": "explicit"
         }
       }
     },
@@ -149,6 +223,36 @@
           "items": {
             "$ref": "#/$defs/query_node"
           }
+        },
+        "reference_frame": {
+          "type": "string",
+          "enum": [
+            "world",
+            "viewer",
+            "object_local",
+            "ambiguous"
+          ],
+          "default": "world"
+        },
+        "viewpoint_context_id": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "minLength": 1
+            }
+          ]
+        },
+        "execution_policy": {
+          "type": "string",
+          "enum": [
+            "hard",
+            "soft",
+            "rank_only"
+          ],
+          "default": "hard"
         }
       }
     },
@@ -197,6 +301,36 @@
               "minimum": 1
             }
           ]
+        },
+        "reference_frame": {
+          "type": "string",
+          "enum": [
+            "world",
+            "viewer",
+            "object_local",
+            "ambiguous"
+          ],
+          "default": "world"
+        },
+        "viewpoint_context_id": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "minLength": 1
+            }
+          ]
+        },
+        "execution_policy": {
+          "type": "string",
+          "enum": [
+            "hard",
+            "soft",
+            "rank_only"
+          ],
+          "default": "hard"
         }
       }
     }

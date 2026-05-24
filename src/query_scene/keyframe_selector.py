@@ -48,12 +48,15 @@ HAS_CLIP = (
 
 # Import nested query modules
 from .core import (
+    DIRECTIONAL_RELATIONS,
+    ExecutionPolicy,
     GroundingQuery,
     HypothesisKind,
     HypothesisOutputV1,
     ParseMode,
     QueryHypothesis,
     QueryNode,
+    ReferenceFrame,
 )
 from .lightweight_conceptgraph import load_conceptgraph_objects
 from .parsing import QueryParser
@@ -638,29 +641,178 @@ class KeyframeSelector:
             f"from {enrichment_file.name}"
         )
 
+    # Search order for camera trajectory files. The first existing path is used.
+    # Order is pack-authoritative -> raw -> conceptgraph for historical layouts.
+    # Each entry is relative to ``self.scene_path``. We also probe one level
+    # up (the scene root) because in NR3D layout ``scene_path`` is the
+    # ``.../scene0629_00/conceptgraph`` subdir and the packs / raw / traj.txt
+    # actually live as siblings of conceptgraph, i.e. one level up.
+    _TRAJ_SEARCH_RELATIVE: tuple[str, ...] = (
+        "traj.txt",
+        "../raw/traj.txt",
+        "../conceptgraph/traj.txt",
+        "../traj.txt",
+    )
+
+    def _candidate_pack_roots(self) -> list[Path]:
+        """Return scene roots that may contain ``pack_*`` subdirs.
+
+        OpenEQA layout: scene_path = .../scene0011_00, packs live under
+        scene_path. NR3D layout: scene_path = .../scene0629_00/conceptgraph,
+        packs live under scene_path.parent (i.e. .../scene0629_00).
+        """
+        roots: list[Path] = []
+        if self.scene_path.exists():
+            roots.append(self.scene_path)
+            parent = self.scene_path.parent
+            if parent.exists() and parent != self.scene_path:
+                roots.append(parent)
+        return roots
+
+    def _describe_trajectory_search_paths(self) -> list[str]:
+        """Listing used by error messages and tests."""
+        paths = [
+            str((self.scene_path / rel).resolve())
+            for rel in self._TRAJ_SEARCH_RELATIVE
+        ]
+        for root in self._candidate_pack_roots():
+            paths.append(str(root / "pack_*/camera_trajectory.json"))
+        return paths
+
+    def _find_camera_trajectory_file(self) -> Path | None:
+        """Probe known trajectory locations and return the first existing path.
+
+        Order:
+        1. pack/camera_trajectory.json under either ``scene_path`` (OpenEQA)
+           or ``scene_path.parent`` (NR3D, where ``scene_path`` is the
+           ``conceptgraph`` subdir).
+        2. ``traj.txt`` under ``scene_path``, ``../raw/``, ``../conceptgraph/``,
+           or ``../`` (scene root).
+
+        Existence is necessary but not sufficient - the caller still has to
+        verify the parsed payload contains usable 4x4 poses (see
+        ``_load_camera_poses``), otherwise we keep probing.
+        """
+        for root in self._candidate_pack_roots():
+            for pack_dir in sorted(root.glob("pack_*")):
+                candidate = pack_dir / "camera_trajectory.json"
+                if candidate.is_file():
+                    return candidate
+
+        for rel in self._TRAJ_SEARCH_RELATIVE:
+            candidate = (self.scene_path / rel).resolve()
+            if candidate.exists():
+                return candidate
+
+        return None
+
+    def _enumerate_camera_trajectory_files(self) -> list[Path]:
+        """Return every existing trajectory candidate in search order.
+
+        Unlike ``_find_camera_trajectory_file``, this returns the full list so
+        ``_load_camera_poses`` can fall through to the next source when a
+        preferred file parses to zero usable 4x4 poses. All paths are
+        canonicalised via ``resolve()`` so the dedup set works correctly on
+        macOS where ``/var`` is a symlink to ``/private/var`` and glob /
+        Path.resolve disagree on the prefix.
+        """
+        found: list[Path] = []
+        seen: set[Path] = set()
+
+        def _add(candidate: Path) -> None:
+            if not candidate.exists():
+                return
+            canonical = candidate.resolve()
+            if canonical in seen:
+                return
+            seen.add(canonical)
+            found.append(canonical)
+
+        for root in self._candidate_pack_roots():
+            for pack_dir in sorted(root.glob("pack_*")):
+                _add(pack_dir / "camera_trajectory.json")
+
+        for rel in self._TRAJ_SEARCH_RELATIVE:
+            _add((self.scene_path / rel).resolve())
+
+        return found
+
     def _load_camera_poses(self) -> None:
-        """Load camera poses from trajectory file."""
-        traj_file = self.scene_path / "traj.txt"
-        if not traj_file.exists():
-            logger.warning(f"Trajectory file not found: {traj_file}")
+        """Load camera poses from the first source that yields usable 4x4 poses.
+
+        Probes pack JSON then traj.txt variants (see
+        ``_enumerate_camera_trajectory_files``). For each candidate we parse
+        and require at least one full 4x4 pose; if the candidate yields zero
+        (e.g. NR3D pack JSON which carries position-only entries) we move on
+        to the next candidate and log the rejection - we DO NOT silently
+        accept an empty result and suppress the next fallback.
+
+        If no candidate yields any 4x4 poses we leave ``self.camera_poses``
+        empty. The strict-no-fallback raise for viewer-frame requests lives
+        in ``_guard_viewpoint_traj_available``; this loader stays
+        best-effort so callers that don't need viewer-frame geometry are
+        unaffected.
+        """
+        self.camera_trajectory_path = None
+        candidates = self._enumerate_camera_trajectory_files()
+        if not candidates:
+            logger.warning(
+                "[KeyframeSelector] No camera trajectory found in any of: "
+                f"{self._describe_trajectory_search_paths()}"
+            )
             return
 
-        with open(traj_file) as f:
-            lines = f.readlines()
+        for traj_path in candidates:
+            try:
+                if traj_path.suffix.lower() == ".json":
+                    all_poses = self._read_camera_trajectory_json(traj_path)
+                else:
+                    all_poses = self._read_camera_trajectory_traj_txt(traj_path)
+            except Exception as exc:
+                logger.error(
+                    f"[KeyframeSelector] Failed to parse trajectory file "
+                    f"{traj_path}: {exc}; trying next source."
+                )
+                continue
 
-        # Check format: each line could be 16 numbers (4x4 matrix) or other formats
+            if not all_poses:
+                logger.warning(
+                    f"[KeyframeSelector] {traj_path} yielded zero usable 4x4 "
+                    "poses (likely a position-only payload); trying next source."
+                )
+                continue
+
+            self.camera_trajectory_path = traj_path
+            self.camera_poses = [
+                all_poses[i]
+                for i in range(0, len(all_poses), self.stride)
+                if i < len(all_poses)
+            ]
+            logger.info(
+                f"[KeyframeSelector] Loaded {len(self.camera_poses)} camera "
+                f"poses from {traj_path}"
+            )
+            return
+
+        logger.warning(
+            "[KeyframeSelector] None of the camera trajectory candidates "
+            f"yielded usable 4x4 poses. Tried: {[str(p) for p in candidates]}"
+        )
+
+    @staticmethod
+    def _read_camera_trajectory_traj_txt(traj_path: Path) -> list[np.ndarray]:
+        """Parse traj.txt: either 16-numbers-per-line or 4-lines-per-matrix."""
+        with open(traj_path) as f:
+            lines = f.readlines()
         first_line_nums = len(lines[0].split()) if lines else 0
 
-        all_poses = []
+        all_poses: list[np.ndarray] = []
         if first_line_nums == 16:
-            # Each line is a full 4x4 matrix
             for line in lines:
                 nums = [float(x) for x in line.split()]
                 if len(nums) == 16:
-                    pose = np.array(nums).reshape(4, 4)
-                    all_poses.append(pose)
+                    all_poses.append(np.array(nums).reshape(4, 4))
         else:
-            # Traditional format: 4 lines per matrix
             for i in range(0, len(lines), 4):
                 if i + 4 <= len(lines):
                     try:
@@ -675,16 +827,107 @@ class KeyframeSelector:
                         all_poses.append(pose)
                     except (ValueError, IndexError) as exc:
                         logger.warning(
-                            f"[KeyframeSelector] Malformed pose at line {i} in traj.txt: {exc}"
+                            f"[KeyframeSelector] Malformed pose at line {i} "
+                            f"in {traj_path}: {exc}"
                         )
                         continue
+        return all_poses
 
-        # Apply stride
-        self.camera_poses = [
-            all_poses[i]
-            for i in range(0, len(all_poses), self.stride)
-            if i < len(all_poses)
-        ]
+    @staticmethod
+    def _read_camera_trajectory_json(traj_path: Path) -> list[np.ndarray]:
+        """Parse pack-style camera_trajectory.json into a list of 4x4 poses.
+
+        Supported payloads:
+        - Top-level list of 4x4 matrices (16 numbers or 4x4 nested list).
+        - Top-level dict with ``poses`` / ``camera_poses`` / ``frames`` whose
+          value is a list of matrices or a list of dicts with ``world_T_cam``
+          / ``pose`` / ``matrix`` / ``world_to_cam`` fields.
+
+        Explicitly rejected payloads (returns empty list, logs at WARNING):
+        - Position-only dict of integer-keyed XYZ entries, e.g.
+          ``{"0": [x,y,z], "1": [x,y,z], ...}``. This is the NR3D pack
+          format; it lacks orientation so it cannot be used for viewer-frame
+          pose resolution. Returning [] lets ``_load_camera_poses`` fall
+          through to the next source (typically raw/traj.txt with full 4x4).
+
+        Other malformed entries are skipped individually with a debug log.
+        """
+        with open(traj_path) as f:
+            payload = json.load(f)
+
+        entries: list = []
+        if isinstance(payload, list):
+            entries = payload
+        elif isinstance(payload, dict):
+            named = (
+                payload.get("poses")
+                or payload.get("camera_poses")
+                or payload.get("frames")
+            )
+            if named is not None:
+                entries = named
+            elif KeyframeSelector._looks_like_position_only_dict(payload):
+                logger.warning(
+                    f"[KeyframeSelector] {traj_path} is a position-only dict "
+                    "(integer-keyed XYZ entries). Viewer-frame geometry needs "
+                    "full 4x4 poses; rejecting this source so the loader falls "
+                    "through to traj.txt."
+                )
+                return []
+            else:
+                raise ValueError(
+                    f"camera_trajectory.json at {traj_path} has dict payload "
+                    "but no recognized poses/camera_poses/frames key and is not "
+                    "a position-only dict; refusing to parse silently."
+                )
+        else:
+            raise ValueError(
+                f"camera_trajectory.json at {traj_path} has unexpected "
+                f"top-level type {type(payload).__name__}"
+            )
+
+        all_poses: list[np.ndarray] = []
+        for entry in entries:
+            mat = entry
+            if isinstance(entry, dict):
+                mat = (
+                    entry.get("world_T_cam")
+                    or entry.get("pose")
+                    or entry.get("matrix")
+                    or entry.get("world_to_cam")
+                )
+            if mat is None:
+                continue
+            try:
+                arr = np.asarray(mat, dtype=np.float64)
+            except (TypeError, ValueError):
+                continue
+            if arr.shape == (16,):
+                arr = arr.reshape(4, 4)
+            if arr.shape == (4, 4):
+                all_poses.append(arr)
+        return all_poses
+
+    @staticmethod
+    def _looks_like_position_only_dict(payload: dict) -> bool:
+        """True iff payload is a dict whose values are all 3-element XYZ lists.
+
+        Catches the NR3D pack format ``{"0": [x,y,z], "1": [x,y,z], ...}``.
+        We do not try to upgrade it to a 4x4 because there is no orientation
+        anywhere in the file; ``_load_camera_poses`` will fall through to
+        a traj.txt source that does carry orientation.
+        """
+        if not payload:
+            return False
+        for k, v in payload.items():
+            if not isinstance(k, str) or not k.isdigit():
+                return False
+            if not isinstance(v, list) or len(v) != 3:
+                return False
+            for x in v:
+                if not isinstance(x, (int, float)):
+                    return False
+        return True
 
     def _compute_trajectory_stats(self) -> None:
         """Compute per-view translational and rotational trajectory saliency."""
@@ -1623,7 +1866,11 @@ class KeyframeSelector:
         return self._query_parser
 
     def _get_query_executor(self) -> QueryExecutor:
-        """Get or create the query executor."""
+        """Get or create the query executor.
+
+        Passes camera_poses to the executor so viewer-frame constraints can
+        prefer the trajectory-based pose resolver over the geometric fallback.
+        """
         if self._query_executor is None:
             if self._relation_checker is None:
                 self._relation_checker = SpatialRelationChecker()
@@ -1633,6 +1880,7 @@ class KeyframeSelector:
                 relation_checker=self._relation_checker,
                 clip_features=self.object_features,
                 clip_encoder=self._encode_text if HAS_CLIP else None,
+                camera_poses=list(self.camera_poses) if self.camera_poses else None,
             )
         return self._query_executor
 
@@ -1735,16 +1983,33 @@ class KeyframeSelector:
             if node.select_constraint and node.select_constraint.reference:
                 stack.append(node.select_constraint.reference)
 
+    def _iter_viewpoint_anchor_nodes(
+        self, grounding_query: GroundingQuery
+    ) -> Iterable[QueryNode]:
+        """Yield every QueryNode embedded inside a ViewpointContext."""
+        for vc in grounding_query.viewpoint_contexts:
+            for anchor in (vc.facing_anchor, vc.origin_anchor, vc.subject_anchor):
+                if anchor is None:
+                    continue
+                yield from self._iter_query_nodes(anchor)
+
     def _sanitize_grounding_query_categories(
         self, grounding_query: GroundingQuery
     ) -> GroundingQuery:
         """
         Ensure all executable categories are in scene categories or UNKNOW.
+
+        Also sanitizes viewpoint context anchor categories using the same
+        rule, so subsequent validate_categories() does not blow up on a
+        category that the LLM emitted only inside a viewpoint context.
         """
         scene_set = set(self.scene_categories)
         sanitized = grounding_query.model_copy(deep=True)
 
-        for node in self._iter_query_nodes(sanitized.root):
+        all_nodes = list(self._iter_query_nodes(sanitized.root)) + list(
+            self._iter_viewpoint_anchor_nodes(sanitized)
+        )
+        for node in all_nodes:
             cleaned = []
             seen = set()
             for cat in node.categories:
@@ -1815,17 +2080,23 @@ class KeyframeSelector:
         query: str,
         max_hypotheses: int = 3,
         use_visual_context: bool = True,
+        apply_viewpoint_normalize: bool = False,
     ) -> HypothesisOutputV1:
         """
         Parse query into the unified HypothesisOutputV1 structure.
 
         The LLM directly outputs HypothesisOutputV1 with all hypotheses.
-        This method sanitizes categories and validates the output.
+        This method always sanitizes categories. Viewpoint-aware normalize
+        is OPT-IN to preserve legacy production behavior.
 
         Args:
             query: Natural language query string
             max_hypotheses: Maximum hypotheses (ignored - LLM decides)
             use_visual_context: If True (default), generate BEV image for multimodal parsing
+            apply_viewpoint_normalize: When True, apply the Phase-1 policy floor
+                (directional-without-context -> ambiguous/rank_only) plus the
+                ungrounded-viewer demotion. Default False so existing callers
+                see legacy behavior (no policy downgrade) unless they opt in.
 
         Returns:
             HypothesisOutputV1 with hypotheses ready for execution
@@ -1846,6 +2117,8 @@ class KeyframeSelector:
             sanitized_gq = self._sanitize_grounding_query_categories(
                 hypo.grounding_query
             )
+            if apply_viewpoint_normalize:
+                sanitized_gq = self._normalize_viewpoint_policies(sanitized_gq)
             sanitized_hypo = QueryHypothesis(
                 kind=hypo.kind,
                 rank=hypo.rank,
@@ -1860,6 +2133,169 @@ class KeyframeSelector:
         )
         sanitized_output.validate_categories(self.scene_categories)
         return sanitized_output
+
+    def _force_legacy_world_hard(
+        self, output: HypothesisOutputV1
+    ) -> HypothesisOutputV1:
+        """Restore strict legacy semantics on every constraint.
+
+        Used when ``viewpoint_aware=False`` to make the executor see exactly
+        what it would have seen pre-patch, regardless of what the LLM emitted.
+        For every spatial/select constraint:
+        - reference_frame -> WORLD
+        - viewpoint_context_id -> None
+        - execution_policy -> HARD
+        Also clears ``grounding_query.viewpoint_contexts`` so downstream
+        consumers don't think viewpoint info is active.
+        """
+        new_hypos: list[QueryHypothesis] = []
+        for hypo in output.hypotheses:
+            gq = hypo.grounding_query.model_copy(deep=True)
+            for _node, constraint in gq.iter_constraints():
+                constraint.reference_frame = ReferenceFrame.WORLD
+                constraint.viewpoint_context_id = None
+                constraint.execution_policy = ExecutionPolicy.HARD
+            gq.viewpoint_contexts = []
+            new_hypos.append(
+                QueryHypothesis(
+                    kind=hypo.kind,
+                    rank=hypo.rank,
+                    grounding_query=gq,
+                    lexical_hints=hypo.lexical_hints,
+                )
+            )
+        return HypothesisOutputV1(parse_mode=output.parse_mode, hypotheses=new_hypos)
+
+    def _guard_viewpoint_traj_available(self, output: HypothesisOutputV1) -> None:
+        """Strict-no-fallback: if any viewer-frame constraint is requested
+        but no usable camera trajectory could be loaded, RAISE.
+
+        Called only when ``viewpoint_aware=True``. The failure surface is
+        opt-in: legacy callers (``viewpoint_aware=False``) never reach this
+        guard. When raised, the message lists every path that was probed so
+        the operator can fix the data layout.
+        """
+        if self.camera_poses:
+            return
+        has_viewer_constraint = False
+        for hypo in output.hypotheses:
+            for _node, constraint in hypo.grounding_query.iter_constraints():
+                if constraint.reference_frame == ReferenceFrame.VIEWER:
+                    has_viewer_constraint = True
+                    break
+            if has_viewer_constraint:
+                break
+        if not has_viewer_constraint:
+            return
+
+        tried = self._describe_trajectory_search_paths()
+        raise RuntimeError(
+            "viewpoint_aware=True requires a usable camera trajectory, but "
+            "none of the probed paths returned any 4x4 poses.\n"
+            f"  scene_path: {self.scene_path}\n"
+            f"  paths tried: {tried}\n"
+            "Provide a traj.txt (16-per-line or 4-rows-per-pose) or a pack "
+            "camera_trajectory.json with full 4x4 poses, or disable "
+            "viewpoint_aware to use the strict no-drift legacy path "
+            "(which collapses every constraint to world/hard before execution "
+            "via _force_legacy_world_hard())."
+        )
+
+    def _rank_target_objects_by_score(
+        self, result: ExecutionResult
+    ) -> list[SceneObject]:
+        """Sort matched_objects by multiplicative score, with soft_match tie-break.
+
+        Under HARD policy every surviving object has score 1.0, so this is a
+        stable identity transform (matches legacy behavior). Under SOFT the
+        multiplicative score discriminates; under RANK_ONLY the multiplicative
+        score is uniformly 1.0 but ``metadata["soft_match_scores"]`` carries
+        per-constraint satisfaction that we sum as a tie-breaker.
+        """
+        objects = list(result.matched_objects)
+        if not objects:
+            return objects
+
+        scores = dict(result.scores or {})
+        soft_map: dict[int, dict[str, float]] = result.metadata.get(
+            "soft_match_scores", {}
+        )
+
+        def soft_total(obj_id: int) -> float:
+            entries = soft_map.get(obj_id, {})
+            return sum(entries.values()) if entries else 0.0
+
+        def sort_key(obj: SceneObject) -> tuple[float, float]:
+            return (
+                -scores.get(obj.obj_id, 0.0),
+                -soft_total(obj.obj_id),
+            )
+
+        return sorted(objects, key=sort_key)
+
+    def _normalize_viewpoint_policies(
+        self, grounding_query: GroundingQuery
+    ) -> GroundingQuery:
+        """Post-parse viewpoint-aware normalization.
+
+        Two passes that together implement the Phase-1 policy floor:
+
+        1. Directional relation (left_of / right_of / in_front_of / behind)
+           with default world frame and no viewpoint context: demote to
+           ``frame=ambiguous`` + ``policy=rank_only``. This stops these
+           relations from filtering candidates to empty - matches the
+           empirical NR3D failure mode where 116 / 151 no_evidence rows
+           already have the GT target in the category-match set.
+
+        2. Viewer / object_local constraint whose viewpoint context anchor
+           sanitizes to ["UNKNOW"] (i.e. no scene category resolves): the
+           context is ungrounded, so demote the constraint to
+           ``frame=ambiguous`` + ``policy=rank_only`` rather than asking the
+           executor to compute a viewer pose from nothing.
+        """
+        gq = grounding_query.model_copy(deep=True)
+
+        ungrounded_context_ids: set[str] = set()
+        for vc in gq.viewpoint_contexts:
+            anchors_have_real_categories = False
+            for anchor in (vc.facing_anchor, vc.origin_anchor, vc.subject_anchor):
+                if anchor is None:
+                    continue
+                for node in self._iter_query_nodes(anchor):
+                    if any(cat != "UNKNOW" for cat in node.categories):
+                        anchors_have_real_categories = True
+                        break
+                if anchors_have_real_categories:
+                    break
+            if not anchors_have_real_categories:
+                ungrounded_context_ids.add(vc.id)
+
+        for _node, constraint in gq.iter_constraints():
+            relation_norm = constraint.relation.lower().replace(" ", "_")
+            is_directional = relation_norm in DIRECTIONAL_RELATIONS
+
+            # Pass 1: world-frame directional without context -> ambiguous/rank_only
+            if (
+                is_directional
+                and constraint.reference_frame == ReferenceFrame.WORLD
+                and constraint.viewpoint_context_id is None
+                and constraint.execution_policy == ExecutionPolicy.HARD
+            ):
+                constraint.reference_frame = ReferenceFrame.AMBIGUOUS
+                constraint.execution_policy = ExecutionPolicy.RANK_ONLY
+                continue
+
+            # Pass 2: viewer/object_local with ungrounded context -> ambiguous/rank_only
+            if (
+                constraint.reference_frame
+                in (ReferenceFrame.VIEWER, ReferenceFrame.OBJECT_LOCAL)
+                and constraint.viewpoint_context_id in ungrounded_context_ids
+            ):
+                constraint.reference_frame = ReferenceFrame.AMBIGUOUS
+                constraint.viewpoint_context_id = None
+                constraint.execution_policy = ExecutionPolicy.RANK_ONLY
+
+        return gq
 
     def _has_unknown_anchors(self, grounding_query: GroundingQuery) -> bool:
         """Check if any anchor or reference in the query has UNKNOW category."""
@@ -1966,6 +2402,7 @@ class KeyframeSelector:
         use_visual_context: bool = True,
         pose_aware: bool = False,
         frustum_method: str = "l1",
+        viewpoint_aware: bool = False,
     ) -> KeyframeResult:
         """
         Select keyframes from the new structured output `HypothesisOutputV1`.
@@ -1978,14 +2415,43 @@ class KeyframeSelector:
         Args:
             use_visual_context: If True, generate BEV image for multimodal
                 query parsing. Set False when scene mesh is unavailable.
+            viewpoint_aware: Phase-3 feature flag. When True, the parser
+                is permitted to emit ViewpointContext, the Phase-1 policy
+                floor is applied (directional-without-context becomes
+                rank_only via ``_normalize_viewpoint_policies``), and the
+                executor honours ``reference_frame=viewer`` with
+                trajectory-mode viewer-frame geometry.
+                When False (default), the path is strict no-drift legacy:
+                ``_force_legacy_world_hard()`` rewrites EVERY constraint
+                back to ``reference_frame=WORLD`` / ``execution_policy=HARD``
+                and clears ``grounding_query.viewpoint_contexts`` before
+                the executor sees it. No Phase-1 policy floor is applied
+                and no viewer-frame geometry is consulted - production
+                ``select_by_text`` behaves exactly as it did pre-patch.
         """
         self.pose_aware_enabled = pose_aware
-        logger.info(f"[V3] Selecting {k} keyframes for: '{query}'")
-
-        # Step 1: Parse to new unified structure
-        hypothesis_output = self.parse_query_hypotheses(
-            query, max_hypotheses=3, use_visual_context=use_visual_context
+        logger.info(
+            f"[V3] Selecting {k} keyframes for: '{query}' "
+            f"(viewpoint_aware={viewpoint_aware})"
         )
+
+        # Step 1: Parse to new unified structure. The viewpoint policy floor
+        # is OFF by default so legacy callers see strict no-drift behavior.
+        hypothesis_output = self.parse_query_hypotheses(
+            query,
+            max_hypotheses=3,
+            use_visual_context=use_visual_context,
+            apply_viewpoint_normalize=viewpoint_aware,
+        )
+
+        if not viewpoint_aware:
+            # Strict no-drift legacy path: force every constraint back to
+            # WORLD / HARD before the executor sees it, so the existence of
+            # viewpoint emission in the parser cannot change production
+            # select_by_text behavior.
+            hypothesis_output = self._force_legacy_world_hard(hypothesis_output)
+        else:
+            self._guard_viewpoint_traj_available(hypothesis_output)
         logger.info(
             f"[V3] Parsed format={hypothesis_output.format_version}, "
             f"mode={hypothesis_output.parse_mode.value}, "
@@ -2017,7 +2483,7 @@ class KeyframeSelector:
                 },
             )
 
-        target_objects = result.matched_objects
+        target_objects = self._rank_target_objects_by_score(result)
         selected_query = selected_hypothesis.grounding_query
         logger.info(
             f"[V3] Selected hypothesis kind={selected_hypothesis.kind.value}, "
