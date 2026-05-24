@@ -130,6 +130,7 @@ class QueryExecutor:
         # Set per-query in execute(); read by _resolve_viewer_pose_for_constraint.
         self._viewpoint_contexts: dict[str, ViewpointContext] = {}
         self._viewer_pose_cache: dict[str, ViewerPose | None] = {}
+        self._execution_trace: list[dict[str, Any]] = []
 
         # Quick filters for fast pre-filtering
         self._quick_filters = QuickFilters() if use_quick_filters else None
@@ -176,6 +177,11 @@ class QueryExecutor:
         if hasattr(obj, "centroid") and obj.centroid is not None:
             return np.asarray(obj.centroid, dtype=np.float32)
         return np.zeros(3, dtype=np.float32)
+
+    @staticmethod
+    def _object_ids(objects: list[SceneObject]) -> list[int]:
+        """Return stable object ids for trace metadata."""
+        return [int(getattr(obj, "obj_id", -1)) for obj in objects]
 
     @staticmethod
     def _neutral_select_for_policy(
@@ -312,6 +318,7 @@ class QueryExecutor:
         self._cache.clear()
         self._viewpoint_contexts = {vc.id: vc for vc in query.viewpoint_contexts}
         self._viewer_pose_cache = {}
+        self._execution_trace = []
 
         # Execute from root
         result = self._execute_node(query.root)
@@ -326,6 +333,10 @@ class QueryExecutor:
                     scores={best.obj_id: result.scores.get(best.obj_id, 1.0)},
                     metadata=result.metadata,
                 )
+
+        if self._execution_trace:
+            result.metadata = dict(result.metadata)
+            result.metadata["execution_trace"] = list(self._execution_trace)
 
         logger.info(f"[QueryExecutor] Found {len(result.matched_objects)} objects")
         return result
@@ -383,7 +394,13 @@ class QueryExecutor:
 
         for sc_idx, constraint in enumerate(node.spatial_constraints):
             candidates, constraint_scores, constraint_soft = (
-                self._apply_spatial_constraint(candidates, constraint)
+                self._apply_spatial_constraint(
+                    candidates,
+                    constraint,
+                    node_id=node.node_id,
+                    node_categories=node.categories,
+                    constraint_index=sc_idx,
+                )
             )
             # Combine multiplicative scores
             for obj_id, score in constraint_scores.items():
@@ -590,6 +607,9 @@ class QueryExecutor:
         self,
         candidates: list[SceneObject],
         constraint: SpatialConstraint,
+        node_id: str | None = None,
+        node_categories: list[str] | None = None,
+        constraint_index: int | None = None,
     ) -> tuple[list[SceneObject], dict[int, float], dict[int, float]]:
         """
         Apply a spatial constraint to filter candidates.
@@ -615,6 +635,22 @@ class QueryExecutor:
         # Default behavior reproduced even on legacy callers that build a
         # SpatialConstraint without the new fields - pydantic supplies HARD/world.
         policy = constraint.execution_policy
+        trace: dict[str, Any] = {
+            "node_id": node_id,
+            "node_categories": list(node_categories or []),
+            "constraint_index": constraint_index,
+            "relation": constraint.relation,
+            "reference_frame": constraint.reference_frame.value,
+            "policy": policy.value,
+            "candidate_ids_before": self._object_ids(candidates),
+            "anchor_ids": [],
+            "quick_filter_applied": False,
+            "quick_filter_candidate_ids": self._object_ids(candidates),
+            "quick_filter_would_empty": False,
+            "candidate_relation_scores": {},
+            "candidate_relation_details": {},
+            "output_candidate_ids": [],
+        }
 
         # Execute anchor nodes to get reference objects
         anchor_objects = []
@@ -632,6 +668,8 @@ class QueryExecutor:
             )
             anchor_objects.extend(anchor_result.matched_objects)
 
+        trace["anchor_ids"] = self._object_ids(anchor_objects)
+
         if not anchor_objects:
             logger.warning(
                 f"[QueryExecutor] No anchor objects found for relation "
@@ -639,9 +677,15 @@ class QueryExecutor:
                 "Spatial constraint cannot be evaluated geometrically."
             )
             if policy == ExecutionPolicy.HARD:
+                trace["anchor_resolution_empty"] = True
+                trace["output_candidate_ids"] = []
+                self._execution_trace.append(trace)
                 return [], {}, {}
             # SOFT / RANK_ONLY: no information to filter on, keep everything.
             scores = {c.obj_id: 1.0 for c in candidates}
+            trace["anchor_resolution_empty"] = True
+            trace["output_candidate_ids"] = self._object_ids(candidates)
+            self._execution_trace.append(trace)
             return list(candidates), scores, {}
 
         # Phase 1: Quick filter (if available). Only run for HARD policy - SOFT
@@ -650,20 +694,25 @@ class QueryExecutor:
         if policy == ExecutionPolicy.HARD and (
             self._quick_filters and self._quick_filters.has_filter(constraint.relation)
         ):
-            pre_filtered = self._quick_filters.filter_candidates(
+            quick_filtered = self._quick_filters.filter_candidates(
                 candidates, anchor_objects, constraint.relation
             )
+            trace["quick_filter_applied"] = True
+            trace["quick_filter_candidate_ids"] = self._object_ids(quick_filtered)
             logger.debug(
                 f"[QueryExecutor] Quick filter '{constraint.relation}': "
-                f"{len(candidates)} -> {len(pre_filtered)} candidates"
+                f"{len(candidates)} -> {len(quick_filtered)} candidates"
             )
 
-            if not pre_filtered:
+            if not quick_filtered:
+                trace["quick_filter_would_empty"] = True
                 logger.warning(
                     f"[QueryExecutor] Quick filter '{constraint.relation}' eliminated all "
-                    f"{len(candidates)} candidates. Returning empty — no spatial match."
+                    f"{len(candidates)} candidates. Falling through to full checker."
                 )
-                return [], {}, {}
+                pre_filtered = candidates
+            else:
+                pre_filtered = quick_filtered
 
         # Phase 2: Full spatial relation check. Viewer-frame branch when the
         # constraint asks for it AND the pose resolves; otherwise use the
@@ -685,14 +734,24 @@ class QueryExecutor:
                     f"'{constraint.relation}' but pose unresolved (policy={policy.value}); "
                     "applying declared policy with neutral evidence (no world-frame fallback)."
                 )
-                return self._neutral_evidence_for_policy(pre_filtered, policy)
+                out, out_scores, out_soft = self._neutral_evidence_for_policy(
+                    pre_filtered, policy
+                )
+                trace["viewer_pose_unresolved"] = True
+                trace["output_candidate_ids"] = self._object_ids(out)
+                self._execution_trace.append(trace)
+                return out, out_scores, out_soft
 
         satisfied_set: set[int] = set()
         sat_scores: dict[int, float] = {}
+        relation_scores: dict[int, float] = {}
+        relation_details: dict[int, dict[str, Any]] = {}
 
         for cand in pre_filtered:
             best_score = 0.0
+            best_satisfying_score = 0.0
             satisfies_any = False
+            best_details: dict[str, Any] = {}
 
             if wants_viewer_frame and viewer_pose is not None:
                 cand_centroid = self._get_centroid(cand)
@@ -706,30 +765,48 @@ class QueryExecutor:
                     if score > 0:
                         satisfies_any = True
                         best_score = max(best_score, score)
+                        best_satisfying_score = max(best_satisfying_score, score)
             elif constraint.relation.lower() == "between" and len(anchor_objects) >= 2:
-                # For "between", we need to pass both anchors
+                # For "between", let the relation checker search all anchor pairs.
                 result = self.relation_checker.check(
-                    cand, anchor_objects[:2], constraint.relation
+                    cand, anchor_objects, constraint.relation
                 )
+                best_score = result.score
+                best_details = dict(result.details)
                 if result.satisfies:
                     satisfies_any = True
-                    best_score = result.score
+                    best_satisfying_score = result.score
             else:
                 # For other relations, check against each anchor
                 for anchor in anchor_objects:
                     result = self.relation_checker.check(
                         cand, anchor, constraint.relation
                     )
+                    if result.score >= best_score:
+                        best_score = result.score
+                        best_details = dict(result.details)
                     if result.satisfies:
                         satisfies_any = True
-                        best_score = max(best_score, result.score)
+                        best_satisfying_score = max(
+                            best_satisfying_score, result.score
+                        )
 
+            relation_scores[cand.obj_id] = float(best_score)
+            if best_details:
+                relation_details[cand.obj_id] = best_details
             if satisfies_any:
                 satisfied_set.add(cand.obj_id)
-                sat_scores[cand.obj_id] = best_score
+                sat_scores[cand.obj_id] = best_satisfying_score
+
+        trace["candidate_relation_scores"] = relation_scores
+        trace["candidate_relation_details"] = relation_details
+        trace["full_check_satisfied_ids"] = sorted(satisfied_set)
 
         if policy == ExecutionPolicy.HARD:
             filtered = [c for c in pre_filtered if c.obj_id in satisfied_set]
+            trace["full_check_emptied"] = bool(pre_filtered and not filtered)
+            trace["output_candidate_ids"] = self._object_ids(filtered)
+            self._execution_trace.append(trace)
             return filtered, dict(sat_scores), {}
 
         if policy == ExecutionPolicy.SOFT:
@@ -737,12 +814,18 @@ class QueryExecutor:
             for c in pre_filtered:
                 s = sat_scores.get(c.obj_id, 0.0)
                 out_scores[c.obj_id] = s if s > 0 else SOFT_POLICY_SCORE_FLOOR
+            trace["full_check_emptied"] = False
+            trace["output_candidate_ids"] = self._object_ids(pre_filtered)
+            self._execution_trace.append(trace)
             return list(pre_filtered), out_scores, dict(sat_scores)
 
         # RANK_ONLY: keep all candidates, multiplicative score untouched (1.0),
         # surface satisfaction in soft_match_scores for downstream rerankers.
         keep_scores: dict[int, float] = {c.obj_id: 1.0 for c in pre_filtered}
         soft_scores = {c.obj_id: sat_scores.get(c.obj_id, 0.0) for c in pre_filtered}
+        trace["full_check_emptied"] = False
+        trace["output_candidate_ids"] = self._object_ids(pre_filtered)
+        self._execution_trace.append(trace)
         return list(pre_filtered), keep_scores, soft_scores
 
     def _apply_select_constraint(

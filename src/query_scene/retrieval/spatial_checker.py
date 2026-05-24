@@ -20,7 +20,8 @@ Usage:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from itertools import combinations
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
@@ -99,7 +100,7 @@ class RelationResult:
 
     satisfies: bool
     score: float  # 0.0 to 1.0, higher means stronger relation
-    details: dict[str, float] = None
+    details: dict[str, Any] | None = None
 
     def __post_init__(self):
         if self.details is None:
@@ -176,7 +177,21 @@ class SpatialRelationChecker:
         # Handle multi-anchor relations
         if canonical == "between":
             if isinstance(anchor, list) and len(anchor) >= 2:
-                return check_func(target, anchor[0], anchor[1])
+                best = RelationResult(satisfies=False, score=0.0)
+                best_unsatisfied = RelationResult(satisfies=False, score=0.0)
+                for anchor1, anchor2 in combinations(anchor, 2):
+                    result = check_func(target, anchor1, anchor2)
+                    pair = (
+                        int(getattr(anchor1, "obj_id", -1)),
+                        int(getattr(anchor2, "obj_id", -1)),
+                    )
+                    result.details = dict(result.details)
+                    result.details["anchor_pair"] = pair
+                    if result.satisfies and result.score >= best.score:
+                        best = result
+                    elif result.score >= best_unsatisfied.score:
+                        best_unsatisfied = result
+                return best if best.satisfies else best_unsatisfied
             else:
                 return RelationResult(satisfies=False, score=0.0)
 
@@ -195,11 +210,100 @@ class SpatialRelationChecker:
             return np.asarray(obj.centroid, dtype=np.float32)
         return np.zeros(3, dtype=np.float32)
 
+    def _coerce_bbox_minmax(
+        self, bbox: Any
+    ) -> tuple[np.ndarray, np.ndarray] | None:
+        """Coerce common bbox representations into (min_xyz, max_xyz)."""
+        if bbox is None:
+            return None
+
+        if hasattr(bbox, "min_point") and hasattr(bbox, "max_point"):
+            min_point = np.asarray(bbox.min_point, dtype=np.float32).reshape(-1)[:3]
+            max_point = np.asarray(bbox.max_point, dtype=np.float32).reshape(-1)[:3]
+            if min_point.size == 3 and max_point.size == 3:
+                return np.minimum(min_point, max_point), np.maximum(
+                    min_point, max_point
+                )
+            return None
+
+        try:
+            arr = np.asarray(bbox, dtype=np.float32)
+        except (TypeError, ValueError):
+            return None
+
+        if arr.size < 6:
+            return None
+
+        if arr.ndim == 1 and arr.size == 6:
+            points = arr.reshape(2, 3)
+        elif arr.ndim >= 2 and arr.shape[-1] >= 3:
+            points = arr.reshape(-1, arr.shape[-1])[:, :3]
+        elif arr.ndim == 1 and arr.size % 3 == 0:
+            points = arr.reshape(-1, 3)
+        else:
+            return None
+
+        if len(points) < 2 or not np.isfinite(points).all():
+            return None
+
+        min_point = np.min(points, axis=0).astype(np.float32)
+        max_point = np.max(points, axis=0).astype(np.float32)
+        return min_point, max_point
+
     def _get_bbox(self, obj: SceneObject) -> tuple[np.ndarray, np.ndarray] | None:
         """Get object bounding box as (min_point, max_point)."""
-        if hasattr(obj, "bbox_3d") and obj.bbox_3d is not None:
-            return (obj.bbox_3d.min_point, obj.bbox_3d.max_point)
+        for attr_name in ("bbox_3d", "bbox_np", "bbox"):
+            if hasattr(obj, attr_name):
+                bbox = self._coerce_bbox_minmax(getattr(obj, attr_name))
+                if bbox is not None:
+                    return bbox
         return None
+
+    def _bbox_center(self, bbox: tuple[np.ndarray, np.ndarray]) -> np.ndarray:
+        """Return bbox center."""
+        min_point, max_point = bbox
+        return (min_point + max_point) / 2
+
+    def _bbox_xy_gap(
+        self,
+        bbox1: tuple[np.ndarray, np.ndarray],
+        bbox2: tuple[np.ndarray, np.ndarray],
+    ) -> float:
+        """Return the XY distance between two bbox footprints."""
+        min1, max1 = bbox1
+        min2, max2 = bbox2
+        dx = max(float(min2[0] - max1[0]), float(min1[0] - max2[0]), 0.0)
+        dy = max(float(min2[1] - max1[1]), float(min1[1] - max2[1]), 0.0)
+        return float(np.hypot(dx, dy))
+
+    def _bbox_3d_gap(
+        self,
+        bbox1: tuple[np.ndarray, np.ndarray],
+        bbox2: tuple[np.ndarray, np.ndarray],
+    ) -> float:
+        """Return the Euclidean gap between two 3D bboxes."""
+        min1, max1 = bbox1
+        min2, max2 = bbox2
+        gaps = np.maximum(np.maximum(min2 - max1, min1 - max2), 0.0)
+        return float(np.linalg.norm(gaps))
+
+    def _bbox_xy_overlap_ratio(
+        self,
+        bbox1: tuple[np.ndarray, np.ndarray],
+        bbox2: tuple[np.ndarray, np.ndarray],
+    ) -> float:
+        """Return XY intersection over the smaller footprint area."""
+        min1, max1 = bbox1
+        min2, max2 = bbox2
+        overlap_x = max(0.0, float(min(max1[0], max2[0]) - max(min1[0], min2[0])))
+        overlap_y = max(0.0, float(min(max1[1], max2[1]) - max(min1[1], min2[1])))
+        intersection = overlap_x * overlap_y
+        area1 = max(0.0, float((max1[0] - min1[0]) * (max1[1] - min1[1])))
+        area2 = max(0.0, float((max2[0] - min2[0]) * (max2[1] - min2[1])))
+        denom = min(area1, area2)
+        if denom <= 1e-6:
+            return 0.0
+        return float(intersection / denom)
 
     # ========== Vertical Relations ==========
 
@@ -215,6 +319,44 @@ class SpatialRelationChecker:
         - Target is above anchor (positive z difference)
         - Horizontal distance is small (within anchor's footprint)
         """
+        t_bbox = self._get_bbox(target)
+        a_bbox = self._get_bbox(anchor)
+        if t_bbox is not None and a_bbox is not None:
+            t_min, _t_max = t_bbox
+            _a_min, a_max = a_bbox
+            thres = self.thresholds["on_top_of"]
+            xy_gap = self._bbox_xy_gap(t_bbox, a_bbox)
+            overlap_ratio = self._bbox_xy_overlap_ratio(t_bbox, a_bbox)
+            vertical_gap = float(t_min[2] - a_max[2])
+            contact_tolerance = float(thres.get("contact_tolerance", 0.2))
+            max_horizontal = float(thres["max_horizontal"])
+            max_vertical = float(thres["max_vertical"])
+
+            vertical_ok = (
+                vertical_gap >= float(thres["min_vertical"]) - contact_tolerance
+                and vertical_gap <= max_vertical
+            )
+            supported = overlap_ratio > 0.0 or xy_gap <= max_horizontal
+            details = {
+                "mode": "bbox_horizontal_support",
+                "bbox_used": True,
+                "xy_gap": xy_gap,
+                "xy_overlap_ratio": overlap_ratio,
+                "vertical_gap": vertical_gap,
+            }
+
+            if not vertical_ok or not supported:
+                details["reason"] = (
+                    "vertical_gap" if not vertical_ok else "horizontal_support"
+                )
+                return RelationResult(satisfies=False, score=0.0, details=details)
+
+            gap_score = max(0.0, 1.0 - xy_gap / (max_horizontal + 1e-6))
+            support_score = max(gap_score, min(1.0, overlap_ratio))
+            vertical_score = max(0.0, 1.0 - abs(vertical_gap) / (max_vertical + 1e-6))
+            score = 0.65 * support_score + 0.35 * vertical_score
+            return RelationResult(satisfies=True, score=float(score), details=details)
+
         t_pos = self._get_centroid(target)
         a_pos = self._get_centroid(anchor)
         diff = t_pos - a_pos
@@ -240,8 +382,8 @@ class SpatialRelationChecker:
             satisfies=True,
             score=float(score),
             details={
-                "horizontal_dist": horizontal_dist,
-                "vertical_diff": vertical_diff,
+                "horizontal_dist": float(horizontal_dist),
+                "vertical_diff": float(vertical_diff),
             },
         )
 
@@ -253,6 +395,40 @@ class SpatialRelationChecker:
         """
         Check if target is above anchor (not necessarily touching).
         """
+        t_bbox = self._get_bbox(target)
+        a_bbox = self._get_bbox(anchor)
+        if t_bbox is not None and a_bbox is not None:
+            t_center = self._bbox_center(t_bbox)
+            a_center = self._bbox_center(a_bbox)
+            thres = self.thresholds["above"]
+            vertical_diff = float(t_center[2] - a_center[2])
+            xy_gap = self._bbox_xy_gap(t_bbox, a_bbox)
+            overlap_ratio = self._bbox_xy_overlap_ratio(t_bbox, a_bbox)
+            max_horizontal = float(thres["max_horizontal"])
+            details = {
+                "mode": "bbox_vertical_ordering",
+                "bbox_used": True,
+                "xy_gap": xy_gap,
+                "xy_overlap_ratio": overlap_ratio,
+                "vertical_diff": vertical_diff,
+            }
+
+            if vertical_diff < float(thres["min_vertical"]):
+                details["reason"] = "vertical_order"
+                return RelationResult(satisfies=False, score=0.0, details=details)
+            if xy_gap > max_horizontal and overlap_ratio <= 0.0:
+                details["reason"] = "horizontal_support"
+                return RelationResult(satisfies=False, score=0.0, details=details)
+
+            h_score = (
+                min(1.0, overlap_ratio)
+                if overlap_ratio > 0
+                else max(0.0, 1.0 - xy_gap / (max_horizontal + 1e-6))
+            )
+            v_score = min(1.0, vertical_diff / 1.0)
+            score = 0.5 * h_score + 0.5 * v_score
+            return RelationResult(satisfies=True, score=float(score), details=details)
+
         t_pos = self._get_centroid(target)
         a_pos = self._get_centroid(anchor)
         diff = t_pos - a_pos
@@ -282,6 +458,40 @@ class SpatialRelationChecker:
         """
         Check if target is below anchor.
         """
+        t_bbox = self._get_bbox(target)
+        a_bbox = self._get_bbox(anchor)
+        if t_bbox is not None and a_bbox is not None:
+            t_center = self._bbox_center(t_bbox)
+            a_center = self._bbox_center(a_bbox)
+            thres = self.thresholds["below"]
+            vertical_diff = float(t_center[2] - a_center[2])
+            xy_gap = self._bbox_xy_gap(t_bbox, a_bbox)
+            overlap_ratio = self._bbox_xy_overlap_ratio(t_bbox, a_bbox)
+            max_horizontal = float(thres["max_horizontal"])
+            details = {
+                "mode": "bbox_vertical_ordering",
+                "bbox_used": True,
+                "xy_gap": xy_gap,
+                "xy_overlap_ratio": overlap_ratio,
+                "vertical_diff": vertical_diff,
+            }
+
+            if vertical_diff > float(thres["max_vertical"]):
+                details["reason"] = "vertical_order"
+                return RelationResult(satisfies=False, score=0.0, details=details)
+            if xy_gap > max_horizontal and overlap_ratio <= 0.0:
+                details["reason"] = "horizontal_support"
+                return RelationResult(satisfies=False, score=0.0, details=details)
+
+            h_score = (
+                min(1.0, overlap_ratio)
+                if overlap_ratio > 0
+                else max(0.0, 1.0 - xy_gap / (max_horizontal + 1e-6))
+            )
+            v_score = min(1.0, abs(vertical_diff) / 1.0)
+            score = 0.5 * h_score + 0.5 * v_score
+            return RelationResult(satisfies=True, score=float(score), details=details)
+
         t_pos = self._get_centroid(target)
         a_pos = self._get_centroid(anchor)
         diff = t_pos - a_pos
@@ -312,6 +522,22 @@ class SpatialRelationChecker:
         """
         Check if target is next to anchor (close proximity).
         """
+        t_bbox = self._get_bbox(target)
+        a_bbox = self._get_bbox(anchor)
+        if t_bbox is not None and a_bbox is not None:
+            thres = self.thresholds["next_to"]
+            distance = self._bbox_xy_gap(t_bbox, a_bbox)
+            max_distance = float(thres["max_distance"])
+            details = {
+                "distance": distance,
+                "distance_mode": "bbox_xy_gap",
+                "bbox_used": True,
+            }
+            if distance > max_distance:
+                return RelationResult(satisfies=False, score=0.0, details=details)
+            score = max(0.0, 1.0 - distance / (max_distance + 1e-6))
+            return RelationResult(satisfies=True, score=float(score), details=details)
+
         t_pos = self._get_centroid(target)
         a_pos = self._get_centroid(anchor)
 
@@ -334,6 +560,22 @@ class SpatialRelationChecker:
         """
         Check if target is near anchor (looser than next_to).
         """
+        t_bbox = self._get_bbox(target)
+        a_bbox = self._get_bbox(anchor)
+        if t_bbox is not None and a_bbox is not None:
+            thres = self.thresholds["near"]
+            distance = self._bbox_3d_gap(t_bbox, a_bbox)
+            max_distance = float(thres["max_distance"])
+            details = {
+                "distance": distance,
+                "distance_mode": "bbox_3d_gap",
+                "bbox_used": True,
+            }
+            if distance > max_distance:
+                return RelationResult(satisfies=False, score=0.0, details=details)
+            score = max(0.0, 1.0 - distance / (max_distance + 1e-6))
+            return RelationResult(satisfies=True, score=float(score), details=details)
+
         t_pos = self._get_centroid(target)
         a_pos = self._get_centroid(anchor)
 
@@ -469,29 +711,51 @@ class SpatialRelationChecker:
         Falls back to proximity if no bbox available.
         """
         t_pos = self._get_centroid(target)
+        t_bbox = self._get_bbox(target)
         a_bbox = self._get_bbox(anchor)
 
         if a_bbox is None:
             # Cannot determine containment without bounding box
             # Do NOT fall back to proximity - "inside" requires bbox data
-            return RelationResult(satisfies=False, score=0.0)
+            return RelationResult(
+                satisfies=False,
+                score=0.0,
+                details={"bbox_used": False, "reason": "missing_anchor_bbox"},
+            )
 
         a_min, a_max = a_bbox
         margin = self.thresholds["inside"]["margin"]
 
-        # Check if target centroid is within anchor bbox (with margin)
-        inside = np.all(t_pos >= a_min - margin) and np.all(t_pos <= a_max + margin)
+        if t_bbox is not None:
+            t_min, t_max = t_bbox
+            inside = np.all(t_min >= a_min - margin) and np.all(
+                t_max <= a_max + margin
+            )
+            target_center = self._bbox_center(t_bbox)
+            bbox_used = True
+        else:
+            inside = np.all(t_pos >= a_min - margin) and np.all(t_pos <= a_max + margin)
+            target_center = t_pos
+            bbox_used = False
 
         if not inside:
-            return RelationResult(satisfies=False, score=0.0)
+            return RelationResult(
+                satisfies=False,
+                score=0.0,
+                details={"bbox_used": bbox_used, "reason": "outside_anchor_bbox"},
+            )
 
         # Score based on how centered within the bbox
         a_center = (a_min + a_max) / 2
         a_size = a_max - a_min
-        normalized_dist = np.abs(t_pos - a_center) / (a_size / 2 + 1e-6)
+        normalized_dist = np.abs(target_center - a_center) / (a_size / 2 + 1e-6)
         score = float(1 - np.mean(normalized_dist))
 
-        return RelationResult(satisfies=True, score=max(0, score))
+        return RelationResult(
+            satisfies=True,
+            score=max(0, score),
+            details={"bbox_used": bbox_used},
+        )
 
     # ========== Multi-Object Relations ==========
 

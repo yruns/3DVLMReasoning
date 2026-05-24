@@ -32,6 +32,7 @@ from query_scene.query_executor import (
     SOFT_POLICY_SCORE_FLOOR,
     QueryExecutor,
 )
+from query_scene.retrieval.spatial_checker import RelationResult
 
 
 def _mk_obj(obj_id: int, category: str, xyz: tuple[float, float, float]) -> object:
@@ -104,6 +105,63 @@ class TestHardPolicyMatchesLegacy(unittest.TestCase):
         self.assertEqual(out, [])
         self.assertEqual(scores, {})
         self.assertEqual(soft, {})
+
+
+class _AlwaysSatisfyChecker:
+    def check(self, target: object, anchor: object, relation: str) -> RelationResult:
+        return RelationResult(
+            satisfies=True,
+            score=0.9,
+            details={"source": "full_checker", "relation": relation},
+        )
+
+
+class TestHardQuickFilterSafety(unittest.TestCase):
+    def test_hard_quick_filter_empty_falls_through_to_full_checker(self) -> None:
+        box = _mk_obj(1, "box", (0.0, 0.0, 0.0))
+        table = _mk_obj(2, "table", (0.0, 0.0, 1.0))
+        executor = QueryExecutor(
+            objects=[box, table], relation_checker=_AlwaysSatisfyChecker()
+        )
+        sc = _sc("on", ["table"], policy=ExecutionPolicy.HARD)
+
+        out, scores, soft = executor._apply_spatial_constraint([box], sc)
+
+        self.assertEqual([o.obj_id for o in out], [1])
+        self.assertEqual(scores[1], 0.9)
+        self.assertEqual(soft, {})
+
+    def test_execution_trace_records_quick_filter_and_full_check(self) -> None:
+        box = _mk_obj(1, "box", (0.0, 0.0, 0.0))
+        table = _mk_obj(2, "table", (0.0, 0.0, 1.0))
+        executor = QueryExecutor(
+            objects=[box, table], relation_checker=_AlwaysSatisfyChecker()
+        )
+        query = GroundingQuery(
+            raw_query="box on table",
+            root=QueryNode(
+                categories=["box"],
+                spatial_constraints=[_sc("on", ["table"], policy=ExecutionPolicy.HARD)],
+                node_id="root",
+            ),
+            expect_unique=False,
+        )
+
+        result = executor.execute(query)
+
+        self.assertEqual([o.obj_id for o in result.matched_objects], [1])
+        trace = result.metadata["execution_trace"]
+        self.assertEqual(len(trace), 1)
+        entry = trace[0]
+        self.assertEqual(entry["node_id"], "root")
+        self.assertEqual(entry["relation"], "on")
+        self.assertEqual(entry["policy"], "hard")
+        self.assertEqual(entry["candidate_ids_before"], [1])
+        self.assertEqual(entry["anchor_ids"], [2])
+        self.assertEqual(entry["quick_filter_candidate_ids"], [])
+        self.assertTrue(entry["quick_filter_would_empty"])
+        self.assertEqual(entry["output_candidate_ids"], [1])
+        self.assertEqual(entry["candidate_relation_scores"][1], 0.9)
 
 
 class TestSoftPolicyKeepsCandidates(unittest.TestCase):
