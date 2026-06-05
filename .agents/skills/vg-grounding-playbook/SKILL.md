@@ -7,7 +7,7 @@ description: Use when selecting one proposal_id for an NR3D visual grounding que
 
 This Codex Agent SDK skill is synchronized from the DeepAgents playbook used by the Stage-2 VG runtime. Regenerate with `scripts/sync_codex_playbook_skills.py` after editing the source playbook.
 
-Codex SDK note: this skill is mounted as a `SkillInput`; the `nr3d_tools` MCP runtime preloads the corresponding tool gates.
+Codex SDK note: this skill is mounted as a `SkillInput`. The `nr3d_tools` MCP server and the `nr3d_tools_cli.py` fallback expose the same tool names used below. If MCP tools are not visible in the SDK turn, call the CLI command printed in the task prompt with `call <tool_name> '<json args>'`.
 
 Source playbook: `src/agents/packs/vg_embodiedscan/skills/vg_grounding_playbook.md`
 

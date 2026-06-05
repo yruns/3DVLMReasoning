@@ -262,3 +262,111 @@ def test_nr3d_mcp_server_speaks_json_lines_stdio(tmp_path) -> None:
         tool["name"] for tool in responses[1]["result"]["tools"]
     }
     assert "inspect_proposal" in tool_names
+
+
+def test_nr3d_tools_cli_lists_tools_and_invokes_tool(tmp_path) -> None:
+    _, _, state_path = _state_path(tmp_path)
+    trace_path = tmp_path / "cli_trace.json"
+    cli_path = PROJECT_ROOT / "src" / "agents" / "mcp" / "nr3d_tools_cli.py"
+
+    listed = subprocess.run(
+        [
+            sys.executable,
+            str(cli_path),
+            "--state",
+            str(state_path),
+            "--trace",
+            str(trace_path),
+            "list-tools",
+        ],
+        text=True,
+        capture_output=True,
+        check=True,
+        env={**os.environ, "PYTHONPATH": str(PROJECT_ROOT / "src")},
+        cwd=PROJECT_ROOT,
+        timeout=15,
+    )
+
+    list_payload = json.loads(listed.stdout)
+    assert "inspect_proposal" in {
+        tool["name"] for tool in list_payload["tools"]
+    }
+
+    called = subprocess.run(
+        [
+            sys.executable,
+            str(cli_path),
+            "--state",
+            str(state_path),
+            "--trace",
+            str(trace_path),
+            "call",
+            "inspect_proposal",
+            '{"proposal_id": 6}',
+        ],
+        text=True,
+        capture_output=True,
+        check=True,
+        env={**os.environ, "PYTHONPATH": str(PROJECT_ROOT / "src")},
+        cwd=PROJECT_ROOT,
+        timeout=15,
+    )
+
+    call_payload = json.loads(called.stdout)
+    assert call_payload["tool_name"] == "inspect_proposal"
+    assert call_payload["is_error"] is False
+    assert "Square table near the door" in call_payload["content_text"]
+    trace = json.loads(trace_path.read_text(encoding="utf-8"))
+    assert trace["tool_trace"][0]["tool_name"] == "inspect_proposal"
+
+
+def test_nr3d_tools_cli_merges_parallel_trace_writes(tmp_path) -> None:
+    _, _, state_path = _state_path(tmp_path)
+    trace_path = tmp_path / "cli_parallel_trace.json"
+    cli_path = PROJECT_ROOT / "src" / "agents" / "mcp" / "nr3d_tools_cli.py"
+    env = {**os.environ, "PYTHONPATH": str(PROJECT_ROOT / "src")}
+    commands = [
+        [
+            sys.executable,
+            str(cli_path),
+            "--state",
+            str(state_path),
+            "--trace",
+            str(trace_path),
+            "call",
+            "inspect_proposal",
+            '{"proposal_id": 6}',
+        ],
+        [
+            sys.executable,
+            str(cli_path),
+            "--state",
+            str(state_path),
+            "--trace",
+            str(trace_path),
+            "call",
+            "list_scene_proposals",
+            '{"category": "table"}',
+        ],
+    ]
+
+    procs = [
+        subprocess.Popen(
+            cmd,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            env=env,
+            cwd=PROJECT_ROOT,
+        )
+        for cmd in commands
+    ]
+
+    for proc in procs:
+        stdout, stderr = proc.communicate(timeout=15)
+        assert proc.returncode == 0, (stdout, stderr)
+
+    trace = json.loads(trace_path.read_text(encoding="utf-8"))
+    names = [item["tool_name"] for item in trace["tool_trace"]]
+    assert "inspect_proposal" in names
+    assert "list_scene_proposals" in names

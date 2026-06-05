@@ -13,6 +13,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import shlex
 import sys
 import time
 import uuid
@@ -43,6 +44,9 @@ DEFAULT_NR3D_SKILL_PATH = (
 )
 DEFAULT_NR3D_MCP_SERVER_PATH = (
     PROJECT_ROOT / "src" / "agents" / "mcp" / "nr3d_tools_server.py"
+)
+DEFAULT_NR3D_TOOLS_CLI_PATH = (
+    PROJECT_ROOT / "src" / "agents" / "mcp" / "nr3d_tools_cli.py"
 )
 DEFAULT_NR3D_MCP_STATE_DIR = PROJECT_ROOT / "tmp" / "codex_sdk_mcp_state"
 DEFAULT_CODEX_PLAYBOOK_SKILL_PATHS: tuple[tuple[str, Path], ...] = (
@@ -111,6 +115,8 @@ class CodexSdkStage2Runtime:
         mcp_server_path: str | Path | None = None,
         mcp_state_dir: str | Path | None = None,
         mcp_python: str | Path | None = None,
+        enable_cli_tools: bool | None = None,
+        tools_cli_path: str | Path | None = None,
         enable_prefix_cache: bool | None = None,
         prefix_cache_session_id: str | None = None,
     ) -> None:
@@ -140,6 +146,14 @@ class CodexSdkStage2Runtime:
         self.mcp_python = str(
             mcp_python or os.environ.get("CODEX_AGENT_MCP_PYTHON") or sys.executable
         )
+        self.enable_cli_tools = (
+            self._env_bool("CODEX_AGENT_ENABLE_CLI_TOOLS", default=True)
+            if enable_cli_tools is None
+            else bool(enable_cli_tools)
+        )
+        self.tools_cli_path = (
+            Path(tools_cli_path) if tools_cli_path else DEFAULT_NR3D_TOOLS_CLI_PATH
+        )
         self.enable_prefix_cache = (
             self._env_bool("CODEX_AGENT_ENABLE_PREFIX_CACHE", default=True)
             if enable_prefix_cache is None
@@ -163,12 +177,22 @@ class CodexSdkStage2Runtime:
 
         ctx = build_ctx_from_bundle(bundle)
         valid_ids = {proposal.id for proposal in ctx.proposals}
-        prompt = self.build_decision_prompt(task, bundle)
         image_paths = self.collect_codex_image_paths(bundle)
         mcp_state_path: Path | None = None
         mcp_trace_path: Path | None = None
-        if self.enable_mcp_tools:
+        if self.enable_mcp_tools or self.enable_cli_tools:
             mcp_state_path, mcp_trace_path = self.write_mcp_state(task, bundle)
+        cli_trace_path = (
+            self.cli_trace_path_for(mcp_trace_path)
+            if self.enable_cli_tools and mcp_trace_path is not None
+            else None
+        )
+        prompt = self.build_decision_prompt(
+            task,
+            bundle,
+            tool_state_path=mcp_state_path,
+            tool_trace_path=cli_trace_path or mcp_trace_path,
+        )
         response_text, metadata_raw = self._run_codex_turn(
             prompt,
             image_paths,
@@ -206,7 +230,10 @@ class CodexSdkStage2Runtime:
             payload=payload,
         )
         metadata = self._coerce_metadata(metadata_raw)
-        mcp_trace, mcp_trace_meta = self.load_mcp_trace(mcp_trace_path)
+        mcp_trace, mcp_trace_meta = self.load_tool_traces(
+            mcp_trace_path,
+            cli_trace_path,
+        )
         trace = [
             *mcp_trace,
             Stage2ToolObservation(
@@ -226,6 +253,11 @@ class CodexSdkStage2Runtime:
                     ),
                     "mcp_state_path": str(mcp_state_path) if mcp_state_path else None,
                     "mcp_trace_path": str(mcp_trace_path) if mcp_trace_path else None,
+                    "cli_tools_enabled": self.enable_cli_tools,
+                    "tools_cli_path": (
+                        str(self.tools_cli_path) if self.enable_cli_tools else None
+                    ),
+                    "cli_trace_path": str(cli_trace_path) if cli_trace_path else None,
                     "prefix_cache_enabled": self.enable_prefix_cache,
                     "prefix_cache_session_id": (
                         self.prefix_cache_session_id
@@ -248,6 +280,7 @@ class CodexSdkStage2Runtime:
                 "runtime": "codex_sdk",
                 "codex_turn": metadata.as_dict(),
                 "mcp_tools_enabled": self.enable_mcp_tools,
+                "cli_tools_enabled": self.enable_cli_tools,
                 "mcp_trace": mcp_trace_meta,
                 "prefix_cache_enabled": self.enable_prefix_cache,
                 "prefix_cache_session_id": (
@@ -260,6 +293,9 @@ class CodexSdkStage2Runtime:
         self,
         task: Stage2TaskSpec,
         bundle: Stage2EvidenceBundle,
+        *,
+        tool_state_path: Path | None = None,
+        tool_trace_path: Path | None = None,
     ) -> str:
         """Build a catalog-first VG prompt without leaking benchmark GT fields."""
         ctx = build_ctx_from_bundle(bundle)
@@ -328,6 +364,15 @@ class CodexSdkStage2Runtime:
             )
         else:
             tool_note = "MCP tools are disabled for this turn."
+        if self.enable_cli_tools:
+            if tool_state_path is None or tool_trace_path is None:
+                cli_note = (
+                    "The CLI evidence fallback is enabled but state paths were "
+                    "not prepared; do not attempt CLI calls."
+                )
+            else:
+                cli_note = self.build_cli_tool_note(tool_state_path, tool_trace_path)
+            tool_note = f"{tool_note}\n- {cli_note}"
 
         schema = CodexVisualGroundingDecision.model_json_schema()
         return (
@@ -388,7 +433,6 @@ class CodexSdkStage2Runtime:
                 Codex,
                 CodexConfig,
                 LocalImageInput,
-                Sandbox,
                 SkillInput,
                 TextInput,
             )
@@ -438,7 +482,7 @@ class CodexSdkStage2Runtime:
             thread_kwargs: dict[str, Any] = {
                 "model": self.model,
                 "model_provider": self.model_provider,
-                "sandbox": Sandbox.read_only,
+                "sandbox": self.codex_sandbox(),
                 "cwd": str(self.project_root),
             }
             thread = codex.thread_start(**thread_kwargs)
@@ -446,7 +490,7 @@ class CodexSdkStage2Runtime:
                 turn_input,
                 cwd=str(self.project_root),
                 output_schema=output_schema,
-                sandbox=Sandbox.read_only,
+                sandbox=self.codex_sandbox(),
             )
         if result.final_response is None:
             raise RuntimeError(
@@ -488,6 +532,50 @@ class CodexSdkStage2Runtime:
             encoding="utf-8",
         )
         return state_path, trace_path
+
+    @staticmethod
+    def cli_trace_path_for(mcp_trace_path: Path) -> Path:
+        name = mcp_trace_path.name
+        if name.endswith(".trace.json"):
+            return mcp_trace_path.with_name(
+                f"{name.removesuffix('.trace.json')}.cli.trace.json"
+            )
+        return mcp_trace_path.with_name(f"{name}.cli.trace.json")
+
+    def build_cli_tool_note(
+        self,
+        tool_state_path: Path,
+        tool_trace_path: Path,
+    ) -> str:
+        cli = str(self.tools_cli_path)
+        python = self.mcp_python
+        state = str(tool_state_path)
+        trace = str(tool_trace_path)
+        return (
+            "Codex SDK MCP tools may not be visible in this SDK version. "
+            "Use the CLI fallback through the shell. Before final JSON, run at "
+            "least one CLI evidence command for the most plausible candidate "
+            "(for simple queries, use inspect_proposal). Do not claim the "
+            "evidence tools are unavailable before trying the CLI. The CLI "
+            "writes only the provided trace file. "
+            "Examples:\n"
+            f"  {python} {cli} --state {self._shell_quote(state)} "
+            f"--trace {self._shell_quote(trace)} list-tools\n"
+            f"  {python} {cli} --state {self._shell_quote(state)} "
+            f"--trace {self._shell_quote(trace)} call inspect_proposal "
+            "'{\"proposal_id\": 6}'\n"
+            f"  {python} {cli} --state {self._shell_quote(state)} "
+            f"--trace {self._shell_quote(trace)} call select_by_text "
+            "'{\"query\": \"the target object\", \"k\": 3}'"
+        )
+
+    def codex_sandbox(self) -> Any:
+        from openai_codex import Sandbox
+
+        return Sandbox.workspace_write if self.enable_cli_tools else Sandbox.read_only
+
+    def codex_sandbox_value(self) -> str:
+        return str(self.codex_sandbox().value)
 
     def build_codex_app_server_config_overrides(
         self,
@@ -553,9 +641,30 @@ class CodexSdkStage2Runtime:
             ),
         }
 
+    def load_tool_traces(
+        self,
+        mcp_trace_path: Path | None,
+        cli_trace_path: Path | None = None,
+    ) -> tuple[list[Stage2ToolObservation], dict[str, Any] | None]:
+        observations: list[Stage2ToolObservation] = []
+        sources: list[dict[str, Any]] = []
+        for kind, trace_path in (
+            ("mcp", mcp_trace_path),
+            ("cli", cli_trace_path),
+        ):
+            loaded, meta = self.load_mcp_trace(trace_path, kind=kind)
+            observations.extend(loaded)
+            if meta is not None:
+                sources.append(meta)
+        if not sources:
+            return observations, None
+        return observations, {"sources": sources, "tool_count": len(observations)}
+
     def load_mcp_trace(
         self,
         trace_path: Path | None,
+        *,
+        kind: str = "mcp",
     ) -> tuple[list[Stage2ToolObservation], dict[str, Any] | None]:
         if trace_path is None or not trace_path.exists():
             return [], None
@@ -567,6 +676,7 @@ class CodexSdkStage2Runtime:
             for item in payload.get("tool_trace", [])
         ]
         return observations, {
+            "kind": kind,
             "trace_path": str(trace_path),
             "tool_count": len(observations),
             "skills_loaded": payload.get("skills_loaded", []),
@@ -657,6 +767,10 @@ class CodexSdkStage2Runtime:
         if re.fullmatch(r"[A-Za-z0-9_-]+", value):
             return value
         return json.dumps(value, ensure_ascii=False)
+
+    @staticmethod
+    def _shell_quote(value: str) -> str:
+        return shlex.quote(value)
 
     @staticmethod
     def _safe_modelhub_session_id(value: Any) -> str:

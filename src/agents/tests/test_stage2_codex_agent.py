@@ -89,6 +89,31 @@ def test_codex_prompt_excludes_gt_fields(tmp_path) -> None:
     assert "load_skill" not in prompt
 
 
+def test_codex_prompt_includes_cli_fallback_command_and_state_paths(tmp_path) -> None:
+    runtime = CodexSdkStage2Runtime(config=Stage2DeepAgentConfig())
+    task = Stage2TaskSpec(
+        task_type=Stage2TaskType.VISUAL_GROUNDING,
+        user_query="the square table by the door",
+    )
+    state_path = tmp_path / "sample.state.json"
+    trace_path = tmp_path / "sample.trace.json"
+
+    prompt = runtime.build_decision_prompt(
+        task,
+        _bundle(tmp_path),
+        tool_state_path=state_path,
+        tool_trace_path=trace_path,
+    )
+
+    assert "nr3d_tools_cli.py" in prompt
+    assert str(state_path) in prompt
+    assert str(trace_path) in prompt
+    assert "call inspect_proposal" in prompt
+    assert "call select_by_text" in prompt
+    assert "run at least one CLI evidence command" in prompt
+    assert "Do not claim the evidence tools are unavailable before trying the CLI" in prompt
+
+
 def test_codex_runtime_wraps_json_decision(monkeypatch, tmp_path) -> None:
     runtime = CodexSdkStage2Runtime(
         config=Stage2DeepAgentConfig(),
@@ -126,6 +151,13 @@ def test_codex_runtime_wraps_json_decision(monkeypatch, tmp_path) -> None:
     assert result.result.confidence == 0.88
     assert result.tool_trace[0].tool_name == "codex_sdk_turn"
     assert result.raw_state["mcp_tools_enabled"] is True
+    assert result.raw_state["cli_tools_enabled"] is True
+
+
+def test_codex_runtime_uses_workspace_write_sandbox_when_cli_trace_is_enabled() -> None:
+    runtime = CodexSdkStage2Runtime(config=Stage2DeepAgentConfig())
+
+    assert runtime.codex_sandbox_value() == "workspace-write"
 
 
 def test_codex_runtime_writes_mcp_state_without_api_keys(tmp_path) -> None:
@@ -237,6 +269,18 @@ def test_codex_runtime_mounts_deepagents_playbook_skills() -> None:
     ]
 
 
+def test_codex_sdk_skill_teaches_cli_fallback() -> None:
+    text = (PROJECT_ROOT / ".agents/skills/nr3d-codex-sdk/SKILL.md").read_text(
+        encoding="utf-8"
+    )
+
+    assert "nr3d_tools_cli.py" in text
+    assert "call inspect_proposal" in text
+    assert "select_by_text" in text
+    assert "run at least one CLI" in text
+    assert "Do not claim the evidence tools are unavailable" in text
+
+
 def test_codex_playbook_skills_are_synced_from_deepagents_sources() -> None:
     specs = {
         "scene-exploration-playbook": (
@@ -268,5 +312,6 @@ def test_codex_playbook_skills_are_synced_from_deepagents_sources() -> None:
             assert "scene-exploration-playbook" in synced
         assert "list_skills" not in text
         assert "load_skill" not in text
+        assert "nr3d_tools_cli.py" in text
         assert "select_by_proposal" in synced or skill_name != "vg-grounding-playbook"
         assert len(synced) >= len(source) * 0.95
