@@ -34,6 +34,9 @@ ENV/
 
 .ttadk
 .codex
+.codex-home/*
+!.codex-home/
+!.codex-home/config.toml
 .cursor
 
 # IDE
