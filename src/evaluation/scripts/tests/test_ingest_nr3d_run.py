@@ -90,6 +90,79 @@ def test_ingest_nr3d_run_records_samples_and_metrics(tmp_path: Path) -> None:
         conn.close()
 
 
+def test_ingest_nr3d_run_populates_tool_calls_from_trace(tmp_path: Path) -> None:
+    ingest = _load_ingester()
+    output_dir = tmp_path / "run"
+    _write_side_by_side(
+        output_dir,
+        {
+            "pack_v1": {
+                "n": 1,
+                "mean_iou": 0.0,
+                "Acc@0.25": 0.0,
+                "Acc@0.50": 0.0,
+                "per_sample": [
+                    {
+                        "sample_id": "scannet/scene0001_00::7::A1",
+                        "status": "completed",
+                        "iou": 0.0,
+                        "selected_object_id": 8,
+                        "confidence": 0.5,
+                        "query": "the chair",
+                        "tool_trace": [
+                            {
+                                "tool_name": "inspect_proposal",
+                                "tool_input": {"proposal_id": 7},
+                                "response_text": "proposal 7: chair",
+                            },
+                            {
+                                "tool_name": "select_by_text",
+                                "tool_input": {"text": "chair"},
+                                "response_text": {"proposal_ids": [7]},
+                            },
+                        ],
+                    }
+                ],
+            }
+        },
+    )
+
+    db = tmp_path / "runs.sqlite"
+    ingest(
+        db_path=db,
+        output_dir=output_dir,
+        run_id="trace-tools",
+        branch="feat/test",
+        commit_hash="abc1234",
+    )
+
+    conn = sqlite3.connect(db)
+    try:
+        rows = conn.execute(
+            "SELECT question_id, turn_idx, tool_name, tool_input, response_text "
+            "FROM tool_calls WHERE run_id=? ORDER BY turn_idx",
+            ("trace-tools",),
+        ).fetchall()
+        assert rows == [
+            (
+                "scannet/scene0001_00::7::A1",
+                0,
+                "inspect_proposal",
+                '{"proposal_id": 7}',
+                "proposal 7: chair",
+            ),
+            (
+                "scannet/scene0001_00::7::A1",
+                1,
+                "select_by_text",
+                '{"text": "chair"}',
+                '{"proposal_ids": [7]}',
+            ),
+        ]
+    finally:
+        conn.close()
+
+
 def test_ingest_nr3d_run_requires_per_sample(tmp_path: Path) -> None:
     ingest = _load_ingester()
     output_dir = tmp_path / "run"

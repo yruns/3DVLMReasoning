@@ -9,10 +9,13 @@ the current human-facing index.
 > The `v9.1_fix FULL` row at 82.95 % was invalidated on 2026-05-17 as a
 > GT-target-visible information leak (5 seed keyframes silently injected
 > per evidence-update turn at commit `d5f40ba`, fixed in `8ebf701`). The
-> honest depth-aware NR3D "best" on this codebase is now **v11
+> honest depth-aware NR3D full-set "best" on this codebase is now **v11
 > proposal enrichment FULL at 72.26 % on the canonical filtered 7805-query
-> slice**. The preceding v11 strat600 pilot scored 71.33 %, recovering most of
-> the lower reproduction gap but not setting a new pilot-fold best. A 2026-05-20
+> slice**. The latest v19 Codex SDK CLI fallback strat600 pilot scored
+> **72.50 %**, the best observed valid pilot-fold row so far, but it still
+> needs a full-set confirmation before changing the headline full-set result.
+> The preceding v11 strat600 pilot scored 71.33 %, recovering most of
+> the lower reproduction gap. A 2026-05-20
 > high-worker reproduction at `workers=30` completed cleanly but scored
 > 70.00 %, and a 2026-05-21 `workers=20` reproduction from the current best
 > branch scored 69.17 %. Treat 72.26 as the current best full-set result, with
@@ -52,6 +55,7 @@ the current human-facing index.
 | [v16 select_by_text bbox-spatial strat600](v16_select_by_text_bbox_spatial_strat600_coverage_20260524.md) | **Tool coverage audit after bbox-aware spatial execution repair, not a leaderboard run.** Launch/runtime HEAD `43aed24`; 20-way shard run over canonical strat600 using raw NR3D query and opt-in `select_by_text(..., k=3, use_visual_context=False, viewpoint_aware=True)`. Target-id-in-returned-keyframes hit@3 **71.17 %** overall; empty returned frames drop **106 -> 81** vs v15. Gains are concentrated in View-Indep (**66.58 -> 71.72**), while View-Dep regresses (**73.93 -> 70.14**). |
 | [v17 Codex SDK strat600](v17_codex_sdk_strat600_20260605.md) | **Codex Agent SDK integration run, not a new best.** Launch/runtime HEAD `6037c0b`; canonical strat600 through new `--backend codex_sdk`, local ModelHub adapter, `CODEX_AGENT_MODEL=gpt-5.4-2026-03-05` after gpt-5.5 permission failure. Overall **63.33 %** (Easy 70.00 / Hard 57.10 / V-Dep 53.55 / V-Indep 68.64), 600 completed, 0 errors. This SDK entrypoint is a one-turn BEV+catalog selector, not the DeepAgents tool loop. |
 | [v18 Codex SDK MCP/text strat600](v18_codex_sdk_mcp_text_strat600_20260605.md) | **Codex Agent SDK MCP/skills/prefix-cache integration run, not a new best.** Launch/runtime HEAD `348ad52`; canonical strat600/case600 with `CODEX_AGENT_ENABLE_MCP_TOOLS=1`, prefix cache session `nr3d_codex_case600_20260605_348ad52_adapter`, synced playbook skills, and lazy `select_by_text` selector support. Overall **63.00 %** (Easy 70.69 / Hard 55.81 / V-Dep 55.45 / V-Indep 67.10), 600 completed, 0 final errors. Actual trace contains only `codex_sdk_turn` 600 times, so no MCP tool calls were exercised. |
+| [v19 Codex SDK CLI fallback strat600](v19_codex_sdk_cli_fallback_strat600_20260606.md) | **Codex Agent SDK CLI/MCP tool integration run; best observed valid strat600 pilot.** Launch/runtime HEAD `c19a747`; canonical strat600/case600 with `CODEX_AGENT_ENABLE_MCP_TOOLS=1`, `CODEX_AGENT_ENABLE_CLI_TOOLS=1`, prefix cache session `nr3d_codex_cli_case600_20260606_c19a747`, synced skills, local ModelHub adapter, and CLI fallback tool calls. Overall **72.50 %** (Easy 80.34 / Hard 65.16 / V-Dep 59.72 / V-Indep 79.43), 600 completed, 0 final errors. Tool trace contains 2592 calls, including `inspect_proposal`, `select_by_text`, `compare_proposals_spatial`, `compare_candidates_to_anchors`, `mark_frame_with_bbox`, and `view_bev`. |
 | [v10 guard target-semantics probe](v10_no_initial_keyframes_strat600_20260518.md#guard-target-semantics-probe-2f9afe4) | **Diagnostic probe, not a leaderboard row.** HEAD `2f9afe4` fixes shell-head category parsing (`object is a/an X`) and prevents EFG from deriving left/right target constraints from rationale-only wording. Two audited cases: `closer to TV` recovers from wrong `#3` to target `#2` (IoU 1.0); `fully closed door` no longer hits the guard deadlock but still chooses the wrong door proposal (`#0` vs target `#2`). |
 | [v10 cabinet-anchor target probe](v10_no_initial_keyframes_strat600_20260518.md#cabinet-anchor-target-probe-6cb6844) | **Diagnostic probe, not a leaderboard row.** HEAD `6cb6844` fixes cabinet aliases and positional cabinet-head extraction so refrigerator anchors are not accepted as cabinet targets. Two audited cases: kitchen cabinet over/with microwave recovers from wrong `#4` to target `#8` (IoU 1.0); top-left cabinet no longer selects the fridge anchor but still chooses neighboring cabinet `#15` instead of target `#14`. Follow-up HEAD `c94f5e1` adds unit-only coverage for generic `object you are looking for is X` complements. |
 | [v10 view-dependent side-evidence probe](v10_no_initial_keyframes_strat600_20260518.md#view-dependent-side-evidence-probe-23f68de) | **Diagnostic probe, not a leaderboard row.** HEAD `23f68de` tightens the shared and VG playbooks for view-dependent left/right: use same marked viewer/anchor frame, prefer `require_all=True` for small candidate sets, and do not combine screen-left/right from different camera viewpoints. On 15 newly audited failures, 5 recover: mice-left, table-facing chair-right, two-closest armchair-right, monitor-keyboard, and nested table relation. Remaining buckets are role-bound composite relation evidence, noun-scoped EFG, target-category operative-clause parsing, and ordinal/superlative candidate closure. |
@@ -108,21 +112,27 @@ Runtime HEAD `63dc417`, no initial keyframes, no pending-image side channel,
 full-scene proposal enrichment available through initial notes and
 `inspect_proposal`.
 
-| Metric | v11 enrichment FULL (cite this for fair full set) | v10 multi-anchor TADG strat600 | UniVLG (public SOTA) | Delta v11 vs UniVLG |
-|---|---:|---:|---:|---:|
-| Overall   | **72.26** | 72.00 | 65.2 | **+7.06** |
-| Easy      | 81.74 | **82.41** | 73.3 | **+8.44** |
-| Hard      | **63.39** | 62.26 | 57.0 | **+6.39** |
-| V-Dep     | 62.46 | **62.56** | 55.1 | **+7.36** |
-| V-Indep   | **77.60** | 77.12 | 69.9 | **+7.70** |
+Best observed valid **strat600 pilot**: [v19 Codex SDK CLI fallback
+strat600](v19_codex_sdk_cli_fallback_strat600_20260606.md), **72.50 %**
+Overall on the canonical case600 fold. Treat this as a pilot result until it is
+confirmed on the full filtered 7805-query slice.
 
-The v11 full row is the current best fair result in this archive: +7.06 pp over
-the public UniVLG headline, with **zero initial-keyframe or pending-image side
-channel** and 0 final checkpoint `error` fields. The v10 multi-anchor TADG
-72.00 % strat600 row remains the best pilot-fold row; the v11 strat600 pilot at
-71.33 % was slightly lower, while the full fold lands at 72.26 %. Keep the
-high-worker reproduction caveat: transient ModelHub/API failures must be
-deleted and rerun before accepting final metrics.
+| Metric | v11 enrichment FULL (cite this for fair full set) | v19 Codex SDK CLI fallback strat600 | UniVLG (public SOTA) | Delta v11 vs UniVLG |
+|---|---:|---:|---:|---:|
+| Overall   | **72.26** | **72.50** | 65.2 | **+7.06** |
+| Easy      | **81.74** | 80.34 | 73.3 | **+8.44** |
+| Hard      | 63.39 | **65.16** | 57.0 | **+6.39** |
+| V-Dep     | **62.46** | 59.72 | 55.1 | **+7.36** |
+| V-Indep   | 77.60 | **79.43** | 69.9 | **+7.70** |
+
+The v11 full row is the current best fair full-set result in this archive:
++7.06 pp over the public UniVLG headline, with **zero initial-keyframe or
+pending-image side channel** and 0 final checkpoint `error` fields. The v19
+Codex SDK CLI fallback 72.50 % strat600 row is the best observed valid
+pilot-fold row; the v11 strat600 pilot at 71.33 % was slightly lower, while
+the full fold lands at 72.26 %. Keep the high-worker reproduction caveat:
+transient ModelHub/API failures must be deleted and rerun before accepting
+final metrics.
 
 Latest spec-cleanup run:
 [v10_no_initial_keyframes_strat600_20260518.md](v10_no_initial_keyframes_strat600_20260518.md)

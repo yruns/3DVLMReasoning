@@ -145,6 +145,14 @@ def _json_or_none(value: Any) -> str | None:
     return json.dumps(value, ensure_ascii=False)
 
 
+def _text_or_json(value: Any) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, str):
+        return value
+    return json.dumps(value, ensure_ascii=False)
+
+
 def ingest(
     *,
     db_path: Path,
@@ -267,6 +275,23 @@ def ingest(
                     int(extra["is_correct"]) if extra else None,
                 ),
             )
+            for turn_idx, tool_call in enumerate(item.get("tool_trace") or []):
+                if not isinstance(tool_call, dict):
+                    continue
+                cur.execute(
+                    """INSERT INTO tool_calls (
+                        run_id, question_id, turn_idx, tool_name,
+                        tool_input, response_text
+                    ) VALUES (?, ?, ?, ?, ?, ?)""",
+                    (
+                        run_id,
+                        sample_id,
+                        turn_idx,
+                        str(tool_call.get("tool_name") or ""),
+                        _json_or_none(tool_call.get("tool_input")),
+                        _text_or_json(tool_call.get("response_text")),
+                    ),
+                )
 
         conn.commit()
     finally:
