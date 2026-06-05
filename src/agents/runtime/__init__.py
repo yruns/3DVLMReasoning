@@ -17,6 +17,9 @@ The runtime is organized into three layers:
 3. **DeepAgents Runtime** (`deepagents_agent.py`): Complete DeepAgents-based
    runtime implementation with iterative evidence refinement loop.
 
+4. **Codex SDK Runtime** (`codex_sdk_agent.py`): Separate Codex Agent SDK
+   entrypoint for catalog-first visual grounding experiments.
+
 ## Usage
 
 ```python
@@ -39,6 +42,7 @@ from .base import (
     default_output_instruction,
     default_payload_schema,
 )
+from .codex_sdk_agent import CodexSdkStage2Runtime
 from .deepagents_agent import DeepAgentsStage2Runtime
 from .langchain_agent import ToolChoiceCompatibleAzureChatOpenAI
 
@@ -52,4 +56,6 @@ __all__ = [
     "ToolChoiceCompatibleAzureChatOpenAI",
     # DeepAgents runtime
     "DeepAgentsStage2Runtime",
+    # Codex SDK runtime
+    "CodexSdkStage2Runtime",
 ]

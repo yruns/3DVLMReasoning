@@ -1,0 +1,10 @@
+model = "gpt-5.5-2026-04-24"
+model_provider = "modelhub_adapter"
+
+[model_providers.modelhub_adapter]
+name = "ModelHub local adapter"
+base_url = "http://127.0.0.1:8787/v1"
+wire_api = "responses"
+
+[projects."/Users/bytedance/project/3DVLMReasoning"]
+trust_level = "trusted"

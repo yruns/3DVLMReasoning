@@ -1,4 +1,4 @@
-"""Stage-2 agent package built on LangChain v1 and DeepAgents."""
+"""Stage-2 agent package with DeepAgents and Codex SDK entrypoints."""
 
 # Import Stage 1 -> Stage 2 adapters from stage1_adapters module
 # (adapters.py renamed to stage1_adapters.py to avoid conflict with adapters/ package)
@@ -66,6 +66,10 @@ def __getattr__(name: str):
         from .stage2_deep_agent import Stage2DeepResearchAgent
 
         return Stage2DeepResearchAgent
+    if name == "Stage2CodexAgent":
+        from .stage2_codex_agent import Stage2CodexAgent
+
+        return Stage2CodexAgent
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
@@ -92,6 +96,7 @@ __all__ = [
     "HTMLTraceRenderer",
     "Stage1HypothesisSummary",
     "Stage2AgentResult",
+    "Stage2CodexAgent",
     "Stage2DeepAgentConfig",
     "Stage2DeepResearchAgent",
     "Stage2EvidenceBundle",

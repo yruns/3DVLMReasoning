@@ -113,6 +113,18 @@ def test_sample_result_path_namespaces_by_nr3d_pack(tmp_path) -> None:
     assert path.name.startswith("scannet__scene0001_00__72__A1_")
 
 
+def test_sample_result_path_namespaces_codex_sdk_backend(tmp_path) -> None:
+    from evaluation.scripts.run_nr3d_vg_side_by_side import sample_result_path
+
+    path = sample_result_path(
+        tmp_path,
+        "codex_sdk",
+        "scannet/scene0001_00::72::A1",
+    )
+
+    assert path.parent == tmp_path / "per_sample" / "pack_nr3d_v1" / "codex_sdk"
+
+
 def test_run_one_sample_scores_agent_bbox(monkeypatch, tmp_path) -> None:
     from evaluation.scripts import run_nr3d_vg_side_by_side as runner
 
@@ -151,6 +163,60 @@ def test_run_one_sample_scores_agent_bbox(monkeypatch, tmp_path) -> None:
     out = runner.run_one_sample(
         "scannet/scene0001_00::72::A1",
         "pack_v1",
+        data_root=data_root,
+    )
+
+    assert out["status"] == "completed"
+    assert out["iou"] == pytest.approx(1.0)
+    assert out["selected_object_id"] == 72
+
+
+def test_run_one_sample_scores_codex_sdk_agent_bbox(monkeypatch, tmp_path) -> None:
+    from evaluation.scripts import run_nr3d_vg_side_by_side as runner
+
+    data_root = _write_nr3d_pack_inputs(tmp_path)
+
+    class FakeCodexAgent:
+        def __init__(self, config, **_kwargs):
+            assert config.vg_backend == "pack_v1"
+            assert config.enable_stage1_text_retrieval is False
+
+        def run(self, task, bundle):
+            assert task.user_query == "the chair by the table"
+            assert bundle.scene_id == "scene0001_00"
+            return SimpleNamespace(
+                result=SimpleNamespace(
+                    payload={
+                        "status": "completed",
+                        "proposal_id": 72,
+                        "selected_object_id": 72,
+                    },
+                    confidence=0.8,
+                ),
+                final_bundle=SimpleNamespace(
+                    extra_metadata={
+                        "vg_proposal_pool": {
+                            "proposals": [
+                                {
+                                    "id": 72,
+                                    "bbox_3d_9dof": [0, 0, 0, 1, 1, 1, 0, 0, 0],
+                                },
+                            ],
+                        },
+                    },
+                ),
+            )
+
+    monkeypatch.setattr(runner, "Stage2CodexAgent", FakeCodexAgent)
+    monkeypatch.setattr(
+        runner,
+        "build_pack_v1_bundle",
+        lambda **kwargs: SimpleNamespace(scene_id=kwargs["scene_id"]),
+    )
+
+    out = runner.run_one_sample(
+        "scannet/scene0001_00::72::A1",
+        "codex_sdk",
         data_root=data_root,
     )
 
@@ -609,6 +675,8 @@ def test_main_wires_all_guard_flags(tmp_path, monkeypatch) -> None:
             str(tmp_path / "out"),
             "--data-root",
             str(tmp_path),
+            "--backend",
+            "codex_sdk",
             "--checkpoint-only",
             "--max-new-samples",
             "3",
@@ -624,6 +692,7 @@ def test_main_wires_all_guard_flags(tmp_path, monkeypatch) -> None:
     assert config.use_tool_answer_disagreement_gate is True
     assert config.use_no_match_candidate_guard is True
     assert config.use_evidence_frame_guard is True
+    assert captured["backend"] == "codex_sdk"
     assert captured["return_results"] is False
     assert captured["write_side_by_side"] is False
     assert captured["max_new_samples"] == 3

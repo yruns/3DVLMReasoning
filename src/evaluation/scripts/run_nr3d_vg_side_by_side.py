@@ -20,8 +20,9 @@ from agents.core.agent_config import Stage2DeepAgentConfig, Stage2TaskType
 from agents.core.task_types import Stage2TaskSpec
 from benchmarks.embodiedscan_eval import compute_oriented_iou_3d
 
-BackendName = Literal["pack_v1"]
+BackendName = Literal["pack_v1", "codex_sdk"]
 Stage2DeepResearchAgent: Any | None = None
+Stage2CodexAgent: Any | None = None
 build_pack_v1_bundle: Any | None = None
 
 # Per-scene selector cache for the Stage 2 -> Stage 1 callback loop. Selector
@@ -124,15 +125,18 @@ def _run_one_sample_once(
     pack_name: str = "pack_nr3d_v1",
     config: Stage2DeepAgentConfig | None = None,
 ) -> dict[str, Any]:
-    if backend != "pack_v1":
-        raise ValueError(f"backend={backend!r} is not supported; use 'pack_v1'")
     sample = load_sample_artifact(data_root, sample_id, pack_name=pack_name)
     gt_bbox = coerce_bbox_9dof(
         sample.get("gt_bbox_3d_9dof"),
         field_name=f"{sample_id}.gt_bbox_3d_9dof",
     )
     cfg = config_for_backend(backend, config)
-    raw_result = run_pack_v1_sample(sample, data_root, cfg, pack_name=pack_name)
+    if backend == "pack_v1":
+        raw_result = run_pack_v1_sample(sample, data_root, cfg, pack_name=pack_name)
+    elif backend == "codex_sdk":
+        raw_result = run_codex_sdk_sample(sample, data_root, cfg, pack_name=pack_name)
+    else:
+        raise ValueError(f"backend={backend!r} is not supported")
     prediction = extract_pack_v1_prediction(raw_result)
     tool_trace = extract_result_tool_trace(raw_result)
 
@@ -185,6 +189,7 @@ def compare_backends(
     sample_ids: Sequence[str],
     output_dir: Path,
     data_root: Path,
+    backend: BackendName = "pack_v1",
     pack_name: str = "pack_nr3d_v1",
     config: Stage2DeepAgentConfig | None = None,
     sample_retries: int = 0,
@@ -202,10 +207,10 @@ def compare_backends(
         preflight_pack_sample_exists(data_root, sample_ids[0], pack_name=pack_name)
     output_dir.mkdir(parents=True, exist_ok=True)
     results: dict[str, Any] = {}
-    for backend in ("pack_v1",):
+    for active_backend in (backend,):
 
         def run_sample(
-            sample_id: str, backend: BackendName = backend
+            sample_id: str, backend: BackendName = active_backend
         ) -> dict[str, Any]:
             try:
                 result = run_one_sample(
@@ -247,7 +252,7 @@ def compare_backends(
             for sample_id in sample_ids
             if not sample_result_path(
                 output_dir,
-                backend,
+                active_backend,
                 sample_id,
                 pack_name=pack_name,
             ).exists()
@@ -269,10 +274,10 @@ def compare_backends(
         if not write_side_by_side:
             continue
         if return_results:
-            results[backend] = build_backend_payload_from_checkpoints(
+            results[active_backend] = build_backend_payload_from_checkpoints(
                 sample_ids=sample_ids,
                 output_dir=output_dir,
-                backend=backend,
+                backend=active_backend,
                 pack_name=pack_name,
                 include_per_sample=True,
             )
@@ -280,7 +285,7 @@ def compare_backends(
             stream_side_by_side_from_checkpoints(
                 sample_ids=sample_ids,
                 output_dir=output_dir,
-                backend=backend,
+                backend=active_backend,
                 pack_name=pack_name,
             )
     if return_results and write_side_by_side:
@@ -290,6 +295,27 @@ def compare_backends(
         )
         return results
     return None
+
+
+def run_codex_sdk_sample(
+    sample: dict[str, Any],
+    data_root: Path,
+    config: Stage2DeepAgentConfig,
+    *,
+    pack_name: str = "pack_nr3d_v1",
+) -> Any:
+    """Run a single NR3D sample through the Codex Agent SDK entrypoint."""
+    bundle = build_pack_v1_bundle_from_sample(sample, data_root, pack_name=pack_name)
+    task = Stage2TaskSpec(
+        task_type=Stage2TaskType.VISUAL_GROUNDING,
+        user_query=str(sample["query"]),
+    )
+    agent_cls = Stage2CodexAgent
+    if agent_cls is None:
+        from agents.stage2_codex_agent import Stage2CodexAgent as agent_cls
+
+    agent = agent_cls(config=config)
+    return agent.run(task=task, bundle=bundle)
 
 
 def run_pack_v1_sample(
@@ -482,13 +508,14 @@ def sample_result_path(
     *,
     pack_name: str = "pack_nr3d_v1",
 ) -> Path:
-    if backend != "pack_v1":
-        raise ValueError(f"backend={backend!r} is not supported; use 'pack_v1'")
     digest = hashlib.sha1(sample_id.encode("utf-8")).hexdigest()[:12]
     safe = safe_sample_id(sample_id)
     if not safe:
         safe = "sample"
-    return output_dir / "per_sample" / pack_name / f"{safe}_{digest}.json"
+    checkpoint_dir = output_dir / "per_sample" / pack_name
+    if backend != "pack_v1":
+        checkpoint_dir = checkpoint_dir / backend
+    return checkpoint_dir / f"{safe}_{digest}.json"
 
 
 def load_sample_result_checkpoint(
@@ -697,11 +724,17 @@ def config_for_backend(
     backend: BackendName,
     config: Stage2DeepAgentConfig | None,
 ) -> Stage2DeepAgentConfig:
-    if backend != "pack_v1":
-        raise ValueError(f"backend={backend!r} is not supported; use 'pack_v1'")
+    if backend not in ("pack_v1", "codex_sdk"):
+        raise ValueError(f"backend={backend!r} is not supported")
     if config is None:
-        return Stage2DeepAgentConfig(vg_backend=backend)
-    return config.model_copy(update={"vg_backend": backend})
+        config = Stage2DeepAgentConfig(
+            enable_stage1_text_retrieval=backend != "codex_sdk"
+        )
+    updates: dict[str, Any] = {"vg_backend": "pack_v1"}
+    if backend == "codex_sdk":
+        updates["enable_stage1_text_retrieval"] = False
+        updates["force_stage1_text_retrieval_to_error"] = False
+    return config.model_copy(update=updates)
 
 
 def extract_pack_v1_prediction(result: Any) -> dict[str, Any]:
@@ -893,6 +926,12 @@ def parse_args() -> argparse.Namespace:
         ),
     )
     parser.add_argument("--pack-name", default="pack_nr3d_v1")
+    parser.add_argument(
+        "--backend",
+        choices=["pack_v1", "codex_sdk"],
+        default="pack_v1",
+        help="Stage-2 agent backend. Defaults to the existing DeepAgents pack-v1 path.",
+    )
     parser.add_argument("--sample-retries", type=int, default=2)
     parser.add_argument("--workers", type=int, default=1)
     parser.add_argument(
@@ -989,6 +1028,7 @@ def main() -> None:
         sample_ids=sample_ids,
         output_dir=args.output_dir,
         data_root=args.data_root,
+        backend=args.backend,
         pack_name=args.pack_name,
         config=config,
         sample_retries=args.sample_retries,

@@ -57,6 +57,7 @@ full = [
 ]
 agents = [
     "deepagents>=0.4.0",
+    "openai-codex",
 ]
 
 [project.urls]
