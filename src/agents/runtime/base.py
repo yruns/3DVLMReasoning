@@ -45,8 +45,13 @@ class Stage2RuntimeState:
     # v9.1: pre-built Stage-1 text-to-frame selector instance. Populated by
     # `DeepAgentsStage2Runtime.build_agent` from the agent constructor's
     # text_frame_selector argument. The `select_by_text` tool reads this at
-    # invocation time. None ⇒ select_by_text is omitted from the tool list.
+    # invocation time.
     text_frame_selector: Any | None = None
+
+    # Codex MCP path: selector construction is expensive and must happen inside
+    # the tool process, so `select_by_text` may lazily call this factory on its
+    # first invocation and then cache the selector in `text_frame_selector`.
+    text_frame_selector_factory: Callable[[], Any] | None = None
 
     # v9.2: when False, the `select_by_text` tool is omitted from the tool
     # set, the system prompt and playbooks switch to their catalog-first
@@ -206,6 +211,7 @@ class BaseStage2Runtime(ABC):
         config: Stage2DeepAgentConfig | None = None,
         crop_callback: ToolCallback | None = None,
         text_frame_selector: Any | None = None,
+        text_frame_selector_factory: Callable[[], Any] | None = None,
     ) -> None:
         """Initialize the agent runtime with configuration and (optional) crop callback.
 
@@ -216,34 +222,38 @@ class BaseStage2Runtime(ABC):
         instance the agent uses when invoking the `select_by_text` tool
         (language → frames). Other selectors do not depend on this attribute.
 
-        v9.3 (current): construction MUST fail loud when the config wants
-        text retrieval but no selector is supplied. Previously this configuration
-        produced an agent whose ``select_by_text`` tool was registered (so the
-        system prompt said it was available) but returned
+        v9.3: construction MUST fail loud when the config wants text retrieval
+        but neither a selector nor a selector factory is supplied. Previously
+        this configuration produced an agent whose ``select_by_text`` tool was
+        registered (so the system prompt said it was available) but returned
         ``"ERROR: runtime.text_frame_selector is None; cannot run Stage-1 text
         retrieval"`` at every invocation — a silent regression-trap that bit
         v9.1_fix (see docs/benchmark/nr3d/v9_1_real_stage1_actually_works_20260516.md
         and v9_1_fix_selector_wiring_20260515.md). The contract is now
-        symmetric: either pass a selector, or explicitly disable text retrieval
-        via ``Stage2DeepAgentConfig(enable_stage1_text_retrieval=False)``.
+        symmetric: either pass a selector/factory, or explicitly disable text
+        retrieval via
+        ``Stage2DeepAgentConfig(enable_stage1_text_retrieval=False)``.
 
         Raises:
             ValueError: when ``config.enable_stage1_text_retrieval=True`` and
-                ``text_frame_selector is None``.
+                neither a selector nor a selector factory is supplied.
         """
         self.config = config or Stage2DeepAgentConfig()
         self.crop_callback = crop_callback
         self.text_frame_selector: Any | None = text_frame_selector
+        self.text_frame_selector_factory = text_frame_selector_factory
         if (
             self.config.enable_stage1_text_retrieval
             and self.text_frame_selector is None
+            and self.text_frame_selector_factory is None
         ):
             raise ValueError(
                 "Stage2 runtime constructed with "
-                "enable_stage1_text_retrieval=True but no text_frame_selector. "
-                "Either pass a pre-built text-frame selector via "
-                "text_frame_selector=..., or disable Stage-1 text retrieval "
-                "explicitly via "
+                "enable_stage1_text_retrieval=True but no text_frame_selector "
+                "or text_frame_selector_factory. Either pass a pre-built "
+                "text-frame selector via text_frame_selector=..., pass a lazy "
+                "factory via text_frame_selector_factory=..., or disable "
+                "Stage-1 text retrieval explicitly via "
                 "Stage2DeepAgentConfig(enable_stage1_text_retrieval=False). "
                 "Without one of these, select_by_text would be registered "
                 "as a tool but fail at every invocation with "
@@ -293,6 +303,11 @@ class BaseStage2Runtime(ABC):
         runtime.force_stage1_text_retrieval_to_error = (
             self.config.force_stage1_text_retrieval_to_error
         )
+        if (
+            self.text_frame_selector_factory is not None
+            and runtime.text_frame_selector_factory is None
+        ):
+            runtime.text_frame_selector_factory = self.text_frame_selector_factory
 
         if os.environ.get("TADG_DISABLE") == "1":
             runtime.use_tool_answer_disagreement_gate = False

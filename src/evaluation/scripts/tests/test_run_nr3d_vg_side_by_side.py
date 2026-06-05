@@ -179,11 +179,14 @@ def test_run_one_sample_scores_codex_sdk_agent_bbox(monkeypatch, tmp_path) -> No
     class FakeCodexAgent:
         def __init__(self, config, **_kwargs):
             assert config.vg_backend == "pack_v1"
-            assert config.enable_stage1_text_retrieval is False
+            assert config.enable_stage1_text_retrieval is True
 
         def run(self, task, bundle):
             assert task.user_query == "the chair by the table"
             assert bundle.scene_id == "scene0001_00"
+            assert bundle.extra_metadata["stage1_text_selector"]["scene_id"] == (
+                "scene0001_00"
+            )
             return SimpleNamespace(
                 result=SimpleNamespace(
                     payload={
@@ -223,6 +226,34 @@ def test_run_one_sample_scores_codex_sdk_agent_bbox(monkeypatch, tmp_path) -> No
     assert out["status"] == "completed"
     assert out["iou"] == pytest.approx(1.0)
     assert out["selected_object_id"] == 72
+
+
+def test_build_pack_v1_bundle_records_lazy_selector_metadata(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    from evaluation.scripts import run_nr3d_vg_side_by_side as runner
+
+    data_root = _write_nr3d_pack_inputs(tmp_path)
+    sample = runner.load_sample_artifact(
+        data_root,
+        "scannet/scene0001_00::72::A1",
+    )
+
+    def fake_bundle_builder(**kwargs):
+        return SimpleNamespace(scene_id=kwargs["scene_id"], extra_metadata={})
+
+    monkeypatch.setattr(runner, "build_pack_v1_bundle", fake_bundle_builder)
+
+    bundle = runner.build_pack_v1_bundle_from_sample(sample, data_root)
+
+    selector_meta = bundle.extra_metadata["stage1_text_selector"]
+    assert selector_meta == {
+        "scene_id": "scene0001_00",
+        "phase8_data_root": str(data_root),
+        "conceptgraph_root": str(data_root / "scene0001_00" / "conceptgraph"),
+        "llm_model": "gemini-2.5-pro",
+    }
 
 
 def test_run_one_sample_preserves_tool_trace(monkeypatch, tmp_path) -> None:

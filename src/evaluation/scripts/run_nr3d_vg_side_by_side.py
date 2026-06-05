@@ -418,7 +418,7 @@ def build_pack_v1_bundle_from_sample(
         if traj_file.exists():
             camera_trajectory = json.loads(traj_file.read_text(encoding="utf-8"))
 
-    return bundle_builder(
+    bundle = bundle_builder(
         proposals_jsonl=scene_dir / "proposals.jsonl",
         source=source,
         annotated_image_dir=scene_dir / "annotated",
@@ -429,6 +429,31 @@ def build_pack_v1_bundle_from_sample(
         camera_trajectory=camera_trajectory,
         query=sample.get("query"),
     )
+    return _with_stage1_text_selector_metadata(
+        bundle,
+        scene_id=scene_id,
+        phase8_data_root=data_root,
+    )
+
+
+def _with_stage1_text_selector_metadata(
+    bundle: Any,
+    *,
+    scene_id: str,
+    phase8_data_root: Path,
+    llm_model: str = "gemini-2.5-pro",
+) -> Any:
+    metadata = dict(getattr(bundle, "extra_metadata", None) or {})
+    metadata["stage1_text_selector"] = {
+        "scene_id": scene_id,
+        "phase8_data_root": str(phase8_data_root),
+        "conceptgraph_root": str(Path(phase8_data_root) / scene_id / "conceptgraph"),
+        "llm_model": llm_model,
+    }
+    if hasattr(bundle, "model_copy"):
+        return bundle.model_copy(update={"extra_metadata": metadata})
+    bundle.extra_metadata = metadata
+    return bundle
 
 
 def resolve_scene_artifacts_dir(
@@ -727,13 +752,8 @@ def config_for_backend(
     if backend not in ("pack_v1", "codex_sdk"):
         raise ValueError(f"backend={backend!r} is not supported")
     if config is None:
-        config = Stage2DeepAgentConfig(
-            enable_stage1_text_retrieval=backend != "codex_sdk"
-        )
+        config = Stage2DeepAgentConfig()
     updates: dict[str, Any] = {"vg_backend": "pack_v1"}
-    if backend == "codex_sdk":
-        updates["enable_stage1_text_retrieval"] = False
-        updates["force_stage1_text_retrieval_to_error"] = False
     return config.model_copy(update=updates)
 
 

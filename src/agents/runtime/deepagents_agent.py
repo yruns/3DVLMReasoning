@@ -67,6 +67,7 @@ class DeepAgentsStage2Runtime(BaseStage2Runtime):
         config: Stage2DeepAgentConfig | None = None,
         crop_callback=None,
         text_frame_selector: Any | None = None,
+        text_frame_selector_factory=None,
     ) -> None:
         """Initialize the DeepAgents runtime.
 
@@ -76,7 +77,12 @@ class DeepAgentsStage2Runtime(BaseStage2Runtime):
         v9.1: `text_frame_selector` is forwarded to the runtime state so the
         `select_by_text` tool can run Stage-1 language-to-frame retrieval.
         """
-        super().__init__(config, crop_callback, text_frame_selector=text_frame_selector)
+        super().__init__(
+            config,
+            crop_callback,
+            text_frame_selector=text_frame_selector,
+            text_frame_selector_factory=text_frame_selector_factory,
+        )
         self._llm = None
 
     def get_llm(self):
@@ -697,6 +703,7 @@ class DeepAgentsStage2Runtime(BaseStage2Runtime):
         # state so `select_by_text` can call selector.select_keyframes_v2 at
         # tool-invocation time.
         runtime.text_frame_selector = self.text_frame_selector
+        runtime.text_frame_selector_factory = self.text_frame_selector_factory
 
         # Populate VG runtime state from bundle extra_metadata.
         if task.task_type == Stage2TaskType.VISUAL_GROUNDING:

@@ -179,6 +179,55 @@ def test_select_by_text_included_when_flag_enabled_default(tmp_path: Path):
     assert any(t.name == "select_by_text" for t in tools)
 
 
+def test_select_by_text_registered_with_lazy_selector_factory(tmp_path: Path):
+    rs = _runtime(tmp_path, fids=[1, 2, 3])
+    rs.text_frame_selector = None
+    rs.text_frame_selector_factory = lambda: _FakeTextFrameSelector([1, 2, 3])
+
+    tools = build_selector_tools(rs)
+
+    assert any(t.name == "select_by_text" for t in tools)
+
+
+def test_select_by_text_lazy_selector_factory_called_once(tmp_path: Path):
+    rs = _runtime(tmp_path, fids=[1, 2, 3])
+    rs.text_frame_selector = None
+    calls = 0
+
+    def _factory():
+        nonlocal calls
+        calls += 1
+        return _FakeTextFrameSelector([1, 2, 3])
+
+    rs.text_frame_selector_factory = _factory
+    tool = next(t for t in build_selector_tools(rs) if t.name == "select_by_text")
+
+    tool.invoke({"query": "chair"})
+    tool.invoke({"query": "chair again"})
+
+    assert calls == 1
+    assert rs.text_frame_selector is not None
+    assert len(rs.text_frame_selector.calls) == 2
+
+
+def test_select_by_text_lazy_selector_factory_reports_init_error(tmp_path: Path):
+    rs = _runtime(tmp_path, fids=[1, 2, 3])
+    rs.text_frame_selector = None
+
+    def _factory():
+        raise FileNotFoundError("missing enriched_objects.json")
+
+    rs.text_frame_selector_factory = _factory
+    tool = next(t for t in build_selector_tools(rs) if t.name == "select_by_text")
+
+    raw = tool.invoke({"query": "chair"})
+
+    assert raw.startswith("ERROR: Stage-1 selector init failed:")
+    assert "FileNotFoundError: missing enriched_objects.json" in raw
+    assert rs.tool_trace[-1].tool_name == "select_by_text"
+    assert rs.tool_trace[-1].response_text == raw
+
+
 def test_select_by_text_force_to_error_short_circuits_before_selector(
     tmp_path: Path,
 ):

@@ -78,15 +78,20 @@ def _resolve_raw_rgb_path(catalog: SceneCatalog, frame_id: int) -> Path | None:
 def build_selector_tools(runtime: Any) -> list[BaseTool]:
     flag_enabled = bool(getattr(runtime, "enable_stage1_text_retrieval", True))
     selector_available = getattr(runtime, "text_frame_selector", None) is not None
-    text_retrieval_enabled = flag_enabled and selector_available
-    if flag_enabled and not selector_available:
+    selector_factory = getattr(runtime, "text_frame_selector_factory", None)
+    selector_factory_available = callable(selector_factory)
+    text_retrieval_enabled = flag_enabled and (
+        selector_available or selector_factory_available
+    )
+    if flag_enabled and not selector_available and not selector_factory_available:
         from loguru import logger
 
         logger.warning(
             "build_selector_tools: enable_stage1_text_retrieval=True but "
-            "runtime.text_frame_selector is None; dropping select_by_text from "
-            "the tool list to keep the agent's tool surface consistent with "
-            "the runtime. This should have been caught at "
+            "runtime has neither text_frame_selector nor "
+            "text_frame_selector_factory; dropping select_by_text from the "
+            "tool list to keep the agent's tool surface consistent with the "
+            "runtime. This should have been caught at "
             "Stage2DeepResearchAgent construction; if it wasn't, look for a "
             "caller that bypasses BaseStage2Runtime.__init__ (e.g., a test "
             "fixture that directly mutates Stage2RuntimeState)."
@@ -152,9 +157,32 @@ def build_selector_tools(runtime: Any) -> list[BaseTool]:
             return err
         selector = getattr(runtime, "text_frame_selector", None)
         if selector is None:
-            err = "ERROR: runtime.text_frame_selector is None; cannot run Stage-1 text retrieval"
-            runtime.record("select_by_text", request, err)
-            return err
+            factory = getattr(runtime, "text_frame_selector_factory", None)
+            if not callable(factory):
+                err = (
+                    "ERROR: runtime.text_frame_selector is None and "
+                    "runtime.text_frame_selector_factory is not callable; "
+                    "cannot run Stage-1 text retrieval"
+                )
+                runtime.record("select_by_text", request, err)
+                return err
+            try:
+                selector = factory()
+            except Exception as exc:  # noqa: BLE001 — fail-loud through tool trace
+                err = (
+                    "ERROR: Stage-1 selector init failed: "
+                    f"{type(exc).__name__}: {exc}"
+                )
+                runtime.record("select_by_text", request, err)
+                return err
+            if selector is None:
+                err = (
+                    "ERROR: Stage-1 selector init failed: "
+                    "text_frame_selector_factory returned None"
+                )
+                runtime.record("select_by_text", request, err)
+                return err
+            runtime.text_frame_selector = selector
         k_in = int(k)
         capped = min(k_in, 3)
         k_warning = "" if k_in == capped else f" (k capped at 3 from {k_in})"

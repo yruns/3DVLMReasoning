@@ -13,6 +13,9 @@ from __future__ import annotations
 import json
 import os
 import re
+import sys
+import time
+import uuid
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -27,23 +30,53 @@ from ..packs.vg_embodiedscan.ctx import build_ctx_from_bundle
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 DEFAULT_CODEX_HOME = PROJECT_ROOT / ".codex-home"
-DEFAULT_CODEX_MODEL = "gpt-5.5-2026-04-24"
+DEFAULT_CODEX_MODEL = "gpt-5.4-2026-03-05"
 DEFAULT_CODEX_MODEL_PROVIDER = "modelhub_adapter"
+CODEX_MODELHUB_EXTRA_HEADER_ENV = "CODEX_AGENT_MODELHUB_EXTRA_HEADER"
+CODEX_MODELHUB_LOGID_ENV = "CODEX_AGENT_MODELHUB_LOGID"
+MODELHUB_EXTRA_ALLOWED_CHARS = frozenset(
+    "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_.:-"
+)
+MODELHUB_EXTRA_SESSION_ID_MAX_LENGTH = 128
 DEFAULT_NR3D_SKILL_PATH = (
     PROJECT_ROOT / ".agents" / "skills" / "nr3d-codex-sdk" / "SKILL.md"
+)
+DEFAULT_NR3D_MCP_SERVER_PATH = (
+    PROJECT_ROOT / "src" / "agents" / "mcp" / "nr3d_tools_server.py"
+)
+DEFAULT_NR3D_MCP_STATE_DIR = PROJECT_ROOT / "tmp" / "codex_sdk_mcp_state"
+DEFAULT_CODEX_PLAYBOOK_SKILL_PATHS: tuple[tuple[str, Path], ...] = (
+    (
+        "scene-exploration-playbook",
+        PROJECT_ROOT / ".agents" / "skills" / "scene-exploration-playbook" / "SKILL.md",
+    ),
+    (
+        "vg-grounding-playbook",
+        PROJECT_ROOT / ".agents" / "skills" / "vg-grounding-playbook" / "SKILL.md",
+    ),
+    (
+        "vg-spatial-disambiguation",
+        PROJECT_ROOT
+        / ".agents"
+        / "skills"
+        / "vg-spatial-disambiguation"
+        / "SKILL.md",
+    ),
 )
 
 
 class CodexVisualGroundingDecision(BaseModel):
     """Minimal JSON contract requested from Codex SDK."""
 
+    model_config = {"extra": "forbid"}
+
     proposal_id: int = Field(
         description="Selected proposal id from the provided proposal pool; -1 if absent."
     )
     confidence: float = Field(ge=0.0, le=1.0)
-    summary: str = ""
-    uncertainties: list[str] = Field(default_factory=list)
-    cited_frame_indices: list[int] = Field(default_factory=list)
+    summary: str
+    uncertainties: list[str]
+    cited_frame_indices: list[int]
 
 
 @dataclass(frozen=True)
@@ -74,16 +107,14 @@ class CodexSdkStage2Runtime:
         model_provider: str | None = None,
         skill_path: str | Path | None = None,
         project_root: str | Path | None = None,
+        enable_mcp_tools: bool | None = None,
+        mcp_server_path: str | Path | None = None,
+        mcp_state_dir: str | Path | None = None,
+        mcp_python: str | Path | None = None,
+        enable_prefix_cache: bool | None = None,
+        prefix_cache_session_id: str | None = None,
     ) -> None:
-        self.config = config or Stage2DeepAgentConfig(
-            enable_stage1_text_retrieval=False
-        )
-        if self.config.enable_stage1_text_retrieval:
-            raise ValueError(
-                "CodexSdkStage2Runtime does not expose the DeepAgents "
-                "select_by_text tool. Construct it with "
-                "Stage2DeepAgentConfig(enable_stage1_text_retrieval=False)."
-            )
+        self.config = config or Stage2DeepAgentConfig()
         self.project_root = Path(project_root) if project_root else PROJECT_ROOT
         self.codex_home = Path(
             codex_home
@@ -95,6 +126,30 @@ class CodexSdkStage2Runtime:
             "CODEX_AGENT_MODEL_PROVIDER", DEFAULT_CODEX_MODEL_PROVIDER
         )
         self.skill_path = Path(skill_path) if skill_path else DEFAULT_NR3D_SKILL_PATH
+        self.enable_mcp_tools = (
+            self._env_bool("CODEX_AGENT_ENABLE_MCP_TOOLS", default=True)
+            if enable_mcp_tools is None
+            else bool(enable_mcp_tools)
+        )
+        self.mcp_server_path = (
+            Path(mcp_server_path) if mcp_server_path else DEFAULT_NR3D_MCP_SERVER_PATH
+        )
+        self.mcp_state_dir = (
+            Path(mcp_state_dir) if mcp_state_dir else DEFAULT_NR3D_MCP_STATE_DIR
+        )
+        self.mcp_python = str(
+            mcp_python or os.environ.get("CODEX_AGENT_MCP_PYTHON") or sys.executable
+        )
+        self.enable_prefix_cache = (
+            self._env_bool("CODEX_AGENT_ENABLE_PREFIX_CACHE", default=True)
+            if enable_prefix_cache is None
+            else bool(enable_prefix_cache)
+        )
+        self.prefix_cache_session_id = self._safe_modelhub_session_id(
+            prefix_cache_session_id
+            or os.environ.get("CODEX_AGENT_PREFIX_CACHE_SESSION_ID")
+            or self.config.session_id
+        )
 
     def run(
         self,
@@ -110,7 +165,16 @@ class CodexSdkStage2Runtime:
         valid_ids = {proposal.id for proposal in ctx.proposals}
         prompt = self.build_decision_prompt(task, bundle)
         image_paths = self.collect_codex_image_paths(bundle)
-        response_text, metadata_raw = self._run_codex_turn(prompt, image_paths)
+        mcp_state_path: Path | None = None
+        mcp_trace_path: Path | None = None
+        if self.enable_mcp_tools:
+            mcp_state_path, mcp_trace_path = self.write_mcp_state(task, bundle)
+        response_text, metadata_raw = self._run_codex_turn(
+            prompt,
+            image_paths,
+            mcp_state_path=mcp_state_path,
+            mcp_trace_path=mcp_trace_path,
+        )
         decision = CodexVisualGroundingDecision.model_validate(
             self._parse_json_object(response_text)
         )
@@ -142,7 +206,9 @@ class CodexSdkStage2Runtime:
             payload=payload,
         )
         metadata = self._coerce_metadata(metadata_raw)
+        mcp_trace, mcp_trace_meta = self.load_mcp_trace(mcp_trace_path)
         trace = [
+            *mcp_trace,
             Stage2ToolObservation(
                 tool_name="codex_sdk_turn",
                 tool_input={
@@ -150,7 +216,22 @@ class CodexSdkStage2Runtime:
                     "model_provider": self.model_provider,
                     "codex_home": str(self.codex_home),
                     "skill_path": str(self.skill_path),
+                    "skill_paths": [
+                        str(path) for _, path in self.codex_skill_specs()
+                    ],
                     "attached_images": [str(path) for path in image_paths],
+                    "mcp_tools_enabled": self.enable_mcp_tools,
+                    "mcp_server_path": (
+                        str(self.mcp_server_path) if self.enable_mcp_tools else None
+                    ),
+                    "mcp_state_path": str(mcp_state_path) if mcp_state_path else None,
+                    "mcp_trace_path": str(mcp_trace_path) if mcp_trace_path else None,
+                    "prefix_cache_enabled": self.enable_prefix_cache,
+                    "prefix_cache_session_id": (
+                        self.prefix_cache_session_id
+                        if self.enable_prefix_cache
+                        else None
+                    ),
                 },
                 response_text=response_text,
                 image_metadata=[
@@ -166,6 +247,12 @@ class CodexSdkStage2Runtime:
             raw_state={
                 "runtime": "codex_sdk",
                 "codex_turn": metadata.as_dict(),
+                "mcp_tools_enabled": self.enable_mcp_tools,
+                "mcp_trace": mcp_trace_meta,
+                "prefix_cache_enabled": self.enable_prefix_cache,
+                "prefix_cache_session_id": (
+                    self.prefix_cache_session_id if self.enable_prefix_cache else None
+                ),
             },
         )
 
@@ -223,6 +310,24 @@ class CodexSdkStage2Runtime:
             if attached_images
             else "No image is attached; rely on the proposal metadata only."
         )
+        if self.enable_mcp_tools:
+            text_tool_note = (
+                "`select_by_text` (lazily initializes the Stage-1 "
+                "KeyframeSelector on first call), "
+                if self.config.enable_stage1_text_retrieval
+                else ""
+            )
+            tool_note = (
+                "MCP tools are mounted from the `nr3d_tools` server. The relevant "
+                "playbook skills are already attached to this turn, so call evidence "
+                "tools directly before finalizing. Useful tools include "
+                "`list_scene_proposals`, `inspect_proposal`, "
+                "`compare_proposals_spatial`, `list_frame_proposals`, "
+                f"{text_tool_note}`select_by_proposal`, `select_by_region`, "
+                "and `mark_frame_with_bbox` when visual verification is needed."
+            )
+        else:
+            tool_note = "MCP tools are disabled for this turn."
 
         schema = CodexVisualGroundingDecision.model_json_schema()
         return (
@@ -233,6 +338,8 @@ class CodexSdkStage2Runtime:
             "- Use -1 only if the target is absent from the proposal pool.\n"
             "- Do not use benchmark ground truth fields; none are provided here.\n"
             "- Return only JSON matching the schema. Do not write files.\n\n"
+            "Tool access:\n"
+            f"- {tool_note}\n\n"
             "Task:\n"
             f"- task_type: {task.task_type.value}\n"
             f"- query: {task.user_query}\n"
@@ -272,10 +379,14 @@ class CodexSdkStage2Runtime:
         self,
         prompt: str,
         image_paths: list[Path],
+        *,
+        mcp_state_path: Path | None = None,
+        mcp_trace_path: Path | None = None,
     ) -> tuple[str, dict[str, Any]]:
         try:
             from openai_codex import (
                 Codex,
+                CodexConfig,
                 LocalImageInput,
                 Sandbox,
                 SkillInput,
@@ -288,30 +399,49 @@ class CodexSdkStage2Runtime:
                 "`uv pip install -e '.[agents]'` after syncing pyproject.toml."
             ) from exc
 
-        if not self.skill_path.exists():
-            raise FileNotFoundError(
-                f"Codex SDK skill file is missing: {self.skill_path}"
-            )
+        skill_specs = self.codex_skill_specs()
+        for skill_name, skill_path in skill_specs:
+            if not skill_path.exists():
+                raise FileNotFoundError(
+                    f"Codex SDK skill file is missing: {skill_name} at {skill_path}"
+                )
         if not self.codex_home.exists():
             raise FileNotFoundError(
                 f"CODEX_HOME for Codex SDK does not exist: {self.codex_home}"
             )
+        if self.enable_mcp_tools:
+            if mcp_state_path is None or mcp_trace_path is None:
+                raise ValueError("MCP tools enabled but state/trace paths are missing")
+            config_overrides = self.build_codex_app_server_config_overrides(
+                mcp_state_path=mcp_state_path,
+                mcp_trace_path=mcp_trace_path,
+            )
+        else:
+            config_overrides = self.build_codex_prefix_cache_config_overrides()
 
         os.environ["CODEX_HOME"] = str(self.codex_home)
         turn_input: list[Any] = [
-            SkillInput(name="nr3d-codex-sdk", path=str(self.skill_path)),
-            TextInput(prompt),
+            SkillInput(name=skill_name, path=str(skill_path))
+            for skill_name, skill_path in skill_specs
         ]
+        turn_input.append(TextInput(prompt))
         turn_input.extend(LocalImageInput(path=str(path)) for path in image_paths)
         output_schema = CodexVisualGroundingDecision.model_json_schema()
 
-        with Codex() as codex:
-            thread = codex.thread_start(
-                model=self.model,
-                model_provider=self.model_provider,
-                sandbox=Sandbox.read_only,
+        with Codex(
+            config=CodexConfig(
+                config_overrides=config_overrides,
                 cwd=str(self.project_root),
+                env=self.build_codex_app_server_env(),
             )
+        ) as codex:
+            thread_kwargs: dict[str, Any] = {
+                "model": self.model,
+                "model_provider": self.model_provider,
+                "sandbox": Sandbox.read_only,
+                "cwd": str(self.project_root),
+            }
+            thread = codex.thread_start(**thread_kwargs)
             result = thread.run(
                 turn_input,
                 cwd=str(self.project_root),
@@ -327,6 +457,145 @@ class CodexSdkStage2Runtime:
             "status": str(getattr(result.status, "value", result.status)),
             "duration_ms": result.duration_ms,
             "usage": self._dump_model(result.usage),
+        }
+
+    def codex_skill_specs(self) -> list[tuple[str, Path]]:
+        specs = [("nr3d-codex-sdk", self.skill_path)]
+        if self.enable_mcp_tools:
+            specs.extend(DEFAULT_CODEX_PLAYBOOK_SKILL_PATHS)
+        return specs
+
+    def write_mcp_state(
+        self,
+        task: Stage2TaskSpec,
+        bundle: Stage2EvidenceBundle,
+    ) -> tuple[Path, Path]:
+        if not self.mcp_server_path.exists():
+            raise FileNotFoundError(
+                f"NR3D MCP server file is missing: {self.mcp_server_path}"
+            )
+        self.mcp_state_dir.mkdir(parents=True, exist_ok=True)
+        token = f"{self._safe_token(bundle.scene_id)}_{uuid.uuid4().hex}"
+        state_path = self.mcp_state_dir / f"{token}.state.json"
+        trace_path = self.mcp_state_dir / f"{token}.trace.json"
+        payload = {
+            "task": task.model_dump(mode="json"),
+            "bundle": bundle.model_dump(mode="json"),
+            "config": self._mcp_config_payload(),
+        }
+        state_path.write_text(
+            json.dumps(payload, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+        return state_path, trace_path
+
+    def build_codex_app_server_config_overrides(
+        self,
+        *,
+        mcp_state_path: Path,
+        mcp_trace_path: Path,
+    ) -> tuple[str, ...]:
+        server_key = "mcp_servers.nr3d_tools"
+        args = [
+            str(self.mcp_server_path),
+            "--state",
+            str(mcp_state_path),
+            "--trace",
+            str(mcp_trace_path),
+        ]
+        overrides = [
+            *self.build_codex_prefix_cache_config_overrides(),
+            f"{server_key}.command={self._toml_literal(self.mcp_python)}",
+            f"{server_key}.cwd={self._toml_literal(str(self.project_root))}",
+            (
+                f"{server_key}.env.PYTHONPATH="
+                f"{self._toml_literal(str(self.project_root / 'src'))}"
+            ),
+            f"{server_key}.args={self._toml_literal(args)}",
+            f"{server_key}.startup_timeout_sec=30",
+            f"{server_key}.tool_timeout_sec=60",
+            f"{server_key}.enabled=true",
+            f"{server_key}.required=true",
+            f'{server_key}.default_tools_approval_mode="approve"',
+        ]
+        return tuple(overrides)
+
+    def build_codex_prefix_cache_config_overrides(self) -> tuple[str, ...]:
+        if not self.enable_prefix_cache:
+            return ()
+        provider_key = f"model_providers.{self._toml_key_part(self.model_provider)}"
+        return (
+            (
+                f"{provider_key}.env_http_headers.extra="
+                f"{self._toml_literal(CODEX_MODELHUB_EXTRA_HEADER_ENV)}"
+            ),
+            (
+                f"{provider_key}.env_http_headers.X-TT-LOGID="
+                f"{self._toml_literal(CODEX_MODELHUB_LOGID_ENV)}"
+            ),
+        )
+
+    def build_codex_app_server_env(self) -> dict[str, str]:
+        if not self.enable_prefix_cache:
+            return {}
+        extra = {
+            "session_id": self.prefix_cache_session_id,
+            "source": "codex_agent_sdk",
+        }
+        return {
+            CODEX_MODELHUB_EXTRA_HEADER_ENV: json.dumps(
+                extra,
+                ensure_ascii=False,
+                separators=(",", ":"),
+            ),
+            CODEX_MODELHUB_LOGID_ENV: (
+                f"codexsdk_{self.prefix_cache_session_id}_{int(time.time() * 1000)}"
+            ),
+        }
+
+    def load_mcp_trace(
+        self,
+        trace_path: Path | None,
+    ) -> tuple[list[Stage2ToolObservation], dict[str, Any] | None]:
+        if trace_path is None or not trace_path.exists():
+            return [], None
+        payload = json.loads(trace_path.read_text(encoding="utf-8"))
+        if not isinstance(payload, dict):
+            raise ValueError(f"NR3D MCP trace must be a JSON object: {trace_path}")
+        observations = [
+            Stage2ToolObservation.model_validate(item)
+            for item in payload.get("tool_trace", [])
+        ]
+        return observations, {
+            "trace_path": str(trace_path),
+            "tool_count": len(observations),
+            "skills_loaded": payload.get("skills_loaded", []),
+            "final_submission": payload.get("final_submission"),
+        }
+
+    def _mcp_config_payload(self) -> dict[str, Any]:
+        return {
+            "enable_stage1_text_retrieval": self.config.enable_stage1_text_retrieval,
+            "force_stage1_text_retrieval_to_error": (
+                self.config.force_stage1_text_retrieval_to_error
+            ),
+            "enable_chassis_tools": self.config.enable_chassis_tools,
+            "vg_backend": self.config.vg_backend,
+            "use_clip_visible_aug": self.config.use_clip_visible_aug,
+            "clip_visible_tau": self.config.clip_visible_tau,
+            "clip_visible_k_aug": self.config.clip_visible_k_aug,
+            "clip_visible_backbone": self.config.clip_visible_backbone,
+            "clip_visible_cache_dir": self.config.clip_visible_cache_dir,
+            "use_tool_answer_disagreement_gate": (
+                self.config.use_tool_answer_disagreement_gate
+            ),
+            "tadg_window": self.config.tadg_window,
+            "tadg_max_repeats": self.config.tadg_max_repeats,
+            "tadg_override_min_chars": self.config.tadg_override_min_chars,
+            "use_no_match_candidate_guard": self.config.use_no_match_candidate_guard,
+            "no_match_guard_max_repeats": self.config.no_match_guard_max_repeats,
+            "no_match_guard_max_viewed": self.config.no_match_guard_max_viewed,
+            "use_evidence_frame_guard": self.config.use_evidence_frame_guard,
         }
 
     def _parse_json_object(self, text: str) -> dict[str, Any]:
@@ -373,6 +642,37 @@ class CodexSdkStage2Runtime:
         if len(normalized) <= max_chars:
             return normalized
         return normalized[: max_chars - 3] + "..."
+
+    @staticmethod
+    def _safe_token(value: str) -> str:
+        token = re.sub(r"[^A-Za-z0-9_.-]+", "_", value).strip("._")
+        return token or "sample"
+
+    @staticmethod
+    def _toml_literal(value: Any) -> str:
+        return json.dumps(value, ensure_ascii=False)
+
+    @staticmethod
+    def _toml_key_part(value: str) -> str:
+        if re.fullmatch(r"[A-Za-z0-9_-]+", value):
+            return value
+        return json.dumps(value, ensure_ascii=False)
+
+    @staticmethod
+    def _safe_modelhub_session_id(value: Any) -> str:
+        raw = str(value or "codex_agent_sdk").strip()
+        safe = "".join(
+            ch if ch in MODELHUB_EXTRA_ALLOWED_CHARS else "_" for ch in raw
+        )
+        safe = safe.strip("._:-")[:MODELHUB_EXTRA_SESSION_ID_MAX_LENGTH]
+        return safe or "codex_agent_sdk"
+
+    @staticmethod
+    def _env_bool(name: str, *, default: bool) -> bool:
+        raw = os.environ.get(name)
+        if raw is None:
+            return default
+        return raw.strip().lower() not in {"0", "false", "no", "off"}
 
 
 __all__ = [
