@@ -69,6 +69,39 @@ class TestBBoxAwareSpatialChecker(unittest.TestCase):
         self.assertGreater(result.score, 0.0)
         self.assertEqual(result.details["mode"], "bbox_horizontal_support")
 
+    def test_on_wall_uses_vertical_surface_attachment(self) -> None:
+        checker = SpatialRelationChecker()
+        picture = _obj(1, "picture", (1.0, 0.06, 1.0), (1.5, 0.12, 1.5))
+        wall = _obj(2, "wall", (0.0, 0.0, 0.0), (3.0, 0.15, 3.0))
+
+        result = checker.check(picture, wall, "on")
+
+        self.assertTrue(result.satisfies)
+        self.assertGreater(result.score, 0.0)
+        self.assertEqual(result.details["mode"], "bbox_vertical_surface_attachment")
+
+    def test_on_support_allows_noisy_bbox_penetration_with_overlap(self) -> None:
+        checker = SpatialRelationChecker()
+        printer = _obj(1, "printer", (0.5, 0.5, 0.45), (1.0, 1.0, 0.75))
+        desk = _obj(2, "desk", (0.0, 0.0, 0.0), (2.0, 2.0, 1.0))
+
+        result = checker.check(printer, desk, "on")
+
+        self.assertTrue(result.satisfies)
+        self.assertGreater(result.score, 0.0)
+        self.assertEqual(result.details["mode"], "bbox_horizontal_support")
+        self.assertLess(result.details["vertical_gap"], -0.2)
+
+    def test_on_support_still_rejects_far_objects(self) -> None:
+        checker = SpatialRelationChecker()
+        shoes = _obj(1, "shoes", (3.0, 3.0, 0.0), (3.3, 3.3, 0.2))
+        desk = _obj(2, "desk", (0.0, 0.0, 0.0), (2.0, 2.0, 1.0))
+
+        result = checker.check(shoes, desk, "on")
+
+        self.assertFalse(result.satisfies)
+        self.assertEqual(result.details["reason"], "horizontal_support")
+
     def test_next_to_uses_bbox_gap_not_centroid_distance(self) -> None:
         checker = SpatialRelationChecker()
         window = _obj(1, "window", (2.1, 0.2, 1.2), (2.4, 1.2, 2.5))

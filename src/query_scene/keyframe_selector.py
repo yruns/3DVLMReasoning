@@ -62,7 +62,7 @@ from .core import (
 )
 from .lightweight_conceptgraph import load_conceptgraph_objects
 from .parsing import QueryParser
-from .query_executor import ExecutionResult, QueryExecutor
+from .query_executor import ExecutionMode, ExecutionResult, QueryExecutor
 from .retrieval.spatial_checker import SpatialRelationChecker
 
 
@@ -2324,17 +2324,22 @@ class KeyframeSelector:
                     return True
         return False
 
-    def execute_query(self, grounding_query: GroundingQuery) -> ExecutionResult:
+    def execute_query(
+        self,
+        grounding_query: GroundingQuery,
+        mode: ExecutionMode | str = ExecutionMode.STRICT,
+    ) -> ExecutionResult:
         """Execute a parsed grounding query.
 
         Args:
             grounding_query: Parsed GroundingQuery object
+            mode: Strict or recall-biased execution.
 
         Returns:
             ExecutionResult with matched objects
         """
         executor = self._get_query_executor()
-        return executor.execute(grounding_query)
+        return executor.execute(grounding_query, mode=mode)
 
     # TODO(v9.2): No remaining consumers after select_by_hypothesis was deleted in v9.1.
     # Verify no external benchmark scripts depend on this before removing.
@@ -2342,6 +2347,7 @@ class KeyframeSelector:
         self,
         hypothesis_output: Any,
         hidden_categories: Iterable[str] | None = None,
+        mode: ExecutionMode | str = ExecutionMode.STRICT,
     ) -> tuple[str, QueryHypothesis | None, ExecutionResult]:
         """
         Execute hypotheses by rank and return first non-empty result.
@@ -2350,8 +2356,12 @@ class KeyframeSelector:
         - If a hypothesis has UNKNOW anchors/references, skip it even if executor
           returns results (because those results don't satisfy the spatial constraint).
         """
+        if not isinstance(mode, ExecutionMode):
+            mode = ExecutionMode(mode)
+
         normalized = self.normalize_hypothesis_output(hypothesis_output)
         normalized.validate_categories(self.scene_categories)
+        attempted_traces: list[dict[str, Any]] = []
 
         for hypothesis in normalized.ordered_hypotheses():
             grounding_query = self.to_grounding_query(hypothesis)
@@ -2364,19 +2374,49 @@ class KeyframeSelector:
                     f"[execute_hypotheses] Skipping hypothesis {hypothesis.kind.value} "
                     f"with UNKNOW anchors"
                 )
+                attempted_traces.append(
+                    {
+                        "kind": hypothesis.kind.value,
+                        "rank": hypothesis.rank,
+                        "status": "skipped_unknown_anchor",
+                        "trace": [],
+                    }
+                )
                 continue
 
-            result = self.execute_query(grounding_query)
+            if mode == ExecutionMode.STRICT:
+                result = self.execute_query(grounding_query)
+            else:
+                result = self.execute_query(grounding_query, mode=mode)
             if result.is_empty:
+                attempted_traces.append(
+                    {
+                        "kind": hypothesis.kind.value,
+                        "rank": hypothesis.rank,
+                        "status": "empty",
+                        "trace": result.metadata.get("execution_trace", []),
+                    }
+                )
                 continue
 
+            if attempted_traces:
+                result.metadata = dict(result.metadata)
+                result.metadata["execution_trace_attempts"] = attempted_traces
             if hypothesis.kind == HypothesisKind.DIRECT:
                 return "direct_grounded", hypothesis, result
             if hypothesis.kind == HypothesisKind.PROXY:
                 return "proxy_grounded", hypothesis, result
             return "context_only", hypothesis, result
 
-        return "no_evidence", None, ExecutionResult(node_id="none", matched_objects=[])
+        return (
+            "no_evidence",
+            None,
+            ExecutionResult(
+                node_id="none",
+                matched_objects=[],
+                metadata={"execution_trace_attempts": attempted_traces},
+            ),
+        )
 
     def map_view_to_frame(self, view_id: int) -> int:
         """Map sampled view index to original frame index."""
@@ -2472,9 +2512,13 @@ class KeyframeSelector:
         )
 
         # Step 2: Execute hypotheses by rank
+        execution_mode = (
+            ExecutionMode.RECALL if viewpoint_aware else ExecutionMode.STRICT
+        )
         status, selected_hypothesis, result = self.execute_hypotheses(
             hypothesis_output=hypothesis_output,
             hidden_categories=hidden_categories,
+            mode=execution_mode,
         )
 
         if status == "no_evidence" or selected_hypothesis is None or result.is_empty:
@@ -2492,6 +2536,11 @@ class KeyframeSelector:
                     "status": status,
                     "error": "No matching objects",
                     "hypothesis_output": hypothesis_output.model_dump(),
+                    "execution_mode": execution_mode.value,
+                    "execution_trace": result.metadata.get("execution_trace", []),
+                    "execution_trace_attempts": result.metadata.get(
+                        "execution_trace_attempts", []
+                    ),
                     "version": "v3",
                 },
             )
@@ -2608,6 +2657,11 @@ class KeyframeSelector:
                 "all_object_ids": all_object_ids,
                 "frame_mappings": frame_mappings,
                 "hypothesis_output": hypothesis_output.model_dump(),
+                "execution_mode": execution_mode.value,
+                "execution_trace": result.metadata.get("execution_trace", []),
+                "execution_trace_attempts": result.metadata.get(
+                    "execution_trace_attempts", []
+                ),
                 "version": "v3",
             },
         )

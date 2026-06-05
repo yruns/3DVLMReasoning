@@ -14,8 +14,10 @@ from agents.tools.selectors import build_selector_tools
 class _FakeTextFrameSelector:
     def __init__(self, fids: list[int]) -> None:
         self._fids = fids
+        self.calls: list[dict] = []
 
-    def select_keyframes_v2(self, **_kwargs):
+    def select_keyframes_v2(self, **kwargs):
+        self.calls.append(dict(kwargs))
         return SimpleNamespace(
             keyframe_indices=list(self._fids),
             metadata={
@@ -117,6 +119,17 @@ def test_select_by_text_caps_k_at_3(tmp_path: Path):
     payload = json.loads(raw)
     assert len(payload["frames"]) == 3
     assert "k capped at 3" in raw.lower()
+
+
+def test_select_by_text_enables_viewpoint_aware_recall_path(tmp_path: Path):
+    rs = _runtime(tmp_path, fids=[1, 2, 3])
+    selector = rs.text_frame_selector
+    tool = next(t for t in build_selector_tools(rs) if t.name == "select_by_text")
+
+    tool.invoke({"query": "picture on wall"})
+
+    assert selector.calls[0]["use_visual_context"] is False
+    assert selector.calls[0]["viewpoint_aware"] is True
 
 
 def test_select_by_text_marks_already_seen(tmp_path: Path):

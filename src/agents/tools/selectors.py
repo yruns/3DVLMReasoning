@@ -165,6 +165,7 @@ def build_selector_tools(runtime: Any) -> list[BaseTool]:
                 k=capped,
                 hidden_categories=hidden,
                 use_visual_context=False,
+                viewpoint_aware=True,
             )
 
         effective_hidden_categories = hidden_in

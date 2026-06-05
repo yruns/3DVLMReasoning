@@ -8,7 +8,12 @@ from pathlib import Path
 from unittest.mock import patch
 
 import query_scene.keyframe_selector as keyframe_selector_module
-from query_scene.core import HypothesisKind
+from query_scene.core import (
+    HypothesisKind,
+    HypothesisOutputV1,
+    ParseMode,
+    QueryHypothesis,
+)
 from query_scene.query_executor import ExecutionResult
 from query_scene.retrieval import KeyframeSelector
 
@@ -130,6 +135,45 @@ class TestKeyframeSelectorHypothesis(unittest.TestCase):
             self.assertEqual(hypothesis.kind, HypothesisKind.PROXY)
             self.assertFalse(result.is_empty)
 
+    def test_execute_hypotheses_preserves_failed_attempt_traces(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            selector = _minimal_selector(Path(tmp))
+            payload = {
+                "format_version": "hypothesis_output_v1",
+                "parse_mode": "single",
+                "hypotheses": [
+                    {
+                        "kind": "direct",
+                        "rank": 1,
+                        "grounding_query": _grounding_query_dict("pillow"),
+                        "lexical_hints": [],
+                    }
+                ],
+            }
+
+            selector.execute_query = lambda gq, **_kwargs: ExecutionResult(  # type: ignore[method-assign]
+                node_id="root",
+                matched_objects=[],
+                metadata={
+                    "execution_trace": [
+                        {
+                            "relation": "on",
+                            "candidate_ids_before": [1],
+                            "output_candidate_ids": [],
+                        }
+                    ]
+                },
+            )
+
+            status, hypothesis, result = selector.execute_hypotheses(payload)
+
+            self.assertEqual(status, "no_evidence")
+            self.assertIsNone(hypothesis)
+            attempts = result.metadata["execution_trace_attempts"]
+            self.assertEqual(attempts[0]["kind"], "direct")
+            self.assertEqual(attempts[0]["rank"], 1)
+            self.assertEqual(attempts[0]["trace"][0]["relation"], "on")
+
     def test_execute_hypotheses_checks_hidden_leak(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             selector = _minimal_selector(Path(tmp))
@@ -150,6 +194,46 @@ class TestKeyframeSelectorHypothesis(unittest.TestCase):
 
             with self.assertRaises(ValueError):
                 selector.execute_hypotheses(payload, hidden_categories={"pillow"})
+
+    def test_select_keyframes_v2_metadata_includes_execution_trace(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            selector = _minimal_selector(tmp_path)
+            frame_path = tmp_path / "frame000000.jpg"
+            frame_path.write_text("x", encoding="utf-8")
+            target = type("Obj", (), {"obj_id": 7, "category": "pillow"})()
+            grounding_query = selector.to_grounding_query(_grounding_query_dict("pillow"))
+            hypothesis = QueryHypothesis(
+                kind=HypothesisKind.DIRECT,
+                rank=1,
+                grounding_query=grounding_query,
+                lexical_hints=[],
+            )
+            hypothesis_output = HypothesisOutputV1(
+                parse_mode=ParseMode.SINGLE,
+                hypotheses=[hypothesis],
+            )
+            execution_result = ExecutionResult(
+                node_id="root",
+                matched_objects=[target],
+                scores={7: 1.0},
+                metadata={"execution_trace": [{"relation": "on"}]},
+            )
+
+            selector.parse_query_hypotheses = lambda *_args, **_kwargs: hypothesis_output  # type: ignore[method-assign]
+            selector.execute_hypotheses = lambda **_kwargs: (  # type: ignore[method-assign]
+                "direct_grounded",
+                hypothesis,
+                execution_result,
+            )
+            selector._rank_target_objects_by_score = lambda result: result.matched_objects  # type: ignore[method-assign]
+            selector.get_joint_coverage_views = lambda *_args, **_kwargs: [0]  # type: ignore[method-assign]
+            selector._pad_keyframes_to_minimum = lambda views, *_args, **_kwargs: views  # type: ignore[method-assign]
+            selector._resolve_keyframe_path = lambda view_id: (frame_path, view_id)  # type: ignore[method-assign]
+
+            result = selector.select_keyframes_v2("pillow on sofa", k=1)
+
+            self.assertEqual(result.metadata["execution_trace"], [{"relation": "on"}])
 
     def test_map_and_resolve_keyframe_with_adjacent_fallback(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

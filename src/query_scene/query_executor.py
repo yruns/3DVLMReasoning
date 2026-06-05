@@ -19,6 +19,7 @@ from __future__ import annotations
 
 from collections import Counter
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
@@ -55,6 +56,13 @@ if TYPE_CHECKING:
 UNKNOWN_CATEGORY_SENTINELS = frozenset(
     {"", "unknow", "unknown", "none", "null", "n/a", "na"}
 )
+
+
+class ExecutionMode(str, Enum):
+    """Controls whether execution is strict filtering or recall-biased."""
+
+    STRICT = "strict"
+    RECALL = "recall"
 
 
 @dataclass
@@ -131,6 +139,7 @@ class QueryExecutor:
         self._viewpoint_contexts: dict[str, ViewpointContext] = {}
         self._viewer_pose_cache: dict[str, ViewerPose | None] = {}
         self._execution_trace: list[dict[str, Any]] = []
+        self._execution_mode = ExecutionMode.STRICT
 
         # Quick filters for fast pre-filtering
         self._quick_filters = QuickFilters() if use_quick_filters else None
@@ -302,7 +311,11 @@ class QueryExecutor:
         self._viewer_pose_cache[ctx_id] = pose
         return pose
 
-    def execute(self, query: GroundingQuery) -> ExecutionResult:
+    def execute(
+        self,
+        query: GroundingQuery,
+        mode: ExecutionMode | str = ExecutionMode.STRICT,
+    ) -> ExecutionResult:
         """
         Execute a grounding query.
 
@@ -312,13 +325,19 @@ class QueryExecutor:
         Returns:
             ExecutionResult with matched objects
         """
-        logger.info(f"[QueryExecutor] Executing query: '{query.raw_query}'")
+        if not isinstance(mode, ExecutionMode):
+            mode = ExecutionMode(mode)
+        logger.info(
+            f"[QueryExecutor] Executing query: '{query.raw_query}' "
+            f"(mode={mode.value})"
+        )
 
         # Clear caches for new query
         self._cache.clear()
         self._viewpoint_contexts = {vc.id: vc for vc in query.viewpoint_contexts}
         self._viewer_pose_cache = {}
         self._execution_trace = []
+        self._execution_mode = mode
 
         # Execute from root
         result = self._execute_node(query.root)
@@ -805,6 +824,25 @@ class QueryExecutor:
         if policy == ExecutionPolicy.HARD:
             filtered = [c for c in pre_filtered if c.obj_id in satisfied_set]
             trace["full_check_emptied"] = bool(pre_filtered and not filtered)
+
+            relation_norm = constraint.relation.lower().replace(" ", "_")
+            if (
+                self._execution_mode == ExecutionMode.RECALL
+                and trace["full_check_emptied"]
+                and relation_norm
+                in {"on", "on_top", "on_top_of", "upon", "atop", "resting_on"}
+            ):
+                keep_scores = {c.obj_id: 1.0 for c in pre_filtered}
+                soft_scores = {
+                    c.obj_id: sat_scores.get(c.obj_id, 0.0) for c in pre_filtered
+                }
+                trace["hard_on_recall_fallback"] = True
+                trace["effective_policy"] = ExecutionPolicy.RANK_ONLY.value
+                trace["output_candidate_ids"] = self._object_ids(pre_filtered)
+                self._execution_trace.append(trace)
+                return list(pre_filtered), keep_scores, soft_scores
+
+            trace["hard_on_recall_fallback"] = False
             trace["output_candidate_ids"] = self._object_ids(filtered)
             self._execution_trace.append(trace)
             return filtered, dict(sat_scores), {}

@@ -305,6 +305,86 @@ class SpatialRelationChecker:
             return 0.0
         return float(intersection / denom)
 
+    def _axis_overlap_ratio(
+        self,
+        bbox1: tuple[np.ndarray, np.ndarray],
+        bbox2: tuple[np.ndarray, np.ndarray],
+        axis: int,
+    ) -> float:
+        """Return axis overlap over bbox1 extent."""
+        min1, max1 = bbox1
+        min2, max2 = bbox2
+        overlap = max(0.0, float(min(max1[axis], max2[axis]) - max(min1[axis], min2[axis])))
+        extent = max(1e-6, float(max1[axis] - min1[axis]))
+        return float(overlap / extent)
+
+    def _category_text(self, obj: SceneObject) -> str:
+        """Return lower-cased category text from common object label fields."""
+        parts: list[str] = []
+        for attr in ("category", "object_tag", "summary"):
+            value = getattr(obj, attr, None)
+            if isinstance(value, str):
+                parts.append(value)
+        class_name = getattr(obj, "class_name", None)
+        if isinstance(class_name, (list, tuple)):
+            parts.extend(str(v) for v in class_name if isinstance(v, str))
+        return " ".join(parts).lower()
+
+    def _is_vertical_surface_anchor(self, obj: SceneObject) -> bool:
+        """Return True for anchors whose natural-language ``on`` means attached-to."""
+        text = self._category_text(obj)
+        vertical_terms = {
+            "wall",
+            "partition",
+            "door",
+            "whiteboard",
+            "blackboard",
+            "chalkboard",
+            "bulletin board",
+            "board",
+            "mirror",
+            "window",
+        }
+        return any(term in text for term in vertical_terms)
+
+    def _check_vertical_surface_attachment(
+        self,
+        target: SceneObject,
+        anchor: SceneObject,
+        target_bbox: tuple[np.ndarray, np.ndarray],
+        anchor_bbox: tuple[np.ndarray, np.ndarray],
+    ) -> RelationResult:
+        """Check ``target on anchor`` where anchor is a vertical surface."""
+        xy_gap = self._bbox_xy_gap(target_bbox, anchor_bbox)
+        overlap_ratio = self._bbox_xy_overlap_ratio(target_bbox, anchor_bbox)
+        z_overlap_ratio = self._axis_overlap_ratio(target_bbox, anchor_bbox, axis=2)
+        max_surface_gap = 0.75
+        has_surface_contact = overlap_ratio > 0.0 or xy_gap <= max_surface_gap
+        has_vertical_overlap = z_overlap_ratio >= 0.25
+        details = {
+            "mode": "bbox_vertical_surface_attachment",
+            "bbox_used": True,
+            "xy_gap": xy_gap,
+            "xy_overlap_ratio": overlap_ratio,
+            "z_overlap_ratio": z_overlap_ratio,
+            "max_surface_gap": max_surface_gap,
+        }
+
+        if not has_surface_contact:
+            details["reason"] = "surface_proximity"
+            return RelationResult(satisfies=False, score=0.0, details=details)
+        if not has_vertical_overlap:
+            details["reason"] = "vertical_overlap"
+            return RelationResult(satisfies=False, score=0.0, details=details)
+
+        proximity_score = (
+            min(1.0, overlap_ratio)
+            if overlap_ratio > 0.0
+            else max(0.0, 1.0 - xy_gap / (max_surface_gap + 1e-6))
+        )
+        score = 0.55 * proximity_score + 0.45 * min(1.0, z_overlap_ratio)
+        return RelationResult(satisfies=True, score=float(score), details=details)
+
     # ========== Vertical Relations ==========
 
     def is_on_top_of(
@@ -322,18 +402,33 @@ class SpatialRelationChecker:
         t_bbox = self._get_bbox(target)
         a_bbox = self._get_bbox(anchor)
         if t_bbox is not None and a_bbox is not None:
+            if self._is_vertical_surface_anchor(anchor):
+                return self._check_vertical_surface_attachment(
+                    target, anchor, t_bbox, a_bbox
+                )
+
             t_min, _t_max = t_bbox
-            _a_min, a_max = a_bbox
+            a_min, a_max = a_bbox
             thres = self.thresholds["on_top_of"]
             xy_gap = self._bbox_xy_gap(t_bbox, a_bbox)
             overlap_ratio = self._bbox_xy_overlap_ratio(t_bbox, a_bbox)
             vertical_gap = float(t_min[2] - a_max[2])
             contact_tolerance = float(thres.get("contact_tolerance", 0.2))
-            max_horizontal = float(thres["max_horizontal"])
+            anchor_xy_diag = float(np.linalg.norm(a_max[:2] - a_min[:2]))
+            max_horizontal = max(
+                float(thres["max_horizontal"]),
+                min(1.0, 0.35 * anchor_xy_diag),
+            )
+            anchor_height = max(0.0, float(a_max[2] - a_min[2]))
+            penetration_tolerance = (
+                max(contact_tolerance, min(1.75, 0.85 * anchor_height))
+                if overlap_ratio > 0.0
+                else max(contact_tolerance, min(0.45, 0.45 * anchor_height))
+            )
             max_vertical = float(thres["max_vertical"])
 
             vertical_ok = (
-                vertical_gap >= float(thres["min_vertical"]) - contact_tolerance
+                vertical_gap >= float(thres["min_vertical"]) - penetration_tolerance
                 and vertical_gap <= max_vertical
             )
             supported = overlap_ratio > 0.0 or xy_gap <= max_horizontal
@@ -343,17 +438,29 @@ class SpatialRelationChecker:
                 "xy_gap": xy_gap,
                 "xy_overlap_ratio": overlap_ratio,
                 "vertical_gap": vertical_gap,
+                "max_horizontal": max_horizontal,
+                "penetration_tolerance": penetration_tolerance,
             }
 
-            if not vertical_ok or not supported:
-                details["reason"] = (
-                    "vertical_gap" if not vertical_ok else "horizontal_support"
-                )
+            if not supported:
+                details["reason"] = "horizontal_support"
+                return RelationResult(satisfies=False, score=0.0, details=details)
+            if not vertical_ok:
+                details["reason"] = "vertical_gap"
                 return RelationResult(satisfies=False, score=0.0, details=details)
 
             gap_score = max(0.0, 1.0 - xy_gap / (max_horizontal + 1e-6))
             support_score = max(gap_score, min(1.0, overlap_ratio))
-            vertical_score = max(0.0, 1.0 - abs(vertical_gap) / (max_vertical + 1e-6))
+            if vertical_gap < 0.0:
+                vertical_score = max(
+                    0.0,
+                    1.0 - abs(vertical_gap) / (penetration_tolerance + 1e-6),
+                )
+            else:
+                vertical_score = max(
+                    0.0,
+                    1.0 - abs(vertical_gap) / (max_vertical + 1e-6),
+                )
             score = 0.65 * support_score + 0.35 * vertical_score
             return RelationResult(satisfies=True, score=float(score), details=details)
 

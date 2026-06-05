@@ -30,6 +30,7 @@ from query_scene.core import (
 )
 from query_scene.query_executor import (
     SOFT_POLICY_SCORE_FLOOR,
+    ExecutionMode,
     QueryExecutor,
 )
 from query_scene.retrieval.spatial_checker import RelationResult
@@ -116,6 +117,15 @@ class _AlwaysSatisfyChecker:
         )
 
 
+class _NeverSatisfyChecker:
+    def check(self, target: object, anchor: object, relation: str) -> RelationResult:
+        return RelationResult(
+            satisfies=False,
+            score=0.0,
+            details={"source": "full_checker", "reason": "forced_false"},
+        )
+
+
 class TestHardQuickFilterSafety(unittest.TestCase):
     def test_hard_quick_filter_empty_falls_through_to_full_checker(self) -> None:
         box = _mk_obj(1, "box", (0.0, 0.0, 0.0))
@@ -162,6 +172,56 @@ class TestHardQuickFilterSafety(unittest.TestCase):
         self.assertTrue(entry["quick_filter_would_empty"])
         self.assertEqual(entry["output_candidate_ids"], [1])
         self.assertEqual(entry["candidate_relation_scores"][1], 0.9)
+
+    def test_strict_mode_keeps_hard_on_empty(self) -> None:
+        box = _mk_obj(1, "box", (0.0, 0.0, 0.0))
+        table = _mk_obj(2, "table", (0.0, 0.0, 1.0))
+        executor = QueryExecutor(
+            objects=[box, table], relation_checker=_NeverSatisfyChecker()
+        )
+        query = GroundingQuery(
+            raw_query="box on table",
+            root=QueryNode(
+                categories=["box"],
+                spatial_constraints=[_sc("on", ["table"], policy=ExecutionPolicy.HARD)],
+                node_id="root",
+            ),
+            expect_unique=False,
+        )
+
+        result = executor.execute(query, mode=ExecutionMode.STRICT)
+
+        self.assertEqual(result.matched_objects, [])
+        trace = result.metadata["execution_trace"]
+        self.assertFalse(trace[0].get("hard_on_recall_fallback", False))
+
+    def test_recall_mode_demotes_empty_hard_on_to_rank_only(self) -> None:
+        box = _mk_obj(1, "box", (0.0, 0.0, 0.0))
+        table = _mk_obj(2, "table", (0.0, 0.0, 1.0))
+        executor = QueryExecutor(
+            objects=[box, table], relation_checker=_NeverSatisfyChecker()
+        )
+        query = GroundingQuery(
+            raw_query="box on table",
+            root=QueryNode(
+                categories=["box"],
+                spatial_constraints=[_sc("on", ["table"], policy=ExecutionPolicy.HARD)],
+                node_id="root",
+            ),
+            expect_unique=False,
+        )
+
+        result = executor.execute(query, mode=ExecutionMode.RECALL)
+
+        self.assertEqual([o.obj_id for o in result.matched_objects], [1])
+        self.assertEqual(result.scores[1], 1.0)
+        self.assertEqual(
+            next(iter(result.metadata["soft_match_scores"][1].values())),
+            0.0,
+        )
+        trace = result.metadata["execution_trace"]
+        self.assertTrue(trace[0]["hard_on_recall_fallback"])
+        self.assertEqual(trace[0]["output_candidate_ids"], [1])
 
 
 class TestSoftPolicyKeepsCandidates(unittest.TestCase):
