@@ -31,7 +31,9 @@ CODEX_PRELOADED_SKILLS: tuple[str, ...] = (
     "vg-grounding-playbook",
     "vg-spatial-disambiguation",
 )
-CODEX_HIDDEN_CHASSIS_TOOLS: frozenset[str] = frozenset({"list_skills", "load_skill"})
+CODEX_HIDDEN_CHASSIS_TOOLS: frozenset[str] = frozenset(
+    {"list_skills", "load_skill", "submit_final"}
+)
 
 
 class Nr3dToolMcpServer:
@@ -262,7 +264,9 @@ def _read_message() -> dict[str, Any] | None:
 
 
 def _write_message(payload: dict[str, Any]) -> None:
-    data = json.dumps(payload, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+    data = json.dumps(payload, separators=(",", ":"), ensure_ascii=False).encode(
+        "utf-8"
+    )
     sys.stdout.buffer.write(data)
     sys.stdout.buffer.write(b"\n")
     sys.stdout.buffer.flush()
@@ -288,7 +292,9 @@ def _handle(
     message_id = message.get("id")
 
     if method == "initialize":
-        params = message.get("params") if isinstance(message.get("params"), dict) else {}
+        params = (
+            message.get("params") if isinstance(message.get("params"), dict) else {}
+        )
         return _result(
             message_id,
             {
@@ -305,7 +311,9 @@ def _handle(
         return _result(message_id, server.list_tools())
 
     if method == "tools/call":
-        params = message.get("params") if isinstance(message.get("params"), dict) else {}
+        params = (
+            message.get("params") if isinstance(message.get("params"), dict) else {}
+        )
         name = params.get("name")
         arguments = params.get("arguments")
         if not isinstance(name, str):
@@ -327,7 +335,9 @@ def _handle(
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--state", required=True, help="Path to per-sample MCP state JSON.")
+    parser.add_argument(
+        "--state", required=True, help="Path to per-sample MCP state JSON."
+    )
     parser.add_argument("--trace", help="Path to write tool trace JSON after calls.")
     args = parser.parse_args()
 

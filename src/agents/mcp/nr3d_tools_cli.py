@@ -1,8 +1,8 @@
 """CLI wrapper for the NR3D/VG Stage-2 runtime tools.
 
 This shares the same state file and tool implementation as
-``nr3d_tools_server.py``. It exists as a Codex Agent SDK fallback for SDK
-versions where MCP servers are configured but not exposed to the model.
+``nr3d_tools_server.py``. It is the default evidence interface for the Codex
+Agent SDK path, which avoids depending on SDK-side MCP tool visibility.
 """
 
 from __future__ import annotations
@@ -70,8 +70,7 @@ def _append_trace(
             if not isinstance(existing_trace, list):
                 existing_trace = []
             existing_trace.extend(
-                server._dump_observation(observation)
-                for observation in observations
+                server._dump_observation(observation) for observation in observations
             )
             existing_skills = payload.get("skills_loaded")
             if not isinstance(existing_skills, list):
@@ -99,19 +98,23 @@ def _append_trace(
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--state", required=True, help="Path to per-sample tool state JSON.")
+    parser.add_argument(
+        "--state", required=True, help="Path to per-sample tool state JSON."
+    )
     parser.add_argument("--trace", help="Path to write tool trace JSON after calls.")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     subparsers.add_parser("list-tools", help="Print available tool schemas as JSON.")
 
-    call_parser = subparsers.add_parser("call", help="Call one tool with JSON arguments.")
+    call_parser = subparsers.add_parser(
+        "call", help="Call one tool with JSON arguments."
+    )
     call_parser.add_argument("tool_name")
     call_parser.add_argument(
         "arguments_json",
         nargs="?",
         default="{}",
-        help='Tool arguments JSON object, for example \'{"proposal_id": 6}\'.',
+        help="Tool arguments JSON object, for example '{\"proposal_id\": 6}'.",
     )
 
     args = parser.parse_args(argv)

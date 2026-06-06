@@ -76,20 +76,26 @@ def test_codex_prompt_excludes_gt_fields(tmp_path) -> None:
         user_query="the square table by the door",
     )
 
-    prompt = runtime.build_decision_prompt(task, _bundle(tmp_path))
+    prompt = runtime.build_decision_prompt(
+        task,
+        _bundle(tmp_path),
+        tool_state_path=tmp_path / "sample.state.json",
+        tool_trace_path=tmp_path / "sample.trace.json",
+    )
 
     assert "gt_bbox_3d_9dof" not in prompt
     assert "9999" not in prompt
     assert "#6" in prompt
     assert "Square table near the door" in prompt
-    assert "nr3d_tools" in prompt
+    assert "nr3d_tools_cli.py" in prompt
+    assert "MCP tools are mounted" not in prompt
     assert "select_by_text" in prompt
     assert "lazily" in prompt
     assert "list_skills" not in prompt
     assert "load_skill" not in prompt
 
 
-def test_codex_prompt_includes_cli_fallback_command_and_state_paths(tmp_path) -> None:
+def test_codex_prompt_includes_cli_evidence_policy_and_state_paths(tmp_path) -> None:
     runtime = CodexSdkStage2Runtime(config=Stage2DeepAgentConfig())
     task = Stage2TaskSpec(
         task_type=Stage2TaskType.VISUAL_GROUNDING,
@@ -109,9 +115,20 @@ def test_codex_prompt_includes_cli_fallback_command_and_state_paths(tmp_path) ->
     assert str(state_path) in prompt
     assert str(trace_path) in prompt
     assert "call inspect_proposal" in prompt
+    assert "call select_by_proposal" in prompt
+    assert "call mark_frame_with_bbox" in prompt
+    assert "call compare_proposals_spatial" in prompt
     assert "call select_by_text" in prompt
-    assert "run at least one CLI evidence command" in prompt
-    assert "Do not claim the evidence tools are unavailable before trying the CLI" in prompt
+    assert "Required CLI evidence policy" in prompt
+    assert "CLI tools are the evidence interface" in prompt
+    assert "run at least one CLI evidence command" not in prompt
+
+
+def test_codex_runtime_defaults_to_cli_only_tools() -> None:
+    runtime = CodexSdkStage2Runtime(config=Stage2DeepAgentConfig())
+
+    assert runtime.enable_mcp_tools is False
+    assert runtime.enable_cli_tools is True
 
 
 def test_codex_runtime_wraps_json_decision(monkeypatch, tmp_path) -> None:
@@ -127,7 +144,7 @@ def test_codex_runtime_wraps_json_decision(monkeypatch, tmp_path) -> None:
     def fake_run_turn(*_args, **kwargs):
         assert kwargs["mcp_state_path"].exists()
         assert str(kwargs["mcp_state_path"]).startswith(str(tmp_path))
-        assert str(kwargs["mcp_trace_path"]).startswith(str(tmp_path))
+        assert kwargs["mcp_trace_path"] is None
         return (
             json.dumps(
                 {
@@ -150,7 +167,9 @@ def test_codex_runtime_wraps_json_decision(monkeypatch, tmp_path) -> None:
     assert result.result.payload["selected_object_id"] == 6
     assert result.result.confidence == 0.88
     assert result.tool_trace[0].tool_name == "codex_sdk_turn"
-    assert result.raw_state["mcp_tools_enabled"] is True
+    assert result.tool_trace[0].tool_input["mcp_server_path"] is None
+    assert result.tool_trace[0].tool_input["cli_trace_path"] is not None
+    assert result.raw_state["mcp_tools_enabled"] is False
     assert result.raw_state["cli_tools_enabled"] is True
 
 
@@ -216,11 +235,11 @@ def test_codex_runtime_configures_modelhub_prefix_cache_headers(tmp_path) -> Non
 
     joined = "\n".join(overrides)
     assert (
-        'model_providers.modelhub_adapter.env_http_headers.extra='
+        "model_providers.modelhub_adapter.env_http_headers.extra="
         '"CODEX_AGENT_MODELHUB_EXTRA_HEADER"'
     ) in joined
     assert (
-        'model_providers.modelhub_adapter.env_http_headers.X-TT-LOGID='
+        "model_providers.modelhub_adapter.env_http_headers.X-TT-LOGID="
         '"CODEX_AGENT_MODELHUB_LOGID"'
     ) in joined
     assert json.loads(env["CODEX_AGENT_MODELHUB_EXTRA_HEADER"]) == {
@@ -276,9 +295,12 @@ def test_codex_sdk_skill_teaches_cli_fallback() -> None:
 
     assert "nr3d_tools_cli.py" in text
     assert "call inspect_proposal" in text
+    assert "call select_by_proposal" in text
+    assert "call mark_frame_with_bbox" in text
+    assert "call compare_proposals_spatial" in text
     assert "select_by_text" in text
-    assert "run at least one CLI" in text
-    assert "Do not claim the evidence tools are unavailable" in text
+    assert "Required CLI evidence policy" in text
+    assert "run at least one CLI" not in text
 
 
 def test_codex_playbook_skills_are_synced_from_deepagents_sources() -> None:
@@ -301,7 +323,9 @@ def test_codex_playbook_skills_are_synced_from_deepagents_sources() -> None:
         skill_path = PROJECT_ROOT / ".agents" / "skills" / skill_name / "SKILL.md"
         text = skill_path.read_text(encoding="utf-8")
         source = source_path.read_text(encoding="utf-8").strip()
-        begin = f"<!-- BEGIN_SYNCED_PLAYBOOK: {source_path.relative_to(PROJECT_ROOT)} -->"
+        begin = (
+            f"<!-- BEGIN_SYNCED_PLAYBOOK: {source_path.relative_to(PROJECT_ROOT)} -->"
+        )
         end = "<!-- END_SYNCED_PLAYBOOK -->"
 
         assert f"name: {skill_name}" in text

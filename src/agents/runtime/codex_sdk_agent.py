@@ -60,11 +60,7 @@ DEFAULT_CODEX_PLAYBOOK_SKILL_PATHS: tuple[tuple[str, Path], ...] = (
     ),
     (
         "vg-spatial-disambiguation",
-        PROJECT_ROOT
-        / ".agents"
-        / "skills"
-        / "vg-spatial-disambiguation"
-        / "SKILL.md",
+        PROJECT_ROOT / ".agents" / "skills" / "vg-spatial-disambiguation" / "SKILL.md",
     ),
 )
 
@@ -133,7 +129,7 @@ class CodexSdkStage2Runtime:
         )
         self.skill_path = Path(skill_path) if skill_path else DEFAULT_NR3D_SKILL_PATH
         self.enable_mcp_tools = (
-            self._env_bool("CODEX_AGENT_ENABLE_MCP_TOOLS", default=True)
+            self._env_bool("CODEX_AGENT_ENABLE_MCP_TOOLS", default=False)
             if enable_mcp_tools is None
             else bool(enable_mcp_tools)
         )
@@ -193,11 +189,12 @@ class CodexSdkStage2Runtime:
             tool_state_path=mcp_state_path,
             tool_trace_path=cli_trace_path or mcp_trace_path,
         )
+        codex_mcp_trace_path = mcp_trace_path if self.enable_mcp_tools else None
         response_text, metadata_raw = self._run_codex_turn(
             prompt,
             image_paths,
             mcp_state_path=mcp_state_path,
-            mcp_trace_path=mcp_trace_path,
+            mcp_trace_path=codex_mcp_trace_path,
         )
         decision = CodexVisualGroundingDecision.model_validate(
             self._parse_json_object(response_text)
@@ -243,16 +240,16 @@ class CodexSdkStage2Runtime:
                     "model_provider": self.model_provider,
                     "codex_home": str(self.codex_home),
                     "skill_path": str(self.skill_path),
-                    "skill_paths": [
-                        str(path) for _, path in self.codex_skill_specs()
-                    ],
+                    "skill_paths": [str(path) for _, path in self.codex_skill_specs()],
                     "attached_images": [str(path) for path in image_paths],
                     "mcp_tools_enabled": self.enable_mcp_tools,
                     "mcp_server_path": (
                         str(self.mcp_server_path) if self.enable_mcp_tools else None
                     ),
                     "mcp_state_path": str(mcp_state_path) if mcp_state_path else None,
-                    "mcp_trace_path": str(mcp_trace_path) if mcp_trace_path else None,
+                    "mcp_trace_path": (
+                        str(mcp_trace_path) if self.enable_mcp_tools else None
+                    ),
                     "cli_tools_enabled": self.enable_cli_tools,
                     "tools_cli_path": (
                         str(self.tools_cli_path) if self.enable_cli_tools else None
@@ -269,7 +266,7 @@ class CodexSdkStage2Runtime:
                 image_metadata=[
                     {"image_path": str(path), "kind": "bev"} for path in image_paths
                 ],
-            )
+            ),
         ]
         return Stage2AgentResult(
             task=task,
@@ -362,12 +359,14 @@ class CodexSdkStage2Runtime:
                 f"{text_tool_note}`select_by_proposal`, `select_by_region`, "
                 "and `mark_frame_with_bbox` when visual verification is needed."
             )
+        elif self.enable_cli_tools:
+            tool_note = "Use CLI evidence tools only for this SDK run."
         else:
-            tool_note = "MCP tools are disabled for this turn."
+            tool_note = "No external evidence tools are enabled for this turn."
         if self.enable_cli_tools:
             if tool_state_path is None or tool_trace_path is None:
                 cli_note = (
-                    "The CLI evidence fallback is enabled but state paths were "
+                    "The CLI evidence tools are enabled but state paths were "
                     "not prepared; do not attempt CLI calls."
                 )
             else:
@@ -505,7 +504,7 @@ class CodexSdkStage2Runtime:
 
     def codex_skill_specs(self) -> list[tuple[str, Path]]:
         specs = [("nr3d-codex-sdk", self.skill_path)]
-        if self.enable_mcp_tools:
+        if self.enable_mcp_tools or self.enable_cli_tools:
             specs.extend(DEFAULT_CODEX_PLAYBOOK_SKILL_PATHS)
         return specs
 
@@ -552,12 +551,18 @@ class CodexSdkStage2Runtime:
         state = str(tool_state_path)
         trace = str(tool_trace_path)
         return (
-            "Codex SDK MCP tools may not be visible in this SDK version. "
-            "Use the CLI fallback through the shell. Before final JSON, run at "
-            "least one CLI evidence command for the most plausible candidate "
-            "(for simple queries, use inspect_proposal). Do not claim the "
-            "evidence tools are unavailable before trying the CLI. The CLI "
-            "writes only the provided trace file. "
+            "CLI tools are the evidence interface for this SDK run. They share "
+            "the same NR3D tool implementations as the MCP server and write only "
+            "the provided trace file. Required CLI evidence policy: inspect the "
+            "candidate you plan to select; when there is more than one plausible "
+            "same-category candidate, use `select_by_proposal` to fetch frames "
+            "for the shortlist and then `mark_frame_with_bbox` on a selector "
+            "returned frame before final JSON; for spatial, ordinal, nearest, "
+            "left/right, above/below, or anchor-based language, call "
+            "`compare_proposals_spatial` or `compare_candidates_to_anchors`; "
+            "`select_by_text` lazily initializes the Stage-1 KeyframeSelector "
+            "and is required when the text query itself is the best way to form "
+            "the shortlist. "
             "Examples:\n"
             f"  {python} {cli} --state {self._shell_quote(state)} "
             f"--trace {self._shell_quote(trace)} list-tools\n"
@@ -565,8 +570,17 @@ class CodexSdkStage2Runtime:
             f"--trace {self._shell_quote(trace)} call inspect_proposal "
             "'{\"proposal_id\": 6}'\n"
             f"  {python} {cli} --state {self._shell_quote(state)} "
+            f"--trace {self._shell_quote(trace)} call select_by_proposal "
+            '\'{"proposal_ids": [6], "k": 3}\'\n'
+            f"  {python} {cli} --state {self._shell_quote(state)} "
+            f"--trace {self._shell_quote(trace)} call mark_frame_with_bbox "
+            '\'{"frame_id": 10, "ids": [6]}\'\n'
+            f"  {python} {cli} --state {self._shell_quote(state)} "
+            f"--trace {self._shell_quote(trace)} call compare_proposals_spatial "
+            '\'{"candidate_ids": [6, 7], "anchor_id": 3, "relation": "closest_to"}\'\n'
+            f"  {python} {cli} --state {self._shell_quote(state)} "
             f"--trace {self._shell_quote(trace)} call select_by_text "
-            "'{\"query\": \"the target object\", \"k\": 3}'"
+            '\'{"query": "the target object", "k": 3}\''
         )
 
     def codex_sandbox(self) -> Any:
@@ -775,9 +789,7 @@ class CodexSdkStage2Runtime:
     @staticmethod
     def _safe_modelhub_session_id(value: Any) -> str:
         raw = str(value or "codex_agent_sdk").strip()
-        safe = "".join(
-            ch if ch in MODELHUB_EXTRA_ALLOWED_CHARS else "_" for ch in raw
-        )
+        safe = "".join(ch if ch in MODELHUB_EXTRA_ALLOWED_CHARS else "_" for ch in raw)
         safe = safe.strip("._:-")[:MODELHUB_EXTRA_SESSION_ID_MAX_LENGTH]
         return safe or "codex_agent_sdk"
 
