@@ -491,6 +491,21 @@ class CodexSdkStage2Runtime:
                 output_schema=output_schema,
                 sandbox=self.codex_sandbox(),
             )
+            results = [result]
+            if not self._is_valid_decision_json(result.final_response or ""):
+                result = thread.run(
+                    [
+                        TextInput(
+                            self.build_json_finalization_prompt(
+                                previous_response=result.final_response
+                            )
+                        )
+                    ],
+                    cwd=str(self.project_root),
+                    output_schema=output_schema,
+                    sandbox=self.codex_sandbox(),
+                )
+                results.append(result)
         if result.final_response is None:
             raise RuntimeError(
                 f"Codex SDK turn completed without final_response; status={result.status}"
@@ -500,7 +515,41 @@ class CodexSdkStage2Runtime:
             "status": str(getattr(result.status, "value", result.status)),
             "duration_ms": result.duration_ms,
             "usage": self._dump_model(result.usage),
+            "attempts": [
+                {
+                    "id": item.id,
+                    "status": str(getattr(item.status, "value", item.status)),
+                    "duration_ms": item.duration_ms,
+                    "has_json_response": self._is_valid_decision_json(
+                        item.final_response or ""
+                    ),
+                }
+                for item in results
+            ],
         }
+
+    def build_json_finalization_prompt(
+        self,
+        *,
+        previous_response: str | None = None,
+    ) -> str:
+        preview = self._truncate(previous_response or "", 600)
+        return (
+            "The previous turn did not return the required structured final "
+            "answer. Use the evidence, tool outputs, and images already present "
+            "in this thread. Return only one JSON object matching the requested "
+            "schema, with fields `proposal_id`, `confidence`, `summary`, "
+            "`uncertainties`, and `cited_frame_indices`. Do not include markdown, "
+            "status updates, prose outside JSON, or tool commands."
+            + (f"\nPrevious non-JSON response: {preview}" if preview else "")
+        )
+
+    def _is_valid_decision_json(self, text: str) -> bool:
+        try:
+            CodexVisualGroundingDecision.model_validate(self._parse_json_object(text))
+        except Exception:
+            return False
+        return True
 
     def codex_skill_specs(self) -> list[tuple[str, Path]]:
         specs = [("nr3d-codex-sdk", self.skill_path)]

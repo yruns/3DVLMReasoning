@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import json
+import sys
+import types
 from pathlib import Path
+from types import SimpleNamespace
 
 from agents.core.agent_config import Stage2DeepAgentConfig, Stage2TaskType
 from agents.core.task_types import Stage2EvidenceBundle, Stage2TaskSpec
@@ -124,6 +127,18 @@ def test_codex_prompt_includes_cli_evidence_policy_and_state_paths(tmp_path) -> 
     assert "run at least one CLI evidence command" not in prompt
 
 
+def test_codex_cli_tool_note_has_valid_inspect_example(tmp_path) -> None:
+    runtime = CodexSdkStage2Runtime(config=Stage2DeepAgentConfig())
+
+    note = runtime.build_cli_tool_note(
+        tmp_path / "sample.state.json",
+        tmp_path / "sample.trace.json",
+    )
+
+    assert "call inspect_proposal --trace" not in note
+    assert note.count("call inspect_proposal") == 1
+
+
 def test_codex_runtime_defaults_to_cli_only_tools() -> None:
     runtime = CodexSdkStage2Runtime(config=Stage2DeepAgentConfig())
 
@@ -171,6 +186,94 @@ def test_codex_runtime_wraps_json_decision(monkeypatch, tmp_path) -> None:
     assert result.tool_trace[0].tool_input["cli_trace_path"] is not None
     assert result.raw_state["mcp_tools_enabled"] is False
     assert result.raw_state["cli_tools_enabled"] is True
+
+
+def test_codex_runtime_retries_non_json_final_response_in_same_thread(
+    monkeypatch, tmp_path
+) -> None:
+    calls: list[list[object]] = []
+
+    class FakeTextInput:
+        def __init__(self, text):
+            self.text = text
+
+    class FakeSkillInput:
+        def __init__(self, name, path):
+            self.name = name
+            self.path = path
+
+    class FakeLocalImageInput:
+        def __init__(self, path):
+            self.path = path
+
+    class FakeSandboxValue:
+        value = "workspace-write"
+
+    class FakeSandbox:
+        workspace_write = FakeSandboxValue()
+        read_only = FakeSandboxValue()
+
+    class FakeThread:
+        def run(self, input_items, **_kwargs):
+            calls.append(input_items)
+            if len(calls) == 1:
+                return SimpleNamespace(
+                    final_response="I am still inspecting the candidates.",
+                    id="turn_1",
+                    status="completed",
+                    duration_ms=10,
+                    usage=None,
+                )
+            return SimpleNamespace(
+                final_response=json.dumps(
+                    {
+                        "proposal_id": 6,
+                        "confidence": 0.82,
+                        "summary": "Proposal 6 best matches the query.",
+                        "uncertainties": [],
+                        "cited_frame_indices": [10],
+                    }
+                ),
+                id="turn_2",
+                status="completed",
+                duration_ms=12,
+                usage=None,
+            )
+
+    class FakeCodex:
+        def __init__(self, config):
+            self.config = config
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return None
+
+        def thread_start(self, **_kwargs):
+            return FakeThread()
+
+    fake_module = types.SimpleNamespace(
+        Codex=FakeCodex,
+        CodexConfig=lambda **kwargs: SimpleNamespace(**kwargs),
+        LocalImageInput=FakeLocalImageInput,
+        Sandbox=FakeSandbox,
+        SkillInput=FakeSkillInput,
+        TextInput=FakeTextInput,
+    )
+    monkeypatch.setitem(sys.modules, "openai_codex", fake_module)
+    runtime = CodexSdkStage2Runtime(
+        config=Stage2DeepAgentConfig(),
+        codex_home=PROJECT_ROOT / ".codex-home",
+    )
+
+    response_text, metadata = runtime._run_codex_turn("pick the proposal", [])
+
+    assert json.loads(response_text)["proposal_id"] == 6
+    assert metadata["id"] == "turn_2"
+    assert len(calls) == 2
+    assert isinstance(calls[1][0], FakeTextInput)
+    assert "Return only one JSON object" in calls[1][0].text
 
 
 def test_codex_runtime_uses_workspace_write_sandbox_when_cli_trace_is_enabled() -> None:
