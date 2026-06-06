@@ -1,4 +1,4 @@
-"""Run ScanRefer VG pack-v1 backend and report metrics."""
+"""Run ScanRefer VG pack-v1/Codex-SDK backend and report metrics."""
 
 from __future__ import annotations
 
@@ -22,8 +22,9 @@ from agents.core.agent_config import Stage2DeepAgentConfig, Stage2TaskType
 from agents.core.task_types import Stage2TaskSpec
 from benchmarks.embodiedscan_eval import compute_oriented_iou_3d
 
-BackendName = Literal["pack_v1"]
+BackendName = Literal["pack_v1", "codex_sdk"]
 Stage2DeepResearchAgent: Any | None = None
+Stage2CodexAgent: Any | None = None
 build_pack_v1_bundle: Any | None = None
 
 # Per-scene text frame selector cache for the Stage 2 selector tools.
@@ -38,6 +39,8 @@ _CONCEPTGRAPH_OBJECT_CACHE: OrderedDict[tuple[str, str], list[dict[str, Any]]] =
     OrderedDict()
 )
 _CONCEPTGRAPH_OBJECT_CACHE_LOCK = threading.Lock()
+_CATALOG_BUILD_LOCKS: dict[tuple[str, str, str], threading.Lock] = {}
+_CATALOG_BUILD_LOCKS_LOCK = threading.Lock()
 
 
 def _remember_text_frame_selector(scene_id: str, selector: Any | None) -> None:
@@ -149,15 +152,18 @@ def _run_one_sample_once(
     pack_name: str = "pack_scanrefer_v1",
     config: Stage2DeepAgentConfig | None = None,
 ) -> dict[str, Any]:
-    if backend != "pack_v1":
-        raise ValueError(f"backend={backend!r} is not supported; use 'pack_v1'")
     sample = load_sample_artifact(data_root, sample_id, pack_name=pack_name)
     gt_bbox = coerce_bbox_9dof(
         sample.get("gt_bbox_3d_9dof"),
         field_name=f"{sample_id}.gt_bbox_3d_9dof",
     )
     cfg = config_for_backend(backend, config)
-    raw_result = run_pack_v1_sample(sample, data_root, cfg, pack_name=pack_name)
+    if backend == "pack_v1":
+        raw_result = run_pack_v1_sample(sample, data_root, cfg, pack_name=pack_name)
+    elif backend == "codex_sdk":
+        raw_result = run_codex_sdk_sample(sample, data_root, cfg, pack_name=pack_name)
+    else:
+        raise ValueError(f"backend={backend!r} is not supported")
     prediction = extract_pack_v1_prediction(raw_result)
     tool_trace = extract_result_tool_trace(raw_result)
 
@@ -210,6 +216,7 @@ def compare_backends(
     sample_ids: Sequence[str],
     output_dir: Path,
     data_root: Path,
+    backend: BackendName = "pack_v1",
     pack_name: str = "pack_scanrefer_v1",
     config: Stage2DeepAgentConfig | None = None,
     sample_retries: int = 0,
@@ -227,10 +234,10 @@ def compare_backends(
         preflight_pack_sample_exists(data_root, sample_ids[0], pack_name=pack_name)
     output_dir.mkdir(parents=True, exist_ok=True)
     results: dict[str, Any] = {}
-    for backend in ("pack_v1",):
+    for active_backend in (backend,):
 
         def run_sample(
-            sample_id: str, backend: BackendName = backend
+            sample_id: str, backend: BackendName = active_backend
         ) -> dict[str, Any]:
             try:
                 result = run_one_sample(
@@ -256,6 +263,7 @@ def compare_backends(
                     "selected_object_id": None,
                     "confidence": None,
                     "query": None,
+                    "tool_trace": [],
                     "error": f"{type(exc).__name__}: {str(exc)[:480]}",
                 }
             write_sample_result_checkpoint(
@@ -271,7 +279,7 @@ def compare_backends(
             for sample_id in sample_ids
             if not sample_result_path(
                 output_dir,
-                backend,
+                active_backend,
                 sample_id,
                 pack_name=pack_name,
             ).exists()
@@ -293,10 +301,10 @@ def compare_backends(
         if not write_side_by_side:
             continue
         if return_results:
-            results[backend] = build_backend_payload_from_checkpoints(
+            results[active_backend] = build_backend_payload_from_checkpoints(
                 sample_ids=sample_ids,
                 output_dir=output_dir,
-                backend=backend,
+                backend=active_backend,
                 pack_name=pack_name,
                 include_per_sample=True,
             )
@@ -304,7 +312,7 @@ def compare_backends(
             stream_side_by_side_from_checkpoints(
                 sample_ids=sample_ids,
                 output_dir=output_dir,
-                backend=backend,
+                backend=active_backend,
                 pack_name=pack_name,
             )
     if return_results and write_side_by_side:
@@ -314,6 +322,31 @@ def compare_backends(
         )
         return results
     return None
+
+
+def run_codex_sdk_sample(
+    sample: dict[str, Any],
+    data_root: Path,
+    config: Stage2DeepAgentConfig,
+    *,
+    pack_name: str = "pack_scanrefer_v1",
+) -> Any:
+    """Run a single ScanRefer sample through the Codex Agent SDK entrypoint."""
+    bundle = build_pack_v1_bundle_from_sample(
+        sample,
+        data_root,
+        pack_name=pack_name,
+    )
+    task = Stage2TaskSpec(
+        task_type=Stage2TaskType.VISUAL_GROUNDING,
+        user_query=str(sample["query"]),
+    )
+    agent_cls = Stage2CodexAgent
+    if agent_cls is None:
+        from agents.stage2_codex_agent import Stage2CodexAgent as agent_cls
+
+    agent = agent_cls(config=config)
+    return agent.run(task=task, bundle=bundle)
 
 
 def run_pack_v1_sample(
@@ -558,13 +591,229 @@ def build_pack_v1_bundle_from_sample(
         scene_id=scene_id,
         query=sample.get("query"),
     )
-    pool = (bundle.extra_metadata or {}).get("vg_proposal_pool")
+    metadata = dict(getattr(bundle, "extra_metadata", None) or {})
+    pool = metadata.get("vg_proposal_pool")
     if isinstance(pool, dict):
         _attach_conceptgraph_frame_views_to_pool(
             pool,
             scene_id=str(sample["scene_id"]),
             phase8_data_root=phase8_data_root,
         )
+        catalog_artifacts = _ensure_v9_catalog_artifacts(
+            scene_id=scene_id,
+            data_root=data_root,
+            scene_dir=scene_dir,
+            pack_name=pack_name,
+            pool=pool,
+            frame_visibility=frame_visibility,
+        )
+        metadata["scene_catalog"] = catalog_artifacts["scene_catalog"]
+        metadata["bev_image_path"] = catalog_artifacts["bev_image_path"]
+        metadata["camera_trajectory"] = catalog_artifacts["camera_trajectory"]
+        metadata["camera_trajectory_xy_yaw"] = catalog_artifacts["camera_trajectory"]
+    bundle = _with_stage1_text_selector_metadata(
+        bundle,
+        scene_id=scene_id,
+        phase8_data_root=phase8_data_root,
+    )
+    metadata.update(dict(getattr(bundle, "extra_metadata", None) or {}))
+    if hasattr(bundle, "model_copy"):
+        return bundle.model_copy(
+            update={
+                "extra_metadata": metadata,
+                "bev_image_path": metadata.get("bev_image_path"),
+            }
+        )
+    bundle.extra_metadata = metadata
+    bundle.bev_image_path = metadata.get("bev_image_path")
+    return bundle
+
+
+def _catalog_build_lock(data_root: Path, scene_id: str, pack_name: str) -> threading.Lock:
+    key = (str(data_root), scene_id, pack_name)
+    with _CATALOG_BUILD_LOCKS_LOCK:
+        return _CATALOG_BUILD_LOCKS.setdefault(key, threading.Lock())
+
+
+def _ensure_v9_catalog_artifacts(
+    *,
+    scene_id: str,
+    data_root: Path,
+    scene_dir: Path,
+    pack_name: str,
+    pool: dict[str, Any],
+    frame_visibility: dict[int, list[int]],
+) -> dict[str, Any]:
+    """Ensure ScanRefer pack-v3 style artifacts expose the v9 catalog tool surface."""
+    pack_dir = scene_dir
+    catalog_path = pack_dir / "scene_catalog.json"
+    bev_path = pack_dir / "bev" / "scene_bev_scanrefer.png"
+    traj_path = pack_dir / "camera_trajectory.json"
+
+    def _read_existing() -> dict[str, Any]:
+        return {
+            "scene_catalog": json.loads(catalog_path.read_text(encoding="utf-8")),
+            "bev_image_path": str(bev_path),
+            "camera_trajectory": json.loads(traj_path.read_text(encoding="utf-8")),
+        }
+
+    if catalog_path.exists() and bev_path.exists() and traj_path.exists():
+        return _read_existing()
+
+    lock = _catalog_build_lock(data_root, scene_id, pack_name)
+    with lock:
+        if catalog_path.exists() and bev_path.exists() and traj_path.exists():
+            return _read_existing()
+
+        from agents.catalog import from_vg_proposal_pool
+
+        valid_frame_ids = sorted(int(frame_id) for frame_id in frame_visibility)
+        if not valid_frame_ids:
+            raise ValueError(f"{scene_id}/{pack_name}: visibility index is empty")
+        bev_path.parent.mkdir(parents=True, exist_ok=True)
+        pool.setdefault("source", "mask3d")
+        pool.setdefault("frame_index", {})
+        pool.setdefault("proposal_index", {})
+        pool.setdefault("annotated_image_dir", str(pack_dir / "annotated"))
+        catalog = from_vg_proposal_pool(
+            pool=pool,
+            scene_id=scene_id,
+            bev_image_path=str(bev_path),
+            scene_category=None,
+            axis_align_matrix=pool.get("axis_align_matrix"),
+            valid_frame_ids=valid_frame_ids,
+        )
+        _render_scanrefer_proposal_bev(
+            proposals=catalog.proposals,
+            output_path=bev_path,
+        )
+        catalog_path.write_text(
+            json.dumps(catalog.model_dump(), ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+        trajectory = _load_camera_trajectory_if_available(data_root / scene_id)
+        traj_path.write_text(
+            json.dumps({str(k): v for k, v in trajectory.items()}),
+            encoding="utf-8",
+        )
+        return _read_existing()
+
+
+def _render_scanrefer_proposal_bev(
+    *,
+    proposals: Sequence[Any],
+    output_path: Path,
+    image_size: int = 1200,
+) -> Path:
+    """Render a proposal-only BEV for old ScanRefer packs without mesh assets."""
+    try:
+        from PIL import Image, ImageDraw, ImageFont
+    except ImportError as exc:
+        raise ImportError(
+            "Pillow is required to render ScanRefer proposal-only BEV images"
+        ) from exc
+
+    boxes: list[tuple[int, float, float, float, float, str]] = []
+    for proposal in proposals:
+        bbox = getattr(proposal, "bbox_3d_9dof", None)
+        if bbox is None:
+            continue
+        cx, cy, _cz, dx, dy, _dz, *_ = [float(v) for v in bbox]
+        pid = int(proposal.proposal_id)
+        category = str(proposal.category or "object")
+        boxes.append((pid, cx, cy, max(dx, 0.05), max(dy, 0.05), category))
+    if not boxes:
+        raise ValueError("Cannot render ScanRefer proposal BEV without proposals")
+
+    min_x = min(cx - dx / 2 for _, cx, _cy, dx, _dy, _category in boxes)
+    max_x = max(cx + dx / 2 for _, cx, _cy, dx, _dy, _category in boxes)
+    min_y = min(cy - dy / 2 for _, _cx, cy, _dx, dy, _category in boxes)
+    max_y = max(cy + dy / 2 for _, _cx, cy, _dx, dy, _category in boxes)
+    span = max(max_x - min_x, max_y - min_y, 1.0)
+    margin = span * 0.08
+    min_x -= margin
+    max_x += margin
+    min_y -= margin
+    max_y += margin
+    scale = (image_size - 80) / max(max_x - min_x, max_y - min_y)
+
+    def xy_to_px(x: float, y: float) -> tuple[float, float]:
+        px = 40 + (x - min_x) * scale
+        py = image_size - 40 - (y - min_y) * scale
+        return px, py
+
+    image = Image.new("RGB", (image_size, image_size), "white")
+    draw = ImageDraw.Draw(image)
+    try:
+        font = ImageFont.truetype("Arial.ttf", 16)
+    except OSError:
+        font = ImageFont.load_default()
+
+    palette = [
+        "#2563eb",
+        "#dc2626",
+        "#16a34a",
+        "#9333ea",
+        "#ea580c",
+        "#0891b2",
+        "#4f46e5",
+        "#be123c",
+    ]
+    for pid, cx, cy, dx, dy, category in sorted(boxes, key=lambda item: item[0]):
+        x0, y0 = xy_to_px(cx - dx / 2, cy - dy / 2)
+        x1, y1 = xy_to_px(cx + dx / 2, cy + dy / 2)
+        left, right = sorted((x0, x1))
+        top, bottom = sorted((y0, y1))
+        color = palette[sum(ord(ch) for ch in category) % len(palette)]
+        draw.rectangle([left, top, right, bottom], outline=color, width=3)
+        label = f"#{pid} {category}"[:32]
+        tx, ty = left + 3, max(2, top - 18)
+        draw.rectangle([tx - 2, ty - 1, tx + 8 * len(label), ty + 15], fill="white")
+        draw.text((tx, ty), label, fill=color, font=font)
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    image.save(output_path)
+    return output_path
+
+
+def _load_camera_trajectory_if_available(scene_root: Path) -> dict[int, list[float]]:
+    candidates = [
+        scene_root / "conceptgraph" / "traj.txt",
+        scene_root / "raw" / "traj.txt",
+    ]
+    traj_path = next((path for path in candidates if path.exists()), None)
+    if traj_path is None:
+        return {}
+    import numpy as np
+
+    raw = np.loadtxt(str(traj_path)).reshape(-1, 4, 4)
+    out: dict[int, list[float]] = {}
+    for i, pose in enumerate(raw):
+        x = float(pose[0, 3])
+        y = float(pose[1, 3])
+        forward = -pose[:3, 2]
+        yaw = float(math.atan2(forward[1], forward[0]))
+        out[i] = [x, y, yaw]
+    return out
+
+
+def _with_stage1_text_selector_metadata(
+    bundle: Any,
+    *,
+    scene_id: str,
+    phase8_data_root: Path,
+    llm_model: str = "gemini-2.5-pro",
+) -> Any:
+    metadata = dict(getattr(bundle, "extra_metadata", None) or {})
+    metadata["stage1_text_selector"] = {
+        "scene_id": scene_id,
+        "phase8_data_root": str(phase8_data_root),
+        "conceptgraph_root": str(Path(phase8_data_root) / scene_id / "conceptgraph"),
+        "llm_model": llm_model,
+    }
+    if hasattr(bundle, "model_copy"):
+        return bundle.model_copy(update={"extra_metadata": metadata})
+    bundle.extra_metadata = metadata
     return bundle
 
 
@@ -645,13 +894,14 @@ def sample_result_path(
     *,
     pack_name: str = "pack_scanrefer_v1",
 ) -> Path:
-    if backend != "pack_v1":
-        raise ValueError(f"backend={backend!r} is not supported; use 'pack_v1'")
     digest = hashlib.sha1(sample_id.encode("utf-8")).hexdigest()[:12]
     safe = safe_sample_id(sample_id)
     if not safe:
         safe = "sample"
-    return output_dir / "per_sample" / pack_name / f"{safe}_{digest}.json"
+    checkpoint_dir = output_dir / "per_sample" / pack_name
+    if backend != "pack_v1":
+        checkpoint_dir = checkpoint_dir / backend
+    return checkpoint_dir / f"{safe}_{digest}.json"
 
 
 def load_sample_result_checkpoint(
@@ -862,11 +1112,11 @@ def config_for_backend(
     backend: BackendName,
     config: Stage2DeepAgentConfig | None,
 ) -> Stage2DeepAgentConfig:
-    if backend != "pack_v1":
-        raise ValueError(f"backend={backend!r} is not supported; use 'pack_v1'")
+    if backend not in ("pack_v1", "codex_sdk"):
+        raise ValueError(f"backend={backend!r} is not supported")
     if config is None:
-        return Stage2DeepAgentConfig(vg_backend=backend)
-    return config.model_copy(update={"vg_backend": backend})
+        config = Stage2DeepAgentConfig()
+    return config.model_copy(update={"vg_backend": "pack_v1"})
 
 
 def extract_pack_v1_prediction(result: Any) -> dict[str, Any]:
@@ -1045,6 +1295,12 @@ def parse_args() -> argparse.Namespace:
         ),
     )
     parser.add_argument("--pack-name", default="pack_scanrefer_v1")
+    parser.add_argument(
+        "--backend",
+        choices=["pack_v1", "codex_sdk"],
+        default="pack_v1",
+        help="Stage-2 agent backend. Defaults to the existing DeepAgents pack-v1 path.",
+    )
     parser.add_argument("--sample-retries", type=int, default=2)
     parser.add_argument("--workers", type=int, default=1)
     parser.add_argument(
@@ -1132,6 +1388,7 @@ def main() -> None:
         sample_ids=sample_ids,
         output_dir=args.output_dir,
         data_root=args.data_root,
+        backend=args.backend,
         pack_name=args.pack_name,
         config=config,
         sample_retries=args.sample_retries,

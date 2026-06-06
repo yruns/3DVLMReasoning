@@ -12,6 +12,68 @@ import numpy as np
 import pytest
 
 
+def _write_scanrefer_pack_inputs(
+    tmp_path,
+    *,
+    sample_id: str = "scannet/scene0001_00::72::A1",
+    pack_name: str = "pack_scanrefer_v1",
+    source: str = "conceptgraph",
+):
+    from evaluation.scripts.run_scanrefer_vg_side_by_side import safe_sample_id
+
+    scene_segment, target_text, ann_id = sample_id.split("::")
+    scene_id = scene_segment.split("/")[-1]
+    target_id = int(target_text)
+    scene_dir = tmp_path / scene_id / pack_name
+    annotated = scene_dir / "annotated"
+    samples = scene_dir / "samples"
+    annotated.mkdir(parents=True, exist_ok=True)
+    samples.mkdir(parents=True, exist_ok=True)
+    (annotated / "frame_10.png").write_bytes(b"\x89PNG")
+    raw = tmp_path / scene_id / "raw"
+    raw.mkdir(parents=True, exist_ok=True)
+    (raw / "000010-rgb.png").write_bytes(b"\x89PNG")
+    (scene_dir / "proposals.jsonl").write_text(
+        json.dumps(
+            {
+                "source": source,
+                "scene_id": scene_id,
+                "proposals": [
+                    {
+                        "id": target_id,
+                        "bbox_3d": [0, 0, 0, 1, 1, 1, 0, 0, 0],
+                        "score": 1.0,
+                        "label": "chair",
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    (scene_dir / "visibility.json").write_text(
+        json.dumps({"10": [target_id]}),
+        encoding="utf-8",
+    )
+    sample_path = samples / f"{safe_sample_id(sample_id)}.json"
+    sample_path.write_text(
+        json.dumps(
+            {
+                "sample_id": sample_id,
+                "scene_id": scene_id,
+                "target_id": target_id,
+                "ann_id": ann_id,
+                "category": "chair",
+                "query": "the chair by the table",
+                "gt_bbox_3d_9dof": [0, 0, 0, 1, 1, 1, 0, 0, 0],
+                "scene_artifacts_dir": str(scene_dir),
+                "source": source,
+            }
+        ),
+        encoding="utf-8",
+    )
+    return tmp_path
+
+
 def test_parse_sample_id_canonical():
     from evaluation.scripts.run_scanrefer_vg_side_by_side import (
         parse_scanrefer_sample_id,
@@ -37,6 +99,18 @@ def test_safe_sample_id():
     from evaluation.scripts.run_scanrefer_vg_side_by_side import safe_sample_id
 
     assert safe_sample_id("scannet/scene_a::5::3") == "scannet__scene_a__5__3"
+
+
+def test_sample_result_path_namespaces_codex_sdk_backend(tmp_path) -> None:
+    from evaluation.scripts.run_scanrefer_vg_side_by_side import sample_result_path
+
+    path = sample_result_path(
+        tmp_path,
+        "codex_sdk",
+        "scannet/scene_a::5::3",
+    )
+
+    assert path.parent == tmp_path / "per_sample" / "pack_scanrefer_v1" / "codex_sdk"
 
 
 def test_compare_backends_persists_failed_sentinel_on_sample_exception(
@@ -79,6 +153,60 @@ def test_compare_backends_persists_failed_sentinel_on_sample_exception(
     assert failed["status"] == "failed"
     assert failed["iou"] == 0.0
     assert "simulated upstream 500" in failed["error"]
+
+
+def test_run_one_sample_scores_codex_sdk_agent_bbox(monkeypatch, tmp_path) -> None:
+    from evaluation.scripts import run_scanrefer_vg_side_by_side as runner
+
+    data_root = _write_scanrefer_pack_inputs(tmp_path)
+
+    class FakeCodexAgent:
+        def __init__(self, config, **_kwargs):
+            assert config.vg_backend == "pack_v1"
+            assert config.enable_stage1_text_retrieval is True
+
+        def run(self, task, bundle):
+            assert task.user_query == "the chair by the table"
+            assert bundle.scene_id == "scene0001_00"
+            return SimpleNamespace(
+                result=SimpleNamespace(
+                    payload={
+                        "status": "completed",
+                        "proposal_id": 72,
+                        "selected_object_id": 72,
+                    },
+                    confidence=0.8,
+                ),
+                final_bundle=SimpleNamespace(
+                    extra_metadata={
+                        "vg_proposal_pool": {
+                            "proposals": [
+                                {
+                                    "id": 72,
+                                    "bbox_3d_9dof": [0, 0, 0, 1, 1, 1, 0, 0, 0],
+                                },
+                            ],
+                        },
+                    },
+                ),
+            )
+
+    monkeypatch.setattr(runner, "Stage2CodexAgent", FakeCodexAgent)
+    monkeypatch.setattr(
+        runner,
+        "build_pack_v1_bundle_from_sample",
+        lambda *a, **kw: SimpleNamespace(scene_id="scene0001_00"),
+    )
+
+    out = runner.run_one_sample(
+        "scannet/scene0001_00::72::A1",
+        "codex_sdk",
+        data_root=data_root,
+    )
+
+    assert out["status"] == "completed"
+    assert out["iou"] == pytest.approx(1.0)
+    assert out["selected_object_id"] == 72
 
 
 def test_compare_backends_low_memory_mode_resumes_from_checkpoints(
@@ -246,6 +374,8 @@ def test_main_wires_checkpoint_only_batch_flags(tmp_path, monkeypatch) -> None:
             str(tmp_path / "out"),
             "--data-root",
             str(tmp_path),
+            "--backend",
+            "codex_sdk",
             "--checkpoint-only",
             "--max-new-samples",
             "7",
@@ -255,6 +385,7 @@ def test_main_wires_checkpoint_only_batch_flags(tmp_path, monkeypatch) -> None:
     mod.main()
 
     assert captured["return_results"] is False
+    assert captured["backend"] == "codex_sdk"
     assert captured["write_side_by_side"] is False
     assert captured["max_new_samples"] == 7
 
