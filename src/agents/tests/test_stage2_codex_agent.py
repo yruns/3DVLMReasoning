@@ -317,6 +317,33 @@ def test_codex_runtime_writes_mcp_state_without_api_keys(tmp_path) -> None:
     assert "secret-key" not in joined
 
 
+def test_codex_runtime_writes_allowed_tool_env_to_mcp_state(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    monkeypatch.setenv("STAGE1_TEXT_RETRIEVAL_MAX_CONCURRENCY", "2")
+    monkeypatch.setenv("STAGE1_TEXT_RETRIEVAL_LOCK_DIR", str(tmp_path / "locks"))
+    monkeypatch.setenv("OPENAI_API_KEY", "must-not-leak")
+    runtime = CodexSdkStage2Runtime(
+        config=Stage2DeepAgentConfig(),
+        mcp_state_dir=tmp_path / "mcp_state",
+    )
+    task = Stage2TaskSpec(
+        task_type=Stage2TaskType.VISUAL_GROUNDING,
+        user_query="the square table by the door",
+    )
+
+    state_path, _ = runtime.write_mcp_state(task, _bundle(tmp_path))
+    state_payload = json.loads(state_path.read_text(encoding="utf-8"))
+
+    assert state_payload["tool_env"] == {
+        "STAGE1_TEXT_RETRIEVAL_MAX_CONCURRENCY": "2",
+        "STAGE1_TEXT_RETRIEVAL_LOCK_DIR": str(tmp_path / "locks"),
+    }
+    assert "OPENAI_API_KEY" not in state_path.read_text(encoding="utf-8")
+    assert "must-not-leak" not in state_path.read_text(encoding="utf-8")
+
+
 def test_codex_runtime_configures_modelhub_prefix_cache_headers(tmp_path) -> None:
     runtime = CodexSdkStage2Runtime(
         config=Stage2DeepAgentConfig(

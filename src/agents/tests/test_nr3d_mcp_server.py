@@ -424,6 +424,38 @@ def test_nr3d_mcp_server_invokes_select_by_text_with_lazy_selector(
     assert server.runtime.text_frame_selector is not None
 
 
+def test_nr3d_mcp_server_applies_allowed_tool_env(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    task, bundle, state_path = _state_path(tmp_path)
+    state_path.write_text(
+        json.dumps(
+            {
+                "task": task.model_dump(mode="json"),
+                "bundle": bundle.model_dump(mode="json"),
+                "config": {"enable_stage1_text_retrieval": True},
+                "tool_env": {
+                    "STAGE1_TEXT_RETRIEVAL_MAX_CONCURRENCY": "2",
+                    "STAGE1_TEXT_RETRIEVAL_LOCK_DIR": str(tmp_path / "locks"),
+                    "OPENAI_API_KEY": "must-not-leak",
+                },
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.delenv("STAGE1_TEXT_RETRIEVAL_MAX_CONCURRENCY", raising=False)
+    monkeypatch.delenv("STAGE1_TEXT_RETRIEVAL_LOCK_DIR", raising=False)
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+
+    Nr3dToolMcpServer(state_path=state_path)
+
+    assert os.environ["STAGE1_TEXT_RETRIEVAL_MAX_CONCURRENCY"] == "2"
+    assert os.environ["STAGE1_TEXT_RETRIEVAL_LOCK_DIR"] == str(tmp_path / "locks")
+    assert "OPENAI_API_KEY" not in os.environ
+
+
 def test_nr3d_mcp_server_invokes_tool_and_writes_trace(tmp_path) -> None:
     _, _, state_path = _state_path(tmp_path)
     trace_path = tmp_path / "mcp_trace.json"

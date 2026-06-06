@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from collections.abc import Callable
 from pathlib import Path
@@ -33,6 +34,12 @@ CODEX_PRELOADED_SKILLS: tuple[str, ...] = (
 )
 CODEX_HIDDEN_CHASSIS_TOOLS: frozenset[str] = frozenset(
     {"list_skills", "load_skill", "submit_final"}
+)
+CODEX_TOOL_ENV_ALLOWLIST: frozenset[str] = frozenset(
+    {
+        "STAGE1_TEXT_RETRIEVAL_MAX_CONCURRENCY",
+        "STAGE1_TEXT_RETRIEVAL_LOCK_DIR",
+    }
 )
 
 
@@ -88,6 +95,7 @@ class Nr3dToolMcpServer:
         if not isinstance(payload, dict):
             raise ValueError(f"NR3D MCP state must be a JSON object: {state_path}")
 
+        Nr3dToolMcpServer._apply_tool_env(payload.get("tool_env"))
         task = Stage2TaskSpec.model_validate(payload.get("task"))
         bundle = Stage2EvidenceBundle.model_validate(payload.get("bundle"))
         config_payload = payload.get("config") or {}
@@ -95,6 +103,19 @@ class Nr3dToolMcpServer:
             raise ValueError("NR3D MCP state field 'config' must be an object")
         config = Stage2DeepAgentConfig.model_validate(config_payload)
         return task, bundle, config
+
+    @staticmethod
+    def _apply_tool_env(raw_tool_env: Any) -> None:
+        if raw_tool_env is None:
+            return
+        if not isinstance(raw_tool_env, dict):
+            raise ValueError("NR3D MCP state field 'tool_env' must be an object")
+        for name, value in raw_tool_env.items():
+            if name not in CODEX_TOOL_ENV_ALLOWLIST:
+                continue
+            if not isinstance(value, str):
+                raise ValueError(f"NR3D MCP tool_env field {name!r} must be a string")
+            os.environ[name] = value
 
     @staticmethod
     def _build_runtime_state(

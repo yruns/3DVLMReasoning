@@ -49,6 +49,10 @@ DEFAULT_NR3D_TOOLS_CLI_PATH = (
     PROJECT_ROOT / "src" / "agents" / "mcp" / "nr3d_tools_cli.py"
 )
 DEFAULT_NR3D_MCP_STATE_DIR = PROJECT_ROOT / "tmp" / "codex_sdk_mcp_state"
+CODEX_TOOL_ENV_ALLOWLIST: tuple[str, ...] = (
+    "STAGE1_TEXT_RETRIEVAL_MAX_CONCURRENCY",
+    "STAGE1_TEXT_RETRIEVAL_LOCK_DIR",
+)
 DEFAULT_CODEX_PLAYBOOK_SKILL_PATHS: tuple[tuple[str, Path], ...] = (
     (
         "scene-exploration-playbook",
@@ -575,11 +579,22 @@ class CodexSdkStage2Runtime:
             "bundle": bundle.model_dump(mode="json"),
             "config": self._mcp_config_payload(),
         }
+        tool_env = self._tool_env_payload()
+        if tool_env:
+            payload["tool_env"] = tool_env
         state_path.write_text(
             json.dumps(payload, ensure_ascii=False, indent=2),
             encoding="utf-8",
         )
         return state_path, trace_path
+
+    @staticmethod
+    def _tool_env_payload() -> dict[str, str]:
+        return {
+            name: value
+            for name in CODEX_TOOL_ENV_ALLOWLIST
+            if (value := os.environ.get(name))
+        }
 
     @staticmethod
     def cli_trace_path_for(mcp_trace_path: Path) -> Path:
