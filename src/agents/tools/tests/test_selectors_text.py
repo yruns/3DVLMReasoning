@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import fcntl
 import json
 from pathlib import Path
 from types import SimpleNamespace
@@ -130,6 +131,26 @@ def test_select_by_text_enables_viewpoint_aware_recall_path(tmp_path: Path):
 
     assert selector.calls[0]["use_visual_context"] is False
     assert selector.calls[0]["viewpoint_aware"] is True
+
+
+def test_select_by_text_can_throttle_stage1_calls_with_cross_process_lock(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    rs = _runtime(tmp_path, fids=[1, 2, 3])
+    calls: list[int] = []
+
+    def _fake_flock(_file_obj, operation: int) -> None:
+        calls.append(operation)
+
+    monkeypatch.setenv("STAGE1_TEXT_RETRIEVAL_MAX_CONCURRENCY", "1")
+    monkeypatch.setattr(fcntl, "flock", _fake_flock)
+
+    tool = next(t for t in build_selector_tools(rs) if t.name == "select_by_text")
+    tool.invoke({"query": "wooden chair"})
+
+    assert calls[0] == fcntl.LOCK_EX
+    assert calls[-1] == fcntl.LOCK_UN
 
 
 def test_select_by_text_marks_already_seen(tmp_path: Path):

@@ -2,8 +2,13 @@
 
 from __future__ import annotations
 
+import fcntl
 import json
 import math
+import os
+import tempfile
+import time
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
@@ -12,6 +17,59 @@ from langchain_core.tools import BaseTool, tool
 from agents.catalog import SceneCatalog
 from agents.runtime.scene_runtime import get_scene_catalog, make_tool_image_ref_if_new
 from agents.tools.scene_perception import _gate
+
+_STAGE1_TEXT_CONCURRENCY_ENV = "STAGE1_TEXT_RETRIEVAL_MAX_CONCURRENCY"
+_STAGE1_TEXT_LOCK_DIR_ENV = "STAGE1_TEXT_RETRIEVAL_LOCK_DIR"
+
+
+@contextmanager
+def _stage1_text_retrieval_slot():
+    raw_limit = os.environ.get(_STAGE1_TEXT_CONCURRENCY_ENV, "").strip()
+    if not raw_limit:
+        yield
+        return
+    try:
+        limit = int(raw_limit)
+    except ValueError:
+        limit = 0
+    if limit <= 0:
+        yield
+        return
+
+    lock_root = Path(
+        os.environ.get(_STAGE1_TEXT_LOCK_DIR_ENV)
+        or tempfile.gettempdir()
+    ) / "3dvlmreasoning_stage1_text_retrieval"
+    lock_root.mkdir(parents=True, exist_ok=True)
+
+    if limit == 1:
+        lock_file = (lock_root / "slot_0.lock").open("a+", encoding="utf-8")
+        try:
+            fcntl.flock(lock_file, fcntl.LOCK_EX)
+            yield
+        finally:
+            fcntl.flock(lock_file, fcntl.LOCK_UN)
+            lock_file.close()
+        return
+
+    while True:
+        for slot_idx in range(limit):
+            lock_file = (lock_root / f"slot_{slot_idx}.lock").open(
+                "a+",
+                encoding="utf-8",
+            )
+            try:
+                fcntl.flock(lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError:
+                lock_file.close()
+                continue
+            try:
+                yield
+            finally:
+                fcntl.flock(lock_file, fcntl.LOCK_UN)
+                lock_file.close()
+            return
+        time.sleep(0.1)
 
 
 def _frame_to_proposals(catalog: SceneCatalog) -> dict[int, list[int]]:
@@ -188,13 +246,14 @@ def build_selector_tools(runtime: Any) -> list[BaseTool]:
         k_warning = "" if k_in == capped else f" (k capped at 3 from {k_in})"
 
         def _select_with_hidden(hidden: list[str]) -> Any:
-            return selector.select_keyframes_v2(
-                query=str(query),
-                k=capped,
-                hidden_categories=hidden,
-                use_visual_context=False,
-                viewpoint_aware=True,
-            )
+            with _stage1_text_retrieval_slot():
+                return selector.select_keyframes_v2(
+                    query=str(query),
+                    k=capped,
+                    hidden_categories=hidden,
+                    use_visual_context=False,
+                    viewpoint_aware=True,
+                )
 
         effective_hidden_categories = hidden_in
         retry_metadata: dict[str, Any] | None = None
