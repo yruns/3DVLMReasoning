@@ -650,7 +650,23 @@ class CodexSdkStage2Runtime:
     def codex_sandbox(self) -> Any:
         from openai_codex import Sandbox
 
-        return Sandbox.workspace_write if self.enable_cli_tools else Sandbox.read_only
+        requested = os.environ.get("CODEX_AGENT_SANDBOX", "").strip().lower()
+        if requested:
+            normalized = requested.replace("-", "_")
+            if normalized in {"read_only", "readonly"}:
+                return Sandbox.read_only
+            if normalized in {"workspace_write", "workspace"}:
+                return Sandbox.workspace_write
+            if normalized in {"full_access", "danger_full_access"}:
+                return Sandbox.full_access
+            raise ValueError(
+                "CODEX_AGENT_SANDBOX must be one of read_only, "
+                "workspace_write, or full_access"
+            )
+
+        if self.enable_cli_tools or self.enable_mcp_tools:
+            return Sandbox.full_access
+        return Sandbox.read_only
 
     def codex_sandbox_value(self) -> str:
         return str(self.codex_sandbox().value)

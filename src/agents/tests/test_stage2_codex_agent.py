@@ -210,6 +210,7 @@ def test_codex_runtime_retries_non_json_final_response_in_same_thread(
         value = "workspace-write"
 
     class FakeSandbox:
+        full_access = FakeSandboxValue()
         workspace_write = FakeSandboxValue()
         read_only = FakeSandboxValue()
 
@@ -276,7 +277,14 @@ def test_codex_runtime_retries_non_json_final_response_in_same_thread(
     assert "Return only one JSON object" in calls[1][0].text
 
 
-def test_codex_runtime_uses_workspace_write_sandbox_when_cli_trace_is_enabled() -> None:
+def test_codex_runtime_uses_full_access_sandbox_when_cli_trace_is_enabled() -> None:
+    runtime = CodexSdkStage2Runtime(config=Stage2DeepAgentConfig())
+
+    assert runtime.codex_sandbox_value() == "full-access"
+
+
+def test_codex_runtime_can_override_sandbox_with_env(monkeypatch) -> None:
+    monkeypatch.setenv("CODEX_AGENT_SANDBOX", "workspace_write")
     runtime = CodexSdkStage2Runtime(config=Stage2DeepAgentConfig())
 
     assert runtime.codex_sandbox_value() == "workspace-write"
