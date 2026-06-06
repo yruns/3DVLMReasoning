@@ -25,6 +25,7 @@ rerun.
 | Output dir | `tmp/nr3d_eval_codex_sdk_cli_only_case600_20260606_33376e2/` |
 | Side-by-side JSON | `tmp/nr3d_eval_codex_sdk_cli_only_case600_20260606_33376e2/side_by_side.json` |
 | Leaderboard metrics | `tmp/nr3d_eval_codex_sdk_cli_only_case600_20260606_33376e2/leaderboard_strat600.json` |
+| 2T2F trace viewer | `docs/benchmark/nr3d/v20_codex_sdk_cli_only_trace_2t2f_20260606.html` |
 | SQLite run id | `v20_codex_sdk_cli_only_strat600_20260606` |
 | Main checkpoints | 600 checkpoints produced; 14 transient JSONDecodeError checkpoints rerun |
 | Final side-by-side rebuilt | `2026-06-06T14:52:41+08:00` |
@@ -262,3 +263,21 @@ Treat this as the new best observed valid strat600 pilot, not as a new full-set
 headline. The strat600 variance budget is still about +/-2.3 pp Overall at
 90 %, so the +2.00 pp delta over v19 is promising but should be confirmed on
 the full filtered 7805-query slice before making a public benchmark claim.
+
+## Trace Viewer
+
+The 2T2F static trace viewer is
+[v20_codex_sdk_cli_only_trace_2t2f_20260606.html](v20_codex_sdk_cli_only_trace_2t2f_20260606.html).
+It uses two correct and two false samples from this run:
+
+| Label | Sample | Summary |
+|---|---|---|
+| T1 | `scannet/scene0256_00::4::40234` | Bottom box in a three-box stack; final `proposal_id=4`, IoU 1.0. |
+| T2 | `scannet/scene0665_00::2::38846` | Desk closest to the door and by itself; final `proposal_id=2`, IoU 1.0. |
+| F1 | `scannet/scene0081_00::8::292` | Couch segment near red ottoman/table; final `proposal_id=7` while GT is `8`. |
+| F2 | `scannet/scene0221_00::51::24914` | Towel query; final `proposal_id=-1` while GT is `51`. |
+
+The viewer exposes a left-side execution-chain navigator, one collapsible card
+per tool call, raw tool input/output, BEV, selector-returned RGB frames, and
+`mark_frame_with_bbox` evidence images. It is generated entirely from persisted
+run artifacts and does not call the model.

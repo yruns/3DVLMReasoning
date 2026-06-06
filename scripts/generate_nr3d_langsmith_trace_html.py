@@ -714,8 +714,10 @@ def build_case(
                     selected_label = str(prop.get("category") or "")
 
     # Sidebar nav button
+    active_class = " active" if index == 1 else ""
+
     nav = f"""
-    <button class="run-link {label_class}" data-run="{esc(sample_id)}">
+    <button class="run-link {label_class}{active_class}" data-run="{esc(sample_id)}">
       <span class="run-title">{esc(sample_id)}</span>
       <span class="run-query">{esc(checkpoint.get('query'))}</span>
       <span class="run-meta">{esc(label_text)} · selected=#{esc(selected_id)} · gt=#{esc(target_id)} · {esc(' / '.join(split_bits))}</span>
@@ -732,7 +734,7 @@ def build_case(
     total_frames = catalog.get("total_frames") if catalog else "?"
 
     html_case = f"""
-    <article class="run-panel" data-run="{esc(sample_id)}">
+    <article class="run-panel{active_class}" data-run="{esc(sample_id)}">
       <header class="run-header">
         <div>
           <div class="eyebrow">Run {index:03d} · NR3D visual grounding (v9 catalog-first)</div>
