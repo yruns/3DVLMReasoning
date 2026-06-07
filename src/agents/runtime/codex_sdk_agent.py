@@ -14,6 +14,7 @@ import json
 import os
 import re
 import shlex
+import shutil
 import sys
 import time
 import uuid
@@ -162,6 +163,10 @@ class CodexSdkStage2Runtime:
         )
         self.keep_tool_state = self._env_bool(
             "CODEX_AGENT_KEEP_TOOL_STATE",
+            default=False,
+        )
+        self.keep_codex_home = self._env_bool(
+            "CODEX_AGENT_KEEP_CODEX_HOME",
             default=False,
         )
         self.prefix_cache_session_id = self._safe_modelhub_session_id(
@@ -473,10 +478,7 @@ class CodexSdkStage2Runtime:
                 raise FileNotFoundError(
                     f"Codex SDK skill file is missing: {skill_name} at {skill_path}"
                 )
-        if not self.codex_home.exists():
-            raise FileNotFoundError(
-                f"CODEX_HOME for Codex SDK does not exist: {self.codex_home}"
-            )
+        run_codex_home = self.prepare_codex_run_home(mcp_state_path)
         if self.enable_mcp_tools:
             if mcp_state_path is None or mcp_trace_path is None:
                 raise ValueError("MCP tools enabled but state/trace paths are missing")
@@ -487,7 +489,6 @@ class CodexSdkStage2Runtime:
         else:
             config_overrides = self.build_codex_prefix_cache_config_overrides()
 
-        os.environ["CODEX_HOME"] = str(self.codex_home)
         turn_input: list[Any] = [
             SkillInput(name=skill_name, path=str(skill_path))
             for skill_name, skill_path in skill_specs
@@ -496,41 +497,44 @@ class CodexSdkStage2Runtime:
         turn_input.extend(LocalImageInput(path=str(path)) for path in image_paths)
         output_schema = CodexVisualGroundingDecision.model_json_schema()
 
-        with Codex(
-            config=CodexConfig(
-                config_overrides=config_overrides,
-                cwd=str(self.project_root),
-                env=self.build_codex_app_server_env(),
-            )
-        ) as codex:
-            thread_kwargs: dict[str, Any] = {
-                "model": self.model,
-                "model_provider": self.model_provider,
-                "sandbox": self.codex_sandbox(),
-                "cwd": str(self.project_root),
-            }
-            thread = codex.thread_start(**thread_kwargs)
-            result = thread.run(
-                turn_input,
-                cwd=str(self.project_root),
-                output_schema=output_schema,
-                sandbox=self.codex_sandbox(),
-            )
-            results = [result]
-            if not self._is_valid_decision_json(result.final_response or ""):
+        try:
+            with Codex(
+                config=CodexConfig(
+                    config_overrides=config_overrides,
+                    cwd=str(self.project_root),
+                    env=self.build_codex_app_server_env(codex_home=run_codex_home),
+                )
+            ) as codex:
+                thread_kwargs: dict[str, Any] = {
+                    "model": self.model,
+                    "model_provider": self.model_provider,
+                    "sandbox": self.codex_sandbox(),
+                    "cwd": str(self.project_root),
+                }
+                thread = codex.thread_start(**thread_kwargs)
                 result = thread.run(
-                    [
-                        TextInput(
-                            self.build_json_finalization_prompt(
-                                previous_response=result.final_response
-                            )
-                        )
-                    ],
+                    turn_input,
                     cwd=str(self.project_root),
                     output_schema=output_schema,
                     sandbox=self.codex_sandbox(),
                 )
-                results.append(result)
+                results = [result]
+                if not self._is_valid_decision_json(result.final_response or ""):
+                    result = thread.run(
+                        [
+                            TextInput(
+                                self.build_json_finalization_prompt(
+                                    previous_response=result.final_response
+                                )
+                            )
+                        ],
+                        cwd=str(self.project_root),
+                        output_schema=output_schema,
+                        sandbox=self.codex_sandbox(),
+                    )
+                    results.append(result)
+        finally:
+            self.cleanup_codex_run_home(run_codex_home)
         if result.final_response is None:
             raise RuntimeError(
                 f"Codex SDK turn completed without final_response; status={result.status}"
@@ -540,6 +544,7 @@ class CodexSdkStage2Runtime:
             "status": str(getattr(result.status, "value", result.status)),
             "duration_ms": result.duration_ms,
             "usage": self._dump_model(result.usage),
+            "codex_home": str(run_codex_home),
             "attempts": [
                 {
                     "id": item.id,
@@ -552,6 +557,43 @@ class CodexSdkStage2Runtime:
                 for item in results
             ],
         }
+
+    def prepare_codex_run_home(self, mcp_state_path: Path | None = None) -> Path:
+        """Create an isolated CODEX_HOME for one Codex app-server process.
+
+        Codex app-server initializes SQLite state in CODEX_HOME on startup. The
+        NR3D runner uses thread workers, so sharing one CODEX_HOME across many
+        simultaneous app-server processes can race migrations and corrupt or
+        partially initialize the state DB. Each turn therefore gets its own
+        child home while reusing the base config.
+        """
+        if not self.codex_home.exists():
+            raise FileNotFoundError(
+                f"CODEX_HOME for Codex SDK does not exist: {self.codex_home}"
+            )
+        token_source = (
+            mcp_state_path.stem if mcp_state_path is not None else uuid.uuid4().hex
+        )
+        run_home = self.codex_home / "runs" / self._safe_token(token_source)
+        if run_home.exists():
+            shutil.rmtree(run_home)
+        run_home.mkdir(parents=True, exist_ok=True)
+        for name in ("config.toml", "installation_id", ".personality_migration"):
+            source = self.codex_home / name
+            if source.exists():
+                shutil.copy2(source, run_home / name)
+        return run_home
+
+    def cleanup_codex_run_home(self, run_codex_home: Path) -> None:
+        if self.keep_codex_home:
+            return
+        runs_root = self.codex_home / "runs"
+        try:
+            run_codex_home.relative_to(runs_root)
+        except ValueError:
+            return
+        with suppress(FileNotFoundError):
+            shutil.rmtree(run_codex_home)
 
     def build_json_finalization_prompt(
         self,
@@ -738,23 +780,33 @@ class CodexSdkStage2Runtime:
             ),
         )
 
-    def build_codex_app_server_env(self) -> dict[str, str]:
+    def build_codex_app_server_env(
+        self,
+        *,
+        codex_home: Path | None = None,
+    ) -> dict[str, str]:
+        env: dict[str, str] = {}
+        if codex_home is not None:
+            env["CODEX_HOME"] = str(codex_home)
         if not self.enable_prefix_cache:
-            return {}
+            return env
         extra = {
             "session_id": self.prefix_cache_session_id,
             "source": "codex_agent_sdk",
         }
-        return {
-            CODEX_MODELHUB_EXTRA_HEADER_ENV: json.dumps(
-                extra,
-                ensure_ascii=False,
-                separators=(",", ":"),
-            ),
-            CODEX_MODELHUB_LOGID_ENV: (
-                f"codexsdk_{self.prefix_cache_session_id}_{int(time.time() * 1000)}"
-            ),
-        }
+        env.update(
+            {
+                CODEX_MODELHUB_EXTRA_HEADER_ENV: json.dumps(
+                    extra,
+                    ensure_ascii=False,
+                    separators=(",", ":"),
+                ),
+                CODEX_MODELHUB_LOGID_ENV: (
+                    f"codexsdk_{self.prefix_cache_session_id}_{int(time.time() * 1000)}"
+                ),
+            }
+        )
+        return env
 
     def load_tool_traces(
         self,

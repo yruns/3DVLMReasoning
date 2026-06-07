@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import sys
 import types
 from pathlib import Path
@@ -253,6 +254,7 @@ def test_codex_runtime_retries_non_json_final_response_in_same_thread(
     monkeypatch, tmp_path
 ) -> None:
     calls: list[list[object]] = []
+    configs: list[SimpleNamespace] = []
 
     class FakeTextInput:
         def __init__(self, text):
@@ -315,18 +317,34 @@ def test_codex_runtime_retries_non_json_final_response_in_same_thread(
         def thread_start(self, **_kwargs):
             return FakeThread()
 
+    def fake_codex_config(**kwargs):
+        config = SimpleNamespace(**kwargs)
+        configs.append(config)
+        return config
+
     fake_module = types.SimpleNamespace(
         Codex=FakeCodex,
-        CodexConfig=lambda **kwargs: SimpleNamespace(**kwargs),
+        CodexConfig=fake_codex_config,
         LocalImageInput=FakeLocalImageInput,
         Sandbox=FakeSandbox,
         SkillInput=FakeSkillInput,
         TextInput=FakeTextInput,
     )
     monkeypatch.setitem(sys.modules, "openai_codex", fake_module)
+    monkeypatch.delenv("CODEX_HOME", raising=False)
+    codex_home = tmp_path / "codex_home"
+    codex_home.mkdir()
+    (codex_home / "config.toml").write_text(
+        'model = "mock"\n',
+        encoding="utf-8",
+    )
+    (codex_home / "installation_id").write_text(
+        "mock-installation-id",
+        encoding="utf-8",
+    )
     runtime = CodexSdkStage2Runtime(
         config=Stage2DeepAgentConfig(),
-        codex_home=PROJECT_ROOT / ".codex-home",
+        codex_home=codex_home,
     )
 
     response_text, metadata = runtime._run_codex_turn("pick the proposal", [])
@@ -336,6 +354,11 @@ def test_codex_runtime_retries_non_json_final_response_in_same_thread(
     assert len(calls) == 2
     assert isinstance(calls[1][0], FakeTextInput)
     assert "Return only one JSON object" in calls[1][0].text
+    assert "CODEX_HOME" not in os.environ
+    assert len(configs) == 1
+    run_home = Path(configs[0].env["CODEX_HOME"])
+    assert run_home.parent == codex_home / "runs"
+    assert not run_home.exists()
 
 
 def test_codex_runtime_uses_full_access_sandbox_when_cli_trace_is_enabled() -> None:
