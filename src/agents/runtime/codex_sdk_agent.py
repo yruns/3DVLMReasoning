@@ -17,6 +17,7 @@ import shlex
 import sys
 import time
 import uuid
+from contextlib import suppress
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -159,6 +160,10 @@ class CodexSdkStage2Runtime:
             if enable_prefix_cache is None
             else bool(enable_prefix_cache)
         )
+        self.keep_tool_state = self._env_bool(
+            "CODEX_AGENT_KEEP_TOOL_STATE",
+            default=False,
+        )
         self.prefix_cache_session_id = self._safe_modelhub_session_id(
             prefix_cache_session_id
             or os.environ.get("CODEX_AGENT_PREFIX_CACHE_SESSION_ID")
@@ -272,7 +277,7 @@ class CodexSdkStage2Runtime:
                 ],
             ),
         ]
-        return Stage2AgentResult(
+        result = Stage2AgentResult(
             task=task,
             result=structured,
             tool_trace=trace,
@@ -289,6 +294,22 @@ class CodexSdkStage2Runtime:
                 ),
             },
         )
+        self.cleanup_tool_state_paths(mcp_state_path, mcp_trace_path, cli_trace_path)
+        return result
+
+    def cleanup_tool_state_paths(self, *paths: Path | None) -> None:
+        if self.keep_tool_state:
+            return
+        seen: set[Path] = set()
+        for path in paths:
+            if path is None:
+                continue
+            for candidate in (path, path.with_name(f"{path.name}.lock")):
+                if candidate in seen:
+                    continue
+                seen.add(candidate)
+                with suppress(FileNotFoundError):
+                    candidate.unlink()
 
     def build_decision_prompt(
         self,

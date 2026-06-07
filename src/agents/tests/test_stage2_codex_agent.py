@@ -188,6 +188,67 @@ def test_codex_runtime_wraps_json_decision(monkeypatch, tmp_path) -> None:
     assert result.raw_state["cli_tools_enabled"] is True
 
 
+def test_codex_runtime_removes_temporary_tool_state_after_run(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    runtime = CodexSdkStage2Runtime(
+        config=Stage2DeepAgentConfig(),
+        mcp_state_dir=tmp_path / "mcp_state",
+    )
+    task = Stage2TaskSpec(
+        task_type=Stage2TaskType.VISUAL_GROUNDING,
+        user_query="the square table by the door",
+    )
+
+    def fake_run_turn(*_args, **kwargs):
+        state_path = kwargs["mcp_state_path"]
+        assert state_path.exists()
+        mcp_trace_path = state_path.with_name(
+            state_path.name.replace(".state.json", ".trace.json")
+        )
+        cli_trace_path = runtime.cli_trace_path_for(mcp_trace_path)
+        mcp_trace_path.write_text(
+            json.dumps({"tool_trace": []}),
+            encoding="utf-8",
+        )
+        cli_trace_path.write_text(
+            json.dumps({"tool_trace": []}),
+            encoding="utf-8",
+        )
+        cli_trace_path.with_name(f"{cli_trace_path.name}.lock").write_text(
+            "",
+            encoding="utf-8",
+        )
+        return (
+            json.dumps(
+                {
+                    "proposal_id": 6,
+                    "confidence": 0.88,
+                    "summary": "Proposal 6 is the square table closest to the door.",
+                    "uncertainties": [],
+                    "cited_frame_indices": [10],
+                }
+            ),
+            {"id": "turn_mock", "status": "completed"},
+        )
+
+    monkeypatch.setattr(runtime, "_run_codex_turn", fake_run_turn)
+
+    result = runtime.run(task, _bundle(tmp_path))
+    state_path = Path(result.tool_trace[-1].tool_input["mcp_state_path"])
+    cli_trace_path = Path(result.tool_trace[-1].tool_input["cli_trace_path"])
+    mcp_trace_path = state_path.with_name(
+        state_path.name.replace(".state.json", ".trace.json")
+    )
+
+    assert result.raw_state["mcp_trace"]["tool_count"] == 0
+    assert not state_path.exists()
+    assert not mcp_trace_path.exists()
+    assert not cli_trace_path.exists()
+    assert not cli_trace_path.with_name(f"{cli_trace_path.name}.lock").exists()
+
+
 def test_codex_runtime_retries_non_json_final_response_in_same_thread(
     monkeypatch, tmp_path
 ) -> None:
