@@ -241,6 +241,32 @@ Default VLM backend is `gpt-5.2-2025-12-11` via Azure-compatible endpoint. Confi
 - Session ID required in `extra_body` for prompt caching
 - Gemini available as override but not default (unstable FC with DeepAgents)
 
+### Codex SDK ModelHub Adapter AKs
+
+For Codex Agent SDK NR3D runs, the local ModelHub adapter uses a private,
+gitignored weighted TOML upstream file:
+
+```text
+/Users/bytedance/aispace/codex_modelhub_adapter/.modelhub_upstreams.toml
+```
+
+The real AKs are in that file. Do not copy them into tracked docs, benchmark
+records, git commits, or terminal logs. The current private pool is
+`gpt-5.4-2026-03-05` on the office endpoint
+`https://aidp-i18ntt-sg.tiktok-row.net/api/modelhub/online`, with weights
+`5:1:5` across aliases `gpt54_a`, `gpt54_b`, and `gpt54_c`.
+
+Start the adapter with:
+
+```bash
+cd /Users/bytedance/aispace/codex_modelhub_adapter
+export AIDP_MODELHUB_UPSTREAMS_TOML=/Users/bytedance/aispace/codex_modelhub_adapter/.modelhub_upstreams.toml
+uv run uvicorn adapter.app:app --host 127.0.0.1 --port 8787
+```
+
+Durable config/smoke record:
+`docs/benchmark/nr3d/codex_sdk_modelhub_adapter_config_20260607.md`.
+
 ## JSON Schemas
 
 Output schemas are in `schema/` directory:
