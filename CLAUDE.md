@@ -255,6 +255,9 @@ records, git commits, or terminal logs. The current private pool is
 `gpt-5.4-2026-03-05` on the office endpoint
 `https://aidp-i18ntt-sg.tiktok-row.net/api/modelhub/online`, with weights
 `5:1:5` across aliases `gpt54_a`, `gpt54_b`, and `gpt54_c`.
+Codex SDK keeps `extra.session_id` stable for prefix caching and sends a
+per-turn `extra.chat_run_id` so the adapter can distribute concurrent requests
+across the weighted AK pool.
 
 Start the adapter with:
 

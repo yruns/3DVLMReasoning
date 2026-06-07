@@ -464,10 +464,10 @@ def test_codex_runtime_configures_modelhub_prefix_cache_headers(tmp_path) -> Non
         "model_providers.modelhub_adapter.env_http_headers.X-TT-LOGID="
         '"CODEX_AGENT_MODELHUB_LOGID"'
     ) in joined
-    assert json.loads(env["CODEX_AGENT_MODELHUB_EXTRA_HEADER"]) == {
-        "session_id": "nr3d_codex_cache_session",
-        "source": "codex_agent_sdk",
-    }
+    extra = json.loads(env["CODEX_AGENT_MODELHUB_EXTRA_HEADER"])
+    assert extra["session_id"] == "nr3d_codex_cache_session"
+    assert extra["source"] == "codex_agent_sdk"
+    assert extra["chat_run_id"].startswith("nr3d_codex_cache_session_")
     assert env["CODEX_AGENT_MODELHUB_LOGID"].startswith(
         "codexsdk_nr3d_codex_cache_session_"
     )

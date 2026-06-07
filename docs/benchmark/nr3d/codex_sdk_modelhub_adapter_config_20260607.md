@@ -31,9 +31,15 @@ Traffic weights:
 | `gpt54_b` | 1 |
 | `gpt54_c` | 5 |
 
+The Codex SDK runtime sends both:
+
+- `extra.session_id`: stable prefix-cache session id
+- `extra.chat_run_id`: per-turn id used for weighted upstream selection
+
 The adapter selects one upstream by deterministic weighted hashing over
-`extra.session_id`, so concurrent benchmark samples should use varied session
-ids to make the 5:1:5 capacity useful.
+`extra.chat_run_id` when present, falling back to `session_id` only for clients
+that do not send a per-turn id. This keeps prefix caching stable while allowing
+concurrent benchmark samples to use the 5:1:5 capacity split.
 
 ## Office-Network Smoke
 

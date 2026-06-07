@@ -790,9 +790,13 @@ class CodexSdkStage2Runtime:
             env["CODEX_HOME"] = str(codex_home)
         if not self.enable_prefix_cache:
             return env
+        chat_run_id = self._safe_modelhub_session_id(
+            f"{self.prefix_cache_session_id}_{uuid.uuid4().hex[:12]}"
+        )
         extra = {
             "session_id": self.prefix_cache_session_id,
             "source": "codex_agent_sdk",
+            "chat_run_id": chat_run_id,
         }
         env.update(
             {
@@ -802,7 +806,7 @@ class CodexSdkStage2Runtime:
                     separators=(",", ":"),
                 ),
                 CODEX_MODELHUB_LOGID_ENV: (
-                    f"codexsdk_{self.prefix_cache_session_id}_{int(time.time() * 1000)}"
+                    f"codexsdk_{chat_run_id}_{int(time.time() * 1000)}"
                 ),
             }
         )
