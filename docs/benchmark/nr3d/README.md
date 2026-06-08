@@ -9,17 +9,16 @@ the current human-facing index.
 > The `v9.1_fix FULL` row at 82.95 % was invalidated on 2026-05-17 as a
 > GT-target-visible information leak (5 seed keyframes silently injected
 > per evidence-update turn at commit `d5f40ba`, fixed in `8ebf701`). The
-> honest depth-aware NR3D full-set "best" on this codebase is now **v11
-> proposal enrichment FULL at 72.26 % on the canonical filtered 7805-query
-> slice**. The latest v20 Codex SDK CLI-only strat600 pilot scored
-> **74.50 %**, the best observed valid pilot-fold row so far, but it still
-> needs a full-set confirmation before changing the headline full-set result.
-> The preceding v11 strat600 pilot scored 71.33 %, recovering most of
+> honest depth-aware NR3D full-set "best" on this codebase is now **v22
+> Codex SDK CLI-only FULL at 74.61 % on the canonical filtered 7805-query
+> slice**, confirming the earlier v20 strat600 pilot signal. The previous
+> best valid full-set row was v11 proposal enrichment FULL at 72.26 %. The
+> preceding v11 strat600 pilot scored 71.33 %, recovering most of
 > the lower reproduction gap. A 2026-05-20
 > high-worker reproduction at `workers=30` completed cleanly but scored
 > 70.00 %, and a 2026-05-21 `workers=20` reproduction from the current best
-> branch scored 69.17 %. Treat 72.26 as the current best full-set result, with
-> the high-worker rows as stability caveats.
+> branch scored 69.17 %. Treat v22 as the current best full-set result, with
+> the older high-worker rows as stability caveats for the DeepAgents family.
 > The older v9.3
 > text-first row at 66.67 % remains the clean baseline closest to public
 > UniVLG SOTA (65.2 %). The post-mortem consolidates
@@ -58,6 +57,7 @@ the current human-facing index.
 | [v19 Codex SDK CLI fallback strat600](v19_codex_sdk_cli_fallback_strat600_20260606.md) | **Codex Agent SDK CLI/MCP tool integration run; former best observed valid strat600 pilot.** Launch/runtime HEAD `c19a747`; canonical strat600/case600 with `CODEX_AGENT_ENABLE_MCP_TOOLS=1`, `CODEX_AGENT_ENABLE_CLI_TOOLS=1`, prefix cache session `nr3d_codex_cli_case600_20260606_c19a747`, synced skills, local ModelHub adapter, and CLI fallback tool calls. Overall **72.50 %** (Easy 80.34 / Hard 65.16 / V-Dep 59.72 / V-Indep 79.43), 600 completed, 0 final errors. Tool trace contains 2592 calls, including `inspect_proposal`, `select_by_text`, `compare_proposals_spatial`, `compare_candidates_to_anchors`, `mark_frame_with_bbox`, and `view_bev`. |
 | [v20 Codex SDK CLI-only strat600](v20_codex_sdk_cli_only_strat600_20260606.md) | **Codex Agent SDK CLI-only tool integration run; best observed valid strat600 pilot.** Launch/runtime HEAD `33376e2`; canonical strat600/case600 with `CODEX_AGENT_ENABLE_MCP_TOOLS=0`, `CODEX_AGENT_ENABLE_CLI_TOOLS=1`, prefix cache session `nr3d_codex_cli_only_case600_20260606_33376e2`, synced skills, local ModelHub adapter, and CLI evidence-tool calls. Overall **74.50 %** (Easy 81.38 / Hard 68.06 / V-Dep 64.45 / V-Indep 79.95), 599 completed and 1 final failed status after rerunning 14 transient JSONDecodeError checkpoints. SQLite contains 4621 tool calls, 0 MCP calls, and 6.70 evidence-tool calls/sample. |
 | [v20 Codex SDK CLI-only 2T2F trace](v20_codex_sdk_cli_only_trace_2t2f_20260606.html) | Static 2T2F multimodal trace viewer for the v20 run. Includes two correct and two false samples, left-side execution-chain navigation, collapsible per-tool cards, raw input/output, BEV, selector-returned RGB frames, and `mark_frame_with_bbox` evidence images. |
+| [v22 Codex SDK CLI-only FULL](v22_codex_sdk_cli_only_full_20260608.md) | **Full 8584-utterance confirmation of the v20 Codex SDK CLI-only pilot.** Launch/runtime continuation HEAD `2837f2c`; weighted 5:1:5 TOML ModelHub AK pool, `WORKERS=70`, MCP disabled, CLI tools enabled, prefix-cache session stable with per-turn `chat_run_id` distribution. Filtered Overall **74.61 %** (Easy 82.83 / Hard 66.91 / V-Dep 64.86 / V-Indep 79.91), 8584 checkpoints, 8553 completed and 31 semantic failed statuses, 0 bad JSON, 0 final active technical failures. SQLite contains 64256 tool calls, or 6.49 evidence-tool calls/sample excluding `codex_sdk_turn`. |
 | [Codex SDK ModelHub adapter config](codex_sdk_modelhub_adapter_config_20260607.md) | Local adapter credential location and office-network smoke record for the private weighted TOML upstream pool. Real AK values live only in `/Users/bytedance/aispace/codex_modelhub_adapter/.modelhub_upstreams.toml` and are not copied into tracked docs. |
 | [v10 guard target-semantics probe](v10_no_initial_keyframes_strat600_20260518.md#guard-target-semantics-probe-2f9afe4) | **Diagnostic probe, not a leaderboard row.** HEAD `2f9afe4` fixes shell-head category parsing (`object is a/an X`) and prevents EFG from deriving left/right target constraints from rationale-only wording. Two audited cases: `closer to TV` recovers from wrong `#3` to target `#2` (IoU 1.0); `fully closed door` no longer hits the guard deadlock but still chooses the wrong door proposal (`#0` vs target `#2`). |
 | [v10 cabinet-anchor target probe](v10_no_initial_keyframes_strat600_20260518.md#cabinet-anchor-target-probe-6cb6844) | **Diagnostic probe, not a leaderboard row.** HEAD `6cb6844` fixes cabinet aliases and positional cabinet-head extraction so refrigerator anchors are not accepted as cabinet targets. Two audited cases: kitchen cabinet over/with microwave recovers from wrong `#4` to target `#8` (IoU 1.0); top-left cabinet no longer selects the fridge anchor but still chooses neighboring cabinet `#15` instead of target `#14`. Follow-up HEAD `c94f5e1` adds unit-only coverage for generic `object you are looking for is X` complements. |
@@ -103,39 +103,36 @@ the current human-facing index.
 | [v6_random100_case_studies_20260513.html](v6_random100_case_studies_20260513.html) | Full Stage1+Stage2 visual walkthrough for 2 correct and 2 failed v6 random100 cases. |
 | [v5p1_failed_rerun_full_20260513.md](v5p1_failed_rerun_full_20260513.md) | Latest full-test audit record; invalidated pending depth-aware rerun. |
 | [v5p1_case_studies_20260513.html](v5p1_case_studies_20260513.html) | Visual stage1+stage2 reasoning walkthrough for selected correct and failed cases. |
-| [runs.sqlite](runs.sqlite) | Queryable per-run and per-sample metrics. |
+| `runs.sqlite` | Local generated SQLite database for per-run and per-sample metrics. It is ignored by git; regenerate/ingest locally from retained run artifacts when needed. |
 
 ## Current Result Status
 
 **Headline honest depth-aware result on the canonical filtered full set**:
 
-**v11 proposal enrichment FULL 72.26 %** — see
-[v11_enrichment_full_20260523.md](v11_enrichment_full_20260523.md).
-Runtime HEAD `63dc417`, no initial keyframes, no pending-image side channel,
-full-scene proposal enrichment available through initial notes and
-`inspect_proposal`.
+**v22 Codex SDK CLI-only FULL 74.61 %** — see
+[v22_codex_sdk_cli_only_full_20260608.md](v22_codex_sdk_cli_only_full_20260608.md).
+The run uses the Codex SDK backend with MCP disabled, CLI evidence tools
+enabled, prefix cache enabled, and a weighted 5:1:5 private ModelHub AK pool.
+It completes the full 8584-utterance fold with 0 bad JSON and 0 final active
+technical failures.
 
-Best observed valid **strat600 pilot**: [v20 Codex SDK CLI-only
-strat600](v20_codex_sdk_cli_only_strat600_20260606.md), **74.50 %**
-Overall on the canonical case600 fold. Treat this as a pilot result until it is
-confirmed on the full filtered 7805-query slice.
+Previous valid full-set best: [v11 proposal enrichment FULL](v11_enrichment_full_20260523.md),
+**72.26 %**.
 
-| Metric | v11 enrichment FULL (cite this for fair full set) | v20 Codex SDK CLI-only strat600 | UniVLG (public SOTA) | Delta v11 vs UniVLG |
-|---|---:|---:|---:|---:|
-| Overall   | **72.26** | **74.50** | 65.2 | **+7.06** |
-| Easy      | **81.74** | 81.38 | 73.3 | **+8.44** |
-| Hard      | 63.39 | **68.06** | 57.0 | **+6.39** |
-| V-Dep     | 62.46 | **64.45** | 55.1 | **+7.36** |
-| V-Indep   | 77.60 | **79.95** | 69.9 | **+7.70** |
+| Metric | v22 Codex SDK CLI-only FULL (cite this for fair full set) | v11 enrichment FULL | v20 Codex SDK CLI-only strat600 | UniVLG (public SOTA) | Delta v22 vs UniVLG |
+|---|---:|---:|---:|---:|---:|
+| Overall   | **74.61** | 72.26 | 74.50 | 65.2 | **+9.41** |
+| Easy      | **82.83** | 81.74 | 81.38 | 73.3 | **+9.53** |
+| Hard      | **66.91** | 63.39 | 68.06 | 57.0 | **+9.91** |
+| V-Dep     | **64.86** | 62.46 | 64.45 | 55.1 | **+9.76** |
+| V-Indep   | **79.91** | 77.60 | 79.95 | 69.9 | **+10.01** |
 
-The v11 full row is the current best fair full-set result in this archive:
-+7.06 pp over the public UniVLG headline, with **zero initial-keyframe or
-pending-image side channel** and 0 final checkpoint `error` fields. The v20
-Codex SDK CLI-only 74.50 % strat600 row is the best observed valid
-pilot-fold row; the v11 strat600 pilot at 71.33 % was slightly lower, while
-the full fold lands at 72.26 %. Keep the high-worker reproduction caveat:
-transient ModelHub/API failures must be deleted and rerun before accepting
-final metrics.
+The v22 full row is the current best fair full-set result in this archive. It
+is +9.41 pp over the public UniVLG headline, with MCP disabled and CLI evidence
+tools enabled through the Codex SDK backend. The v20 Codex SDK CLI-only
+74.50 % strat600 row is now confirmed by the full fold at 74.61 %. Keep the
+runtime caveat: transient ModelHub/API failures must be quarantined and rerun
+before accepting final metrics.
 
 Latest spec-cleanup run:
 [v10_no_initial_keyframes_strat600_20260518.md](v10_no_initial_keyframes_strat600_20260518.md)
@@ -346,6 +343,9 @@ Previous best depth-aware random100 pilot:
 | [v14_select_by_text_viewpoint_prompt_smoke50_20260524](v14_select_by_text_viewpoint_prompt_smoke50_20260524.md) | 2026-05-24 | `analysis/nr3d-select-by-text-coverage` / launch+runtime `3688096` | select_by_text hit@3 **66.00** / View-Dep **61.11** / viewpoint contexts **7 / 50** | 50Q smoke from strat600 first50 | Not a leaderboard row. Validates that the active parser path now emits real viewpoint contexts after the prompt/schema port. Same-50 v13 comparison is 68.00 -> 66.00 hit@3, so there is no metric-gain claim from this smoke. |
 | [v15_select_by_text_viewpoint_prompt_strat600_20260524](v15_select_by_text_viewpoint_prompt_strat600_coverage_20260524.md) | 2026-05-24 | `analysis/nr3d-select-by-text-coverage` / launch+runtime `9c62e51` | select_by_text hit@3 **69.17** / View-Dep **73.93** / viewpoint contexts **98 / 600** | 600Q strat600 tool coverage audit | Not a leaderboard row. Overall is effectively flat vs v13 (+0.17 pp), but parser viewpoint emission is now real and View-Dep improves +4.27 pp. View-Indep drops -2.06 pp, so next audit should inspect context recoveries/regressions before claiming a net selector improvement. |
 | [v18_codex_sdk_mcp_text_strat600_20260605](v18_codex_sdk_mcp_text_strat600_20260605.md) | 2026-06-05 | `feat/intro-codex-agent-sdk` / launch+runtime `348ad52` | Overall **63.00** / Easy **70.69** / Hard **55.81** / V-Dep **55.45** / V-Indep **67.10** | 600Q strat600/case600 with Codex SDK MCP/skills/prefix-cache config | Integration validation after adding the Codex SDK MCP tool server, syncing DeepAgents playbooks into skills, and enabling lazy `select_by_text` selector initialization. Eval + metrics exit 0; final side-by-side has 600 completed rows and 0 errors. MCP was enabled in per-sample input, but the observed tool trace has only `codex_sdk_turn` 600 times, so this did not exercise MCP tool calls. |
+| [v19_codex_sdk_cli_fallback_strat600_20260606](v19_codex_sdk_cli_fallback_strat600_20260606.md) | 2026-06-06 | `feat/intro-codex-agent-sdk` / launch+runtime `c19a747` | Overall **72.50** / Easy **80.34** / Hard **65.16** / V-Dep **59.72** / V-Indep **79.43** | 600Q strat600/case600 with Codex SDK CLI fallback tools | Former best observed valid Codex SDK strat600 pilot. Eval + metrics exit 0 after deleting/rerunning 2 transient JSONDecodeError checkpoints; final side-by-side rows are 600 completed with 0 errors. Tool trace contains 2592 calls and SQLite `tool_calls` is populated. |
+| [v20_codex_sdk_cli_only_strat600_20260606](v20_codex_sdk_cli_only_strat600_20260606.md) | 2026-06-06 | `feat/intro-codex-agent-sdk` / launch+runtime `33376e2` | Overall **74.50** / Easy **81.38** / Hard **68.06** / V-Dep **64.45** / V-Indep **79.95** | 600Q strat600/case600 with Codex SDK CLI-only tools | Best observed valid strat600 pilot before the full confirmation. Eval + metrics exit 0 after deleting/rerunning 14 transient JSONDecodeError checkpoints; final side-by-side rows have 599 completed and 1 failed status, with no remaining JSONDecodeError sentinels. Confirmed by v22 FULL at 74.61 %. |
+| [v22_codex_sdk_cli_only_full_20260608](v22_codex_sdk_cli_only_full_20260608.md) | 2026-06-08 | `feat/intro-codex-agent-sdk` / continuation+assembly `2837f2c` | Overall **74.61** / Easy **82.83** / Hard **66.91** / V-Dep **64.86** / V-Indep **79.91** | 8584Q full / 7805Q filtered with Codex SDK CLI-only tools | Current best valid full-set row. Eval + metrics exit 0 after quarantine/rerun of transient technical sentinels; final active checkpoints are 8553 completed / 31 semantic failed, 0 bad JSON, 0 active technical failures. SQLite contains 64256 tool calls and 6.49 evidence-tool calls/sample excluding `codex_sdk_turn`. |
 
 ## Protocol Summary
 
@@ -508,7 +508,12 @@ Run the v5.1 reproduction path from the version doc:
 
 ## SQLite
 
-Canonical DB: `docs/benchmark/nr3d/runs.sqlite`
+Canonical local DB: `docs/benchmark/nr3d/runs.sqlite`
+
+The SQLite DB is generated and ignored by git to keep repository history small.
+Version docs, README/leaderboard rows, and small exported summaries are the
+tracked durable record; the local DB remains the query surface for active
+analysis.
 
 ```sql
 SELECT run_id, n,

@@ -109,5 +109,6 @@ with the headline rows in `leaderboard.md`.
 - Leaderboard metric script: `src/evaluation/scripts/nr3d_leaderboard_metrics.py`
 - Runner: `src/evaluation/scripts/run_nr3d_vg_side_by_side.py`
 - Ingester: `scripts/ingest_nr3d_run.py`
-- SQLite DB: `docs/benchmark/nr3d/runs.sqlite`
+- Local SQLite DB: `docs/benchmark/nr3d/runs.sqlite` (generated and ignored by
+  git; version docs and exported summaries are the tracked durable record)
 - Full sample-id list: `tmp/nr3d_artifacts/full_test_sample_ids.json`

@@ -20,6 +20,9 @@ wheels/
 .installed.cfg
 *.egg
 
+# macOS
+.DS_Store
+
 .ccb
 
 # Git worktrees (isolated workspaces for parallel feature work)
@@ -74,6 +77,11 @@ data/navplan/**/*.jsonl
 # Runtime / experiment artifacts
 tmp/
 outputs/
+
+# Generated benchmark databases are large binary artifacts. Keep durable
+# summaries/docs in git; keep SQLite databases local unless explicitly archived.
+docs/benchmark/**/*.sqlite
+docs/benchmark/**/*.sqlite-*
 
 # External vendored repos (not submodules)
 external/
